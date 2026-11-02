@@ -19,10 +19,13 @@ import { checkDeviceRateLimit } from "@/lib/rate-limit";
 import { getDeviceStatusSetting } from "@/lib/settings/device-status";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import { getFirmwareGates } from "@/lib/settings/firmware-gates";
+import { getOrgHopperLowPctForDevice } from "@/lib/settings/org-hopper";
 
 export const dynamic = "force-dynamic";
 
 type DeviceConfig = {
+	id: string;
+	pondId: string | null;
 	gramsPerFeeding: number;
 	buttonFeedGrams: number;
 	hopperEmptyCm: number | null;
@@ -55,10 +58,13 @@ function deviceConfig(device: DeviceConfig) {
  * the heartbeat echo tells ops whether the unit applied this exact config.
  */
 async function firmwareConfigFor(device: DeviceConfig) {
-	const [feedingLimits, gates, deviceStatus] = await Promise.all([
+	const [feedingLimits, gates, deviceStatus, orgHopperLowPct] = await Promise.all([
 		getFeedingLimits(),
 		getFirmwareGates(),
 		getDeviceStatusSetting(),
+		// #456: never throws; an unreadable org row yields the 20 % default here
+		// rather than aborting the whole poll response.
+		getOrgHopperLowPctForDevice(device),
 	]);
 
 	const dailyCapG = resolveDailyCapG({
@@ -83,6 +89,7 @@ async function firmwareConfigFor(device: DeviceConfig) {
 			weakAfterMin: deviceStatus.weakAfterMin,
 			offlineAfterMin: deviceStatus.offlineAfterMin,
 		},
+		org: { hopperLowPct: orgHopperLowPct },
 	});
 }
 

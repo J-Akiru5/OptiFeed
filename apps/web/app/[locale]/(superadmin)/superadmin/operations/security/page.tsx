@@ -120,19 +120,22 @@ export default async function OperationsSecurityPage() {
 			) : null}
 
 			<section className="space-y-3">
-				<h2 className="text-sm font-black uppercase tracking-wider text-[#3D5568]">
+				<h2 className="text-sm font-black uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 					{t("guardedTitle")}
 				</h2>
-				<p className="text-[11px] text-[#3D5568]">{t("guardedDescription")}</p>
+				<p className="text-[11px] text-[#3D5568] dark:text-gray-400">{t("guardedDescription")}</p>
 
 				<TableFrame label={t("tableLabel")} columns={columns} minWidth="min-w-[56rem]">
 					{groups.flatMap((group) =>
 						group.actions.map((entry) => (
 							<tr key={entry.id} className="border-b border-gray-100 last:border-0">
-								<th scope="row" className="px-6 py-3 text-left text-sm font-bold text-[#0A3D62]">
+								<th
+									scope="row"
+									className="px-6 py-3 text-left text-sm font-bold text-[#0A3D62] dark:text-gray-100"
+								>
 									{t(`actions.${entry.id}`)}
 								</th>
-								<td className="px-6 py-3 text-sm text-[#3D5568]">
+								<td className="px-6 py-3 text-sm text-[#3D5568] dark:text-gray-400">
 									{t(`surfaces.${entry.surface}`)}
 								</td>
 								<td className="px-6 py-3">
@@ -140,14 +143,14 @@ export default async function OperationsSecurityPage() {
 										{t(`requirement.${entry.requirement}`)}
 									</Badge>
 								</td>
-								<td className="px-6 py-3 text-[11px] text-[#3D5568]">
+								<td className="px-6 py-3 text-[11px] text-[#3D5568] dark:text-gray-400">
 									{entry.auditActions.length === 0 ? (
 										t("noAuditCode")
 									) : (
 										<ul className="space-y-0.5">
 											{entry.auditActions.map((code) => (
 												<li key={code}>
-													<code className="rounded bg-[#F4F7F6] px-1.5 py-0.5 text-[11px]">
+													<code className="rounded bg-[#F4F7F6] dark:bg-[#0B1220] px-1.5 py-0.5 text-[11px]">
 														{code}
 													</code>
 												</li>
@@ -166,20 +169,24 @@ export default async function OperationsSecurityPage() {
 						group.actions.map((entry) => (
 							<MobileCard key={entry.id}>
 								<div className="flex items-start justify-between gap-2">
-									<p className="min-w-0 text-sm font-bold text-[#0A3D62]">
+									<p className="min-w-0 text-sm font-bold text-[#0A3D62] dark:text-gray-100">
 										{t(`actions.${entry.id}`)}
 									</p>
 									<Badge tone={entry.requirement === "step-up" ? "success" : "warning"}>
 										{t(`requirement.${entry.requirement}`)}
 									</Badge>
 								</div>
-								<p className="text-[11px] text-[#3D5568]">{t(`surfaces.${entry.surface}`)}</p>
+								<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
+									{t(`surfaces.${entry.surface}`)}
+								</p>
 								{entry.auditActions.length > 0 ? (
-									<p className="truncate text-[11px] text-[#3D5568]">
+									<p className="truncate text-[11px] text-[#3D5568] dark:text-gray-400">
 										<code>{entry.auditActions.join(", ")}</code>
 									</p>
 								) : (
-									<p className="text-[11px] text-[#3D5568]">{t("noAuditCode")}</p>
+									<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
+										{t("noAuditCode")}
+									</p>
 								)}
 							</MobileCard>
 						)),
@@ -188,16 +195,22 @@ export default async function OperationsSecurityPage() {
 			</section>
 
 			<section className="space-y-3">
-				<h2 className="text-sm font-black uppercase tracking-wider text-[#3D5568]">
+				<h2 className="text-sm font-black uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 					{t("exceptionsTitle")}
 				</h2>
-				<p className="text-[11px] text-[#3D5568]">{t("exceptionsDescription")}</p>
+				<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
+					{t("exceptionsDescription")}
+				</p>
 				<ul className="grid gap-3 sm:grid-cols-2">
 					{exceptions.map((entry) => (
 						<MobileCard key={entry.id}>
-							<p className="text-sm font-bold text-[#0A3D62]">{t(`actions.${entry.id}`)}</p>
-							<p className="text-[11px] text-[#3D5568]">{t(`surfaces.${entry.surface}`)}</p>
-							<p className="text-[11px] leading-snug text-[#3D5568]">
+							<p className="text-sm font-bold text-[#0A3D62] dark:text-gray-100">
+								{t(`actions.${entry.id}`)}
+							</p>
+							<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
+								{t(`surfaces.${entry.surface}`)}
+							</p>
+							<p className="text-[11px] leading-snug text-[#3D5568] dark:text-gray-400">
 								{entry.note ? t(`notes.${entry.note}`) : ""}
 							</p>
 						</MobileCard>
@@ -206,10 +219,10 @@ export default async function OperationsSecurityPage() {
 			</section>
 
 			<section className="space-y-3">
-				<h2 className="text-sm font-black uppercase tracking-wider text-[#3D5568]">
+				<h2 className="text-sm font-black uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 					{t("oversightTitle")}
 				</h2>
-				<p className="text-[11px] text-[#3D5568]">
+				<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
 					{t("oversightDescription", { count: OVERSIGHT_ROW_LIMIT })}
 				</p>
 
@@ -230,10 +243,13 @@ export default async function OperationsSecurityPage() {
 						>
 							{oversight.rows.map((row) => (
 								<tr key={row.id} className="border-b border-gray-100 last:border-0">
-									<td className="px-6 py-3 text-sm text-[#3D5568]">
+									<td className="px-6 py-3 text-sm text-[#3D5568] dark:text-gray-400">
 										{formatDateTimeLocal(row.createdAt, tDates).full}
 									</td>
-									<th scope="row" className="px-6 py-3 text-left text-sm font-bold text-[#0A3D62]">
+									<th
+										scope="row"
+										className="px-6 py-3 text-left text-sm font-bold text-[#0A3D62] dark:text-gray-100"
+									>
 										<Link
 											href={`/superadmin/operations/audit?action=${encodeURIComponent(row.auditAction)}`}
 											className="underline decoration-dotted"
@@ -241,8 +257,10 @@ export default async function OperationsSecurityPage() {
 											{actionLabel(row.actionId, row.auditAction)}
 										</Link>
 									</th>
-									<td className="px-6 py-3 text-sm text-[#3D5568]">{row.actorLabel}</td>
-									<td className="px-6 py-3 text-sm text-[#3D5568]">
+									<td className="px-6 py-3 text-sm text-[#3D5568] dark:text-gray-400">
+										{row.actorLabel}
+									</td>
+									<td className="px-6 py-3 text-sm text-[#3D5568] dark:text-gray-400">
 										{row.orgName ?? t("orgUnknown")}
 									</td>
 									<td className="px-6 py-3">
@@ -262,7 +280,9 @@ export default async function OperationsSecurityPage() {
 												: t("requirement.reason-and-audit")}
 										</Badge>
 									</td>
-									<td className="px-6 py-3 text-sm text-[#3D5568]">{row.reason}</td>
+									<td className="px-6 py-3 text-sm text-[#3D5568] dark:text-gray-400">
+										{row.reason}
+									</td>
 								</tr>
 							))}
 						</TableFrame>
@@ -271,7 +291,7 @@ export default async function OperationsSecurityPage() {
 							{oversight.rows.map((row) => (
 								<MobileCard key={row.id}>
 									<div className="flex items-start justify-between gap-2">
-										<p className="min-w-0 text-sm font-bold text-[#0A3D62]">
+										<p className="min-w-0 text-sm font-bold text-[#0A3D62] dark:text-gray-100">
 											{actionLabel(row.actionId, row.auditAction)}
 										</p>
 										<Badge
@@ -290,10 +310,10 @@ export default async function OperationsSecurityPage() {
 												: t("requirement.reason-and-audit")}
 										</Badge>
 									</div>
-									<p className="text-[11px] text-[#3D5568]">
+									<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
 										{formatDateTimeLocal(row.createdAt, tDates).full} · {row.actorLabel}
 									</p>
-									<p className="text-[11px] text-[#3D5568]">{row.reason}</p>
+									<p className="text-[11px] text-[#3D5568] dark:text-gray-400">{row.reason}</p>
 								</MobileCard>
 							))}
 						</ul>

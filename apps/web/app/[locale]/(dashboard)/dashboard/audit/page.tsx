@@ -22,6 +22,7 @@ import {
 	RefreshCw,
 	Ruler,
 	Settings,
+	ShieldAlert,
 	User,
 	Weight,
 	Wifi,
@@ -83,6 +84,11 @@ const eventTypeConfig: Record<
 	},
 	feed_refused: {
 		icon: AlertCircle,
+		className: "border-red-200 bg-red-50 text-red-700",
+		filterGroup: "feeding",
+	},
+	safety_trip: {
+		icon: ShieldAlert,
 		className: "border-red-200 bg-red-50 text-red-700",
 		filterGroup: "feeding",
 	},
@@ -161,6 +167,7 @@ export default async function AuditPage({
 			"pellet_refilled",
 			"hopper_calibrated",
 			"biomass_logged",
+			"safety_trip",
 		],
 		connectivity: ["connected", "disconnected", "device_registered"],
 		schedule: ["schedule_changed", "schedule_applied", "pause_toggled", "settings_changed"],

@@ -53,8 +53,12 @@ export default async function OperationsFirmwarePage() {
 			<Card className="p-5">
 				<div className="flex flex-wrap items-start justify-between gap-3">
 					<div>
-						<h2 className="font-black text-[#0A3D62]">{t("firmware.channelTitle")}</h2>
-						<p className="mt-1 text-xs text-[#3D5568]">{t("firmware.channelDescription")}</p>
+						<h2 className="font-black text-[#0A3D62] dark:text-slate-100">
+							{t("firmware.channelTitle")}
+						</h2>
+						<p className="mt-1 text-xs text-[#3D5568] dark:text-slate-400">
+							{t("firmware.channelDescription")}
+						</p>
 					</div>
 					<Badge
 						tone={channel.channelAvailable ? "success" : "neutral"}
@@ -65,36 +69,36 @@ export default async function OperationsFirmwarePage() {
 				</div>
 				<dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 					<div>
-						<dt className="text-[10px] font-extrabold tracking-wider text-[#3D5568] uppercase">
+						<dt className="text-[10px] font-extrabold tracking-wider text-[#3D5568] dark:text-slate-400 uppercase">
 							{t("firmware.stableVersion")}
 						</dt>
-						<dd className="mt-1 font-mono text-sm font-black text-[#0A3D62]">
+						<dd className="mt-1 font-mono text-sm font-black text-[#0A3D62] dark:text-slate-100">
 							{channel.channelVersion ?? t("firmware.unknown")}
 						</dd>
 					</div>
 					<div>
-						<dt className="text-[10px] font-extrabold tracking-wider text-[#3D5568] uppercase">
+						<dt className="text-[10px] font-extrabold tracking-wider text-[#3D5568] dark:text-slate-400 uppercase">
 							{t("firmware.storage")}
 						</dt>
-						<dd className="mt-1 text-sm font-bold text-[#3D5568]">
+						<dd className="mt-1 text-sm font-bold text-[#3D5568] dark:text-slate-400">
 							{channel.storageConfigured
 								? t("firmware.storageConfigured")
 								: t("firmware.storageNotConfigured")}
 						</dd>
 					</div>
 					<div className="min-w-0">
-						<dt className="text-[10px] font-extrabold tracking-wider text-[#3D5568] uppercase">
+						<dt className="text-[10px] font-extrabold tracking-wider text-[#3D5568] dark:text-slate-400 uppercase">
 							{t("firmware.channelPath")}
 						</dt>
-						<dd className="mt-1 truncate font-mono text-xs text-[#3D5568]">
+						<dd className="mt-1 truncate font-mono text-xs text-[#3D5568] dark:text-slate-400">
 							{channel.channelPath}
 						</dd>
 					</div>
 					<div>
-						<dt className="text-[10px] font-extrabold tracking-wider text-[#3D5568] uppercase">
+						<dt className="text-[10px] font-extrabold tracking-wider text-[#3D5568] dark:text-slate-400 uppercase">
 							{t("firmware.window")}
 						</dt>
-						<dd className="mt-1 text-sm font-bold text-[#3D5568]">
+						<dd className="mt-1 text-sm font-bold text-[#3D5568] dark:text-slate-400">
 							{t("firmware.windowValue", {
 								start: channel.windowStart,
 								end: channel.windowEnd,
@@ -102,7 +106,9 @@ export default async function OperationsFirmwarePage() {
 						</dd>
 					</div>
 				</dl>
-				<p className="mt-4 text-[11px] text-[#3D5568]">{t("firmware.readOnlyNote")}</p>
+				<p className="mt-4 text-[11px] text-[#3D5568] dark:text-slate-400">
+					{t("firmware.readOnlyNote")}
+				</p>
 			</Card>
 
 			<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -125,8 +131,10 @@ export default async function OperationsFirmwarePage() {
 									<MobileCard key={device.id}>
 										<div className="flex items-start justify-between gap-2">
 											<div className="min-w-0">
-												<p className="truncate font-black text-[#0A3D62]">{device.label}</p>
-												<p className="truncate font-mono text-[11px] font-bold text-[#3D5568]">
+												<p className="truncate font-black text-[#0A3D62] dark:text-slate-100">
+													{device.label}
+												</p>
+												<p className="truncate font-mono text-[11px] font-bold text-[#3D5568] dark:text-slate-400">
 													{device.mac}
 												</p>
 											</div>
@@ -171,19 +179,21 @@ export default async function OperationsFirmwarePage() {
 								{fleet.devices.map((device) => (
 									<tr
 										key={device.id}
-										className="border-b border-gray-50 align-middle last:border-0 hover:bg-[#F4F7F6]/50"
+										className="border-b border-gray-50 dark:border-[#1B2740] align-middle last:border-0 hover:bg-[#F4F7F6] dark:hover:bg-[#162238]/50 dark:hover:bg-[#162238]/60"
 									>
-										<td className="px-6 py-3 font-black text-[#0A3D62]">{device.label}</td>
-										<td className="px-6 py-3 font-mono text-xs font-bold text-[#3D5568]">
+										<td className="px-6 py-3 font-black text-[#0A3D62] dark:text-slate-100">
+											{device.label}
+										</td>
+										<td className="px-6 py-3 font-mono text-xs font-bold text-[#3D5568] dark:text-slate-400">
 											{device.mac}
 										</td>
-										<td className="px-6 py-3 text-xs font-bold text-[#3D5568]">
+										<td className="px-6 py-3 text-xs font-bold text-[#3D5568] dark:text-slate-400">
 											{device.pondName ?? tCommon("unassigned")}
 										</td>
-										<td className="px-6 py-3 font-mono text-xs font-black text-[#0A3D62]">
+										<td className="px-6 py-3 font-mono text-xs font-black text-[#0A3D62] dark:text-slate-100">
 											{device.reportedVersion ?? t("firmware.unknown")}
 										</td>
-										<td className="px-6 py-3 text-xs text-[#3D5568]">
+										<td className="px-6 py-3 text-xs text-[#3D5568] dark:text-slate-400">
 											{device.versionEvent ? (
 												<span className="flex flex-col">
 													<span>{eventLabel(device.versionEvent.eventType)}</span>
@@ -195,7 +205,7 @@ export default async function OperationsFirmwarePage() {
 												t("firmware.unknown")
 											)}
 										</td>
-										<td className="px-6 py-3 text-xs text-[#3D5568]">
+										<td className="px-6 py-3 text-xs text-[#3D5568] dark:text-slate-400">
 											{lastSeen(device.lastSeenAt)}
 										</td>
 										<td className="px-6 py-3">
@@ -209,7 +219,7 @@ export default async function OperationsFirmwarePage() {
 						</ListView>
 					)}
 					{fleet.devicesTruncated && (
-						<p className="border-t border-gray-100 px-5 py-3 text-xs font-bold text-[#B45309]">
+						<p className="border-t border-gray-100 dark:border-[#1B2740] px-5 py-3 text-xs font-bold text-[#B45309] dark:text-amber-300">
 							{t("firmware.truncated", { limit: FIRMWARE_DEVICE_LIMIT })}
 						</p>
 					)}
@@ -227,16 +237,20 @@ export default async function OperationsFirmwarePage() {
 									key={entry.version ?? "unknown"}
 									className="flex items-center justify-between gap-3 text-sm"
 								>
-									<span className="font-mono font-bold text-[#0A3D62]">
+									<span className="font-mono font-bold text-[#0A3D62] dark:text-slate-100">
 										{entry.version ?? t("firmware.unknown")}
 									</span>
-									<span className="tabular-nums font-black text-[#3D5568]">{entry.count}</span>
+									<span className="tabular-nums font-black text-[#3D5568] dark:text-slate-400">
+										{entry.count}
+									</span>
 								</li>
 							))}
 							{fleet.unknownCount > 0 && (
-								<li className="flex items-center justify-between gap-3 border-t border-gray-100 pt-2 text-sm">
-									<span className="font-bold text-[#3D5568]">{t("firmware.noVersion")}</span>
-									<span className="tabular-nums font-black text-[#3D5568]">
+								<li className="flex items-center justify-between gap-3 border-t border-gray-100 dark:border-[#1B2740] pt-2 text-sm">
+									<span className="font-bold text-[#3D5568] dark:text-slate-400">
+										{t("firmware.noVersion")}
+									</span>
+									<span className="tabular-nums font-black text-[#3D5568] dark:text-slate-400">
 										{fleet.unknownCount}
 									</span>
 								</li>
@@ -259,14 +273,16 @@ export default async function OperationsFirmwarePage() {
 											<Badge tone={event.eventType === "ota_rolled_back" ? "warning" : "brand"}>
 												{eventLabel(event.eventType)}
 											</Badge>
-											<span className="font-mono text-[11px] font-bold text-[#0A3D62]">
+											<span className="font-mono text-[11px] font-bold text-[#0A3D62] dark:text-slate-100">
 												{event.version ?? t("firmware.unknown")}
 											</span>
 										</div>
-										<p className="mt-1 truncate text-xs font-bold text-[#3D5568]">
+										<p className="mt-1 truncate text-xs font-bold text-[#3D5568] dark:text-slate-400">
 											{event.deviceLabel}
 										</p>
-										<p className="text-[11px] text-[#3D5568]">{lastSeen(event.createdAt)}</p>
+										<p className="text-[11px] text-[#3D5568] dark:text-slate-400">
+											{lastSeen(event.createdAt)}
+										</p>
 									</li>
 								))}
 							</ul>
@@ -274,12 +290,22 @@ export default async function OperationsFirmwarePage() {
 					</Card>
 
 					<Card className="flex items-start gap-3 p-5">
-						<Wifi className="mt-0.5 h-4 w-4 shrink-0 text-[#1E7B34]" aria-hidden="true" />
-						<p className="text-xs text-[#3D5568]">{t("firmware.versionSourceNote")}</p>
+						<Wifi
+							className="mt-0.5 h-4 w-4 shrink-0 text-[#1E7B34] dark:text-emerald-300"
+							aria-hidden="true"
+						/>
+						<p className="text-xs text-[#3D5568] dark:text-slate-400">
+							{t("firmware.versionSourceNote")}
+						</p>
 					</Card>
 					<Card className="flex items-start gap-3 p-5">
-						<WifiOff className="mt-0.5 h-4 w-4 shrink-0 text-[#C42B3A]" aria-hidden="true" />
-						<p className="text-xs text-[#3D5568]">{t("firmware.unknownNote")}</p>
+						<WifiOff
+							className="mt-0.5 h-4 w-4 shrink-0 text-[#C42B3A] dark:text-red-300"
+							aria-hidden="true"
+						/>
+						<p className="text-xs text-[#3D5568] dark:text-slate-400">
+							{t("firmware.unknownNote")}
+						</p>
 					</Card>
 				</div>
 			</div>

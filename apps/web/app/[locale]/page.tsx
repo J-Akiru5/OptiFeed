@@ -8,6 +8,7 @@ import { OfflineCards } from "@/components/landing/OfflineCards";
 import { CountUp, Reveal, RevealItem, RevealList } from "@/components/landing/Reveal";
 import { Wave } from "@/components/landing/Wave";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { ReportIssueDialog } from "@/components/public/report-issue-dialog";
 import { Link } from "@/i18n/routing";
 import { DPO_EMAIL, LEGAL_APP_RELEASE, LEGAL_PUBLISHED, LEGAL_VERSION } from "@/lib/legal/config";
 import { cn } from "@/lib/utils";
@@ -126,6 +127,31 @@ export default function LandingPage() {
 	const t = useTranslations("landing");
 	const tBtn = useTranslations("button");
 	const tLegal = useTranslations("legal");
+	const tReport = useTranslations("landing.reportIssue");
+
+	const reportLabels = {
+		trigger: tReport("trigger"),
+		title: tReport("title"),
+		description: tReport("description"),
+		close: tReport("close"),
+		category: tReport("category"),
+		categories: {
+			bug: tReport("categories.bug"),
+			accessibility: tReport("categories.accessibility"),
+			content: tReport("categories.content"),
+			other: tReport("categories.other"),
+		},
+		message: tReport("message"),
+		messageHint: tReport("messageHint"),
+		email: tReport("email"),
+		emailHint: tReport("emailHint"),
+		optional: tReport("optional"),
+		submit: tReport("submit"),
+		sending: tReport("sending"),
+		success: tReport("success"),
+		error: tReport("error"),
+		rateLimited: tReport("rateLimited"),
+	};
 
 	return (
 		<MotionConfig reducedMotion="user">
@@ -932,7 +958,10 @@ export default function LandingPage() {
 
 							<div className="flex flex-col gap-2 border-t border-white/10 pt-5 text-[10.5px] text-white/45 sm:flex-row sm:items-center sm:justify-between">
 								<p>{t("footerCopyright")}</p>
-								<p className="font-mono tracking-wide">{t("footerFirmware")}</p>
+								<div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+									<ReportIssueDialog labels={reportLabels} />
+									<p className="font-mono tracking-wide">{t("footerFirmware")}</p>
+								</div>
 							</div>
 						</div>
 					</div>

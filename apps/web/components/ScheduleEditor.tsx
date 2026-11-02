@@ -170,41 +170,11 @@ export function ScheduleEditor({
 			</div>
 
 			<form onSubmit={handleSubmit} className="p-6 space-y-6">
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-					<div className="flex flex-col gap-2">
-						<label
-							htmlFor="startTime"
-							className="text-sm font-medium text-gray-700 dark:text-gray-300"
-						>
-							{t("startTime")}
-						</label>
-						<input
-							id="startTime"
-							type="time"
-							value={start}
-							onChange={(e) => setStart(e.target.value)}
-							className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-gray-900 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:[color-scheme:dark]"
-							required
-						/>
-					</div>
-
-					<div className="flex flex-col gap-2">
-						<label
-							htmlFor="endTime"
-							className="text-sm font-medium text-gray-700 dark:text-gray-300"
-						>
-							{t("endTime")}
-						</label>
-						<input
-							id="endTime"
-							type="time"
-							value={end}
-							onChange={(e) => setEnd(e.target.value)}
-							className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-gray-900 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:[color-scheme:dark]"
-							required
-						/>
-					</div>
-
+				{/* #483: frequency comes first. The time fields live with the times
+				    they produce so the page reads "4 times per day" -> "first and
+				    last feed" -> the four times, instead of a window that looks
+				    unrelated and a list that looks like a recommendation. */}
+				<div className="grid grid-cols-1 gap-6 md:grid-cols-2">
 					<div className="flex flex-col gap-2">
 						<label
 							htmlFor="feedsPerDay"
@@ -244,13 +214,11 @@ export function ScheduleEditor({
 					</div>
 				</div>
 
-				{/* #431: the window and frequency describe the meals; show them as
-				    concrete times so a frequency change is visible before saving. */}
 				<div
 					data-testid="feeding-times-preview"
 					className="rounded-2xl border border-gray-100 bg-[#F9FBFA] p-4 dark:border-gray-700/50 dark:bg-gray-800/40"
 				>
-					<div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+					<div className="mb-2 flex flex-wrap items-center justify-between gap-2">
 						<div className="flex items-center gap-2">
 							<Clock size={16} className="text-[#0A3D62] dark:text-[#5b9bd5]" />
 							<span className="text-sm font-bold text-[#0A3D62] dark:text-[#5b9bd5]">
@@ -263,14 +231,60 @@ export function ScheduleEditor({
 							</span>
 						)}
 					</div>
+					<p id="feeding-window-hint" className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+						{t("frequencyDesc")}
+					</p>
+
+					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+						<div className="flex flex-col gap-2">
+							<label
+								htmlFor="startTime"
+								className="text-sm font-medium text-gray-700 dark:text-gray-300"
+							>
+								{t("startTime")}
+							</label>
+							<input
+								id="startTime"
+								type="time"
+								value={start}
+								onChange={(e) => setStart(e.target.value)}
+								aria-describedby="feeding-window-hint"
+								className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-gray-900 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:[color-scheme:dark]"
+								required
+							/>
+						</div>
+
+						<div className="flex flex-col gap-2">
+							<label
+								htmlFor="endTime"
+								className="text-sm font-medium text-gray-700 dark:text-gray-300"
+							>
+								{t("endTime")}
+							</label>
+							<input
+								id="endTime"
+								type="time"
+								value={end}
+								onChange={(e) => setEnd(e.target.value)}
+								aria-describedby="feeding-window-hint"
+								className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-gray-900 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:[color-scheme:dark]"
+								required
+							/>
+						</div>
+					</div>
+
 					{previewSlots.length > 0 ? (
-						<FeedTimeList
-							times={previewSlots}
-							label={t("feedingTimesLabel")}
-							testId="preview-feed-times"
-						/>
+						<div className="mt-4">
+							<FeedTimeList
+								times={previewSlots}
+								label={t("feedingTimesLabel")}
+								testId="preview-feed-times"
+							/>
+						</div>
 					) : (
-						<p className="text-xs text-gray-500 dark:text-gray-400">{t("feedingTimesInvalid")}</p>
+						<p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
+							{t("feedingTimesInvalid")}
+						</p>
 					)}
 				</div>
 
@@ -332,9 +346,10 @@ export function ScheduleEditor({
 								</span>
 							</div>
 							<div className="text-xs text-gray-500 ml-6 dark:text-gray-400">
-								{fmtTimeDisplay(latestAppliedCommand.scheduleStart)} -{" "}
-								{fmtTimeDisplay(latestAppliedCommand.scheduleEnd)},
-								{latestAppliedCommand.feedsPerDay} feeds/day
+								<span className="font-semibold">{t("activeWindow")}:</span>{" "}
+								{fmtTimeDisplay(latestAppliedCommand.scheduleStart)} –{" "}
+								{fmtTimeDisplay(latestAppliedCommand.scheduleEnd)} ·{" "}
+								{t("timesPerDay", { count: latestAppliedCommand.feedsPerDay })}
 							</div>
 							{appliedSlots.length > 0 && (
 								<div className="ml-6">

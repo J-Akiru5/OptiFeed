@@ -60,7 +60,7 @@ const ICON_TONE: Record<BandState, string> = {
 	ok: "text-[#1E7B34]",
 	degraded: "text-[#B45309]",
 	critical: "text-[#C42B3A]",
-	unknown: "text-[#3D5568]",
+	unknown: "text-[#3D5568] dark:text-gray-400",
 };
 
 const BAND_KEYS = ["critical", "degraded", "unknown", "ok"] as const;
@@ -131,7 +131,7 @@ export default async function SuperadminTenantsPage({
 
 			<section aria-label={t("summaryLabel")} className="grid grid-cols-1 gap-4 lg:grid-cols-3">
 				<Card className="flex flex-col gap-2 p-5">
-					<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568]">
+					<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 						{t("platformState")}
 					</span>
 					<div className="flex items-center gap-2">
@@ -139,24 +139,24 @@ export default async function SuperadminTenantsPage({
 							className={cn("h-5 w-5 shrink-0", ICON_TONE[health.summary.state])}
 							aria-hidden="true"
 						/>
-						<span className="text-2xl font-black text-[#0A3D62]">
+						<span className="text-2xl font-black text-[#0A3D62] dark:text-gray-100">
 							{tBands(`states.${health.summary.state}`)}
 						</span>
 						<Badge tone={TONE[health.summary.state]} icon={StateIcon}>
 							{tBands(`states.${health.summary.state}`)}
 						</Badge>
 					</div>
-					<p className="text-[11px] text-[#3D5568]">
+					<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
 						{t("checkedAt", { time: formatDateTimeLocal(health.checkedAt, tDates).full })}
 					</p>
-					<p className="text-[11px] text-[#3D5568]">{t("unknownRule")}</p>
+					<p className="text-[11px] text-[#3D5568] dark:text-gray-400">{t("unknownRule")}</p>
 				</Card>
 
 				<Card className="flex flex-col gap-2 p-5">
-					<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568]">
+					<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 						{t("tenantsByState")}
 					</span>
-					<ul className="space-y-1 text-[11px] font-bold text-[#3D5568]">
+					<ul className="space-y-1 text-[11px] font-bold text-[#3D5568] dark:text-gray-400">
 						{BAND_KEYS.map((state) => {
 							const Icon = ICON[state];
 							return (
@@ -165,26 +165,30 @@ export default async function SuperadminTenantsPage({
 										<Icon className={cn("h-3 w-3 shrink-0", ICON_TONE[state])} aria-hidden="true" />
 										{tBands(`states.${state}`)}
 									</span>
-									<span className="tabular-nums text-[#0A3D62]">
+									<span className="tabular-nums text-[#0A3D62] dark:text-gray-100">
 										{number(health.summary.counts[state])}
 									</span>
 								</li>
 							);
 						})}
 					</ul>
-					<p className="text-[11px] text-[#3D5568]">{t("worstRule")}</p>
+					<p className="text-[11px] text-[#3D5568] dark:text-gray-400">{t("worstRule")}</p>
 				</Card>
 
 				<Card className="flex flex-col gap-2 p-5">
-					<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568]">
+					<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 						{t("policyTitle")}
 					</span>
 					{health.policyAvailable ? (
-						<p className="text-[11px] font-bold text-[#0A3D62]">{t("policyApplied")}</p>
+						<p className="text-[11px] font-bold text-[#0A3D62] dark:text-gray-100">
+							{t("policyApplied")}
+						</p>
 					) : (
-						<p className="text-[11px] font-bold text-[#3D5568]">{t("policyUnavailable")}</p>
+						<p className="text-[11px] font-bold text-[#3D5568] dark:text-gray-400">
+							{t("policyUnavailable")}
+						</p>
 					)}
-					<p className="text-[11px] text-[#3D5568]">{t("policySource")}</p>
+					<p className="text-[11px] text-[#3D5568] dark:text-gray-400">{t("policySource")}</p>
 				</Card>
 			</section>
 
@@ -202,7 +206,7 @@ export default async function SuperadminTenantsPage({
 			)}
 
 			{health.truncated && (
-				<p className="text-[11px] font-bold text-[#3D5568]">
+				<p className="text-[11px] font-bold text-[#3D5568] dark:text-gray-400">
 					{t("truncated", { count: health.totalTenants })}
 				</p>
 			)}
@@ -222,28 +226,33 @@ export default async function SuperadminTenantsPage({
 							const RowIcon = ICON[row.state];
 							return (
 								<tr key={row.orgId} className="border-b border-gray-100 last:border-0">
-									<th scope="row" className="px-6 py-3 text-left text-sm font-bold text-[#0A3D62]">
+									<th
+										scope="row"
+										className="px-6 py-3 text-left text-sm font-bold text-[#0A3D62] dark:text-gray-100"
+									>
 										<Link href="/superadmin/orgs" className="underline decoration-dotted">
 											{row.orgName}
 										</Link>
 									</th>
-									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568]">
+									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568] dark:text-gray-400">
 										{number(row.members)}
 									</td>
-									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568]">
+									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568] dark:text-gray-400">
 										{number(row.ponds)}
 									</td>
-									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568]">
+									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568] dark:text-gray-400">
 										{row.devices === 0 ? t("noDevices") : number(row.devices)}
 									</td>
-									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568]">
+									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568] dark:text-gray-400">
 										{row.reporting === 0 ? t("neverReported") : number(row.reporting)}
 									</td>
-									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568]">
+									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568] dark:text-gray-400">
 										{offlineText(row)}
 									</td>
-									<td className="px-6 py-3 text-sm text-[#3D5568]">{heartbeatText(row)}</td>
-									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568]">
+									<td className="px-6 py-3 text-sm text-[#3D5568] dark:text-gray-400">
+										{heartbeatText(row)}
+									</td>
+									<td className="px-6 py-3 text-sm tabular-nums text-[#3D5568] dark:text-gray-400">
 										{number(row.openAlerts)}
 									</td>
 									<td className="px-6 py-3">
@@ -263,7 +272,9 @@ export default async function SuperadminTenantsPage({
 							return (
 								<MobileCard key={row.orgId}>
 									<div className="flex items-start justify-between gap-2">
-										<p className="min-w-0 text-sm font-bold text-[#0A3D62]">{row.orgName}</p>
+										<p className="min-w-0 text-sm font-bold text-[#0A3D62] dark:text-gray-100">
+											{row.orgName}
+										</p>
 										<Badge tone={TONE[row.state]} icon={RowIcon}>
 											{tBands(`states.${row.state}`)}
 										</Badge>

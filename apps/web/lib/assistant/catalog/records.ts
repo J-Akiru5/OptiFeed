@@ -158,13 +158,19 @@ export const recordsActions = {
 		description:
 			"Add an event (a time range) or a task (a checkbox with a due date) to the pond calendar.",
 		params:
-			'kind: "EVENT" | "TASK"; title: string; startsAt: "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm" (farm time); allDay?: boolean; notes?: string',
+			'kind: "EVENT" | "TASK"; title: string; startsAt: "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm" (farm time); allDay?: boolean; notes?: string; color?: "#RRGGBB"',
 		schema: z.object({
 			kind: z.enum(["EVENT", "TASK"]).default("EVENT"),
 			title: z.string().trim().min(1).max(80),
 			startsAt: z.string().min(1),
 			allDay: z.boolean().optional(),
 			notes: z.string().trim().max(1000).optional(),
+			// Calendar colours are a stored field (#195/#196); the assistant may
+			// pass the hex value the user names instead of refusing the request.
+			color: z
+				.string()
+				.regex(/^#[0-9a-fA-F]{6}$/, "Use a #RRGGBB colour")
+				.optional(),
 		}),
 		permission: "manage_crop_cycle",
 		requiresStepUp: false,
@@ -191,6 +197,7 @@ export const recordsActions = {
 				allDay,
 				startsAt: str(payload.startsAt),
 				notes: typeof payload.notes === "string" ? payload.notes : null,
+				color: typeof payload.color === "string" ? payload.color : null,
 			});
 			return result.success
 				? { success: true, message: "Calendar item added." }
@@ -202,9 +209,9 @@ export const recordsActions = {
 		id: "records.update_calendar_item",
 		label: "Change a calendar item",
 		description:
-			"Change a manual calendar event or task: its title, date/time, notes or kind. Use the id from the upcoming calendar list.",
+			"Change a manual calendar event or task: its title, date/time, notes, kind or colour. Use the id from the upcoming calendar list.",
 		params:
-			'eventId: string; title?: string; startsAt?: "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm"; allDay?: boolean; notes?: string; kind?: "EVENT" | "TASK"',
+			'eventId: string; title?: string; startsAt?: "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm"; allDay?: boolean; notes?: string; kind?: "EVENT" | "TASK"; color?: "#RRGGBB"',
 		schema: z
 			.object({
 				eventId: z.string().min(1),
@@ -213,13 +220,18 @@ export const recordsActions = {
 				allDay: z.boolean().optional(),
 				notes: z.string().trim().max(1000).nullable().optional(),
 				kind: z.enum(["EVENT", "TASK"]).optional(),
+				color: z
+					.string()
+					.regex(/^#[0-9a-fA-F]{6}$/, "Use a #RRGGBB colour")
+					.optional(),
 			})
 			.refine(
 				(value) =>
 					value.title !== undefined ||
 					value.startsAt !== undefined ||
 					value.notes !== undefined ||
-					value.kind !== undefined,
+					value.kind !== undefined ||
+					value.color !== undefined,
 				"Name at least one thing to change.",
 			),
 		permission: "manage_crop_cycle",
@@ -250,6 +262,7 @@ export const recordsActions = {
 					? { notes: typeof payload.notes === "string" ? payload.notes : null }
 					: {}),
 				...(typeof payload.kind === "string" ? { kind: payload.kind as "EVENT" | "TASK" } : {}),
+				...(typeof payload.color === "string" ? { color: payload.color } : {}),
 			});
 			return result.success
 				? { success: true, message: "Calendar item updated." }

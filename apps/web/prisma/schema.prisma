@@ -342,11 +342,20 @@ model Notification {
   autoCleared    Boolean   @default(false)
   createdAt      DateTime  @default(now())
   farmId         String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
+  // Alert episodes (#534): one open row per active condition instead of one row
+  // per reading. `episodeKey` is the stable condition key, `resolvedAt` records
+  // when the condition cleared, and `supersededById` points at the row a folded
+  // historical duplicate was merged into (kept for audit, hidden from lists).
+  episodeKey     String?
+  resolvedAt     DateTime?
+  supersededById String?
 
   pond Pond @relation(fields: [pondId], references: [id])
 
   @@index([pondId, read])
   @@index([farmId])
+  @@index([episodeKey])
+  @@index([pondId, supersededById])
 }
 
 model EnergyDevice {
@@ -929,4 +938,48 @@ model PondSettingsDraft {
   @@unique([pondId, userId])
   @@index([pondId])
   @@index([deviceId])
+}
+
+/// Issue #487: a report submitted from the public landing page. The superadmin
+/// console reads the queue; `status`/`resolvedAt`/`resolvedBy` record triage.
+///
+/// `message` is free text and may contain personal data: it is never logged by
+/// the store or the API route, only stored. `reporterUserId` stays null for the
+/// anonymous public form and is reserved for the in-app assistant entry point.
+/// `pagePath`, `locale` and `email` are optional context the reporter chose to
+/// share. Reports are append-only here; there is intentionally no relation to
+/// `User`, so a report survives account deletion.
+enum IssueReportCategory {
+  BUG
+  ACCESSIBILITY
+  CONTENT
+  OTHER
+}
+
+enum IssueReportSource {
+  PUBLIC
+  ASSISTANT
+}
+
+enum IssueReportStatus {
+  OPEN
+  RESOLVED
+}
+
+model IssueReport {
+  id             String              @id @default(cuid())
+  category       IssueReportCategory @default(OTHER)
+  message        String
+  email          String?
+  pagePath       String?
+  locale         String?
+  source         IssueReportSource   @default(PUBLIC)
+  reporterUserId String?
+  status         IssueReportStatus   @default(OPEN)
+  resolvedAt     DateTime?
+  resolvedBy     String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([status, createdAt])
 }

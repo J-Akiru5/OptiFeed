@@ -40,7 +40,7 @@ export default async function NotificationsPage({
 		);
 	}
 
-	const where: Record<string, unknown> = { pondId: pond.id };
+	const where: Record<string, unknown> = { pondId: pond.id, supersededById: null };
 	if (params.tier && params.tier !== "all") {
 		where.tier = params.tier;
 	}

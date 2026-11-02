@@ -153,11 +153,34 @@ change.
 | `hopper_full_cm`, `hopper_empty_cm` | `EnergyDevice` columns (null → default geometry) |
 | `min_dispense_gap_s`, `max_dispenses_per_hour`, `brownout_hold_s`, `safe_mode_*` | `PlatformSetting` `firmware.gates`, edited in Superadmin → Settings → Firmware safety gates |
 | `weak_after_min`, `offline_after_min` | `PlatformSetting` `device.status` (I-95), diagnostics only: the server still classifies connectivity and E36 keeps alerts on the platform policy |
+| `hopper_low_pct` | `OrgSetting.hopperLowPct` — device pond → pond owner (farm) → active organization → row (the same chain ingest alerts use). Cached per device for 60 s; a missing/unreadable org returns 20 % |
 | OTA guards, calibration ceiling, hopper filter tuning, button guard, heartbeat interval | `firmware.gates` defaults (server-driven; stored and sent so a future UI or setting can move them without a reflash) |
 
 No schema change is required: `PlatformSetting` is the existing key/value JSON
 store. **No item needed an additive migration**, so nothing was stopped for
 schema reasons.
+
+### Organization hopper threshold (#456)
+
+`OrgSetting.hopperLowPct` (bounds 5–50 %, schema default 20) is set per
+organization in Settings, and the ingest low-hopper alert already reads it. The
+poll now sends the same value as `hopper_low_pct` so the unit's local hopper
+filter warns at the organization's threshold instead of the compile-time 20 %.
+
+- **Resolution**: `EnergyDevice.pondId` → `Pond.ownerId` (farm slug) →
+  `getOrgSettingsForFarm` → `settings.hopperLowPct`. Only the farm slug is
+  selected; no token or auth column is read.
+- **Cache**: per device, `ORG_HOPPER_CACHE_TTL_MS` = 60 s, bounded by
+  `ORG_HOPPER_CACHE_MAX_ENTRIES` (least recently used evicted). A 5 s poll
+  therefore runs the org chain about once a minute, not on every request. A
+  threshold change reaches a unit within about a minute.
+- **Fallbacks**: no pond / no device owner / no org → 20 % (schema default). A
+  failed read or a malformed value → 20 % plus one warning. The helper never
+  throws, because a throw would hit the route's catch, which drops the whole
+  `config` object and leaves every 1.7.0 unit unanswered.
+- **Envelope**: the org row is 5–50, inside the firmware's 1–90; the server
+  still clamps through `normalizeFirmwareValues`, and 1.6.x firmware ignores the
+  field entirely.
 
 ## Superadmin UI
 
@@ -217,7 +240,8 @@ repeated brownouts looked online and healthy.
   `reset_abnormal_count` and `last_reset_reasons` (text capped at 64 characters). No schema change. The
   newest row is the current state; a row that clears the state is written too. A unit on older firmware
   reports nothing and writes nothing, which is not "all clear". `lib/device-health-model.ts` is the pure
-  model; `lib/device-health.ts` holds the reads.
+  model; `lib/device-health.ts` holds the reads. The safe-mode *entry* is additionally stored once per trip
+  as a `safety_trip` row (see the last bullet in this section), which is what History lists.
 - **Where it shows.** The feeder hero (dashboard and admin pond page) shows a safe-mode alert, the active
   faults with what to check, and the last refused dose with its reason (24 hours). A new safe mode raises a
   CRITICAL in-app notification, a new fault a WARNING; both follow the pond's *device offline* switches.
@@ -225,9 +249,21 @@ repeated brownouts looked online and healthy.
   the unit is in safe mode, instead of queueing a dose the unit will refuse. A dashboard dose the unit
   refuses closes its request as `refused` (the refusal carries no request id, and at most one feed request
   is dispatched per device), so it no longer blocks the next attempt as "a feed is already in progress".
-- **Not covered.** The remaining `diag` keys (#454), a firmware `safety_trip` event (#455, needs a flash),
-  and a request id on the refusal payload (firmware). Calibration requests that are refused keep their own
-  handling.
+- **The trip itself is an audit event (#455, server side).** `POST /api/ingest` accepts
+  `event_type: "safety_trip"` with `trip_id` (1–64 chars) plus optional `abnormal_resets` (0–255),
+  `reset_reasons`, `reset_reason`, `entry` (`boot`/`runtime`), `quiet_s` and `uptime_s`, and stores one
+  `safety_trip` row in `DeviceStateEvent` per trip (`metadata.tripId`, `metadata.eventId =
+  "trip-<trip_id>"`, and the reported evidence). `DeviceStateEvent` has no unique event id, so ingest reads
+  the newest `safety_trip` row for that device and treats a matching `tripId` as a retry: 204, no new row.
+  A different `trip_id` is a new incident. The row writes **no notification and no `FeedEvent`**: the
+  `device_health` state row above already raised the CRITICAL safe-mode alert, and a second one would
+  double-alert one lockout. History shows it as **Safety Trip (safe mode)** under the Feeding filter.
+  `lib/device-safety-trip.ts` is the pure model. The firmware emitter is **not shipped**: the unit still
+  reports safe mode on the heartbeat and refuses doses with `feed_refused` / `safe_mode`, so nothing
+  produces this event yet. Sending it needs `enterSafeMode()` to emit once per trip after Wi-Fi comes up
+  (it runs during `setup()`, before the radio), which requires the owner's flash approval.
+- **Not covered.** The remaining `diag` keys (#454) and a request id on the refusal payload (firmware).
+  Calibration requests that are refused keep their own handling.
 
 Bit order of `faults_present` (`firmware/firmware-main/status.h`): 1 `hopper_sensor`, 2 `rtc`,
 3 `relay_overrun`, 4 `safe_mode`.

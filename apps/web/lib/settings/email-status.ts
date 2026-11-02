@@ -7,6 +7,7 @@
  * and the base URL are never returned.
  */
 
+import { alertFromAddress } from "@/lib/notify/alert-email";
 import { resetFromAddress } from "@/lib/notify/reset-email";
 
 /** The documented fallback sender (`apps/web/.env.example`). */
@@ -20,12 +21,16 @@ export type EmailConfiguration = {
 	baseUrlConfigured: boolean;
 	/** True when RESET_FROM_EMAIL or the INVITE_FROM_EMAIL fallback is set. */
 	resetFromConfigured: boolean;
+	/** True when an alert sender resolves (alert → reminder → invite). */
+	alertFromConfigured: boolean;
 	/** The sender address in use; the documented default when unset. */
 	inviteFrom: string;
 	/** The reminder sender, or null when reminders have no sender. */
 	reminderFrom: string | null;
 	/** The password-reset sender, or null when neither variable is set. */
 	resetFrom: string | null;
+	/** The alert sender in use, or null when none resolves. */
+	alertFrom: string | null;
 	/** Invites are sent only when all three required values are present. */
 	inviteReady: boolean;
 	/** Reminder email is skipped unless all three required values are present. */
@@ -36,6 +41,8 @@ export type EmailConfiguration = {
 	 * blocks delivery.
 	 */
 	resetReady: boolean;
+	/** CRITICAL and digest alerts need the key and the alert sender. */
+	alertReady: boolean;
 };
 
 type Env = Record<string, string | undefined>;
@@ -55,6 +62,7 @@ export function getEmailConfiguration(env: Env = process.env): EmailConfiguratio
 		: DEFAULT_INVITE_FROM;
 	const reminderFrom = reminderFromConfigured ? (env.REMINDER_FROM_EMAIL as string).trim() : null;
 	const resetFrom = resetFromAddress(env);
+	const alertFrom = alertFromAddress(env);
 
 	return {
 		resendConfigured,
@@ -62,11 +70,14 @@ export function getEmailConfiguration(env: Env = process.env): EmailConfiguratio
 		reminderFromConfigured,
 		baseUrlConfigured,
 		resetFromConfigured: resetFrom !== null,
+		alertFromConfigured: alertFrom !== null,
 		inviteFrom,
 		reminderFrom,
 		resetFrom,
+		alertFrom,
 		inviteReady: resendConfigured && inviteFromConfigured && baseUrlConfigured,
 		reminderReady: resendConfigured && reminderFromConfigured && baseUrlConfigured,
 		resetReady: resendConfigured && resetFrom !== null,
+		alertReady: resendConfigured && alertFrom !== null,
 	};
 }

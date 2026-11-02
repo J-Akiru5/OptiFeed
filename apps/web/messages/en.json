@@ -3937,7 +3937,10 @@
 				"reminderReady": "Reminders ready",
 				"reminderNotReady": "Reminders skipped",
 				"resetReady": "Reset email ready",
-				"resetNotReady": "Reset email skipped"
+				"resetNotReady": "Reset email skipped",
+				"alertFromLabel": "Alert sender variable",
+				"alertReady": "Alerts ready",
+				"alertNotReady": "Alerts skipped"
 			},
 			"safety": {
 				"title": "Feeding safety caps",

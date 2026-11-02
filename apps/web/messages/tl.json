@@ -3797,7 +3797,10 @@
 				"reminderNotReady": "Nilalaktawan ang mga paalala",
 				"resetFromLabel": "Password-reset sender variable",
 				"resetReady": "Handa ang reset email",
-				"resetNotReady": "Nilaktawan ang reset email"
+				"resetNotReady": "Nilaktawan ang reset email",
+				"alertFromLabel": "Alert sender variable",
+				"alertReady": "Handa ang mga alerto",
+				"alertNotReady": "Nilaktawan ang mga alerto"
 			},
 			"safety": {
 				"title": "Mga safety cap sa pagpapakain",

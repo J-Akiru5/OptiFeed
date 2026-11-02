@@ -3280,7 +3280,8 @@
 				"aiProviders": "Mga AI Provider",
 				"settings": "Mga Setting",
 				"operations": "Mga Operasyon",
-				"more": "Higit pa"
+				"more": "Higit pa",
+				"account": "Account"
 			},
 			"shortNav": {
 				"overview": "Tanaw",
@@ -4164,6 +4165,26 @@
 				"PENDING_DELETION": "Naghihintay ng pagbura",
 				"PURGED": "Nabura na"
 			}
+		},
+		"account": {
+			"title": "Iyong account",
+			"description": "Ang iyong pagkakakilanlan sa platform at ang session sa device na ito.",
+			"identity": "Pagkakakilanlan",
+			"identityDesc": "Ang account sa likod ng platform console.",
+			"displayName": "Pangalan",
+			"role": "Tungkulin",
+			"farmId": "Farm ID",
+			"email": "Email",
+			"avatar": "Larawan sa profile",
+			"avatarDesc": "Ipinapakita sa header ng console.",
+			"password": "Password",
+			"passwordDesc": "Palitan ang password na ginagamit mo sa pag-sign in.",
+			"session": "Session",
+			"sessionDesc": "Ang pag-sign out ay nagtatapos sa session na ito sa device at naglilinis ng naka-cache na farm data.",
+			"menuLabel": "Menu ng account",
+			"menuProfile": "Iyong profile",
+			"menuSettings": "Mga setting ng platform",
+			"menuFarm": "Farm dashboard"
 		}
 	},
 	"landing": {

@@ -8,9 +8,9 @@ import { MobileHeader } from "@/components/mobile/mobile-header";
 import { GlobalSearch, SearchTrigger } from "@/components/search/global-search";
 import { SuperadminBottomNav } from "@/components/superadmin-bottom-nav";
 import { SuperadminSidebar } from "@/components/superadmin-sidebar";
+import { SuperadminAccountMenu } from "@/components/superadmin/account-menu";
 import { ConsoleScopeBanner } from "@/components/superadmin/console-scope-banner";
 import { FOCUS_RING_ON_DARK } from "@/components/superadmin/ui";
-import { UserAvatar } from "@/components/user-avatar";
 import { Link } from "@/i18n/routing";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { requirePasswordChanged } from "@/lib/auth/session";
@@ -48,14 +48,13 @@ export default async function SuperadminLayout({
 		hasActiveTenantMembership(currentUser.id),
 		isFeatureEnabled("help.centre"),
 	]);
-	const avatar = (
-		<UserAvatar
-			src={avatarUrls[currentUser.id] ?? null}
-			name={currentUser.displayName ?? currentUser.farmId}
-			size="md"
-			className="rounded-full bg-[#E85A2A]"
-		/>
-	);
+	const accountUser = {
+		displayName: currentUser.displayName ?? currentUser.farmId,
+		email: currentUser.contactEmail ?? currentUser.email,
+		farmId: currentUser.farmId,
+		role: currentUser.role,
+		avatarUrl: avatarUrls[currentUser.id] ?? null,
+	};
 
 	const assistantRole = "superadmin" as const;
 
@@ -74,17 +73,7 @@ export default async function SuperadminLayout({
 					<MobileHeader shell="platform" isTenantAdmin={hasFarmDashboard} subtitle={t("console")}>
 						<DarkModeToggle />
 						{helpEnabled && <HelpButton audience="superadmin" className="h-11 w-11" />}
-						{hasFarmDashboard ? (
-							<Link
-								href="/dashboard/settings/profile"
-								aria-label={t("profile")}
-								className={cn("rounded-full", FOCUS_RING_ON_DARK)}
-							>
-								{avatar}
-							</Link>
-						) : (
-							avatar
-						)}
+						<SuperadminAccountMenu user={accountUser} hasFarmDashboard={hasFarmDashboard} />
 					</MobileHeader>
 
 					<div className="hidden h-16 w-full items-center justify-between gap-3 px-4 md:px-8 lg:flex">
@@ -126,19 +115,9 @@ export default async function SuperadminLayout({
 									{t("openFarmDashboard")}
 								</Link>
 							)}
-							{/* The profile page lives under /dashboard, which redirects platform admins
-					    without a farm back here (E18); link it only for those who have one. */}
-							{hasFarmDashboard ? (
-								<Link
-									href="/dashboard/settings/profile"
-									aria-label={t("profile")}
-									className={cn("rounded-full", FOCUS_RING_ON_DARK)}
-								>
-									{avatar}
-								</Link>
-							) : (
-								avatar
-							)}
+							{/* The console's own account surface (#560): profile, password and
+							    sign out work for a platform admin without a tenant membership. */}
+							<SuperadminAccountMenu user={accountUser} hasFarmDashboard={hasFarmDashboard} />
 						</div>
 					</div>
 				</header>

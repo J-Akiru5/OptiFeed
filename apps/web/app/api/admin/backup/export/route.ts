@@ -10,27 +10,13 @@ import {
 	createBackupExportResponse,
 	prepareBackupExport,
 } from "@/lib/backup/export";
+import { MAX_BACKUP_REASON_LENGTH, readOptionalBackupReason } from "@/lib/backup/reason";
 import { isEmptyTenantScope, resolveTenantExportScope } from "@/lib/backup/scope";
 import { checkBackupExportRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
-const MAX_REASON_LENGTH = 500;
 const DEFAULT_TENANT_REASON = "Tenant SQL export requested from the admin Backup page.";
-
-type ReasonResult = { ok: true; value: string | null } | { ok: false };
-
-/**
- * `null` means "no usable reason was given" (absent or blank), which the tenant
- * route replaces with a default. A non-string or an over-long value is invalid.
- */
-function readReason(value: unknown): ReasonResult {
-	if (value === undefined || value === null) return { ok: true, value: null };
-	if (typeof value !== "string") return { ok: false };
-	const trimmed = value.trim();
-	if (trimmed.length > MAX_REASON_LENGTH) return { ok: false };
-	return { ok: true, value: trimmed.length > 0 ? trimmed : null };
-}
 
 /**
  * Tenant SQL export (issue #353, brief I-106).
@@ -69,9 +55,11 @@ export const POST = withApi(
 		}
 
 		const body = (await request.json().catch(() => ({}))) as { reason?: unknown };
-		const parsedReason = readReason(body.reason);
+		const parsedReason = readOptionalBackupReason(body.reason);
 		if (!parsedReason.ok) {
-			return fail(badRequest(`The reason must be a single line of at most ${MAX_REASON_LENGTH}.`));
+			return fail(
+				badRequest(`The reason must be a single line of at most ${MAX_BACKUP_REASON_LENGTH}.`),
+			);
 		}
 		const reason = parsedReason.value;
 

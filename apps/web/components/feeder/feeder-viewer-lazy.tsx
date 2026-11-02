@@ -78,7 +78,7 @@ function ViewerSkeleton({ kiosk = false }: { kiosk?: boolean }) {
 		<div
 			className={cn(
 				"animate-pulse rounded-3xl border border-[#0A3D62]/10 bg-[#0B2336]",
-				kiosk ? "h-[min(72dvh,760px)] min-h-[420px]" : "h-[420px]",
+				kiosk ? "h-[calc(100dvh-11rem)] min-h-[420px]" : "h-[420px]",
 			)}
 			aria-hidden="true"
 			data-testid="feeder-viewer-skeleton"

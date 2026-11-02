@@ -4335,7 +4335,8 @@
 			"notReported": "Wala ginreport",
 			"viewFleet": "Monitor sang mga device",
 			"viewOrgs": "Mga organisasyon",
-			"paginationLabel": "Mga pahina sang tenant"
+			"paginationLabel": "Mga pahina sang tenant",
+			"compare": "Ipaanggid ang mga organisasyon"
 		},
 		"security": {
 			"title": "Seguridad kag pagbantay",
@@ -4427,6 +4428,52 @@
 			"columnOrg": "Tenant",
 			"columnStepUp": "Step-up",
 			"columnReason": "Rason"
+		},
+		"compare": {
+			"title": "Ipaanggid ang mga organisasyon",
+			"description": "May {count} ka organisasyon nga sarang maipaanggid sa kaugalingon nga sukdanan sang lista sang tenant.",
+			"descriptionFailed": "Indi mabasa ang mga organisasyon, gani wala sing maipaanggid.",
+			"viewTenants": "Balik sa health sang tenant",
+			"viewFleet": "Buksan ang fleet monitor",
+			"sourceErrorTitle": "Indi mabasa ang pagpaanggid",
+			"sourceErrorBody": "May pinagkabudlayan nga ginabasa sang pagpaanggid, gani ang wala unod nga lista diri indi buot silingon nga maayo ang mga tenant. I-reload, dayon tan-awa ang lista sang tenant.",
+			"pickerTitle": "Pili-a ang duha tubtob apat ka organisasyon",
+			"pickerHint": "Pilia ang {min} tubtob {max}. Ang lista ginahanay halin sa pinakamalain.",
+			"compare": "Ipaanggid ang pinili",
+			"selectionTruncated": "Ang una lamang nga {max} ka organisasyon ang ginaipaanggid.",
+			"selectionDropped": "{count} ka pinili nga organisasyon ang wala na, gani ginpabay-an.",
+			"noOrgsTitle": "Wala sing organisasyon nga maipaanggid",
+			"noOrgsDescription": "Magapakita ang mga organisasyon diri kon may ara na.",
+			"emptyTitle": "Wala pa sing napili",
+			"emptyDescription": "Markahi ang duha ka organisasyon sa ibabaw kag ipaanggid sila sing tabid.",
+			"needTwoTitle": "Ang isa ka organisasyon indi pagpaanggid",
+			"needTwoDescription": "Magpili sang {min} ka organisasyon para makita sila sing tabid.",
+			"unknownBody": "{count} ka pinili nga organisasyon ang wala sing masukod nga fleet. Unknown ang ila kahimtangan, indi maayo.",
+			"missingOrgIds": "{count} ka pinili nga id ang indi na matupong sa organisasyon.",
+			"truncatedBody": "May mga organisasyon nga luwas sa kilahid sang pagbasa, gani indi kompleto ang mapilian.",
+			"comparisonTitle": "Tabid-tabid",
+			"tableLabel": "Pagpaanggid sang organisasyon",
+			"legend": "Pinakamalain primero. Ang Best nagatudlo sang pinakamaayo nga masukod nga bili para sa sina nga sukod; ang numero nga wala ginsugid indi sero kag indi gid mangin pinakamaayo.",
+			"checkedAt": "Ginbasa sang {time}",
+			"columnTenant": "Organisasyon",
+			"columnState": "Kahimtangan",
+			"columnOrgStatus": "Account",
+			"columnMembers": "Mga miyembro",
+			"columnPonds": "Mga pond",
+			"columnDevices": "Mga device",
+			"columnReporting": "Nagasugid nga unit",
+			"columnOffline": "Offline",
+			"columnHeartbeat": "Katapusan nga heartbeat",
+			"columnAlerts": "Bukas nga alerto",
+			"notReported": "Wala ginsugid",
+			"never": "Wala gid",
+			"best": "Pinakamaayo",
+			"orgStatus": {
+				"ACTIVE": "Aktibo",
+				"SUSPENDED": "Ginpundo",
+				"PENDING_DELETION": "Pahinayon sa pagpanas",
+				"PURGED": "Ginpanas na"
+			}
 		}
 	},
 	"help": {

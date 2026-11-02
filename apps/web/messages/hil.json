@@ -3882,7 +3882,8 @@
 				"low": "ubos",
 				"medium": "medium",
 				"high": "mataas"
-			}
+			},
+			"removeDone": "Gin-remove ang provider."
 		},
 		"settings": {
 			"title": "Mga Setting sang Plataporma",

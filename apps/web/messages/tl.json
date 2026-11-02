@@ -3746,7 +3746,8 @@
 				"low": "mababa",
 				"medium": "katamtaman",
 				"high": "mataas"
-			}
+			},
+			"removeDone": "Naalis ang provider."
 		},
 		"settings": {
 			"title": "Mga Setting ng Platform",

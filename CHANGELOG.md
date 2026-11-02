@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Saving an AI provider key or its settings now confirms with a toast (#568).** The console only updated an inline notice inside the provider card, which is easy to miss after a long form - the reported "the key change is silent" case. Every action on the AI Providers page (config save, key save, key clear, provider add, provider removal, chain reset) now raises a success toast, and a validation or server failure raises an error toast, while the inline notices keep their detail (test latency, key last-4). Copy for the new "provider removed" line is in English, Hiligaynon and Tagalog.
+
 ## [1.45.0] - 2026-11-03
 
 ### Added

@@ -116,6 +116,14 @@ export interface ExportHeaderInput {
 	generatedAt: Date;
 }
 
+/** One comment line: control characters (including newlines) become spaces. */
+export function sqlCommentText(value: string): string {
+	return value
+		.replace(/[\u0000-\u001f\u007f]+/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
 /** The file header. It names the scope and carries no row data. */
 export function exportHeader(input: ExportHeaderInput): string {
 	const scopeLine =
@@ -123,15 +131,15 @@ export function exportHeader(input: ExportHeaderInput): string {
 			? "Scope: full database (platform export)"
 			: `Scope: tenant export for ${
 					input.orgNames && input.orgNames.length > 0
-						? input.orgNames.join(", ")
+						? input.orgNames.map(sqlCommentText).join(", ")
 						: "(no organization)"
 				}`;
 	return [
 		`-- PakaonAI SQL export, format v${BACKUP_SQL_FORMAT_VERSION}`,
 		`-- Generated: ${input.generatedAt.toISOString()}`,
 		scopeLine,
-		`-- Requested by: ${input.actor}`,
-		`-- Reason: ${input.reason}`,
+		`-- Requested by: ${sqlCommentText(input.actor)}`,
+		`-- Reason: ${sqlCommentText(input.reason)}`,
 		"--",
 		"-- Device tokens are redacted, token hashes and session data are absent. A",
 		"-- restored feeder must have its token rotated before it can authenticate.",

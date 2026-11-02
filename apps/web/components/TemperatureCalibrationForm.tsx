@@ -8,6 +8,7 @@ import {
 import { dashboardButtonPrimary } from "@/components/dashboard/dashboard-classes";
 import { useReportUnsavedChanges } from "@/components/settings/unsaved-changes";
 import { saveTemperatureCalibration } from "@/lib/actions/energy";
+import { previewWaterTempC, rawWaterTempC } from "@/lib/calibration/water-temp";
 import {
 	MIN_FEED_TEMP_C_MAX,
 	MIN_FEED_TEMP_C_MIN,
@@ -75,10 +76,18 @@ export function TemperatureCalibrationForm({
 		minFeed.status === "empty" ? null : minFeed.status === "valid" ? minFeed.value : null;
 	const minFeedResolved = minFeed.status !== "invalid";
 
+	// #622: `currentTempC` already carries the offset the device applied, so the
+	// raw value is derived by removing the stored offset, and the preview adds
+	// the draft one. The offset is applied once, on the device — never here.
+	const rawTempC = useMemo(
+		() => (currentTempC === null ? null : rawWaterTempC(currentTempC, currentTempOffsetC)),
+		[currentTempC, currentTempOffsetC],
+	);
+
 	const calibratedTemp = useMemo(() => {
 		if (currentTempC === null || offsetValue === null) return null;
-		return currentTempC + offsetValue;
-	}, [currentTempC, offsetValue]);
+		return previewWaterTempC(currentTempC, currentTempOffsetC, offsetValue);
+	}, [currentTempC, currentTempOffsetC, offsetValue]);
 
 	const belowMinimum =
 		calibratedTemp !== null && minFeedValue !== null && calibratedTemp < minFeedValue;
@@ -141,7 +150,8 @@ export function TemperatureCalibrationForm({
 					{currentTempC !== null ? (
 						<div className="space-y-1">
 							<p className="text-sm text-sky-900 dark:text-sky-100">
-								{t("rawReading")}: <strong>{currentTempC.toFixed(1)}°C</strong>
+								{t("rawReading")}:{" "}
+								<strong>{rawTempC === null ? "—" : `${rawTempC.toFixed(1)}°C`}</strong>
 							</p>
 							<p className="text-sm text-sky-900 dark:text-sky-100">
 								{t("offset")}:{" "}

@@ -16,7 +16,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
  * `git -C <wiki clone> add/commit/push` step in `docs/README.md`.
  */
 
-export const REPO_SLUG = "J-Akiru5/OptiFeed";
+const REPO_SLUG = "J-Akiru5/OptiFeed";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -189,7 +189,10 @@ ${table(["File", "Decision", "Link"], rows)}
 
 function missionsPage(repo, sha, date, root) {
 	const all = listFiles(root, MISSIONS_DIR);
-	const dated = all.filter((name) => /^\d{4}-\d{2}-\d{2}/.test(name)).sort().reverse();
+	const dated = all
+		.filter((name) => /^\d{4}-\d{2}-\d{2}/.test(name))
+		.sort()
+		.reverse();
 	const undated = all.filter((name) => !/^\d{4}-\d{2}-\d{2}/.test(name));
 	const files = [...dated, ...undated];
 	const rows = files.map((name) => {

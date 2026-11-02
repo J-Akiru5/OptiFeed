@@ -9,6 +9,11 @@ import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { startOfDayInTimeZone } from "@/lib/chart-windows";
 import { PH_TZ } from "@/lib/constants";
 import { MACHINE_FEED_SOURCES, isMachineFeedSource } from "@/lib/feed-figures";
+import { countActiveDevices, loadConnectivityTrend } from "@/lib/platform/connectivity";
+import {
+	type PlatformConnectivity,
+	buildConnectivitySnapshot,
+} from "@/lib/platform/connectivity-rules";
 import prisma from "@/lib/prisma";
 import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 
@@ -117,6 +122,11 @@ export interface PlatformAnalytics {
 	mostOfflineFeeders: OfflineFeederRow[];
 	pendingApprovalDevices: PendingApprovalRow[];
 	failedJobs: FailedJobRow[];
+	/**
+	 * Registered-versus-active counts (O22) and the stored 90-day connectivity
+	 * trend (O24). Read from `DeviceConnectivityDaily`; missing days stay absent.
+	 */
+	connectivity: PlatformConnectivity;
 }
 
 /** Accept only the three supported ranges; anything else falls back to 30. */
@@ -202,6 +212,8 @@ export async function getPlatformAnalytics(
 		offlineDevices,
 		pendingDevices,
 		failedJobs,
+		activeDevices30d,
+		connectivityTrend,
 	] = await Promise.all([
 		prisma.user.count(),
 		prisma.organization.count(),
@@ -305,6 +317,11 @@ export async function getPlatformAnalytics(
 			take: 5,
 			select: { id: true, type: true, error: true, finishedAt: true, createdAt: true },
 		}),
+		// O22: one count over the registry, deduplicated by the `some` subquery.
+		countActiveDevices(now),
+		// O24: stored history only. `deviceTotal` is reused for "registered" so
+		// the overview never runs a second device count for the same page.
+		loadConnectivityTrend(now),
 	]);
 
 	const dayKeys = buildDayKeys(window.start, window.end, PH_TZ).slice(-range);
@@ -482,5 +499,11 @@ export async function getPlatformAnalytics(
 			error: job.error,
 			at: job.finishedAt ?? job.createdAt,
 		})),
+		connectivity: buildConnectivitySnapshot({
+			registered: deviceTotal,
+			active30d: activeDevices30d,
+			trend: connectivityTrend,
+			now,
+		}),
 	};
 }

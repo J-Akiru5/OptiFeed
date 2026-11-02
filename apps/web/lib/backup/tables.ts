@@ -466,6 +466,29 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 		tenantWhere: byPondFk,
 	},
 	{
+		// Derived daily connectivity history (#479, M3C.10). It belongs to the
+		// device, so a tenant export carries the rows for its own ponds; the
+		// platform export carries all of them. `day` is a DATE.
+		name: "DeviceConnectivityDaily",
+		scope: "tenant",
+		key: "id",
+		model: prisma.deviceConnectivityDaily,
+		columns: [
+			"id",
+			"deviceId",
+			"day",
+			"firstSeenAt",
+			"lastSeenAt",
+			"onlineMinutes",
+			"heartbeatCount",
+			"gapCount",
+			"createdAt",
+			"updatedAt",
+		],
+		dateColumns: ["day"],
+		tenantWhere: byDevicePond,
+	},
+	{
 		name: "PondSettingsDraft",
 		scope: "tenant",
 		key: "id",
@@ -698,6 +721,61 @@ export const BACKUP_TABLES: readonly BackupTable[] = [
 			"createdAt",
 		],
 		jsonColumns: ["before", "after"],
+		tenantWhere: noneById,
+	},
+	{
+		name: "PlatformIncident",
+		scope: "platform",
+		key: "id",
+		model: prisma.platformIncident,
+		// Platform operational history: written by the device-watch sync and by
+		// platform admins. No credentials; org/farm/device/pond/owner are
+		// immutable stamps without FKs, so a restore keeps the timeline readable
+		// even when a referenced subject was deleted.
+		columns: [
+			"id",
+			"dedupeKey",
+			"source",
+			"severity",
+			"status",
+			"title",
+			"summary",
+			"orgId",
+			"farmId",
+			"deviceId",
+			"pondId",
+			"ownerId",
+			"openedAt",
+			"acknowledgedAt",
+			"resolvedAt",
+			"escalatedAt",
+			"ackDueAt",
+			"lastSeenAt",
+			"metadata",
+			"createdAt",
+			"updatedAt",
+		],
+		jsonColumns: ["metadata"],
+		tenantWhere: noneById,
+	},
+	{
+		name: "PlatformIncidentEvent",
+		scope: "platform",
+		key: "id",
+		model: prisma.platformIncidentEvent,
+		// Child rows are restored after their parent, matching BACKUP_TABLES order.
+		columns: [
+			"id",
+			"incidentId",
+			"type",
+			"fromStatus",
+			"toStatus",
+			"actorId",
+			"note",
+			"metadata",
+			"createdAt",
+		],
+		jsonColumns: ["metadata"],
 		tenantWhere: noneById,
 	},
 	{

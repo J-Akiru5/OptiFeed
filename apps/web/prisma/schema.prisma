@@ -423,6 +423,7 @@ model EnergyDevice {
   feedLevelLogs    FeedLevelLog[]
   waterTempLogs    WaterTempLog[]
   settingsDrafts   PondSettingsDraft[]
+  connectivity     DeviceConnectivityDaily[]
 
   @@index([pondId])
 }
@@ -484,6 +485,34 @@ model DeviceStateEvent {
   @@index([deviceId, createdAt])
   @@index([eventType, createdAt])
   @@index([farmId])
+}
+
+/// Per-device daily connectivity rollup (issue #479, M3C.10; decision O24).
+///
+/// One row per (device, UTC calendar day), aggregated from the stored
+/// `FeedEvent` heartbeat rows by the `device-watch` cron before the 7-day
+/// heartbeat sweep. It is the only source for the 90-day trend: a day with no
+/// row is reported as "no data" and is never estimated from neighbouring days.
+/// Rows older than 90 days are pruned by the same cron.
+model DeviceConnectivityDaily {
+  id             String   @id @default(cuid())
+  deviceId       String
+  /// UTC calendar day. A DATE, so the unique key cannot shift with a time zone.
+  day            DateTime @db.Date
+  firstSeenAt    DateTime
+  lastSeenAt     DateTime
+  /// Measured online time: the heartbeat span minus the silence beyond the
+  /// configured gap threshold (see `lib/platform/connectivity-rules.ts`).
+  onlineMinutes  Int
+  heartbeatCount Int
+  gapCount       Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  device EnergyDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, day])
+  @@index([day])
 }
 
 // Schedule edits as queued commands — never write directly to Pond.
@@ -662,6 +691,108 @@ model PlatformAuditLog {
 
   @@index([orgId, createdAt])
   @@index([actorUserId, createdAt])
+}
+
+/// What opened a platform incident. `device_offline`, `safe_mode`, `fault` and
+/// `failed_job` are maintained automatically by the device-watch sync;
+/// `notification` and `manual` are reserved for incidents an operator or a
+/// future ingestion path opens by hand.
+enum PlatformIncidentSource {
+  DEVICE_OFFLINE
+  SAFE_MODE
+  FAULT
+  FAILED_JOB
+  NOTIFICATION
+  MANUAL
+}
+
+enum PlatformIncidentSeverity {
+  CRITICAL
+  WARNING
+  INFO
+}
+
+enum PlatformIncidentStatus {
+  NEW
+  ACKNOWLEDGED
+  INVESTIGATING
+  RESOLVED
+  ESCALATED
+}
+
+enum PlatformIncidentEventType {
+  AUTO_OPENED
+  AUTO_RESOLVED
+  ACKNOWLEDGED
+  INVESTIGATING
+  RESOLVED
+  ESCALATED
+  /// The platform-admin role was told in the console. There is no email,
+  /// chat or pager channel (plan decision O20).
+  NOTIFIED
+}
+
+/// One platform incident (issue #479, M3C.6; plan decisions O19/O20).
+///
+/// `dedupeKey` is the stable condition key (`device_offline:<deviceId>`,
+/// `safe_mode:<deviceId>`, `fault:<deviceId>:<fault>`, `failed_job:<jobId>`).
+/// It is unique, so a repeating condition updates the same row instead of
+/// opening a second incident. A resolved condition that returns reopens the
+/// same row; that is a system transition, not a UI action.
+///
+/// `orgId`, `farmId`, `deviceId`, `pondId` and `ownerId` are immutable stamps
+/// with no foreign keys by design: the incident survives the subject's
+/// deletion, and the audit trail stays readable. `ownerId` is a `User.id` that
+/// currently holds an active `PlatformAdmin` grant.
+///
+/// Every transition writes one `PlatformIncidentEvent` and one
+/// `PlatformAuditLog` row; the pure rules live in
+/// `lib/platform/incident-lifecycle-rules.ts`.
+model PlatformIncident {
+  id             String                   @id @default(cuid())
+  dedupeKey      String                   @unique
+  source         PlatformIncidentSource
+  severity       PlatformIncidentSeverity
+  status         PlatformIncidentStatus   @default(NEW)
+  title          String
+  summary        String?
+  orgId          String?
+  farmId         String?
+  deviceId       String?
+  pondId         String?
+  ownerId        String?
+  openedAt       DateTime                 @default(now())
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+  escalatedAt    DateTime?
+  ackDueAt       DateTime?
+  lastSeenAt     DateTime                 @default(now())
+  metadata       Json?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  events PlatformIncidentEvent[]
+
+  @@index([status, severity, openedAt])
+  @@index([orgId, openedAt])
+}
+
+/// Append-only timeline for a platform incident. `actorId` null means the
+/// system (the device-watch sync) made the transition.
+model PlatformIncidentEvent {
+  id         String                     @id @default(cuid())
+  incidentId String
+  type       PlatformIncidentEventType
+  fromStatus PlatformIncidentStatus?
+  toStatus   PlatformIncidentStatus?
+  actorId    String?
+  note       String?
+  metadata   Json?
+  createdAt  DateTime                   @default(now())
+
+  incident PlatformIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId, createdAt])
 }
 
 model ImpersonationSession {

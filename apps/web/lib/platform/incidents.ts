@@ -1,6 +1,11 @@
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import type { DeviceStatusPolicy } from "@/lib/device-status";
 import {
+	type TrackedIncidentBoard,
+	emptyTrackedIncidentBoard,
+	loadTrackedIncidents,
+} from "@/lib/platform/incident-lifecycle";
+import {
 	type Incident,
 	type IncidentCandidate,
 	type IncidentSummary,
@@ -49,6 +54,12 @@ export interface IncidentQueue {
 	policyAvailable: boolean;
 	/** False means the source did not report; the page says which. */
 	sourceStates: SourceState;
+	/**
+	 * Stored lifecycle incidents (M3C.6). Independent of the derived queue above:
+	 * a failed incident read sets `available` false instead of making the derived
+	 * sources look broken, and vice versa.
+	 */
+	tracked: TrackedIncidentBoard;
 }
 
 type Attempt<T> = { ok: true; value: T } | { ok: false };
@@ -76,6 +87,7 @@ function emptyQueue(now: Date): IncidentQueue {
 		truncated: false,
 		policyAvailable: false,
 		sourceStates: { ...ALL_SOURCES_FAILED },
+		tracked: emptyTrackedIncidentBoard(),
 	};
 }
 
@@ -83,54 +95,63 @@ export async function getIncidentQueue(now: Date = new Date()): Promise<Incident
 	await requirePlatformAdmin();
 
 	try {
-		const [policyAttempt, devicesAttempt, notificationsAttempt, errorsAttempt, jobsAttempt] =
-			await Promise.all([
-				attempt<DeviceStatusPolicy>(() => getDeviceStatusPolicy()),
-				attempt(() =>
-					prisma.energyDevice.findMany({
-						orderBy: { label: "asc" },
-						take: INCIDENT_DEVICE_LIMIT + 1,
-						select: {
-							id: true,
-							label: true,
-							lastSeenAt: true,
-							pond: { select: { id: true, name: true, ownerId: true } },
-						},
-					}),
-				),
-				attempt(() =>
-					prisma.notification.findMany({
-						where: { acknowledgedAt: null, autoCleared: false },
-						orderBy: { createdAt: "desc" },
-						take: INCIDENT_LIMIT + 1,
-						select: {
-							id: true,
-							pondId: true,
-							tier: true,
-							category: true,
-							message: true,
-							createdAt: true,
-							pond: { select: { id: true, name: true, ownerId: true } },
-						},
-					}),
-				),
-				attempt(() =>
-					prisma.errorEvent.findMany({
-						where: { resolved: false },
-						orderBy: { lastSeenAt: "desc" },
-						take: INCIDENT_LIMIT + 1,
-						select: { id: true, message: true, severity: true, firstSeenAt: true, count: true },
-					}),
-				),
-				attempt(() =>
-					prisma.backgroundJob.findMany({
-						where: { status: "failed" },
-						orderBy: { finishedAt: "desc" },
-						take: INCIDENT_JOB_LIMIT,
-						select: { id: true, type: true, error: true, createdAt: true, finishedAt: true },
-					}),
-				),
-			]);
+		const [
+			policyAttempt,
+			devicesAttempt,
+			notificationsAttempt,
+			errorsAttempt,
+			jobsAttempt,
+			trackedAttempt,
+		] = await Promise.all([
+			attempt<DeviceStatusPolicy>(() => getDeviceStatusPolicy()),
+			attempt(() =>
+				prisma.energyDevice.findMany({
+					orderBy: { label: "asc" },
+					take: INCIDENT_DEVICE_LIMIT + 1,
+					select: {
+						id: true,
+						label: true,
+						lastSeenAt: true,
+						pond: { select: { id: true, name: true, ownerId: true } },
+					},
+				}),
+			),
+			attempt(() =>
+				prisma.notification.findMany({
+					where: { acknowledgedAt: null, autoCleared: false },
+					orderBy: { createdAt: "desc" },
+					take: INCIDENT_LIMIT + 1,
+					select: {
+						id: true,
+						pondId: true,
+						tier: true,
+						category: true,
+						message: true,
+						createdAt: true,
+						pond: { select: { id: true, name: true, ownerId: true } },
+					},
+				}),
+			),
+			attempt(() =>
+				prisma.errorEvent.findMany({
+					where: { resolved: false },
+					orderBy: { lastSeenAt: "desc" },
+					take: INCIDENT_LIMIT + 1,
+					select: { id: true, message: true, severity: true, firstSeenAt: true, count: true },
+				}),
+			),
+			attempt(() =>
+				prisma.backgroundJob.findMany({
+					where: { status: "failed" },
+					orderBy: { finishedAt: "desc" },
+					take: INCIDENT_JOB_LIMIT,
+					select: { id: true, type: true, error: true, createdAt: true, finishedAt: true },
+				}),
+			),
+			// The stored lifecycle rows are their own source. A failure here is
+			// reported by `tracked.available`, never by hiding the derived queue.
+			attempt(() => loadTrackedIncidents(now)),
+		]);
 
 		const devices = devicesAttempt.ok ? devicesAttempt.value : [];
 		const notifications = notificationsAttempt.ok ? notificationsAttempt.value : [];
@@ -214,6 +235,7 @@ export async function getIncidentQueue(now: Date = new Date()): Promise<Incident
 			truncated,
 			policyAvailable: policy !== null,
 			sourceStates,
+			tracked: trackedAttempt.ok ? trackedAttempt.value : emptyTrackedIncidentBoard(),
 		};
 	} catch {
 		return emptyQueue(now);

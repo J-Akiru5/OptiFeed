@@ -7,12 +7,12 @@ Orchestrator: Claude (Sonnet 5.5). Workers: OpenCode `deepseek-v4.1-flash`, one 
 | Branch | Head | Note |
 |---|---|---|
 | main (production) | `de76080` | #529 promoted staging (#521, #523, #530) |
-| staging | `4a1c954` | #520, #511, #512, #523, #521, #530, #532 |
-| develop | `bd56a90` | #503, #524, #525; #522 back-merge open |
+| staging | `4b63983` | #520, #511, #512, #523, #521, #530, #532, #535 |
+| develop | `1177af8` | #503, #524, #525, #536; #522 back-merge open |
 
-Open PRs: #510 (production group; bundle red), #514 (Prisma 7; four red), #528 (coverage-v8 5 without vitest 5; quality red), #535/#536 (approved CI speedups; checks running), #522 (this back-merge).
+Open PRs: #510 (production group; bundle red), #514 (Prisma 7; four red), #528 (coverage-v8 5 without vitest 5; quality red), #522 (this back-merge).
 
-Merged today: #520 (#476 mobile, `83cb3de`), #503 (E73 docs, `36c06ab`), #511 (`80a5e0b`), #512 (`f7edac7`), #523 (Node 22 pin, `adaa01b`), #521 (min feed temp, `cc3b1c8`), #524/#525 (develop fixes, `bd56a90`), #529 (staging to main promotion, `de76080`), #530/#532 (CI watcher, `4a1c954`). #513 is closed by #523; #528 is held.
+Merged today: #520 (#476 mobile, `83cb3de`), #503 (E73 docs, `36c06ab`), #511 (`80a5e0b`), #512 (`f7edac7`), #523 (Node 22 pin, `adaa01b`), #521 (min feed temp, `cc3b1c8`), #524/#525 (develop fixes, `bd56a90`), #529 (staging to main promotion, `de76080`), #530/#532 (CI watcher, `4a1c954`), #535 (CI speedups, `4b63983`), #536 (same on develop, `1177af8`). #513 is closed by #523; #528 is held.
 
 **Incident 2026-11-02 (resolved):** #521's code reached staging at 02:47 UTC, but migration `20261102000000_add_min_feed_temp` was applied at **02:53:57**. For about six minutes the dashboard selected a column that did not exist; the generic error boundary said "database connection issue" and showed React #441. Not an env problem: `/api/health` was 200, the layout's queries worked, and `prisma migrate status` now reads up to date (51 migrations); `EnergyDevice.minFeedTempC` exists (double precision). Rule: apply an additive migration **before** the code that selects the new column reaches staging; staging shares the production database. The 10:51 Manila screenshot was inside the window; "Try again" now works.
 
@@ -21,11 +21,11 @@ Merged today: #520 (#476 mobile, `83cb3de`), #503 (E73 docs, `36c06ab`), #511 (`
 The global CI/CD efficiency rule and the OptiFeed facts are in the owner's local `AGENTS.md` ("CI/CD efficiency"; not tracked in the repo). Recorded from the 2026-11-02 measured run `41374968165` (develop push); re-check before changing gates:
 
 - Default branch `staging`; required checks on `develop`, `staging` and `main`: `quality`, `bundle budget + latency` (`enforce_admins: true`). `e2e` is not required, but its check name must stay stable. `public smoke (chromium, firefox, webkit)` is the separate `e2e-smoke.yml` check.
-- Measured develop CI (run `41374968165`): `quality` 363s, `e2e` 604s. `e2e` has `needs: quality` with no output or artifact dependency, so it can run in parallel (967s to 604s). **Implemented in #535/#536 (owner-approved 2026-11-02), pending merge.**
+- Measured develop CI (run `41374968165`): `quality` 363s, `e2e` 604s. `e2e` has `needs: quality` with no output or artifact dependency, so it can run in parallel (967s to 604s). **Merged in #535 (`4b63983`) and #536 (`1177af8`); e2e and quality start together.**
 - pnpm install is already cached (~4s); Playwright is serial by design; no sharding, no browser-cache work.
-- Promotions staging to main are content-identical (12/12 first-parent merges). The tree-hash "already green" marker is implemented in #535/#536: key `ci-green-<tree>`, saved only by a successful `staging` push, lookup-only on push and pull request, step-level skips, and a full run on any miss or cache error. It is never restored on `workflow_dispatch`.
+- Promotions staging to main are content-identical (12/12 first-parent merges). The tree-hash "already green" marker is merged in #535/#536: key `ci-green-<tree>`, saved only by a successful `staging` push, lookup-only on push and pull request, step-level skips, and a full run on any miss or cache error. It is never restored on `workflow_dispatch`. The first staging push saved `ci-green-64bf2a54730d69234333426b5066c1f597d30118`.
 - Watcher live: #530/#532 merged; issue #531 keeps one comment per unique failure. The first sweep found #528, #514 and #510; a second sweep added nothing (dedupe verified). Event-driven on workflow completion, plus a daily 06:00 Manila sweep.
-- Open blockers: #510 (bundle budget red), #514 (Prisma 7 red), #528 (coverage-v8 5 without vitest 5). #513 fixed by #523.
+- Open blockers: #510 (bundle budget red), #514 (Prisma 7 red), #528 (coverage-v8 5 without vitest 5). #513 fixed by #523. This back-merge raised only the growth route budget by 0.5 kB (1074.5 to 1075.0) because the combined tree measured 1074.7 kB; baseline stayed 1053.4.
 
 ## State at 19:30 (verified)
 

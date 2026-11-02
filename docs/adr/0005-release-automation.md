@@ -36,6 +36,9 @@ could not also approve it.
 3. **A `main` push tags and publishes, idempotently.** On a push to `main` (not a
    manual dispatch from another branch), the workflow:
    - fails if `CHANGELOG.md` has no section for the current version;
+   - fails when `HEAD` is past `vX.Y.Z` and the commits since the tag are not
+     explicit release exemptions (#586), so an already-tagged version cannot
+     silently cover new code;
    - creates the annotated tag `vX.Y.Z` if it does not exist;
    - publishes the GitHub Release with the generated notes if it does not exist;
    - publishes nothing when both already exist, so an ordinary `main` push is
@@ -93,6 +96,8 @@ could not also approve it.
 - Implementation: [`.github/workflows/release.yml`](../../.github/workflows/release.yml),
   [`.github/workflows/release-pr.yml`](../../.github/workflows/release-pr.yml),
   [`scripts/release-notes.mjs`](../../scripts/release-notes.mjs)
+- Integrity check: [`scripts/ops/release-drift.mjs`](../../scripts/ops/release-drift.mjs),
+  [`docs/release-integrity.md`](../release-integrity.md)
 - Sources of truth: [`CHANGELOG.md`](../../CHANGELOG.md),
   [`package.json`](../../package.json), [`apps/web/package.json`](../../apps/web/package.json)
 - Procedure: [`CONTRIBUTING.md`](../../CONTRIBUTING.md) section 9 ("Release process"

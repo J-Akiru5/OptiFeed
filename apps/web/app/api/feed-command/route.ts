@@ -1,6 +1,7 @@
 import { withApi } from "@/lib/api/instrumentation";
 import { PH_UTC_OFFSET_MINUTES, REQUEST_EXPIRY_MS } from "@/lib/constants";
 import { isDeviceApproved, verifyDeviceToken } from "@/lib/device-auth";
+import { claimPendingFeedRequest } from "@/lib/feed/commands";
 import { buildFirmwareConfig } from "@/lib/firmware/config";
 import {
 	BUTTON_FEED_GRAMS_MAX,
@@ -20,6 +21,7 @@ import { getDeviceStatusSetting } from "@/lib/settings/device-status";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import { getFirmwareGates } from "@/lib/settings/firmware-gates";
 import { getOrgHopperLowPctForDevice } from "@/lib/settings/org-hopper";
+import type { FeedRequest } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -138,20 +140,18 @@ export const GET = withApi(
 				data: { status: "expired" },
 			});
 
-			const pendingRequest = await prisma.feedRequest.findFirst({
-				where: {
-					deviceId: device.id,
-					status: "pending",
-				},
-				orderBy: { createdAt: "asc" },
-			});
+			let pendingRequest: FeedRequest | null = null;
+			for (let attempt = 0; attempt < 3 && pendingRequest === null; attempt += 1) {
+				const claim = await claimPendingFeedRequest(prisma, device.id);
+				if (claim.status === "claimed") {
+					pendingRequest = claim.request;
+				} else if (claim.status === "empty") {
+					break;
+				}
+				// "lost": another poll took this row; look for the next one.
+			}
 
 			if (pendingRequest) {
-				await prisma.feedRequest.update({
-					where: { id: pendingRequest.id },
-					data: { status: "dispatched" },
-				});
-
 				// The 5,000 g clamp is a payload sanity bound, not a feed cap: the
 				// daily ceiling is enforced when the request is queued.
 				const calibration = pendingRequest.kind === "calibration";

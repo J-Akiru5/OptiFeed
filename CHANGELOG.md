@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **The tenant health, fleet monitor and incident queue pages are reachable from the console navigation (#479).** `/superadmin/tenants`, `/superadmin/fleet` and `/superadmin/incidents` shipped but the sidebar's Command Center group still held only Overview and the platform quick menu stopped at the nine older sections. Command Center now lists Overview, Tenants, Fleet and Incidents in that order, the mobile quick menu carries the same three destinations, and each page marks its own link current (the tenants compare page highlights Tenants). No existing URL changed. Strings are in English, Hiligaynon and Tagalog (the Tagalog is a machine draft, queued for review).
+- **The tenant health, fleet monitor and incident queue pages are reachable from the console navigation (#479).** `/superadmin/tenants`, `/superadmin/fleet` and `/superadmin/incidents` shipped but the sidebar's Command Center group still held only Overview and the platform quick menu stopped at the nine older sections. Command Center now lists Overview, Tenants, Fleet and Incidents in that order, the mobile quick menu carries the same three destinations, and each page marks its own link current (the tenants compare page highlights Tenants). The mobile header band and the console scope banner now name the section too (`Fleet`, not the fallback `Overview`), with `/superadmin/tenants/compare` staying under Tenants. No existing URL changed. Strings are in English, Hiligaynon and Tagalog (the Tagalog is a machine draft, queued for review).
 
 ## [1.43.0] - 2026-11-02
 

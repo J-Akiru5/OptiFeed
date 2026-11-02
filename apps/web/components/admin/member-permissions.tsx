@@ -241,6 +241,7 @@ export function MemberPermissions({
 								</span>
 								<span className="col-span-2 flex sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:justify-end">
 									<span
+										data-testid={`permission-status-${permission}`}
 										className={cn(
 											"shrink-0 rounded-full px-2 py-1 text-[9px] font-black tracking-wider uppercase",
 											statusClass,

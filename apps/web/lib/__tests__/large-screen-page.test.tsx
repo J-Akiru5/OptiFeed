@@ -82,12 +82,14 @@ beforeEach(() => {
 });
 
 describe("large-screen overview (#616)", () => {
-	it("renders the pond, device and status without the dashboard chrome", async () => {
+	it("renders the pond and device without a duplicate server-rendered status", async () => {
 		const html = await renderPage();
 
 		expect(html).toContain("Pond 1");
 		expect(html).toContain("CICT Feeder");
-		expect(html).toContain("Idle");
+		// The live badge lives in the viewer (#666); the page must not print a
+		// second, frozen copy of the status.
+		expect(html).not.toMatch(/>Idle</);
 		expect(html).toContain('data-testid="viewer"');
 		// No shell: the page itself is the only <main>, and there is no sidebar.
 		expect(html.match(/<main/g)).toHaveLength(1);
@@ -100,6 +102,7 @@ describe("large-screen overview (#616)", () => {
 		const props = viewerProps.current;
 		expect(props).not.toBeNull();
 		expect(props?.kiosk).toBe(true);
+		expect(props?.initialStatus).toBe("idle");
 		expect(props?.initialSignalDbm).toBe(-62);
 		expect(props?.initialFirmwareVersion).toBe("1.6.0");
 		expect(props?.initialWaterTempC).toBe(27.1);

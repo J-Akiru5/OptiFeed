@@ -29,7 +29,6 @@ export default async function LargeScreenPage({
 	if (!detail) notFound();
 
 	const t = await getTranslations("dashboard.feederViewer");
-	const statusKey = `status${detail.status.charAt(0).toUpperCase()}${detail.status.slice(1)}`;
 
 	return (
 		<main className="flex min-h-dvh flex-col bg-[#071a2a] text-white">
@@ -39,7 +38,11 @@ export default async function LargeScreenPage({
 						{detail.pond.name}
 					</p>
 					<h1 className="mt-1 truncate text-3xl font-black lg:text-4xl">{detail.label}</h1>
-					<p className="mt-1 text-sm font-bold text-white/60">{t(statusKey)}</p>
+					{/*
+					 * No status here on purpose (#666): the viewer below owns the live
+					 * status badge and refreshes it every 15 s. A second, server-rendered
+					 * copy would contradict it after the feeder changes state.
+					 */}
 				</div>
 				<Link
 					href={`/dashboard/devices/${detail.id}`}

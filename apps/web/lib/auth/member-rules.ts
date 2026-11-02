@@ -13,6 +13,13 @@ import type { MemberRole } from "@prisma/client";
 
 export const MEMBER_ROLES = ["OWNER", "ADMIN", "OPERATOR", "VIEWER"] as const;
 
+/** Membership roles that may write to the tenant's data (#583). */
+export const WRITE_MEMBER_ROLES = ["OWNER", "ADMIN", "OPERATOR"] as const;
+
+export function memberRoleCanWrite(role: MemberRole): boolean {
+	return (WRITE_MEMBER_ROLES as readonly MemberRole[]).includes(role);
+}
+
 export function isMemberRole(value: unknown): value is MemberRole {
 	return typeof value === "string" && (MEMBER_ROLES as readonly string[]).includes(value);
 }
@@ -31,6 +38,8 @@ export const LAST_OWNER_MESSAGE =
 	"The last owner cannot be demoted or removed. Promote another owner first.";
 export const OWNER_INVITE_MESSAGE = "Only an owner can invite another owner.";
 export const ADMIN_EDIT_OWNER_EMAIL_MESSAGE = "Only an owner can change another owner's email.";
+export const ADMIN_EDIT_OWNER_PERMISSIONS_MESSAGE =
+	"Only an owner can change another owner's permissions.";
 export const MEMBER_OTHER_ORG_EMAIL_MESSAGE =
 	"This account also belongs to an organization you do not administer, so its email can only be changed from the platform console.";
 
@@ -83,6 +92,24 @@ export function revokeMemberError(input: {
 /** Why the tenant caller may not invite at `role`, or null when they may. */
 export function inviteRoleError(actorRole: MemberRole, role: MemberRole): string | null {
 	if (role === "OWNER" && actorRole !== "OWNER") return OWNER_INVITE_MESSAGE;
+	return null;
+}
+
+/**
+ * Why a tenant caller may not change this member's permission overrides, or
+ * null when they may (#584).
+ *
+ * A permission override can strip `manage_members` from an OWNER, so it is a
+ * privilege change just like a role change: an ADMIN may not touch an OWNER's
+ * overrides in either direction.
+ */
+export function permissionEditError(input: {
+	actorRole: MemberRole;
+	targetRole: MemberRole;
+}): string | null {
+	if (input.actorRole === "ADMIN" && input.targetRole === "OWNER") {
+		return ADMIN_EDIT_OWNER_PERMISSIONS_MESSAGE;
+	}
 	return null;
 }
 

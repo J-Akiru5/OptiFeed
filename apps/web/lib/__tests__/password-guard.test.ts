@@ -8,7 +8,7 @@ vi.mock("@/lib/supabase/server", () => {
 });
 
 vi.mock("@/lib/prisma", () => ({
-	default: { user: { findUnique: vi.fn() } },
+	default: { user: { findUnique: vi.fn() }, membership: { findMany: vi.fn() } },
 }));
 
 vi.mock("@/i18n/routing", () => ({ redirect: vi.fn() }));
@@ -30,6 +30,7 @@ async function signIn(user: { id: string; email: string } | null) {
 }
 
 const findUnique = vi.mocked(prisma.user.findUnique);
+const findMemberships = vi.mocked(prisma.membership.findMany);
 const mockRedirect = vi.mocked(redirect);
 
 const USER = {
@@ -40,9 +41,15 @@ const USER = {
 	mustChangePassword: false,
 };
 
-async function setUser(overrides: Partial<typeof USER> = {}) {
+async function setUser(
+	overrides: Partial<typeof USER> = {},
+	memberships: Array<{ role: string; revokedAt: Date | null }> = [
+		{ role: overrides.role ?? "ADMIN", revokedAt: null },
+	],
+) {
 	await signIn({ id: "sb-1", email: "demo-farmer-1@pond.optifeed.local" });
 	findUnique.mockResolvedValue({ ...USER, ...overrides } as never);
+	findMemberships.mockResolvedValue(memberships as never);
 }
 
 beforeEach(() => {
@@ -84,6 +91,25 @@ describe("canWrite", () => {
 
 	it("is false for a VIEWER", async () => {
 		await setUser({ role: "VIEWER" });
+
+		expect(await canWrite()).toBe(false);
+	});
+
+	it("is false when the membership is VIEWER even if User.role is still ADMIN (#583)", async () => {
+		await setUser({ role: "ADMIN" }, [{ role: "VIEWER", revokedAt: null }]);
+
+		expect(await canWrite()).toBe(false);
+		await expect(requireWriteAccess()).rejects.toMatchObject({ reason: "wrong_role" });
+	});
+
+	it("falls back to the legacy role only when the account never had a membership", async () => {
+		await setUser({ role: "ADMIN" }, []);
+
+		expect(await canWrite()).toBe(true);
+	});
+
+	it("does not fall back to the legacy role for a revoked membership", async () => {
+		await setUser({ role: "OPERATOR" }, [{ role: "OPERATOR", revokedAt: new Date() }]);
 
 		expect(await canWrite()).toBe(false);
 	});

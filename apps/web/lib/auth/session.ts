@@ -5,6 +5,7 @@ import type { User, UserRole } from "@prisma/client";
 import { getLocale } from "next-intl/server";
 import { cache } from "react";
 import { ActionDeniedError } from "./action-denial";
+import { memberRoleCanWrite } from "./member-rules";
 
 /**
  * Session verification is part of this module's public surface: API routes
@@ -169,7 +170,7 @@ export async function requireWriteAccess(): Promise<void> {
 	if (user.mustChangePassword) throw new ActionDeniedError("password_change_required");
 	const { assertNotViewingAs } = await import("./view-as");
 	await assertNotViewingAs();
-	if (user.role !== "ADMIN" && user.role !== "OPERATOR") {
+	if ((await getWriteAuthority()) !== "allowed") {
 		throw new ActionDeniedError("wrong_role");
 	}
 }
@@ -185,8 +186,38 @@ export async function canWrite(): Promise<boolean> {
 	if (!user || user.mustChangePassword) return false;
 	const { isViewingAs } = await import("./view-as");
 	if (await isViewingAs()) return false;
-	return user.role === "ADMIN" || user.role === "OPERATOR";
+	return (await getWriteAuthority()) === "allowed";
 }
+
+/**
+ * Write authority for the current account (#583).
+ *
+ * The coarse write gate used to read the legacy `User.role`, which is not
+ * updated when a membership changes: a member demoted to VIEWER kept writing.
+ * Authority now comes from the active memberships, mirroring the permission
+ * gate. Accounts that have never had a membership row (a platform admin, the
+ * demo seed) keep the legacy column as a compatibility bridge; a revoked
+ * membership leaves the row behind, so it never falls back to legacy.
+ */
+const getWriteAuthority = cache(async (): Promise<"allowed" | "wrong_role"> => {
+	const user = await getCurrentUser();
+	if (!user) return "wrong_role";
+
+	const memberships = await prisma.membership.findMany({
+		where: { userId: user.id },
+		select: { role: true, revokedAt: true },
+	});
+
+	if (memberships.length === 0) {
+		return user.role === "ADMIN" || user.role === "OPERATOR" ? "allowed" : "wrong_role";
+	}
+
+	return memberships.some(
+		(membership) => membership.revokedAt === null && memberRoleCanWrite(membership.role),
+	)
+		? "allowed"
+		: "wrong_role";
+});
 
 /**
  * Get all ponds owned by the current user.

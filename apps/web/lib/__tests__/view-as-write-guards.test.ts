@@ -28,6 +28,7 @@ vi.mock("@/lib/auth/view-as", () => viewAs);
 
 import { requirePermission } from "@/lib/auth/permissions";
 import { canWrite, getCurrentPondOwnerIdSafe, requireWriteAccess } from "@/lib/auth/session";
+import prisma from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 
 async function signIn(user: { id: string; email: string } | null) {
@@ -51,6 +52,9 @@ async function setUser(overrides: Partial<typeof USER> = {}) {
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	vi.mocked(prisma.membership.findMany).mockResolvedValue([
+		{ role: "OPERATOR", revokedAt: null },
+	] as never);
 	viewAs.isViewingAs.mockResolvedValue(false);
 	viewAs.assertNotViewingAs.mockResolvedValue(undefined);
 	viewAs.getViewAsState.mockResolvedValue({ active: false, reason: "missing" });

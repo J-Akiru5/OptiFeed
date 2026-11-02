@@ -371,7 +371,9 @@ model Notification {
   pond Pond @relation(fields: [pondId], references: [id])
 
   @@index([pondId, read])
+  @@index([pondId, createdAt])
   @@index([farmId])
+  @@index([farmId, createdAt])
   @@index([episodeKey])
   @@index([pondId, supersededById])
 }
@@ -716,6 +718,7 @@ model PlatformAuditLog {
 
   @@index([orgId, createdAt])
   @@index([actorUserId, createdAt])
+  @@index([createdAt])
 }
 
 /// What opened a platform incident. `device_offline`, `safe_mode`, `fault` and

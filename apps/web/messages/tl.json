@@ -2873,7 +2873,8 @@
 				"errors": "Mga event ng error",
 				"firmware": "Fleet ng firmware",
 				"audit": "Talaan ng audit",
-				"announcements": "Mga anunsyo"
+				"announcements": "Mga anunsyo",
+				"reports": "Mga ulat"
 			},
 			"errors": {
 				"title": "Mga event ng error",
@@ -3114,6 +3115,39 @@
 				"clearing": "Nag-i-clear…",
 				"cleared": "Na-clear ang anunsyo.",
 				"failed": "Hindi ma-save ang anunsyo."
+			},
+			"reports": {
+				"title": "Mga ulat ng isyu",
+				"description": "Mga ulat tungkol sa accessibility, bug, nilalaman at iba pa mula sa public site o kay Pakoy.",
+				"summary": "{open} bukas sa {total} ulat",
+				"caption": "Mga ulat ng isyu",
+				"columns": {
+					"received": "Natanggap",
+					"category": "Kategorya",
+					"report": "Ulat",
+					"source": "Pinagmulan",
+					"status": "Katayuan"
+				},
+				"categories": {
+					"BUG": "Bug",
+					"ACCESSIBILITY": "Accessibility",
+					"CONTENT": "Nilalaman",
+					"OTHER": "Iba pa"
+				},
+				"statuses": {
+					"OPEN": "Bukas",
+					"RESOLVED": "Nalutas"
+				},
+				"sources": {
+					"PUBLIC": "Public site",
+					"ASSISTANT": "Pakoy"
+				},
+				"emptyTitle": "Wala pang ulat.",
+				"resolvedAt": "Nalutas {when}",
+				"resolve": "Lutasin",
+				"resolving": "Nilulutas…",
+				"resolvedJustNow": "Nalutas",
+				"resolveFailed": "Hindi nalutas. Subukan muli."
 			}
 		},
 		"common": {
@@ -4044,7 +4078,30 @@
 		"iso6": "Maintainability",
 		"iso7": "Efficiency",
 		"iso8": "Portability",
-		"ctaEyebrow": "Access sa pag-aaral"
+		"ctaEyebrow": "Access sa pag-aaral",
+		"reportIssue": {
+			"trigger": "I-report ang isyu",
+			"title": "I-report ang isyu",
+			"description": "Sabihin sa amin ang naging problema. Dumarating ang mga ulat sa platform team at sinusuri ayon sa pagkakasunod-sunod.",
+			"close": "Isara",
+			"category": "Kategorya",
+			"categories": {
+				"bug": "Bug",
+				"accessibility": "Accessibility",
+				"content": "Nilalaman",
+				"other": "Iba pa"
+			},
+			"message": "Ano ang nangyari?",
+			"messageHint": "Ilarawan ang inaasahan mo at ang nakita mo. Huwag maglagay ng password o personal na impormasyon.",
+			"email": "Email",
+			"emailHint": "Opsyonal, kung gusto mong sagutin ka namin.",
+			"optional": "Opsyonal",
+			"submit": "Ipadala ang ulat",
+			"sending": "Ipinapadala…",
+			"success": "Salamat — natanggap na ang ulat mo.",
+			"error": "Hindi naipadala ang ulat. Subukan muli.",
+			"rateLimited": "Masyadong maraming ulat mula sa device na ito. Subukan mamaya."
+		}
 	},
 	"legal": {
 		"eyebrow": "Legal",

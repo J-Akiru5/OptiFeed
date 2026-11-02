@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **The dashboard now shows the live fish count and the mortality rate, not the stocked count.** It reads the same derived count as Growth (stocked minus mortality), so the pond card cannot disagree with the growth page again. The pond summary shows dead and percentage; the population tile links to Growth. Pond settings now labels the field "Stocked fish count", explains that mortality is subtracted, and shows an "Unsaved changes" banner so a restored draft is not mistaken for a save. The form also refreshes after a successful save (#430, #452).
+- **The feeding schedule now reads frequency → first/last feed → the resulting times.** Feeds per day comes first, and the two window fields sit next to the per-meal chips they produce, labelled "First feed time" and "Last feed time" with the spacing rule as their hint. The applied line shows the active window instead of a raw `2 feeds/day` that looked like a second suggestion. The model is unchanged: the feeder still spaces meals evenly between the first and last feed, so the two fields can express every schedule the device supports (#483).
+
+### Added
+
+- **Anyone can report a problem from the public site, and Pakoy can escalate one.** The landing footer carries a "Report an issue" box (category, message, optional email) that posts to an unauthenticated, per-IP rate-limited and honeypot-guarded route; reports land in a new superadmin Operations → Reports queue where a platform admin can resolve them with an audited action. When a request is outside Pakoy's tool catalogue — a bug, a broken screen, a missing feature, an accessibility problem or something only a platform admin can change — the assistant files the same kind of report instead of dead-ending with "I can't do that" (#487).
 
 ### Added
 

@@ -451,7 +451,30 @@
 		"iso6": "Maintainability",
 		"iso7": "Efficiency",
 		"iso8": "Portability",
-		"ctaEyebrow": "Study access"
+		"ctaEyebrow": "Study access",
+		"reportIssue": {
+			"trigger": "Report an issue",
+			"title": "Report an issue",
+			"description": "Tell us what went wrong. Reports reach the platform team and are reviewed in the order they arrive.",
+			"close": "Close",
+			"category": "Category",
+			"categories": {
+				"bug": "Bug",
+				"accessibility": "Accessibility",
+				"content": "Content",
+				"other": "Other"
+			},
+			"message": "What happened?",
+			"messageHint": "Describe what you expected and what you saw. Do not include passwords or personal data.",
+			"email": "Email",
+			"emailHint": "Optional, only if you want a reply.",
+			"optional": "Optional",
+			"submit": "Send report",
+			"sending": "Sending…",
+			"success": "Thank you — your report was received.",
+			"error": "Could not send the report. Please try again.",
+			"rateLimited": "Too many reports from this device. Please try again later."
+		}
 	},
 	"login": {
 		"eyebrow": "Farm access",
@@ -3969,7 +3992,8 @@
 				"errors": "Error events",
 				"firmware": "Firmware fleet",
 				"audit": "Audit log",
-				"announcements": "Announcements"
+				"announcements": "Announcements",
+				"reports": "Reports"
 			},
 			"errors": {
 				"title": "Error events",
@@ -4210,6 +4234,39 @@
 				"clearing": "Clearing…",
 				"cleared": "Announcement cleared.",
 				"failed": "The announcement could not be saved."
+			},
+			"reports": {
+				"title": "Issue reports",
+				"description": "Accessibility, bug, content and other reports submitted from the public site or by Pakoy.",
+				"summary": "{open} open of {total} reports",
+				"caption": "Issue reports",
+				"columns": {
+					"received": "Received",
+					"category": "Category",
+					"report": "Report",
+					"source": "Source",
+					"status": "Status"
+				},
+				"categories": {
+					"BUG": "Bug",
+					"ACCESSIBILITY": "Accessibility",
+					"CONTENT": "Content",
+					"OTHER": "Other"
+				},
+				"statuses": {
+					"OPEN": "Open",
+					"RESOLVED": "Resolved"
+				},
+				"sources": {
+					"PUBLIC": "Public site",
+					"ASSISTANT": "Pakoy"
+				},
+				"emptyTitle": "No reports yet.",
+				"resolvedAt": "Resolved {when}",
+				"resolve": "Resolve",
+				"resolving": "Resolving…",
+				"resolvedJustNow": "Resolved",
+				"resolveFailed": "Could not resolve. Try again."
 			}
 		},
 		"statusBands": {

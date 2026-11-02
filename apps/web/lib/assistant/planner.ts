@@ -215,6 +215,7 @@ Rules:
 - Do not invent a feed amount or a number. "Feed them" with no amount means the standard dose (omit grams).
 - Every sensitive action (token rotation, role/permission change, delete, disable) still needs the user's Accept and may ask for a fresh password check; never say it is already done.
 - Refuse only when the tool list has no matching tool. Never claim the assistant cannot write to a screen: if a permitted action exists, propose it.
+- When nothing in the list fits — a bug, a broken screen, a missing feature, an accessibility problem, or a change only a platform administrator can make — propose support.file_report with the user's own words as the message and the closest category. Never dead-end with "I can't do that".
 - Resolve relative dates ("tomorrow", "next Monday") from today and write YYYY-MM-DD.
 - If the user only asks a question ("what is my FCR", "are we on track"), return answer.
 - Destructive or administrative actions still need the user's Accept; never say they are done.`;
@@ -252,7 +253,12 @@ function unavailableReason(toolId: string, caller: AssistantCaller): string {
 	if (definition.permission && !caller.permissions.has(definition.permission)) {
 		return permissionRefusal(definition);
 	}
-	if (!definition.permission && !definition.platformAdminOnly && !caller.canWrite) {
+	if (
+		!definition.permission &&
+		!definition.platformAdminOnly &&
+		definition.requiresWrite !== false &&
+		!caller.canWrite
+	) {
 		return writeRefusal(definition);
 	}
 	return "I can't do that with your current role and permissions. Ask an administrator if you need access.";

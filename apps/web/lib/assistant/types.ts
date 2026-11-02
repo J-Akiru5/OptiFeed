@@ -48,6 +48,7 @@ export const ASSISTANT_TOOL_IDS = [
 	"superadmin.grant_platform_admin",
 	"superadmin.revoke_platform_admin",
 	"superadmin.create_org",
+	"support.file_report",
 ] as const;
 
 export type AssistantToolId = (typeof ASSISTANT_TOOL_IDS)[number];
@@ -90,6 +91,12 @@ export interface AssistantActionDefinition {
 	platformAdminOnly?: boolean;
 	/** Tenant OWNER/ADMIN membership required (admin kinds). */
 	tenantAdminOnly?: boolean;
+	/**
+	 * Whether the caller must hold write access. Defaults to `true`; a support
+	 * tool that only files the caller's own report is safe for a read-only
+	 * account too (issue #487).
+	 */
+	requiresWrite?: boolean;
 	/** Dangerous kinds need a fresh HMAC step-up at Accept time. */
 	requiresStepUp: boolean;
 	describe(

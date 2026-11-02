@@ -3,19 +3,27 @@
 import { FOCUS_RING } from "@/components/superadmin/ui";
 import { Link, usePathname } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
-import { Activity, Cpu, Megaphone, ScrollText, TriangleAlert } from "lucide-react";
+import {
+	Activity,
+	Cpu,
+	Megaphone,
+	MessageSquareWarning,
+	ScrollText,
+	TriangleAlert,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 
 /**
  * Section tabs for the platform Operations area (E16.4, task I-15).
  *
  * The platform sidebar has one "Operations" entry; these tabs switch between
- * the four pages without adding four more top-level items to the console.
+ * the pages without adding a top-level console item per page.
  */
 
 const tabs = [
 	{ href: "/superadmin/operations", key: "health", icon: Activity },
 	{ href: "/superadmin/operations/errors", key: "errors", icon: TriangleAlert },
+	{ href: "/superadmin/operations/reports", key: "reports", icon: MessageSquareWarning },
 	{ href: "/superadmin/operations/firmware", key: "firmware", icon: Cpu },
 	{ href: "/superadmin/operations/audit", key: "audit", icon: ScrollText },
 	{ href: "/superadmin/operations/announcements", key: "announcements", icon: Megaphone },

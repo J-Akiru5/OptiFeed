@@ -177,6 +177,9 @@ const ALLOWLIST = new Set([
 	"health/route.ts",
 	// Regulation 404 handler: owns no tenant data and touches no database.
 	"[...fallback]/route.ts",
+	// Public issue reports (#487): unauthenticated by design, rate-limited per
+	// IP, honeypot-guarded, and writes no tenant-scoped data.
+	"reports/route.ts",
 ]);
 
 // Platform-admin routes authenticate with the verified session plus an active

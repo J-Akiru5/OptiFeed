@@ -451,7 +451,30 @@
 		"iso6": "Maintainability",
 		"iso7": "Efficiency",
 		"iso8": "Portability",
-		"ctaEyebrow": "Access sa study"
+		"ctaEyebrow": "Access sa study",
+		"reportIssue": {
+			"trigger": "Ireport ang isyu",
+			"title": "Ireport ang isyu",
+			"description": "Isugid sa amon ang natabo. Makalab-ot ang mga report sa platform team kag ginabinagbinag sunod sa pag-abot.",
+			"close": "Isira",
+			"category": "Kategorya",
+			"categories": {
+				"bug": "Bug",
+				"accessibility": "Accessibility",
+				"content": "Kaundan",
+				"other": "Iban pa"
+			},
+			"message": "Ano ang natabo?",
+			"messageHint": "Isaysay ang ginalauman mo kag ang nakita mo. Indi magbutang sang password ukon personal nga impormasyon.",
+			"email": "Email",
+			"emailHint": "Opsyonal, kon gusto mo nga sabton ka namon.",
+			"optional": "Opsyonal",
+			"submit": "Ipadala ang report",
+			"sending": "Ginapadala…",
+			"success": "Salamat — nabaton na ang report mo.",
+			"error": "Wala maipadala ang report. Tilawi liwat.",
+			"rateLimited": "Sobra ka damo nga report halin sa device nga ini. Tilawi sa ulihi."
+		}
 	},
 	"login": {
 		"eyebrow": "Pagsulod sa farm",
@@ -3969,7 +3992,8 @@
 				"errors": "Mga error event",
 				"firmware": "Firmware sang mga device",
 				"audit": "Audit log",
-				"announcements": "Mga abiso"
+				"announcements": "Mga abiso",
+				"reports": "Mga report"
 			},
 			"errors": {
 				"title": "Mga error event",
@@ -4210,6 +4234,39 @@
 				"clearing": "Ginatinluan…",
 				"cleared": "Natinluan ang abiso.",
 				"failed": "Indi ma-save ang abiso."
+			},
+			"reports": {
+				"title": "Mga report sang isyu",
+				"description": "Mga report parte sa accessibility, bug, kaundan kag iban pa halin sa public site ukon kay Pakoy.",
+				"summary": "{open} bukas sa {total} ka report",
+				"caption": "Mga report sang isyu",
+				"columns": {
+					"received": "Nabaton",
+					"category": "Kategorya",
+					"report": "Report",
+					"source": "Ginhalinan",
+					"status": "Estado"
+				},
+				"categories": {
+					"BUG": "Bug",
+					"ACCESSIBILITY": "Accessibility",
+					"CONTENT": "Kaundan",
+					"OTHER": "Iban pa"
+				},
+				"statuses": {
+					"OPEN": "Bukas",
+					"RESOLVED": "Nasulbar"
+				},
+				"sources": {
+					"PUBLIC": "Public site",
+					"ASSISTANT": "Pakoy"
+				},
+				"emptyTitle": "Wala pa sing report.",
+				"resolvedAt": "Nasulbar {when}",
+				"resolve": "Sulbara",
+				"resolving": "Ginasulbar…",
+				"resolvedJustNow": "Nasulbar",
+				"resolveFailed": "Wala masulbar. Tilawi liwat."
 			}
 		},
 		"statusBands": {

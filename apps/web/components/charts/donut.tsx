@@ -26,6 +26,9 @@ export function Donut({
 	unit,
 	height = 200,
 	className,
+	isLoading = false,
+	loadingLabel,
+	error = null,
 }: DonutProps) {
 	const theme = useChartTheme();
 	const total = sumValues(segments);
@@ -41,6 +44,9 @@ export function Donut({
 			emptyLabel={labels.empty}
 			isEmpty={colored.length === 0 || total === 0}
 			className={className}
+			isLoading={isLoading}
+			loadingLabel={loadingLabel}
+			error={error}
 			table={<SegmentTable segments={colored} labels={labels} caption={summary} />}
 		>
 			{/* Legend under the donut at every width: a card in a 3-column grid is

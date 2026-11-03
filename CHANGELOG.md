@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **A failed device poll now returns 503 instead of a fake 200 idle (#724).** `GET /api/feed-command` and `GET /api/schedule-sync` answered 200 with `feed_requested: false` / a default schedule whenever the database or a handler threw. The ESP32 read that as a successful poll and stopped retrying, so a pending feed expired undelivered while monitoring reported a healthy device. Both catches now return `503` with `Retry-After: 5`, which the firmware already retries on its 5 s loop; a genuinely empty queue still returns 200. The feed-command route also builds its firmware config before claiming the request, so a failure cannot mark a real feed `dispatched` and lose it.
+- **Feed event ids are unique per device, not globally (#727).** `FeedEvent.eventId` was globally unique, but the firmware mints ids per unit, so a second device (or a reflashed unit restarting its counter) could collide and have a real dispense answered `204` and dropped. The Prisma model is now `@@unique([deviceId, eventId])` and migration `20261104100000_feed_event_device_unique` replaces the old global index with the compound one. The 204 replay guard remains for the same device + event id; the same id from two devices now stores two rows. **This migration drops an existing index, so it is a schema relaxation — no rows are deleted, but it needs the owner's approval and a verified backup before it reaches production.**
 
 ## [1.51.0] - 2026-11-03
 

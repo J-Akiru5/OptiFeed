@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **A password reset now needs the proof carried by the recovery link (#718).** `completePasswordReset` previously accepted any authenticated session, so a stolen or shared session could set a permanent password without knowing the current one. The reset request now mints a 15-minute HMAC-SHA256 proof whose `jti` is stored in a new additive `PasswordResetToken` table, puts it in the Supabase recovery `redirectTo`, and the action verifies the signature, expiry and user binding before atomically consuming the proof. A missing, forged, expired, replayed or other-user proof returns `reset_link` and does not touch the password.
+- **A farm-wide failure burst no longer locks every farmer out (#721).** The per-(farm, IP) five-attempt hard lock is unchanged. The farm-wide counter still raises one security notification at ten failures in fifteen minutes, but it no longer writes or reads a farm-wide lock, so two source IPs cannot hold a farm offline. The accepted tradeoff is that distributed guessing below the per-pair lock is not stopped by a farm-wide gate.
+- **Client-IP trust and reset-link origins now fail closed (#732).** `TRUSTED_PROXY_HOPS` (default 1, clamped to 1..10) selects the address that many entries from the right; a shorter chain or invalid selected entry returns `null` instead of trusting a client-written value. Password-reset audit rows now use that parser, and a non-production deployment with neither `NEXT_PUBLIC_BASE_URL` nor `NEXT_PUBLIC_SITE_URL` mints no link and sends no email instead of pointing at production. The reset request still returns the same anti-enumeration answer and records the configuration failure.
+
+### Changed
+
+- **The shared fallback password is retired in the manual-testing documentation (#712).** `docs/password-auth-plan.md` now records that `password123` must not be used for any account, that `superadmin`, `independent-farmer` and `test` still need owner action in Supabase Auth, and that per-account random temporary passwords are required. The accounts are not claimed as fixed.
+
 ## [1.51.0] - 2026-11-03
 
 ### Added

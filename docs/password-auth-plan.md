@@ -1,5 +1,16 @@
 # OptiFeed — Password Authentication Plan
 
+## Security update — 2026-11-04: `password123` is retired (#712)
+
+`password123` is **retired** as a manual-testing fallback. It is a known-breached password and must not be used for any account, including temporary, demo and manual-QA accounts. The references later in this historical plan describe the 2026-10-26 rollout; they are kept for the record and must not be read as current instructions.
+
+Owner action is still required in Supabase Auth:
+
+- `superadmin` — confirm whether it still uses `password123`; if it does, rotate it to a unique random password. The repository cannot verify the credential because only Supabase Auth holds it.
+- `independent-farmer` and `test` — still flagged `mustChangePassword = true` as of 2026-11-03; force completion or disable the accounts.
+
+These accounts are **not** recorded as fixed by this document. Going forward, every account gets a per-account random temporary password; never provision, document or reuse a shared fallback.
+
 - **Status:** Implemented and verified on `feat/password-auth`; PR #157 open against `develop` with green `quality`/`compile` CI.
 - **Date:** 2026-10-26
 - **Repository:** `C:\Users\Client\CApstone\OptiFeed`

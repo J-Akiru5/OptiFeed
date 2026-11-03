@@ -36,6 +36,7 @@ import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
 import { formatFarmDateTime } from "@/lib/date-local";
 import { loadGrowthPlanForPond } from "@/lib/growth-plan-loader";
+import { fcrTrendDirection } from "@/lib/growth/fcr-trend";
 import { getLiveCountForPond, mortalityRatePct } from "@/lib/growth/live-count";
 import type { GrowthSnapshotData } from "@/lib/offline/snapshots";
 import { getActivePond } from "@/lib/pond-selection";
@@ -250,14 +251,21 @@ export default async function GrowthPage() {
 	// the fallback when the cycle inputs are missing, and the history chart
 	// below still renders the stored report rows.
 	const latestFcr =
-		derivedFcr.fcr ?? (fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0);
-	const latestBiomass =
-		biomassLogs.length > 0 ? biomassLogs[biomassLogs.length - 1].avgWeightKg : 0;
-	const previousBiomass =
-		biomassLogs.length > 1 ? biomassLogs[biomassLogs.length - 2].avgWeightKg : 0;
+		derivedFcr.fcr ?? (fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : null);
+	const latestSample = biomassDesc[0] ?? null;
+	const latestBiomass = latestSample?.avgWeightKg ?? null;
+	const previousBiomass = biomassDesc[1]?.avgWeightKg ?? null;
 
 	const biomassGrowthPct =
-		previousBiomass > 0 ? ((latestBiomass - previousBiomass) / previousBiomass) * 100 : 0;
+		latestBiomass !== null && previousBiomass !== null && previousBiomass > 0
+			? ((latestBiomass - previousBiomass) / previousBiomass) * 100
+			: null;
+
+	const fcrTrendValues = fcrReports.map((report) => report.fcrValue);
+	if (derivedFcr.fcr !== null) fcrTrendValues.push(derivedFcr.fcr);
+	// #752: a direction needs two comparable points. One report (or none) must
+	// not claim "trending down".
+	const fcrTrend = fcrTrendDirection(fcrTrendValues);
 
 	const formatDate = (d: Date) => formatFarmDateTime(d, tDates).date;
 
@@ -293,11 +301,10 @@ export default async function GrowthPage() {
 		return `M ${points.join(" L ")}`;
 	};
 
-	const latestSample = biomassDesc[0] ?? null;
 	const growthSnapshot: GrowthSnapshotData = {
 		pondName: pond.name,
 		latestAbwG: latestSample ? latestSample.avgWeightKg * 1000 : null,
-		latestFcr: latestFcr > 0 ? latestFcr : null,
+		latestFcr: latestFcr !== null && latestFcr > 0 ? latestFcr : null,
 		latestSampleAt: latestSample?.recordedAt.toISOString() ?? null,
 		cycleLabel: activeCycle?.label ?? null,
 		targetWeightG: loadedPlan?.plan.targetWeightG ?? activeCycle?.targetHarvestWeightG ?? null,
@@ -369,14 +376,18 @@ export default async function GrowthPage() {
 							{t("fcrEyebrow")}
 						</span>
 						<div className="text-5xl md:text-6xl font-black mt-2 tracking-tight">
-							{latestFcr.toFixed(2)}
+							{latestFcr === null ? "—" : latestFcr.toFixed(2)}
 						</div>
-						<p className="text-xs text-blue-100 mt-2 max-w-md">
-							{t.rich("fcrExplain", {
-								value: latestFcr.toFixed(2),
-								bold: (chunks) => <strong>{chunks}</strong>,
-							})}
-						</p>
+						{latestFcr === null ? (
+							<p className="text-xs text-blue-100 mt-2 max-w-md">{t("fcrNoData")}</p>
+						) : (
+							<p className="text-xs text-blue-100 mt-2 max-w-md">
+								{t.rich("fcrExplain", {
+									value: latestFcr.toFixed(2),
+									bold: (chunks) => <strong>{chunks}</strong>,
+								})}
+							</p>
+						)}
 						{derivedFcr.fcr !== null && (
 							<p className="text-[11px] text-blue-200/80 mt-1.5 max-w-md">
 								{t("fcrInputs", {
@@ -387,14 +398,16 @@ export default async function GrowthPage() {
 							</p>
 						)}
 					</div>
-					<div className="bg-white/10 px-4 py-3 rounded-2xl border border-white/10 shrink-0">
-						<p className="text-[10px] text-gray-300 uppercase tracking-widest font-mono">
-							{t("stockHealth")}
-						</p>
-						<p className="text-base font-extrabold text-green-400 flex items-center gap-1.5">
-							<TrendingUp className="w-4 h-4" /> {t("stockHealthValue")}
-						</p>
-					</div>
+					{latestFcr !== null && (
+						<div className="bg-white/10 px-4 py-3 rounded-2xl border border-white/10 shrink-0">
+							<p className="text-[10px] text-gray-300 uppercase tracking-widest font-mono">
+								{t("stockHealth")}
+							</p>
+							<p className="text-base font-extrabold text-green-400 flex items-center gap-1.5">
+								<TrendingUp className="w-4 h-4" /> {t("stockHealthValue")}
+							</p>
+						</div>
+					)}
 				</div>
 			</div>
 
@@ -506,10 +519,12 @@ export default async function GrowthPage() {
 								/>
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
-								{(latestBiomass * 1000).toFixed(1)}{" "}
-								<span className="text-lg text-gray-500 font-medium">g</span>
+								{latestBiomass === null ? "—" : (latestBiomass * 1000).toFixed(1)}{" "}
+								{latestBiomass !== null && (
+									<span className="text-lg text-gray-500 font-medium">g</span>
+								)}
 							</p>
-							{biomassGrowthPct > 0 && (
+							{biomassGrowthPct !== null && biomassGrowthPct > 0 && (
 								<p className="text-sm text-green-700 font-medium mt-1 flex items-center gap-1 dark:text-green-400">
 									<TrendingUp aria-hidden="true" className="h-4 w-4" />{" "}
 									{t("vsLastSample", { pct: biomassGrowthPct.toFixed(1) })}
@@ -567,8 +582,8 @@ export default async function GrowthPage() {
 						<span className="sr-only">
 							{t("chartSummary", {
 								count: biomassLogs.length,
-								latest: (latestBiomass * 1000).toFixed(1),
-								fcr: latestFcr.toFixed(2),
+								latest: latestBiomass === null ? "—" : (latestBiomass * 1000).toFixed(1),
+								fcr: latestFcr === null ? "—" : latestFcr.toFixed(2),
 							})}
 						</span>
 					</div>
@@ -586,11 +601,23 @@ export default async function GrowthPage() {
 								/>
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
-								{latestFcr.toFixed(2)}
+								{latestFcr === null ? "—" : latestFcr.toFixed(2)}
 							</p>
-							<p className="text-sm text-green-700 font-medium mt-1 flex items-center gap-1 dark:text-green-400">
-								{t("trendingDown")} <Activity aria-hidden="true" className="h-4 w-4" />
-							</p>
+							{fcrTrend === -1 && (
+								<p className="text-sm text-green-700 font-medium mt-1 flex items-center gap-1 dark:text-green-400">
+									{t("trendingDown")} <Activity aria-hidden="true" className="h-4 w-4" />
+								</p>
+							)}
+							{fcrTrend === 1 && (
+								<p className="text-sm text-amber-700 font-medium mt-1 flex items-center gap-1 dark:text-amber-400">
+									{t("trendingUp")} <TrendingUp aria-hidden="true" className="h-4 w-4" />
+								</p>
+							)}
+							{fcrTrend === 0 && (
+								<p className="text-sm text-gray-600 font-medium mt-1 flex items-center gap-1 dark:text-gray-400">
+									{t("trendingStable")} <Activity aria-hidden="true" className="h-4 w-4" />
+								</p>
+							)}
 						</div>
 						<div className="h-14 w-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center dark:bg-blue-500/15 dark:text-blue-300">
 							<Scale aria-hidden="true" className="h-7 w-7" />
@@ -598,39 +625,45 @@ export default async function GrowthPage() {
 					</div>
 
 					{/* FCR Bar Chart (Tailwind CSS) */}
-					<div className="mt-4 flex items-end justify-between h-24 gap-2" aria-hidden="true">
-						{fcrReports.map((report) => {
-							const maxFcr = Math.max(...fcrReports.map((r) => r.fcrValue), 2.5);
-							const heightPct = (report.fcrValue / maxFcr) * 100;
-							return (
-								<div
-									key={report.id}
-									className="flex-1 flex flex-col justify-end items-center group"
-								>
-									<div className="text-xs font-bold text-gray-600 dark:text-gray-300 mb-1">
-										{report.fcrValue.toFixed(2)}
-									</div>
+					{fcrReports.length === 0 ? (
+						<p className="mt-4 flex h-24 items-center text-sm text-gray-500 dark:text-gray-400">
+							{t("fcrChartEmpty")}
+						</p>
+					) : (
+						<div className="mt-4 flex items-end justify-between h-24 gap-2" aria-hidden="true">
+							{fcrReports.map((report) => {
+								const maxFcr = Math.max(...fcrReports.map((r) => r.fcrValue), 2.5);
+								const heightPct = (report.fcrValue / maxFcr) * 100;
+								return (
 									<div
-										className="w-full bg-blue-100 rounded-t-lg group-hover:bg-blue-300 transition-colors relative dark:bg-blue-500/15 dark:group-hover:bg-blue-500/25"
-										style={{ height: `${heightPct}%` }}
+										key={report.id}
+										className="flex-1 flex flex-col justify-end items-center group"
 									>
+										<div className="text-xs font-bold text-gray-600 dark:text-gray-300 mb-1">
+											{report.fcrValue.toFixed(2)}
+										</div>
 										<div
-											className="absolute bottom-0 w-full bg-blue-500 rounded-t-lg transition-all"
-											style={{ height: "4px" }}
-										/>
+											className="w-full bg-blue-100 rounded-t-lg group-hover:bg-blue-300 transition-colors relative dark:bg-blue-500/15 dark:group-hover:bg-blue-500/25"
+											style={{ height: `${heightPct}%` }}
+										>
+											<div
+												className="absolute bottom-0 w-full bg-blue-500 rounded-t-lg transition-all"
+												style={{ height: "4px" }}
+											/>
+										</div>
+										<div className="text-xs text-gray-500 dark:text-gray-400 mt-2 font-medium">
+											{formatDate(report.periodEnd)}
+										</div>
 									</div>
-									<div className="text-xs text-gray-500 dark:text-gray-400 mt-2 font-medium">
-										{formatDate(report.periodEnd)}
-									</div>
-								</div>
-							);
-						})}
-					</div>
+								);
+							})}
+						</div>
+					)}
 					<span className="sr-only">
 						{t("chartSummary", {
 							count: fcrReports.length,
-							latest: (latestBiomass * 1000).toFixed(1),
-							fcr: latestFcr.toFixed(2),
+							latest: latestBiomass === null ? "—" : (latestBiomass * 1000).toFixed(1),
+							fcr: latestFcr === null ? "—" : latestFcr.toFixed(2),
 						})}
 					</span>
 				</div>

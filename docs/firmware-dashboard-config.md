@@ -211,6 +211,31 @@ echoed a config since the last change is shown as **pending** and a unit with no
 available: the firmware reports one revision, never the individual numbers, and
 the card says so rather than inventing a second config store.
 
+## Farmer device settings: the physical button dose (#658)
+
+Device settings → **Feeding** (dashboard → Settings → Hardware) carries
+**Button feed amount** beside the daily ceiling. It writes
+`EnergyDevice.buttonFeedGrams` through `updateDeviceButtonFeed` (the existing
+settings server action; no new route or table), with the revocable
+`control_feeder` permission, a `button_feed_changed` `DeviceStateEvent` in the
+same transaction as the update, and a page revalidation so the reported block
+re-reads immediately.
+
+The input is bound to the firmware's own `button_feed_grams` envelope
+(`firmware/firmware-main/config.h`: 1-500 g). `BUTTON_FEED_GRAMS_MIN/MAX` in
+`lib/limits.ts` carry the same numbers, `buttonFeedGramsSchema` refuses outside
+it, and a unit test parses the header so the two cannot drift.
+
+A saved value is not proof the unit took it: the device keeps its last-good
+config when it refuses a config object and an offline unit never polls. The
+firmware reports one `config_rev`, never per-key values, so the only device-side
+evidence of the dose actually used is the `feed_dispensed` event a button press
+produces. The card compares the newest button-sourced `FeedEvent` with the newest
+`button_feed_changed` row: a later press that dispensed the stored dose is
+**confirmed**; a press before the change or one that dispensed another weight is
+**not confirmed**; no press at all is reported as no press rather than success. A
+failed read is shown as unavailable, not as "no press".
+
 
 ## E38: the daily ceiling is the only gram cap
 

@@ -9,6 +9,7 @@ import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentPondOwnerId } from "@/lib/auth/session";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import {
+	buttonFeedGramsSchema,
 	dailyCapSchema,
 	formatZodError,
 	notificationPrefsSchema,
@@ -16,6 +17,7 @@ import {
 } from "@/lib/limits";
 import { type PondProfileInput, mergePondProfile, pondProfileSchema } from "@/lib/pond-profile";
 import prisma from "@/lib/prisma";
+import { BUTTON_FEED_CHANGED_EVENT } from "@/lib/settings/button-feed";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
 import {
 	type PondDeviceConflict,
@@ -440,5 +442,75 @@ export async function updateDeviceDailyCap(
 		if (denied) return denied;
 		console.error("Failed to update daily feed ceiling:", error);
 		return { success: false, error: "Failed to update the daily feed ceiling" };
+	}
+}
+
+/**
+ * The dose one physical button press dispenses on this device (issue #658).
+ *
+ * `button_feed_grams` was already overlaid into the poll response from
+ * `EnergyDevice.buttonFeedGrams`, but nothing wrote the column, so every unit
+ * dispensed the 80 g schema default. This is a feeding control like the daily
+ * ceiling, so it uses the same revocable `control_feeder` permission.
+ *
+ * The window is the firmware's own `button_feed_grams` envelope (1-500 g,
+ * `firmware/firmware-main/config.h`); the schema mirrors it and refuses an
+ * out-of-range value before any read or write. The update and its
+ * `button_feed_changed` audit row commit together, and the hardware page is
+ * revalidated so the reported-back block re-reads the device's last press.
+ */
+export async function updateDeviceButtonFeed(
+	deviceId: string,
+	buttonFeedGrams: number,
+): Promise<{
+	success: boolean;
+	error?: string;
+	buttonFeedGrams?: number;
+	code?: ActionDenialReason;
+}> {
+	try {
+		await requirePermission("control_feeder");
+		const parsed = buttonFeedGramsSchema.safeParse(buttonFeedGrams);
+		if (!parsed.success) {
+			return { success: false, error: formatZodError(parsed.error) };
+		}
+
+		const ownerId = await getCurrentPondOwnerId();
+		const device = await prisma.energyDevice.findFirst({
+			where: { id: deviceId, pond: { ownerId } },
+			select: { id: true, buttonFeedGrams: true },
+		});
+		if (!device) {
+			return { success: false, error: "Device not found" };
+		}
+
+		await prisma.$transaction([
+			prisma.energyDevice.update({
+				where: { id: device.id },
+				data: { buttonFeedGrams: parsed.data },
+			}),
+			prisma.deviceStateEvent.create({
+				data: {
+					deviceId: device.id,
+					eventType: BUTTON_FEED_CHANGED_EVENT,
+					source: "user",
+					actorId: ownerId,
+					metadata: {
+						previousGrams: device.buttonFeedGrams,
+						buttonFeedGrams: parsed.data,
+					},
+				},
+			}),
+		]);
+
+		revalidatePath("/[locale]/(dashboard)/dashboard/settings/hardware", "page");
+		revalidatePath("/[locale]/(dashboard)", "layout");
+		return { success: true, buttonFeedGrams: parsed.data };
+	} catch (error) {
+		rethrowIfNavigationError(error);
+		const denied = actionDenialResult(error);
+		if (denied) return denied;
+		console.error("Failed to update the button feed amount:", error);
+		return { success: false, error: "Failed to update the button feed amount" };
 	}
 }

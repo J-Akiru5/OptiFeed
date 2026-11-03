@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.51.0] - 2026-11-03
+
+### Added
+
+- **The command center renders the charts it was built for (#707).** The six primitives, the shared 7d/30d/90d/custom range and the lazy entry points were shipped in #629 but no page imported them, so the console still showed the old three charts. The sections now read from the real growth, feed-breakdown, heatmap, freshness and fault models, with explicit empty, single-point, error and permission-denied states. Found by an independent QA pass, not by the unit tests - the components were only ever tested in isolation.
+
+### Fixed
+
+- **Six console contrast and layout defects from that QA pass (#631).** Dark-mode hover text went from 1.41:1 to the tested `console-content` pair; white on brand orange (3.54:1) moved to the accent pair at 5.18:1 light and 8.06:1 dark; five error banners and the "BEST" chip no longer sit light inside dark chrome; the navy chart series (1.54:1 on dark) got a dark palette where the darkest is 6.20:1; five tables stop rendering as both table and cards at 390 px; and the connectivity chart's 9 px viewBox labels no longer scale to ~4 px on a phone.
+
 ### Added
 
 - **The command center renders the chart layer it already shipped (#707).** #629 built six primitives, the shared range control and four platform read models, but no page imported any of them, so the console a platform admin sees was unchanged. `/superadmin` now draws sections C–G from the real queries: registrations per day (`getGrowthSeries`), feed by organization → pond sized by mass (`getFeedBreakdown`), the day × hour feeding grid (`getFeedHeatmap`), telemetry freshness and current fault distribution (`getFleetMonitor` plus the zero-query summaries), and a newest-first activity rail built from the failed-job and pending-approval rows the page already loaded. The shared `ChartRangeProvider`/`ChartRangeControl` wraps the page: choosing 7/30/90 writes `?range=`, so the queries re-run rather than only the plot, and a custom window narrows the widest loaded window in the browser because `parseAnalyticsRange` has no custom spelling. Each read is isolated with `Promise.allSettled`: a failing section renders its own "could not load" panel (the fleet monitor's `sourceError` does the same) instead of an empty axis, while an auth redirect raised inside a loader is re-thrown so a non-admin never gets the console. The range filter is anchored to the newest bucket the server returned, which stops the newest day from disappearing when the browser's day boundary lags the Asia/Manila one. `superadmin-command-center-wiring.test.ts` asserts the imports themselves, which is the part the isolated component suites could not see.

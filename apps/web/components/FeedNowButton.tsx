@@ -2,12 +2,13 @@
 
 import { DeviceSignalReading } from "@/components/device-signal";
 import { Link } from "@/i18n/routing";
+import { useModalDialog } from "@/lib/a11y/use-modal-dialog";
 import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
 import { type FeedNowLimit, formatFeedGrams } from "@/lib/limits-core";
 import { useOnlineStatus } from "@/lib/pwa/use-online-status";
 import { Activity, AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 
 interface FeedNowButtonProps {
@@ -48,6 +49,8 @@ export function FeedNowButton({
 	const [dispensing, setDispensing] = useState(false);
 	const [showConfirm, setShowConfirm] = useState(false);
 	const online = useOnlineStatus();
+	const titleId = useId();
+	const panelRef = useModalDialog<HTMLDivElement>(showConfirm, () => setShowConfirm(false));
 
 	const isOffline = connectionStatus === "offline";
 	const isWeak = connectionStatus === "weak";
@@ -110,7 +113,7 @@ export function FeedNowButton({
 					disabled={
 						dispensing || isOffline || browserOffline || !canWrite || isFallow || dispenseGrams < 1
 					}
-					className="bg-[#E85A2A] text-white font-black text-sm md:text-base px-6 py-3 rounded-2xl hover:bg-[#d04a1f] shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center gap-2 max-xl:w-full max-xl:min-h-12 max-xl:justify-center max-xl:rounded-xl disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600 disabled:shadow-none dark:disabled:bg-gray-700 dark:disabled:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
+					className="bg-[var(--ofd-cta)] text-white font-black text-sm md:text-base px-6 py-3 rounded-2xl hover:bg-[var(--ofd-cta-hover)] shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center gap-2 max-xl:w-full max-xl:min-h-12 max-xl:justify-center max-xl:rounded-xl disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600 disabled:shadow-none dark:disabled:bg-gray-700 dark:disabled:text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]"
 					data-onboard={dataOnboard}
 					data-help="feed-now"
 				>
@@ -157,7 +160,15 @@ export function FeedNowButton({
 
 			{showConfirm && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-					<div className="bg-white rounded-[32px] p-6 md:p-8 max-w-md w-full border border-gray-200 shadow-2xl space-y-6">
+					{/* biome-ignore lint/a11y/useSemanticElements: a native <dialog> needs imperative showModal() and its own top-layer/backdrop behaviour; this controlled panel keeps the shared focus/Escape contract from useModalDialog. */}
+					<div
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby={titleId}
+						tabIndex={-1}
+						ref={panelRef}
+						className="bg-white rounded-[32px] p-6 md:p-8 max-w-md w-full border border-gray-200 shadow-2xl space-y-6 outline-none"
+					>
 						{(isOffline || browserOffline) && (
 							<div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
 								<AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
@@ -186,7 +197,10 @@ export function FeedNowButton({
 						)}
 
 						<div>
-							<h3 className="font-black text-xl md:text-2xl uppercase tracking-tight text-[#C42B3A] mb-2">
+							<h3
+								id={titleId}
+								className="font-black text-xl md:text-2xl uppercase tracking-tight text-[#C42B3A] mb-2"
+							>
 								{t("triggerTitle")}
 							</h3>
 							<p className="text-sm text-[#3D5568] leading-relaxed">
@@ -257,7 +271,7 @@ export function FeedNowButton({
 								type="button"
 								onClick={handleFeedNow}
 								disabled={browserOffline || dispenseGrams < 1}
-								className="flex-1 bg-[#E85A2A] text-white font-extrabold text-sm py-3.5 rounded-xl hover:bg-[#d04a1f] shadow-lg transition-all disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600 disabled:shadow-none dark:disabled:bg-gray-700 dark:disabled:text-gray-300"
+								className="flex-1 bg-[var(--ofd-cta)] text-white font-extrabold text-sm py-3.5 rounded-xl hover:bg-[var(--ofd-cta-hover)] shadow-lg transition-all disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600 disabled:shadow-none dark:disabled:bg-gray-700 dark:disabled:text-gray-300"
 							>
 								{tBtn("yesDispenseNow")}
 							</button>

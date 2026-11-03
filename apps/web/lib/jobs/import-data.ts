@@ -2,10 +2,9 @@ import { createHash } from "node:crypto";
 import { badRequest, notFound } from "@/lib/api/errors";
 import { resolveActivePond } from "@/lib/auth/pond-access";
 import { IMPORT_ROW_LIMIT } from "@/lib/constants";
-import { type ExportableType, parseCsvString } from "@/lib/csv";
+import { type ExportableType, IMPORTABLE_TYPES, parseCsvString } from "@/lib/csv";
 import prisma from "@/lib/prisma";
 import { coerceCell } from "@/lib/xlsx/schema";
-import { CSV_EXPORT_TYPES } from "./export-data";
 
 export interface ImportResult {
 	importedCount: number;
@@ -131,10 +130,9 @@ export async function confirmImport(
 	options: ConfirmImportOptions = {},
 ): Promise<ImportResult> {
 	// The value arrives from a request body or a queued job payload, so it is not
-	// trustworthy just because the type says so. Without this check an unknown
-	// type matched no switch case and reported a successful zero-row import
-	// (plus a misleading `data_imported` audit row).
-	if (!CSV_EXPORT_TYPES.includes(type)) {
+	// trustworthy just because the type says so. audit_events is deliberately
+	// absent: accepting it would let a caller forge audit provenance (#744).
+	if (!IMPORTABLE_TYPES.includes(type)) {
 		throw badRequest("Unknown import type.");
 	}
 
@@ -272,28 +270,10 @@ export async function confirmImport(
 					break;
 				}
 				case "audit_events": {
-					if (!device) throw new Error("No device found");
-					const rows = data.map((row, index) => {
-						let metadata = null;
-						if (row.metadata) {
-							try {
-								metadata = JSON.parse(String(row.metadata));
-							} catch {
-								metadata = { raw: row.metadata };
-							}
-						}
-						return {
-							deviceId: device.id,
-							eventType: String(row.eventType),
-							source: String(row.source),
-							actorId: row.actorId ? String(row.actorId) : null,
-							metadata,
-							deviceTime: row.deviceTime ? String(row.deviceTime) : null,
-							createdAt: optionalDateField(row, "createdAt", index) ?? new Date(),
-						};
-					});
-					count = (await tx.deviceStateEvent.createMany({ data: rows })).count;
-					break;
+					// Unreachable: audit_events is export-only and rejected above
+					// (#744). Kept out of the import switch so there is no path that
+					// copies caller-supplied provenance into DeviceStateEvent.
+					throw badRequest("Audit events cannot be imported.");
 				}
 			}
 

@@ -393,7 +393,7 @@ export function LogSampleForm({
 					<button
 						type="button"
 						onClick={resetForAnother}
-						className="bg-[#E85A2A] text-white px-8 py-3.5 rounded-2xl font-black shadow-lg hover:bg-[#d04a1f] transition-all"
+						className="bg-[var(--ofd-cta)] text-white px-8 py-3.5 rounded-2xl font-black shadow-lg hover:bg-[var(--ofd-cta-hover)] transition-all"
 					>
 						{tLog("logAnother")}
 					</button>
@@ -564,7 +564,7 @@ export function LogSampleForm({
 							<button
 								type="button"
 								onClick={addFishEntry}
-								className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E85A2A] text-white text-xs font-bold rounded-lg hover:bg-[#d04a1f] transition-colors"
+								className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--ofd-cta)] text-white text-xs font-bold rounded-lg hover:bg-[var(--ofd-cta-hover)] transition-colors"
 							>
 								<Plus aria-hidden="true" className="w-3.5 h-3.5" />
 								{tLog("addFish")}
@@ -787,7 +787,7 @@ export function LogSampleForm({
 					<button
 						type="submit"
 						disabled={isPending || avgWeightG === 0 || !canWrite}
-						className="w-full md:w-auto bg-[#E85A2A] text-white px-8 py-3.5 rounded-2xl font-black shadow-lg hover:bg-[#d04a1f] hover:shadow-xl transition-all transform active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex justify-center items-center gap-2"
+						className="w-full md:w-auto bg-[var(--ofd-cta)] text-white px-8 py-3.5 rounded-2xl font-black shadow-lg hover:bg-[var(--ofd-cta-hover)] hover:shadow-xl transition-all transform active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex justify-center items-center gap-2"
 					>
 						{isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : tBtn("saveSample")}
 					</button>

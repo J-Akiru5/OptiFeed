@@ -477,7 +477,7 @@ export function GrowthPlanCard({ plan, pondId, canWrite }: GrowthPlanCardProps) 
 									type="button"
 									onClick={() => setConfirming(true)}
 									disabled={!canWrite}
-									className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#E85A2A] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#d14e22] disabled:opacity-50"
+									className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[var(--ofd-cta)] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[var(--ofd-cta-hover)] disabled:opacity-50"
 								>
 									<Scale className="h-4 w-4" />
 									{initializing

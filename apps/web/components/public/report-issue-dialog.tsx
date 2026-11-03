@@ -353,7 +353,7 @@ export function ReportIssueDialog({ labels }: ReportIssueDialogProps) {
 									type="submit"
 									disabled={status === "sending"}
 									className={cn(
-										"mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-[#E85A2A] px-4 text-[14px] font-semibold text-white shadow-[0_10px_30px_-12px_rgba(232,90,42,0.7)] transition-colors hover:bg-[#D24E22] disabled:cursor-not-allowed disabled:opacity-60",
+										"mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-[var(--ofd-cta)] px-4 text-[14px] font-semibold text-white shadow-[0_10px_30px_-12px_rgba(232,90,42,0.7)] transition-colors hover:bg-[var(--ofd-cta-hover)] disabled:cursor-not-allowed disabled:opacity-60",
 										focusRingOnDark,
 									)}
 								>

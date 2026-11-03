@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import type { SetAllCookies } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { sessionCookieOptions } from "./cookie-options";
 
 function requireEnv(name: string): string {
 	const value = process.env[name];
@@ -19,6 +20,7 @@ export async function createClient() {
 		requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
 		requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
 		{
+			cookieOptions: sessionCookieOptions(process.env.NODE_ENV === "production"),
 			cookies: {
 				getAll() {
 					return cookieStore.getAll();

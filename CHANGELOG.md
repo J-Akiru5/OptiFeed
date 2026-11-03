@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+### Fixed
+
+- **Reminder email now reaches real contact addresses (#742).** The crop reminder selects `User.contactEmail`, skips synthetic or invalid addresses, and resolves owner/admin recipients from active memberships instead of the legacy role column.
+- **The notification inbox and alert surfaces behave as one system (#746, #747, #748, #757, #759).** Stored deep links are allowlisted and localized, every stored category has a label/filter, escalation updates re-open the alert, pond-wide preferences are owner/admin-only, the toast/banner and dialogs are accessible, and the report dialog can be cancelled or timed out without losing input.
+
 ## [1.52.0] - 2026-11-04
 
 ### Fixed

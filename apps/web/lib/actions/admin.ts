@@ -893,8 +893,9 @@ async function countActiveOwners(
  * Add a member to the caller's organization.
  *
  * There is no invite table: an existing account is attached (or reactivated),
- * otherwise a new login is provisioned with a one-time temporary password.
- * No email is sent — the admin shares the password directly.
+ * otherwise a new login is provisioned with a one-time temporary password. The
+ * invitation email is best-effort; the inviter still sees the password once if
+ * mail is unconfigured or delivery fails.
  */
 export async function inviteMember(input: InviteMemberInput): Promise<InviteMemberState> {
 	await requireTenantAdmin();

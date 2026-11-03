@@ -1,8 +1,12 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ReportIssueDialog, type ReportIssueLabels } from "@/components/public/report-issue-dialog";
+import {
+	REPORT_REQUEST_TIMEOUT_MS,
+	ReportIssueDialog,
+	type ReportIssueLabels,
+} from "@/components/public/report-issue-dialog";
 
 const labels: ReportIssueLabels = {
 	trigger: "Report an issue",
@@ -23,6 +27,8 @@ const labels: ReportIssueLabels = {
 	optional: "optional",
 	submit: "Send report",
 	sending: "Sending…",
+	cancel: "Cancel sending",
+	retry: "Try again",
 	success: "Thank you — your report was sent.",
 	error: "The report could not be sent. Please try again.",
 	rateLimited: "Too many reports from this connection. Please try again later.",
@@ -37,6 +43,7 @@ async function openDialog() {
 }
 
 afterEach(() => {
+	vi.useRealTimers();
 	vi.unstubAllGlobals();
 	document.documentElement.lang = "";
 });
@@ -117,5 +124,83 @@ describe("ReportIssueDialog", () => {
 		fireEvent.click(screen.getByRole("button", { name: labels.submit }));
 
 		expect(await screen.findByRole("alert")).toHaveTextContent(labels.rateLimited);
+		expect(screen.getByRole("button", { name: labels.retry })).toBeInTheDocument();
+	});
+
+	it("cancels an in-flight report without clearing the typed text", async () => {
+		const fetchMock = vi.fn().mockImplementation(
+			(_url: string, init: RequestInit) =>
+				new Promise((_resolve, reject) => {
+					init.signal?.addEventListener("abort", () =>
+						reject(new DOMException("Aborted", "AbortError")),
+					);
+				}),
+		);
+		vi.stubGlobal("fetch", fetchMock);
+
+		await openDialog();
+		const message = screen.getByLabelText(labels.message);
+		fireEvent.change(message, { target: { value: "The footer link is broken" } });
+		fireEvent.click(screen.getByRole("button", { name: labels.submit }));
+
+		const cancel = await screen.findByRole("button", { name: labels.cancel });
+		fireEvent.click(cancel);
+
+		expect(await screen.findByRole("button", { name: labels.submit })).toBeInTheDocument();
+		expect(message).toHaveValue("The footer link is broken");
+		expect((fetchMock.mock.calls[0]?.[1] as RequestInit).signal?.aborted).toBe(true);
+	});
+
+	it("closes on Escape while sending and reopens with the report preserved", async () => {
+		const fetchMock = vi.fn().mockImplementation(
+			(_url: string, init: RequestInit) =>
+				new Promise((_resolve, reject) => {
+					init.signal?.addEventListener("abort", () =>
+						reject(new DOMException("Aborted", "AbortError")),
+					);
+				}),
+		);
+		vi.stubGlobal("fetch", fetchMock);
+
+		const { user, trigger } = await openDialog();
+		fireEvent.change(screen.getByLabelText(labels.message), {
+			target: { value: "The footer link is broken" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: labels.submit }));
+		await screen.findByRole("button", { name: labels.cancel });
+
+		await user.keyboard("{Escape}");
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+		await user.click(trigger);
+		expect(screen.getByLabelText(labels.message)).toHaveValue("The footer link is broken");
+	});
+
+	it("times out, keeps the report and offers a retry", async () => {
+		vi.useFakeTimers();
+		const fetchMock = vi.fn().mockImplementation(
+			(_url: string, init: RequestInit) =>
+				new Promise((_resolve, reject) => {
+					init.signal?.addEventListener("abort", () =>
+						reject(new DOMException("Aborted", "AbortError")),
+					);
+				}),
+		);
+		vi.stubGlobal("fetch", fetchMock);
+
+		render(<ReportIssueDialog labels={labels} />);
+		fireEvent.click(screen.getByRole("button", { name: labels.trigger }));
+		const message = screen.getByLabelText(labels.message);
+		fireEvent.change(message, { target: { value: "The footer link is broken" } });
+		fireEvent.click(screen.getByRole("button", { name: labels.submit }));
+
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(REPORT_REQUEST_TIMEOUT_MS);
+		});
+
+		expect(screen.getByRole("alert")).toHaveTextContent(labels.error);
+		expect(screen.getByRole("button", { name: labels.retry })).toBeInTheDocument();
+		expect(message).toHaveValue("The footer link is broken");
+		vi.useRealTimers();
 	});
 });

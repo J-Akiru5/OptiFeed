@@ -112,4 +112,28 @@ describe("FeedNowButton", () => {
 			expect(actionMocks.requestFeed).toHaveBeenCalledWith("device-1", 1500);
 		});
 	});
+
+	it("exposes the confirmation as a dialog, traps focus and closes on Escape", async () => {
+		render(
+			<FeedNowButton
+				deviceId="device-1"
+				nextFeedingVolume="150g"
+				label="Feed Now"
+				feedNowLimit={limit}
+			/>,
+		);
+
+		const trigger = screen.getByRole("button", { name: "Feed Now" });
+		trigger.focus();
+		fireEvent.click(trigger);
+
+		const dialog = screen.getByRole("dialog", { name: "Trigger Manual Feeding?" });
+		expect(dialog).toHaveAttribute("aria-modal", "true");
+		await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+
+		fireEvent.keyDown(window, { key: "Escape" });
+
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+		expect(trigger).toHaveFocus();
+	});
 });

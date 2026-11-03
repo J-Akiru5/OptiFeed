@@ -1,5 +1,6 @@
 "use server";
 
+import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { type NotificationPrefs, formatZodError, notificationPrefsSchema } from "@/lib/limits";
 import prisma from "@/lib/prisma";
@@ -190,6 +191,10 @@ export async function acknowledgeNotification(
  * know about. Legacy rows may only contain the three feeding/device flags; the
  * schema fills the reminder flags with `true` while unknown keys survive the
  * merge for forward compatibility.
+ *
+ * The stored value is pond-wide, not personal (#748), so changing it requires
+ * `manage_farms_ponds` (OWNER/ADMIN by default). Without that gate any
+ * write-access OPERATOR could mute every member's alerts.
  */
 export async function updateNotificationPrefs(
 	pondId: string,
@@ -197,6 +202,7 @@ export async function updateNotificationPrefs(
 ): Promise<{ success: boolean; error?: string }> {
 	try {
 		await requireWriteAccess();
+		await requirePermission("manage_farms_ponds");
 		const parsed = notificationPrefsSchema.safeParse(prefs);
 		if (!parsed.success) {
 			return { success: false, error: formatZodError(parsed.error) };

@@ -1,13 +1,14 @@
 "use client";
 
 import { DeviceSignalReading } from "@/components/device-signal";
+import { useModalDialog } from "@/components/ui/use-modal-dialog";
 import { Link } from "@/i18n/routing";
 import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
 import { type FeedNowLimit, formatFeedGrams } from "@/lib/limits-core";
 import { useOnlineStatus } from "@/lib/pwa/use-online-status";
-import { Activity, AlertTriangle } from "lucide-react";
+import { Activity, AlertTriangle, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 
 interface FeedNowButtonProps {
@@ -47,6 +48,9 @@ export function FeedNowButton({
 
 	const [dispensing, setDispensing] = useState(false);
 	const [showConfirm, setShowConfirm] = useState(false);
+	const titleId = useId();
+	const closeConfirm = () => setShowConfirm(false);
+	const panelRef = useModalDialog(showConfirm, closeConfirm);
 	const online = useOnlineStatus();
 
 	const isOffline = connectionStatus === "offline";
@@ -157,7 +161,25 @@ export function FeedNowButton({
 
 			{showConfirm && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-					<div className="bg-white rounded-[32px] p-6 md:p-8 max-w-md w-full border border-gray-200 shadow-2xl space-y-6">
+					{/* biome-ignore lint/a11y/useSemanticElements: a native <dialog> needs
+					imperative showModal() and its own top-layer behaviour; this controlled
+					panel keeps Escape, the focus trap and scroll lock in one place. */}
+					<div
+						role="dialog"
+						ref={panelRef}
+						aria-modal="true"
+						aria-labelledby={titleId}
+						tabIndex={-1}
+						className="relative bg-white rounded-[32px] p-6 md:p-8 max-w-md w-full border border-gray-200 shadow-2xl space-y-6 outline-none dark:border-gray-700 dark:bg-gray-900"
+					>
+						<button
+							type="button"
+							onClick={closeConfirm}
+							aria-label={tBtn("cancel")}
+							className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] dark:hover:bg-gray-800 dark:hover:text-gray-200"
+						>
+							<X className="h-4 w-4" aria-hidden="true" />
+						</button>
 						{(isOffline || browserOffline) && (
 							<div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
 								<AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
@@ -186,7 +208,10 @@ export function FeedNowButton({
 						)}
 
 						<div>
-							<h3 className="font-black text-xl md:text-2xl uppercase tracking-tight text-[#C42B3A] mb-2">
+							<h3
+								id={titleId}
+								className="font-black text-xl md:text-2xl uppercase tracking-tight text-[#C42B3A] mb-2 pr-10"
+							>
 								{t("triggerTitle")}
 							</h3>
 							<p className="text-sm text-[#3D5568] leading-relaxed">
@@ -248,8 +273,9 @@ export function FeedNowButton({
 						<div className="flex gap-4">
 							<button
 								type="button"
-								onClick={() => setShowConfirm(false)}
-								className="flex-1 bg-[#F4F7F6] text-[#3D5568] font-bold text-sm py-3.5 rounded-xl hover:bg-gray-100 transition-all"
+								onClick={closeConfirm}
+								data-autofocus
+								className="flex-1 bg-[#F4F7F6] text-[#3D5568] font-bold text-sm py-3.5 rounded-xl hover:bg-gray-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D62]"
 							>
 								{tBtn("cancel")}
 							</button>

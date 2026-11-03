@@ -17,17 +17,23 @@ vi.mock("@/lib/auth/session", () => ({
 	getCurrentPondOwnerId: vi.fn(),
 	requireWriteAccess: vi.fn(),
 }));
+vi.mock("@/lib/auth/permissions", () => ({
+	requirePermission: vi.fn(),
+}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { updateNotificationPrefs } from "@/lib/actions/notifications";
+import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 
 const mockWrite = vi.mocked(requireWriteAccess);
+const mockPermission = vi.mocked(requirePermission);
 const mockOwner = vi.mocked(getCurrentPondOwnerId);
 
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockWrite.mockResolvedValue(undefined);
+	mockPermission.mockResolvedValue(undefined);
 	mockOwner.mockResolvedValue("farm-1");
 	prisma.pond.findFirst.mockResolvedValue({ id: "pond-1", notificationPrefs: {} });
 	prisma.pond.update.mockResolvedValue({});
@@ -42,6 +48,19 @@ describe("updateNotificationPrefs", () => {
 			success: false,
 			error: "Failed to update notification preferences",
 		});
+		expect(prisma.pond.findFirst).not.toHaveBeenCalled();
+		spy.mockRestore();
+	});
+
+	it("denies a member without pond-management permission", async () => {
+		const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+		mockPermission.mockRejectedValue(new Error("Forbidden"));
+
+		await expect(updateNotificationPrefs("pond-1", {})).resolves.toEqual({
+			success: false,
+			error: "Failed to update notification preferences",
+		});
+		expect(mockPermission).toHaveBeenCalledWith("manage_farms_ponds");
 		expect(prisma.pond.findFirst).not.toHaveBeenCalled();
 		spy.mockRestore();
 	});
@@ -80,6 +99,7 @@ describe("updateNotificationPrefs", () => {
 		await expect(updateNotificationPrefs("pond-1", { missedFeeding: false })).resolves.toEqual({
 			success: true,
 		});
+		expect(mockPermission).toHaveBeenCalledWith("manage_farms_ponds");
 
 		const data = prisma.pond.update.mock.calls[0][0].data.notificationPrefs;
 		expect(data).toMatchObject({

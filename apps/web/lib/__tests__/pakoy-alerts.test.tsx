@@ -33,7 +33,14 @@ vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 vi.mock("@/lib/supabase/client", () => ({
 	createClient: () => ({
-		channel: () => ({ on: () => ({ subscribe: () => undefined }) }),
+		channel: () => ({
+			on() {
+				return this;
+			},
+			subscribe() {
+				return this;
+			},
+		}),
 		removeChannel: () => undefined,
 	}),
 }));

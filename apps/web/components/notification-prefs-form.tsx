@@ -83,6 +83,11 @@ export function NotificationPrefsForm({
 			icon={Bell}
 			data-help="notification-prefs"
 		>
+			{!canWrite && (
+				<p className="mt-2 rounded-xl border border-[#E8C9A8] bg-[#FDF3E7] px-3 py-2 text-xs font-semibold text-[#8A3B12] dark:border-[#FF8A5C]/30 dark:bg-[#FF8A5C]/10 dark:text-[#FFB38F]">
+					{t("notificationsReadOnly")}
+				</p>
+			)}
 			<div className="space-y-1">
 				{toggles.map((toggle) => (
 					<label

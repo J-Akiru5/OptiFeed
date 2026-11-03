@@ -1,5 +1,7 @@
 import { Resend } from "resend";
 
+import { isDeliverableEmail } from "@/lib/notify/invite-email";
+
 /**
  * Harvest/sampling reminder email delivery (Phase 4).
  *
@@ -11,8 +13,20 @@ import { Resend } from "resend";
 
 const EMAIL_TIMEOUT_MS = 2_000;
 const MAX_ERROR_LENGTH = 300;
+const POND_EMAIL_DOMAIN = "@pond.optifeed.local";
 
 let warnedMissingConfig = false;
+
+/**
+ * True when a stored address can actually receive a reminder. The synthetic
+ * pond login domain has no mailbox (#742); an obvious typo is rejected too.
+ */
+export function isDeliverableReminderAddress(value: string | null | undefined): boolean {
+	const address = value?.trim();
+	if (!address) return false;
+	if (address.toLowerCase().endsWith(POND_EMAIL_DOMAIN)) return false;
+	return isDeliverableEmail(address);
+}
 
 export interface ReminderEmailInput {
 	to: string[];
@@ -55,17 +69,24 @@ export async function sendReminderEmail(
 		return { ok: false, error: "email_not_configured", skipped: true };
 	}
 
+	const recipients = input.to.map((address) => address.trim()).filter(isDeliverableReminderAddress);
+	if (recipients.length === 0) {
+		return { ok: false, error: "invalid_recipient" };
+	}
+
 	const baseUrl = (env.NEXT_PUBLIC_BASE_URL ?? "").replace(/\/+$/, "");
 	const link = `${baseUrl}/dashboard/calendar`;
+	const preferencesLink = `${baseUrl}/dashboard/settings/profile`;
 
 	try {
 		const resend = new Resend(env.RESEND_API_KEY);
 		const response = await withTimeout(
 			resend.emails.send({
 				from: env.REMINDER_FROM_EMAIL as string,
-				to: input.to,
+				to: recipients,
 				subject: buildSubject(input),
-				html: buildHtml(input, link),
+				html: buildHtml(input, link, preferencesLink),
+				text: buildText(input, link, preferencesLink),
 			}),
 			EMAIL_TIMEOUT_MS,
 		);
@@ -92,7 +113,7 @@ function singleLine(value: string): string {
 /**
  * Simple branded HTML. Every value is escaped; the caller never passes markup.
  */
-function buildHtml(input: ReminderEmailInput, link: string): string {
+function buildHtml(input: ReminderEmailInput, link: string, preferencesLink: string): string {
 	const pond = escapeHtml(input.pondName);
 	const event = escapeHtml(input.eventLabel);
 	const timing = escapeHtml(input.timingLabel);
@@ -109,7 +130,7 @@ function buildHtml(input: ReminderEmailInput, link: string): string {
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
             <tr>
               <td style="background:#1E7B34;padding:20px 24px;color:#ffffff;">
-                <div style="font-size:13px;letter-spacing:1px;text-transform:uppercase;opacity:.85;">OptiFeed</div>
+                <div style="font-size:13px;letter-spacing:1px;text-transform:uppercase;opacity:.85;">PakaonAI</div>
                 <div style="font-size:22px;font-weight:bold;margin-top:4px;">${timing}</div>
               </td>
             </tr>
@@ -143,7 +164,7 @@ function buildHtml(input: ReminderEmailInput, link: string): string {
                 </p>
                 <p style="margin:20px 0 0;font-size:12px;color:#6b7280;">
                   You are receiving this because harvest or sampling reminders are enabled for this pond.
-                  Change them in Settings → Profile → Notification Preferences.
+                  Change them in <a href="${escapeHtml(preferencesLink)}" style="color:#1E7B34;">Pond Alert Settings</a>.
                 </p>
               </td>
             </tr>
@@ -153,6 +174,30 @@ function buildHtml(input: ReminderEmailInput, link: string): string {
     </table>
   </body>
 </html>`;
+}
+
+/**
+ * Plain-text alternative. Some clients block HTML, and a text part keeps the
+ * reminder readable there instead of showing an empty message.
+ */
+function buildText(input: ReminderEmailInput, link: string, preferencesLink: string): string {
+	const article = /^[aeiou]/i.test(input.eventLabel) ? "an" : "a";
+	return [
+		`${singleLine(input.timingLabel)} - ${singleLine(input.pondName)}`,
+		"",
+		`${article} ${input.eventLabel.toLowerCase()} reminder for ${singleLine(input.pondName)}.`,
+		`Cycle: ${input.cycleLabel ? singleLine(input.cycleLabel) : "Grow-out cycle"}`,
+		`Event: ${input.eventLabel}`,
+		`Date: ${input.dateLabel}`,
+		`Status: ${singleLine(input.timingLabel)}`,
+		"",
+		`Open the harvest calendar: ${link}`,
+		"",
+		"You are receiving this because harvest or sampling reminders are enabled for this pond.",
+		`Change these alerts in Pond Alert Settings: ${preferencesLink}`,
+		"",
+		"PakaonAI",
+	].join("\n");
 }
 
 function escapeHtml(value: string): string {

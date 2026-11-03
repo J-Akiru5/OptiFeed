@@ -6,6 +6,7 @@ import { ViewToggle, useListViewPreference } from "@/components/ui/view-toggle";
 import { Link, useRouter } from "@/i18n/routing";
 import { acknowledgeNotification, markAllNotificationsRead } from "@/lib/actions/notifications";
 import { formatDateTimeLocal } from "@/lib/date-local";
+import { safeNotificationLink } from "@/lib/notifications/links";
 import { showsPakoy } from "@/lib/pakoy-alerts";
 import { AlertTriangle, Check, CheckCircle2, FileText, Info, WifiOff } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -19,6 +20,8 @@ interface NotificationItem {
 	tier: string;
 	message: string;
 	category: string | null;
+	/** Stored destination, often from an imported row: rendered only if safe. */
+	linkTo?: string | null;
 	read: boolean;
 	autoCleared: boolean;
 	acknowledgedAt: string | null;
@@ -49,12 +52,24 @@ const categoryConfig: Record<string, { labelKey: string; className: string }> = 
 		labelKey: "categoryConnectivity",
 		className: "bg-blue-100 text-blue-700 border-blue-200",
 	},
+	device_offline: {
+		labelKey: "categoryDeviceOffline",
+		className: "bg-blue-100 text-blue-700 border-blue-200",
+	},
 	feeding: {
 		labelKey: "categoryFeeding",
 		className: "bg-amber-100 text-amber-700 border-amber-200",
 	},
+	missed_feeding: {
+		labelKey: "categoryMissedFeeding",
+		className: "bg-amber-100 text-amber-700 border-amber-200",
+	},
 	hopper_low: {
 		labelKey: "categoryHopperLow",
+		className: "bg-orange-100 text-orange-700 border-orange-200",
+	},
+	hopper: {
+		labelKey: "categoryHopper",
 		className: "bg-orange-100 text-orange-700 border-orange-200",
 	},
 	pellet: {
@@ -67,6 +82,22 @@ const categoryConfig: Record<string, { labelKey: string; className: string }> = 
 		className: "bg-teal-100 text-teal-700 border-teal-200",
 	},
 	system: { labelKey: "categorySystem", className: "bg-gray-100 text-gray-700 border-gray-200" },
+	harvest: {
+		labelKey: "categoryHarvest",
+		className: "bg-green-100 text-green-700 border-green-200",
+	},
+	sampling: {
+		labelKey: "categorySampling",
+		className: "bg-cyan-100 text-cyan-700 border-cyan-200",
+	},
+	event: {
+		labelKey: "categoryEvent",
+		className: "bg-indigo-100 text-indigo-700 border-indigo-200",
+	},
+	security: {
+		labelKey: "categorySecurity",
+		className: "bg-red-100 text-red-700 border-red-200",
+	},
 };
 
 interface NotificationListProps {
@@ -161,29 +192,40 @@ export function NotificationList({ initialNotifications, canWrite = true }: Noti
 		});
 	};
 
-	/** Acknowledge (when still open) plus the link into the event log. */
-	const renderActions = (notification: NotificationItem) => (
-		<>
-			{!isHandled(notification) && (
-				<button
-					type="button"
-					onClick={() => handleAcknowledge(notification)}
-					disabled={isPendingAck || !canWrite}
-					className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200 dark:focus-visible:outline-[#8fc0ea]"
+	/** Acknowledge (when still open), the stored deep link, then the audit trail. */
+	const renderActions = (notification: NotificationItem) => {
+		const linkTo = safeNotificationLink(notification.linkTo);
+		return (
+			<>
+				{!isHandled(notification) && (
+					<button
+						type="button"
+						onClick={() => handleAcknowledge(notification)}
+						disabled={isPendingAck || !canWrite}
+						className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200 dark:focus-visible:outline-[#8fc0ea]"
+					>
+						<Check aria-hidden="true" size={14} />
+						{t("acknowledge")}
+					</button>
+				)}
+				{linkTo && (
+					<Link
+						href={linkTo}
+						className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-[#0A3D62]/20 bg-[#0A3D62] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#0A3D62]/90 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-[#8fc0ea]/40 dark:bg-[#8fc0ea] dark:text-[#062b40] dark:hover:bg-[#a7d0f0] dark:focus-visible:outline-[#8fc0ea]"
+					>
+						{t("openLink")}
+					</Link>
+				)}
+				<Link
+					href="/dashboard/audit"
+					className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-gray-700/50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus-visible:outline-[#8fc0ea]"
 				>
-					<Check aria-hidden="true" size={14} />
-					{t("acknowledge")}
-				</button>
-			)}
-			<Link
-				href="/dashboard/audit"
-				className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-gray-700/50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus-visible:outline-[#8fc0ea]"
-			>
-				<FileText aria-hidden="true" size={14} />
-				{t("auditLink")}
-			</Link>
-		</>
-	);
+					<FileText aria-hidden="true" size={14} />
+					{t("auditLink")}
+				</Link>
+			</>
+		);
+	};
 
 	/** Tier, category and state pills, shared by both views. */
 	const renderBadges = (notification: NotificationItem) => {
@@ -308,10 +350,7 @@ export function NotificationList({ initialNotifications, canWrite = true }: Noti
 														{renderBadges(notification)}
 													</div>
 													<p className="mt-1 font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-														{notification.message.split("!")[0] || t("alert")}
-													</p>
-													<p className="text-xs text-[#3D5568] dark:text-gray-300">
-														{notification.message}
+														{notification.message || t("alert")}
 													</p>
 												</div>
 											</div>
@@ -364,10 +403,7 @@ export function NotificationList({ initialNotifications, canWrite = true }: Noti
 									</span>
 								</span>
 								<span className="mt-2 block text-base font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-									{notification.message.split("!")[0] || t("alert")}
-								</span>
-								<span className="mt-1 block text-sm font-semibold leading-relaxed text-[#3D5568] dark:text-gray-300">
-									{notification.message}
+									{notification.message || t("alert")}
 								</span>
 								<span className="mt-3 flex flex-wrap gap-2">{renderActions(notification)}</span>
 							</span>

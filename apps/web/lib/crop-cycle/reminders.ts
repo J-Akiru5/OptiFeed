@@ -4,6 +4,7 @@ import { normalizeNotificationPrefs } from "@/lib/limits";
 import {
 	type ReminderEmailInput,
 	type ReminderEmailResult,
+	isDeliverableReminderAddress,
 	isReminderEmailConfigured,
 	sendReminderEmail,
 	warnReminderEmailNotConfiguredOnce,
@@ -365,12 +366,30 @@ export function dedupeEmailAddresses(values: Array<string | null | undefined>): 
 	return emails;
 }
 
+/**
+ * A reminder recipient must be a real address. `User.email` is the synthetic
+ * `<farmId>@pond.optifeed.local` login and can never receive mail (#742); the
+ * deliverable address is `User.contactEmail`, which an administrator records.
+ */
+function deliverableContactAddress(value: string | null | undefined): string | null {
+	const address = value?.trim();
+	if (!address) return null;
+	return isDeliverableReminderAddress(address) ? address : null;
+}
+
+/**
+ * Group deliverable contact addresses by the farm that owns the pond.
+ *
+ * Users without a recorded, valid contact address are skipped rather than
+ * falling back to the synthetic login address: sending there looks successful
+ * while the mailbox does not exist.
+ */
 export function collectRecipientsByOwner(
-	users: Array<{ farmId: string; email: string | null }>,
+	users: Array<{ farmId: string; contactEmail: string | null }>,
 ): Map<string, string[]> {
 	const grouped = new Map<string, string[]>();
 	for (const user of users) {
-		const email = user.email?.trim();
+		const email = deliverableContactAddress(user.contactEmail);
 		if (!email) continue;
 		const list = grouped.get(user.farmId) ?? [];
 		list.push(email);
@@ -380,6 +399,96 @@ export function collectRecipientsByOwner(
 		grouped.set(farmId, dedupeEmailAddresses(emails));
 	}
 	return grouped;
+}
+
+/**
+ * Resolve reminder recipients for every pond owner.
+ *
+ * Recipients are the pond owner plus the OWNER/ADMIN members of the active
+ * organization the owner belongs to. `User.role` is the legacy global flag and
+ * is deliberately not consulted (#742 / #748); membership is the tenant source
+ * of truth. The result is keyed by the owner's `farmId`, matching
+ * `Pond.ownerId`, so a pond never sends to another tenant.
+ */
+async function loadRecipientsByOwner(ownerIds: string[]): Promise<Map<string, string[]>> {
+	if (ownerIds.length === 0) return new Map();
+
+	const owners = await prisma.user.findMany({
+		where: { farmId: { in: ownerIds } },
+		select: { id: true, farmId: true, contactEmail: true },
+	});
+	const recipients = collectRecipientsByOwner(owners);
+	if (owners.length === 0) return recipients;
+
+	const ownerOrgLinks = await prisma.membership.findMany({
+		where: { userId: { in: owners.map((owner) => owner.id) }, revokedAt: null },
+		select: { userId: true, orgId: true },
+	});
+	if (ownerOrgLinks.length === 0) return recipients;
+
+	const activeOrgs = await prisma.organization.findMany({
+		where: {
+			id: { in: [...new Set(ownerOrgLinks.map((link) => link.orgId))] },
+			status: "ACTIVE",
+		},
+		select: { id: true },
+	});
+	const activeOrgIds = activeOrgs.map((org) => org.id);
+	if (activeOrgIds.length === 0) return recipients;
+
+	const adminLinks = await prisma.membership.findMany({
+		where: {
+			orgId: { in: activeOrgIds },
+			revokedAt: null,
+			role: { in: ["OWNER", "ADMIN"] },
+		},
+		select: { orgId: true, userId: true },
+	});
+	const ownerUserIds = new Set(owners.map((owner) => owner.id));
+	const adminUserIds = [
+		...new Set(adminLinks.map((link) => link.userId).filter((id) => !ownerUserIds.has(id))),
+	];
+	if (adminUserIds.length === 0) return recipients;
+
+	const admins = await prisma.user.findMany({
+		where: { id: { in: adminUserIds } },
+		select: { id: true, farmId: true, contactEmail: true },
+	});
+	const adminById = new Map(admins.map((admin) => [admin.id, admin]));
+	const ownerById = new Map(owners.map((owner) => [owner.id, owner]));
+	const activeOrgIdSet = new Set(activeOrgIds);
+
+	const orgsByOwnerFarm = new Map<string, Set<string>>();
+	for (const link of ownerOrgLinks) {
+		if (!activeOrgIdSet.has(link.orgId)) continue;
+		const owner = ownerById.get(link.userId);
+		if (!owner) continue;
+		const orgs = orgsByOwnerFarm.get(owner.farmId) ?? new Set<string>();
+		orgs.add(link.orgId);
+		orgsByOwnerFarm.set(owner.farmId, orgs);
+	}
+
+	const adminIdsByOrg = new Map<string, string[]>();
+	for (const link of adminLinks) {
+		if (!activeOrgIdSet.has(link.orgId)) continue;
+		const ids = adminIdsByOrg.get(link.orgId) ?? [];
+		ids.push(link.userId);
+		adminIdsByOrg.set(link.orgId, ids);
+	}
+
+	for (const [farmId, orgs] of orgsByOwnerFarm) {
+		const addresses = recipients.get(farmId) ?? [];
+		for (const orgId of orgs) {
+			for (const adminId of adminIdsByOrg.get(orgId) ?? []) {
+				const address = deliverableContactAddress(adminById.get(adminId)?.contactEmail ?? null);
+				if (address) addresses.push(address);
+			}
+		}
+		const deduped = dedupeEmailAddresses(addresses);
+		if (deduped.length > 0) recipients.set(farmId, deduped);
+	}
+
+	return recipients;
 }
 
 export function computeReminderCandidates(input: ReminderCandidateInput): ReminderCandidate[] {
@@ -509,25 +618,13 @@ export async function processCropReminders(
 		ponds.map((pond) => [pond.id, normalizeNotificationPrefs(pond.notificationPrefs)]),
 	);
 
-	const [sampleGroups, users, failedEmails, reminderEvents] = await Promise.all([
+	const [sampleGroups, recipientsByOwner, failedEmails, reminderEvents] = await Promise.all([
 		prisma.biomassLog.groupBy({
 			by: ["pondId"],
 			where: { pondId: { in: pondIds } },
 			_max: { recordedAt: true },
 		}),
-		prisma.user.findMany({
-			where: {
-				email: { not: "" },
-				OR: [
-					{ farmId: { in: ownerIds } },
-					{
-						farm: { is: { ownerId: { in: ownerIds } } },
-						role: { in: ["ADMIN", "OPERATOR"] },
-					},
-				],
-			},
-			select: { farmId: true, email: true },
-		}),
+		loadRecipientsByOwner(ownerIds),
 		prisma.reminderLog.findMany({
 			where: {
 				channel: "email",
@@ -577,7 +674,6 @@ export async function processCropReminders(
 	for (const group of sampleGroups) {
 		if (group._max.recordedAt) latestSampleByPond.set(group.pondId, group._max.recordedAt);
 	}
-	const recipientsByOwner = collectRecipientsByOwner(users);
 	const candidates = computeReminderCandidates({
 		today,
 		cycles,

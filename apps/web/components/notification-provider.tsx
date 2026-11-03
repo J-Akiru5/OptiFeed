@@ -5,7 +5,18 @@ import { showsPakoy } from "@/lib/pakoy-alerts";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { createContext, useContext, useEffect, useState } from "react";
+
+/** How long a non-critical toast stays up before it dismisses itself. */
+const TOAST_DURATION_MS = 5000;
+
+/** Headline used by both the visual card and its live-region announcement. */
+function toastTitle(tier: string): string {
+	if (tier === "SUCCESS") return "Success";
+	if (tier === "WARNING") return "Warning";
+	return "New Notification";
+}
 
 interface NotificationPayload {
 	id: string;
@@ -46,9 +57,22 @@ export function NotificationProvider({
 	pondId: string;
 	initialUnreadCount: number;
 }) {
+	const t = useTranslations("dashboard.notifications");
 	const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
 	const [activeBanner, setActiveBanner] = useState<NotificationPayload | null>(null);
 	const [activeToast, setActiveToast] = useState<NotificationPayload | null>(null);
+	// Paused while a pointer or keyboard focus is inside the toast, so a message
+	// being read is not yanked away mid-sentence.
+	const [toastPaused, setToastPaused] = useState(false);
+
+	// One timer per message. Keying the effect on `activeToast` clears the
+	// previous message's timer, so a stale timeout can no longer dismiss a newer
+	// toast (#757), and hovering/focusing re-arms a full window on leave.
+	useEffect(() => {
+		if (!activeToast || toastPaused) return;
+		const timer = window.setTimeout(() => setActiveToast(null), TOAST_DURATION_MS);
+		return () => window.clearTimeout(timer);
+	}, [activeToast, toastPaused]);
 
 	// The layout recomputes the badge on every server render. Without this the
 	// provider kept incrementing its mount-time value forever, so a
@@ -78,15 +102,14 @@ export function NotificationProvider({
 					// Always increment unread badge
 					setUnreadCount((prev) => prev + 1);
 
-					// Show UI feedback based on tier
+					// Show UI feedback based on tier. Non-critical toasts are
+					// dismissed by the timer effect above, never by a timeout
+					// captured by this callback.
 					if (newNotif.tier === "CRITICAL") {
 						setActiveBanner(newNotif);
 					} else {
 						setActiveToast(newNotif);
-						// Auto-dismiss toast after 5s
-						setTimeout(() => {
-							setActiveToast(null);
-						}, 5000);
+						setToastPaused(false);
 					}
 				},
 			)
@@ -128,7 +151,11 @@ export function NotificationProvider({
 			{/* Sticky Banner Portal */}
 			{activeBanner && (
 				<div className="fixed top-0 left-0 w-full z-[100] animate-in slide-in-from-top-4 fade-in duration-300">
-					<div className="bg-red-600 text-white px-4 py-3 shadow-lg flex items-center justify-between border-b-4 border-red-800">
+					<div
+						role="alert"
+						aria-atomic="true"
+						className="bg-red-600 text-white px-4 py-3 shadow-lg flex items-center justify-between border-b-4 border-red-800"
+					>
 						<div className="flex items-center gap-3">
 							{showsPakoy(activeBanner.category) ? (
 								<Mascot size={32} className="shrink-0" />
@@ -143,9 +170,10 @@ export function NotificationProvider({
 						<button
 							type="button"
 							onClick={() => setActiveBanner(null)}
+							aria-label={t("dismissNotification")}
 							className="p-1 hover:bg-red-700 rounded-md transition-colors"
 						>
-							<X size={20} />
+							<X size={20} aria-hidden="true" />
 						</button>
 					</div>
 				</div>
@@ -154,9 +182,23 @@ export function NotificationProvider({
 			{/* Main App Content */}
 			{children}
 
+			{/* Always mounted so a message inserted later is announced: screen
+			    readers do not reliably announce content in a region that appears
+			    at the same time as the text. The visual card below is silent. */}
+			<output className="sr-only" aria-live="polite" aria-atomic="true">
+				{activeToast ? `${toastTitle(activeToast.tier)}: ${activeToast.message}` : ""}
+			</output>
+
 			{/* Toast Portal */}
 			{activeToast && (
-				<div className="fixed bottom-6 right-[var(--ofd-fab-inset)] z-[100] animate-in slide-in-from-bottom-5 fade-in duration-300 max-w-sm w-full">
+				<div
+					data-testid="notification-toast"
+					onMouseEnter={() => setToastPaused(true)}
+					onMouseLeave={() => setToastPaused(false)}
+					onFocus={() => setToastPaused(true)}
+					onBlur={() => setToastPaused(false)}
+					className="fixed bottom-6 right-[var(--ofd-fab-inset)] z-[100] animate-in slide-in-from-bottom-5 fade-in duration-300 max-w-sm w-full"
+				>
 					<div
 						className={cn(
 							"bg-white rounded-xl shadow-2xl border-l-4 p-4 flex items-start gap-3",
@@ -184,22 +226,17 @@ export function NotificationProvider({
 						)}
 
 						<div className="flex-1">
-							<p className="font-semibold text-gray-900 text-sm">
-								{activeToast.tier === "SUCCESS"
-									? "Success"
-									: activeToast.tier === "WARNING"
-										? "Warning"
-										: "New Notification"}
-							</p>
+							<p className="font-semibold text-gray-900 text-sm">{toastTitle(activeToast.tier)}</p>
 							<p className="text-sm text-gray-600 mt-0.5 leading-snug">{activeToast.message}</p>
 						</div>
 
 						<button
 							type="button"
 							onClick={() => setActiveToast(null)}
+							aria-label={t("dismissNotification")}
 							className="text-gray-400 hover:text-gray-600 p-1"
 						>
-							<X size={16} />
+							<X size={16} aria-hidden="true" />
 						</button>
 					</div>
 				</div>

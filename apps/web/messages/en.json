@@ -2463,6 +2463,7 @@
 			"acknowledged": "Acknowledged",
 			"actionError": "Could not update the notification. Try again.",
 			"alert": "Alert",
+			"dismissNotification": "Dismiss notification",
 			"auditLink": "Audit",
 			"receivedAt": "Received",
 			"actions": "Actions",

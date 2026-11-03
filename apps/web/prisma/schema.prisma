@@ -600,11 +600,13 @@ model PondOwnershipHistory {
   @@index([farmId])
 }
 
-// Per-farm brute-force lockout tracking.
+// Per-farm brute-force signal tracking.
 // Supabase Auth has IP-level rate limits but no per-account lockout.
 model UserLockout {
-  // Global per-farm failure counter: >= 20 fails/hour slows the next login
-  // and notifies the farm (security category), but NEVER locks the farmer out.
+  // Farm-wide failure counter: >= 10 fails in 15 minutes raises one security
+  // notification. It is alert-only and never blocks login (#721). `lockedUntil`
+  // is retained for compatibility with older rows; it is no longer read as a
+  // farm-wide lock.
   farmId         String    @id
   failedAttempts Int       @default(0)
   lockedUntil    DateTime?
@@ -627,6 +629,22 @@ model LoginLockout {
 
   @@id([farmId, ip])
   @@map("login_lockout")
+}
+
+/// Single-use proof that a recovery link was requested for a user (#718).
+/// The signed token carries `jti`; this row makes the proof single-use and
+/// lets the action reject a replay even after a successful update. There is no
+/// foreign key: the row is short-lived and expired rows can be pruned without
+/// touching `User`.
+model PasswordResetToken {
+  id         String    @id @default(cuid())
+  jti        String    @unique
+  userId     String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
 }
 
 /// Fixed-window rate-limit counters. Declared here so the Prisma schema matches

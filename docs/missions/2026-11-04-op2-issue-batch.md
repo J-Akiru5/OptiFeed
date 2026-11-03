@@ -48,9 +48,8 @@ Local gate on the combined verification tree:
 - `pnpm install --frozen-lockfile` — **pass** with the pnpm 10 overrides and the guarded
   `postinstall`; the old pnpm warning is gone.
 - `pnpm security:overrides` — **PASS**; all nine overrides resolve within their floors.
-- Full `pnpm test` + coverage — the local combined run was terminated before a summary under
-  resource pressure; per-branch `quality` CI is the authoritative full-suite result. No local
-  pass is claimed for it.
+- Full `pnpm test` + coverage — **pass**: 456 files / 5,468 tests; coverage 92.23 % lines,
+  90.21 % statements, 92.4 % functions, 82.59 % branches (floors 90/89/91.5/81.5).
 
 CI on the PRs: #738 is merged and was fully green, including `docker build (no push)` and
 `lighthouse budgets`. #736, #737 and #739 were merged with `origin/develop` after #738 landed and

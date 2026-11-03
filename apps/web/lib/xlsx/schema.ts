@@ -25,8 +25,21 @@ export const SHEET_TYPES: SheetType[] = [
 	"feeding_schedule",
 ];
 
+/**
+ * Sheet types a user may import. `audit_events` is export-only (#744): audit
+ * provenance (`source`, `actorId`, `createdAt`) must be server-generated, not
+ * copied from an uploaded file.
+ */
+export const IMPORT_SHEET_TYPES: SheetType[] = SHEET_TYPES.filter(
+	(type) => type !== "audit_events",
+);
+
 export function isSheetType(value: unknown): value is SheetType {
 	return typeof value === "string" && (SHEET_TYPES as string[]).includes(value);
+}
+
+export function isImportSheetType(value: unknown): value is SheetType {
+	return typeof value === "string" && (IMPORT_SHEET_TYPES as string[]).includes(value);
 }
 
 /** PDF exports: the existing pond summary plus the growth, SGR and FCR reports (export only). */

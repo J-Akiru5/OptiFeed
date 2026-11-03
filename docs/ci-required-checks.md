@@ -72,15 +72,14 @@ them as the repository owner; agents must not change branch protection.
 `staging` (run `41637775172`) and PR #707 (run `41647938978`). The three
 `resource-summary:total:size` samples for `/en` were:
 
-| Sample | Bytes | Against the old 525,000 B budget |
+| Run | Samples (B) | Against the old 525,000 B budget |
 | --- | --- | --- |
-| 1 | 526,268 | +1,268 B (+0.24 %) |
-| 2 | 526,263 | +1,263 B (+0.24 %) |
-| 3 | 526,263 | +1,263 B (+0.24 %) |
+| `41639052669` (`09d4234`) | 526,268 / 526,263 / 526,263 | +1,268 / +1,263 / +1,263 B (+0.24 %) |
+| `41664185984` (`d7ff4518`, develop) | 526,595 / 527,664 / 527,654 | +1,595 / +2,664 / +2,654 B (+0.51 %) |
 
-The budget moved from 525,000 B to 530,000 B in `lighthouserc.json`. The new
-ceiling is 3,732 B (0.7 %) above the worst sample and is a deliberate,
-measured adjustment, not a response to a code-size regression. The per-category
+The budget moved from 525,000 B to 535,000 B in `lighthouserc.json`. The new
+ceiling is 7,336 B (1.4 %) above the worst measured sample (527,664 B) and is a
+deliberate, measured adjustment, not a response to a code-size regression. The per-category
 performance score floors are unchanged. `docs/performance/README.md` records the
 same decision next to the other Lighthouse budgets.
 

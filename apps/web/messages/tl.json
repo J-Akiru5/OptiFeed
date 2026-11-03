@@ -1625,6 +1625,8 @@
 			"feedingTimesTitle": "Mga oras ng pagpapakain",
 			"feedingTimesLabel": "Naka-iskedyul na mga oras ng pagpapakain",
 			"feedingTimesInvalid": "Maglagay ng wastong window at pagpapakain bawat araw para makita ang mga oras.",
+			"windowError": "Hindi maaaring pareho ang unang at huling pagpapakain kapag higit sa isang beses sa isang araw.",
+			"unsavedChanges": "May mga hindi pa na-save na pagbabago.",
 			"feedRateTitle": "Rate ng Pagpapakain",
 			"feedRateDesc": "Ginagamit para kalkulahin ang target na dami ng pakain",
 			"noPondData": "Walang nahanap na data ng pond o device. Pakipatakbo ang seed script.",

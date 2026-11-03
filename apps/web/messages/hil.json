@@ -787,6 +787,8 @@
 			"feedingTimesTitle": "Mga oras sang pagpakaon",
 			"feedingTimesLabel": "Naka-iskedyul nga mga oras sang pagpakaon",
 			"feedingTimesInvalid": "Magbutang sang husto nga window kag pagpakaon kada adlaw para makita ang mga oras.",
+			"windowError": "Indi pareho ang una kag katapusan nga pagpakaon kon sobra sa isa ka beses sa isa ka adlaw.",
+			"unsavedChanges": "May mga gindugang nga wala pa na-save.",
 			"feedRateTitle": "Rate sang Pagpakaon",
 			"feedRateDesc": "Ginagamit sa pagkuwenta sang target nga kadamuon sang patuka",
 			"noPondData": "Wala sing data sang punong ukon device. Palihog padagana ang seed script.",

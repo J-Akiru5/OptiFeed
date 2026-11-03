@@ -787,6 +787,8 @@
 			"feedingTimesTitle": "Feeding times",
 			"feedingTimesLabel": "Scheduled feeding times",
 			"feedingTimesInvalid": "Set a valid window and feeds per day to see the times.",
+			"windowError": "The first and last feed cannot be the same time when feeding more than once a day.",
+			"unsavedChanges": "You have unsaved changes.",
 			"feedRateTitle": "Feeding Rate",
 			"feedRateDesc": "Used to calculate target feed volume",
 			"noPondData": "No pond or device data found. Please run the seed script.",

@@ -26,10 +26,6 @@ export const IMPORTABLE_TYPES: readonly ExportableType[] = [
 	"notifications",
 ] as const;
 
-export function isImportableType(value: unknown): value is ExportableType {
-	return typeof value === "string" && (IMPORTABLE_TYPES as readonly string[]).includes(value);
-}
-
 export const EXPORT_LABELS: Record<ExportableType, string> = {
 	biomass_logs: "Biomass Logs",
 	fish_samples: "Fish Samples",

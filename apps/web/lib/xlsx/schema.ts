@@ -34,10 +34,6 @@ export const IMPORT_SHEET_TYPES: SheetType[] = SHEET_TYPES.filter(
 	(type) => type !== "audit_events",
 );
 
-export function isSheetType(value: unknown): value is SheetType {
-	return typeof value === "string" && (SHEET_TYPES as string[]).includes(value);
-}
-
 export function isImportSheetType(value: unknown): value is SheetType {
 	return typeof value === "string" && (IMPORT_SHEET_TYPES as string[]).includes(value);
 }

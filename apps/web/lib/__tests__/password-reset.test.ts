@@ -1,6 +1,11 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { generateLink } = vi.hoisted(() => ({ generateLink: vi.fn() }));
+const { generateLink, headersMock } = vi.hoisted(() => ({
+	generateLink: vi.fn(),
+	headersMock: vi.fn(),
+}));
+
+vi.mock("next/headers", () => ({ headers: headersMock }));
 
 vi.mock("@/lib/supabase/server", () => {
 	const auth = {
@@ -60,6 +65,7 @@ const ENV_KEYS = [
 	"NEXT_PUBLIC_BASE_URL",
 	"NEXT_PUBLIC_SITE_URL",
 	"VERCEL_ENV",
+	"TRUSTED_PROXY_HOPS",
 ] as const;
 const originalEnv = new Map<string, string | undefined>();
 
@@ -122,11 +128,14 @@ beforeEach(() => {
 	process.env.NEXT_PUBLIC_BASE_URL = "https://app.example";
 	Reflect.deleteProperty(process.env, "NEXT_PUBLIC_SITE_URL");
 	Reflect.deleteProperty(process.env, "VERCEL_ENV");
+	Reflect.deleteProperty(process.env, "TRUSTED_PROXY_HOPS");
 
 	user.findUnique.mockReset();
 	user.updateMany.mockReset();
 	resetTokens.create.mockReset();
 	resetTokens.updateMany.mockReset();
+	headersMock.mockReset();
+	headersMock.mockRejectedValue(new Error("headers() outside a request"));
 	user.updateMany.mockResolvedValue({ count: 1 } as never);
 	resetTokens.create.mockResolvedValue({} as never);
 	resetTokens.updateMany.mockResolvedValue({ count: 1 } as never);
@@ -266,6 +275,21 @@ describe("requestPasswordReset", () => {
 		expect(JSON.stringify(auditPayload)).not.toContain(RESET_URL);
 		expect(JSON.stringify(auditPayload)).not.toContain("farmer@example.com");
 		expect(JSON.stringify(auditPayload)).not.toContain(proof);
+	});
+
+	it("records the trusted X-Forwarded-For hop, not the first entry (#732)", async () => {
+		headersMock.mockResolvedValue({
+			get: (name: string) =>
+				name === "x-forwarded-for" ? "203.0.113.66, 198.51.100.4" : null,
+		});
+		user.findUnique.mockResolvedValue(accountWith("farmer@example.com"));
+
+		await requestPasswordReset("farmer@example.com");
+
+		const auditPayload = auditCreate.mock.calls[0]?.[0] as
+			| { data: { ip: string | null } }
+			| undefined;
+		expect(auditPayload?.data.ip).toBe("198.51.100.4");
 	});
 
 	it("still accepts a farm ID and mails the account's contact email", async () => {

@@ -1,4 +1,5 @@
-import { type ChartLabels, LineTrend } from "@/components/charts";
+import type { ChartLabels } from "@/components/charts/chart-frame";
+import { LazyLineTrend } from "@/components/charts/lazy";
 import { OpsNav } from "@/components/superadmin/ops-nav";
 import {
 	Badge,
@@ -137,14 +138,14 @@ export default async function OperationsHealthPage({
 				</Card>
 
 				<div className="grid gap-4 lg:grid-cols-2">
-					<LineTrend
+					<LazyLineTrend
 						title={t("charts.jobsTitle", { days: health.rangeDays })}
 						summary={t("charts.jobsSummary", { days: health.rangeDays })}
 						labels={chartLabels}
 						points={health.jobs.jobsPerDay}
 						decimals={0}
 					/>
-					<LineTrend
+					<LazyLineTrend
 						title={t("charts.failuresTitle", { days: health.rangeDays })}
 						summary={t("charts.failuresSummary", { days: health.rangeDays })}
 						labels={chartLabels}

@@ -55,7 +55,7 @@ export function StackedBars({
 
 	const rows = useMemo(() => {
 		if (!temporal || !range) return stack.rows;
-		return filterByRange(stack.rows, (row) => String(row.label), range.range);
+		return filterByRange(stack.rows, (row) => String(row.label), range.range, range.now);
 	}, [stack.rows, temporal, range]);
 
 	// Totals follow the plotted rows, not the unfiltered series.

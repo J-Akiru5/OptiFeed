@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { type ReactNode, createContext, useContext, useMemo, useState } from "react";
+import { type ReactNode, createContext, useCallback, useContext, useMemo, useState } from "react";
 
 /**
  * Shared date range for charts (#629).
@@ -10,6 +10,11 @@ import { type ReactNode, createContext, useContext, useMemo, useState } from "re
  * provider filters them without a round trip. A chart only has to pass a
  * `getDate` accessor to `filterByRange` (or use `useChartRange` directly), so
  * one control on the page moves every temporal chart together.
+ *
+ * A page that also wants the *query* to follow the range (the superadmin
+ * command center) controls the provider with `value`/`onChange` and stores the
+ * preset in the URL: the preset re-runs the server read, and a custom window
+ * narrows whatever window that read returned (#707).
  */
 
 export const CHART_RANGES = ["7d", "30d", "90d", "custom"] as const;
@@ -39,20 +44,51 @@ export interface ChartRangeLabels {
 type ChartRangeContextValue = {
 	range: ChartRange;
 	setRange: (range: ChartRange) => void;
+	/** Anchor the relative presets are measured from; `undefined` = now. */
+	now?: Date;
 };
 
 const ChartRangeContext = createContext<ChartRangeContextValue | null>(null);
 
+/**
+ * Holds the page's shared range.
+ *
+ * Uncontrolled by default: `initial` seeds `useState`, which is all a page that
+ * only filters rows client-side needs. Pass `value` + `onChange` to lift the
+ * range out of the provider — the superadmin command center does that to
+ * persist the preset in `?range=`, so the *query* re-runs as well as the plot.
+ */
 export function ChartRangeProvider({
 	initial = DEFAULT_CHART_RANGE,
+	value,
+	onChange,
+	now,
 	children,
 }: {
 	initial?: ChartRange;
+	/** Controlled range. When supplied the provider never owns the state. */
+	value?: ChartRange;
+	/** Called on every requested change, controlled or not. */
+	onChange?: (range: ChartRange) => void;
+	/**
+	 * Anchor for the relative presets, normally the last bucket the server
+	 * returned. Without it the reader's clock decides the window, which can drop
+	 * the newest bucket when the browser is behind the server's day boundary.
+	 */
+	now?: Date;
 	children: ReactNode;
 }) {
-	const [range, setRange] = useState<ChartRange>(initial);
-	const value = useMemo(() => ({ range, setRange }), [range]);
-	return <ChartRangeContext.Provider value={value}>{children}</ChartRangeContext.Provider>;
+	const [ownRange, setOwnRange] = useState<ChartRange>(initial);
+	const range = value ?? ownRange;
+	const setRange = useCallback(
+		(next: ChartRange) => {
+			if (value === undefined) setOwnRange(next);
+			onChange?.(next);
+		},
+		[value, onChange],
+	);
+	const context = useMemo(() => ({ range, setRange, now }), [range, setRange, now]);
+	return <ChartRangeContext.Provider value={context}>{children}</ChartRangeContext.Provider>;
 }
 
 /** The page's current range, or null outside a provider. */

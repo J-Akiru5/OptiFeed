@@ -58,7 +58,7 @@ export function MultiLineTrend({
 
 	const rows = useMemo(() => {
 		if (!temporal || !range) return series.rows;
-		return filterByRange(series.rows, (row) => String(row.label), range.range);
+		return filterByRange(series.rows, (row) => String(row.label), range.range, range.now);
 	}, [series.rows, temporal, range]);
 
 	return (

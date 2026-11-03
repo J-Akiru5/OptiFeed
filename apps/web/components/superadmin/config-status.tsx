@@ -127,6 +127,9 @@ export async function EmailStatusCard({ configuration }: { configuration: EmailC
 				<Badge tone={configuration.resetReady ? "success" : "warning"}>
 					{configuration.resetReady ? t("email.resetReady") : t("email.resetNotReady")}
 				</Badge>
+				<Badge tone={configuration.alertReady ? "success" : "warning"}>
+					{configuration.alertReady ? t("email.alertReady") : t("email.alertNotReady")}
+				</Badge>
 			</div>
 
 			<div>
@@ -159,6 +162,12 @@ export async function EmailStatusCard({ configuration }: { configuration: EmailC
 					value={t("email.configured")}
 					notConfiguredLabel={t("email.notConfigured")}
 					configured={configuration.resetFromConfigured}
+				/>
+				<Row
+					label={t("email.alertFromLabel")}
+					value={t("email.configured")}
+					notConfiguredLabel={t("email.notConfigured")}
+					configured={configuration.alertFromConfigured}
 				/>
 			</div>
 

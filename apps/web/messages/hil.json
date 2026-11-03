@@ -3972,7 +3972,10 @@
 				"reminderNotReady": "Ginaskip ang mga reminder",
 				"resetFromLabel": "Password-reset sender variable",
 				"resetReady": "Handa ang reset email",
-				"resetNotReady": "Ginlaktawan ang reset email"
+				"resetNotReady": "Ginlaktawan ang reset email",
+				"alertFromLabel": "Alert sender variable",
+				"alertReady": "Handa ang mga alerto",
+				"alertNotReady": "Ginlaktawan ang mga alerto"
 			},
 			"safety": {
 				"title": "Mga safety cap sang pagpakaon",

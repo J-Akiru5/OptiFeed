@@ -63,6 +63,12 @@ vi.mock("@/lib/platform/connectivity", () => ({
 	}),
 }));
 
+// Alert email rides the same cron; the sweep tests only assert the counts.
+vi.mock("@/lib/notifications/alert-email-jobs", () => ({
+	sendCriticalAlertEmails: vi.fn(async () => ({ sent: 0, failed: 0, skipped: 0 })),
+	sendDailyAlertDigest: vi.fn(async () => ({ sent: 0, failed: 0, day: null })),
+}));
+
 vi.mock("@/i18n/routing", () => ({ redirect: vi.fn() }));
 vi.mock("next-intl/server", () => ({ getLocale: vi.fn(async () => "en") }));
 

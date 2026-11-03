@@ -375,12 +375,15 @@ describe("email configuration never returns a secret", () => {
 			reminderFromConfigured: true,
 			baseUrlConfigured: true,
 			resetFromConfigured: true,
+			alertFromConfigured: true,
 			inviteFrom: "PakaonAI <invite@syntaxure.dev>",
 			reminderFrom: "PakaonAI <reminders@syntaxure.dev>",
 			resetFrom: "PakaonAI <invite@syntaxure.dev>",
+			alertFrom: "PakaonAI <reminders@syntaxure.dev>",
 			inviteReady: true,
 			reminderReady: true,
 			resetReady: true,
+			alertReady: true,
 		});
 		expect(JSON.stringify(configuration)).not.toContain("super-secret-value");
 		expect(configuration).not.toHaveProperty("resendApiKey");
@@ -392,9 +395,11 @@ describe("email configuration never returns a secret", () => {
 		expect(configuration.inviteFrom).toBe(DEFAULT_INVITE_FROM);
 		expect(configuration.reminderFrom).toBeNull();
 		expect(configuration.resetFrom).toBeNull();
+		expect(configuration.alertFrom).toBeNull();
 		expect(configuration.inviteReady).toBe(false);
 		expect(configuration.reminderReady).toBe(false);
 		expect(configuration.resetReady).toBe(false);
+		expect(configuration.alertReady).toBe(false);
 		expect(configuration.resendConfigured).toBe(false);
 	});
 });

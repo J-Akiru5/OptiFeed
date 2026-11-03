@@ -5,6 +5,10 @@ import { processRecalibrationReminders } from "@/lib/calibration/recalibration-r
 import { DEVICE_OFFLINE_AFTER_MIN_MIN } from "@/lib/device-status";
 import { deleteExpiredErrorEvents } from "@/lib/error-capture";
 import { normalizeNotificationPrefs } from "@/lib/limits";
+import {
+	sendCriticalAlertEmails,
+	sendDailyAlertDigest,
+} from "@/lib/notifications/alert-email-jobs";
 import { offlineEpisodeKey, openEpisode } from "@/lib/notifications/episodes";
 import { reportError } from "@/lib/observability";
 import { rollupDeviceConnectivity } from "@/lib/platform/connectivity";
@@ -160,6 +164,20 @@ export const GET = withApi(
 			//    actually waiting to be stored.
 			const connectivity = await rollupDeviceConnectivity();
 
+			// 3b. Alert email, best-effort and bounded per run. The in-app rows
+			//     already exist; these jobs only mirror them into a mailbox:
+			//     CRITICAL episodes (offline, safe mode, faults) once each, and one
+			//     digest per recipient for the previous day's low-hopper and
+			//     missed-feeding warnings. A failure is reported, never fatal.
+			const criticalEmails = await sendCriticalAlertEmails(now).catch((error: unknown) => {
+				reportError(error, { route: "cron/device-watch", job: "critical-alert-email" });
+				return { sent: 0, failed: 0, skipped: 0 };
+			});
+			const alertDigest = await sendDailyAlertDigest(now).catch((error: unknown) => {
+				reportError(error, { route: "cron/device-watch", job: "alert-digest" });
+				return { sent: 0, failed: 0, day: null };
+			});
+
 			// 4. Batched housekeeping so each run stays under the Vercel Hobby
 			//    10-second limit: one small batch per job per run.
 			const heartbeatsDeleted = await deleteOldHeartbeatEvents();
@@ -179,6 +197,8 @@ export const GET = withApi(
 				recalibration,
 				incidents,
 				connectivity,
+				criticalEmails,
+				alertDigest,
 				heartbeatsDeleted,
 				bucketsDeleted,
 				errorEventsDeleted,

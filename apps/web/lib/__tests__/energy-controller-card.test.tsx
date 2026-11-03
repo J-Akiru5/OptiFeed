@@ -28,6 +28,9 @@ vi.mock("@/lib/actions/energy", () => ({
 }));
 
 import { EnergyControllerCard } from "@/components/EnergyControllerCard";
+import { createTranslator } from "./helpers/messages";
+
+const tLimit = createTranslator("dashboard.feedNowModal");
 
 const baseProps = {
 	deviceId: "device-1",
@@ -71,9 +74,30 @@ describe("EnergyControllerCard Feed Now input", () => {
 		render(<EnergyControllerCard {...baseProps} feedNowLimit={limit} />);
 		fireEvent.click(screen.getByRole("button", { name: /Feed Now/ }));
 
+		// #749: the first click only opens the confirmation; nothing is sent yet.
+		expect(actionMocks.requestFeed).not.toHaveBeenCalled();
+		fireEvent.click(screen.getByRole("button", { name: "Send 1300.5g" }));
+
 		await waitFor(() => {
 			expect(actionMocks.requestFeed).toHaveBeenCalledWith("device-1", 1300.5);
 		});
+	});
+
+	it("cancels the confirmation on Escape without sending", () => {
+		render(<EnergyControllerCard {...baseProps} feedNowLimit={limit} />);
+
+		fireEvent.click(screen.getByRole("button", { name: /Feed Now/ }));
+		fireEvent.keyDown(window, { key: "Escape" });
+
+		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+		expect(actionMocks.requestFeed).not.toHaveBeenCalled();
+	});
+
+	it("disables Feed Now and explains why on a fallow pond", () => {
+		render(<EnergyControllerCard {...baseProps} feedNowLimit={limit} isFallow />);
+
+		expect(screen.getByRole("button", { name: /Feed Now/ })).toBeDisabled();
+		expect(screen.getByText(tLimit("fallowWarning"))).toBeInTheDocument();
 	});
 
 	it("blocks a manually typed amount above the remaining daily grams", () => {

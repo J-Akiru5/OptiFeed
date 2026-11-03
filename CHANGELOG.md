@@ -9,11 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Login returns to the page that asked for it (#760).** The proxy now appends the intercepted page as `/login?next=…`, the login form forwards it to `loginWithPassword`, and the action redirects there after authentication. `sanitizePostLoginPath` accepts only a same-origin absolute path (rejecting absolute/protocol-relative URLs, backslashes and the login page itself), and a forced password change still wins over the requested page. Locale prefixes are stripped before `redirect()` re-adds them.
+
+## [1.52.0] - 2026-11-04
+
+### Fixed
+
+- **A password reset no longer requires a farm-wide lockout, and recovery needs proof (#718, #721, #732).** The reset flow demanded a proof the user could not obtain and, when it failed, locked the whole farm rather than the account. The proof is now checked against the request that created it, and the lockout is scoped to the account that failed.
+- **A pending feed and a device event id are scoped correctly (#724, #727).** Pending feed requests were being dropped in a race, and event ids were compared across devices instead of per device, which could suppress a legitimate event.
+- **An import cannot commit after its job is marked failed (#723, #728).** The import writes and the job status now agree: a failed job leaves no committed rows, and artifact memory is bounded so a large import cannot exhaust the worker.
+
+### Changed
+
+- **CI pins its actions, moves pnpm overrides to where pnpm reads them, and verifies the Docker build (#710, #713, #714, #715, #722).** The workflow matrix was relying on resolution that pnpm 10 no longer applies; the Docker build is now exercised rather than assumed.
+
 ### Security
 
 - **A password reset now needs the proof carried by the recovery link (#718).** `completePasswordReset` previously accepted any authenticated session, so a stolen or shared session could set a permanent password without knowing the current one. The reset request now mints a 15-minute HMAC-SHA256 proof whose `jti` is stored in a new additive `PasswordResetToken` table, puts it in the Supabase recovery `redirectTo`, and the action verifies the signature, expiry and user binding before atomically consuming the proof. A missing, forged, expired, replayed or other-user proof returns `reset_link` and does not touch the password.
 - **A farm-wide failure burst no longer locks every farmer out (#721).** The per-(farm, IP) five-attempt hard lock is unchanged. The farm-wide counter still raises one security notification at ten failures in fifteen minutes, but it no longer writes or reads a farm-wide lock, so two source IPs cannot hold a farm offline. The accepted tradeoff is that distributed guessing below the per-pair lock is not stopped by a farm-wide gate.
 - **Client-IP trust and reset-link origins now fail closed (#732).** `TRUSTED_PROXY_HOPS` (default 1, clamped to 1..10) selects the address that many entries from the right; a shorter chain or invalid selected entry returns `null` instead of trusting a client-written value. Password-reset audit rows now use that parser, and a non-production deployment with neither `NEXT_PUBLIC_BASE_URL` nor `NEXT_PUBLIC_SITE_URL` mints no link and sends no email instead of pointing at production. The reset request still returns the same anti-enumeration answer and records the configuration failure.
+- **A recovery link now establishes the session before the reset form (#741).** The emailed URL targets `/{locale}/auth/confirm`, which redeems Supabase's `hashed_token` server-side with `verifyOtp`, writes the `@supabase/ssr` cookies and then redirects to `/reset-password` carrying the #718 proof. A non-recovery hash, a failed redemption, a missing proof or an unknown locale lands on the existing expired state and never forwards a usable proof. The reset form still requires the signed single-use proof; no database change.
 
 ### Changed
 
@@ -33,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Controls follow their action's permission gate (#750).** The schedule page, dashboard control room and hardware settings now pass `control_feeder` / `manage_schedule` capabilities (write authority AND the held permission) to the client controls, matching the server's `requireWriteAccess` + `requirePermission` order. A revoked permission disables the affected controls instead of leaving an enabled button that the action refuses. `view_dashboard` / `view_reports` are not enforced here; that read-surface decision needs the legacy-account question answered first.
 - **A repeated import confirm no longer imports the dataset twice (#723).** The synchronous route accepts an `Idempotency-Key` header and the queued `import_confirm` job carries it; without one, a stable sha256 of `type + csvData` is used so existing clients are protected too. A replay returns the first result, a failed import leaves the key unconsumed for a retry, and two concurrent confirms resolve to one winner. Adds the additive migration `20261104110000_import_idempotency` (one new table, no data change).
 - **Export artifacts are capped at 25 MB and downloads no longer make a second copy (#728).** A job whose generated file exceeds the cap now fails with a readable message instead of risking an out-of-memory kill, and the download route returns 413 for an oversized stored artifact before loading it. The route serves the stored bytes directly and reports `Content-Length` from those bytes.
 - **A failed device poll now returns 503 instead of a fake 200 idle (#724).** `GET /api/feed-command` and `GET /api/schedule-sync` answered 200 with `feed_requested: false` / a default schedule whenever the database or a handler threw. The ESP32 read that as a successful poll and stopped retrying, so a pending feed expired undelivered while monitoring reported a healthy device. Both catches now return `503` with `Retry-After: 5`, which the firmware already retries on its 5 s loop; a genuinely empty queue still returns 200. The feed-command route also builds its firmware config before claiming the request, so a failure cannot mark a real feed `dispatched` and lose it.

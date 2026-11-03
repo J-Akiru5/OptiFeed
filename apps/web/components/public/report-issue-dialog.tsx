@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 /**
  * Public "Report an issue" box (issue #487).
@@ -29,6 +29,7 @@ export type ReportIssueLabels = {
 	optional: string;
 	submit: string;
 	sending: string;
+	retry: string;
 	success: string;
 	error: string;
 	rateLimited: string;
@@ -46,6 +47,10 @@ const CATEGORY_OPTIONS = [
 ] as const;
 
 type SubmitStatus = "idle" | "sending" | "success" | "error" | "rateLimited";
+
+// A report is a few kilobytes over a public endpoint; 15 s is long past any
+// healthy response and short enough that a hung request cannot trap the user.
+const REQUEST_TIMEOUT_MS = 15_000;
 
 const focusRingOnDark =
 	"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF8A5C] focus-visible:ring-offset-2 focus-visible:ring-offset-[#061B2B]";
@@ -71,19 +76,33 @@ export function ReportIssueDialog({ labels }: ReportIssueDialogProps) {
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const firstFieldRef = useRef<HTMLSelectElement>(null);
 	const successRef = useRef<HTMLOutputElement>(null);
+	// Identifies the request that is allowed to publish its outcome. Closing,
+	// unmounting or starting a new attempt detaches the old controller, so a
+	// slow response can never overwrite the state of a later attempt or of a
+	// closed dialog.
+	const inFlightRef = useRef<AbortController | null>(null);
 
-	// Escape closes, except mid-submit: the request is already in flight and the
-	// user must see its outcome.
+	const cancelInFlight = useCallback(() => {
+		inFlightRef.current?.abort();
+		inFlightRef.current = null;
+	}, []);
+
+	useEffect(() => () => cancelInFlight(), [cancelInFlight]);
+
+	// Escape closes, including mid-submit: a hung request must not trap the
+	// user, and closing aborts it. Typed values stay in state for a retry.
 	useEffect(() => {
 		if (!open) return;
 		const onKeyDown = (event: KeyboardEvent) => {
-			if (event.key !== "Escape" || status === "sending") return;
+			if (event.key !== "Escape") return;
 			event.preventDefault();
+			cancelInFlight();
 			setOpen(false);
+			setStatus("idle");
 		};
 		window.addEventListener("keydown", onKeyDown);
 		return () => window.removeEventListener("keydown", onKeyDown);
-	}, [open, status]);
+	}, [open, cancelInFlight]);
 
 	// Lock background scrolling, move focus into the dialog, and hand focus back
 	// to whatever opened it when the dialog closes or unmounts.
@@ -112,8 +131,11 @@ export function ReportIssueDialog({ labels }: ReportIssueDialogProps) {
 	}
 
 	function closeDialog() {
-		if (status === "sending") return;
+		// Closing cancels an in-flight request rather than trapping the user in
+		// the dialog until the network answers (or never does).
+		cancelInFlight();
 		setOpen(false);
+		setStatus("idle");
 	}
 
 	function handleBackdropPointerDown(event: React.PointerEvent<HTMLDivElement>) {
@@ -144,6 +166,13 @@ export function ReportIssueDialog({ labels }: ReportIssueDialogProps) {
 	async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		if (status === "sending") return;
+
+		cancelInFlight();
+		const controller = new AbortController();
+		inFlightRef.current = controller;
+		// The abort reason decides whether the failure is the user's (closed the
+		// dialog), the network's (offline/DNS) or the endpoint's (no answer).
+		const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 		setStatus("sending");
 
 		try {
@@ -158,7 +187,12 @@ export function ReportIssueDialog({ labels }: ReportIssueDialogProps) {
 					locale: document.documentElement.lang,
 					website,
 				}),
+				signal: controller.signal,
 			});
+
+			// A newer attempt, or a close, superseded this one: its result is
+			// no longer the dialog's current outcome.
+			if (inFlightRef.current !== controller) return;
 
 			if (response.status === 201) {
 				setStatus("success");
@@ -171,9 +205,14 @@ export function ReportIssueDialog({ labels }: ReportIssueDialogProps) {
 
 			setStatus(response.status === 429 ? "rateLimited" : "error");
 		} catch {
-			// A network failure (offline, DNS, aborted request) gets the same
-			// generic message as a server error; no detail is shown or logged.
+			// Cancelled by close/unmount: keep whatever the user is looking at.
+			if (inFlightRef.current !== controller) return;
+			// Network failure or the request timeout above: the typed report is
+			// still in state, so the same submit control offers the retry.
 			setStatus("error");
+		} finally {
+			window.clearTimeout(timer);
+			if (inFlightRef.current === controller) inFlightRef.current = null;
 		}
 	}
 
@@ -212,10 +251,9 @@ export function ReportIssueDialog({ labels }: ReportIssueDialogProps) {
 						<button
 							type="button"
 							onClick={closeDialog}
-							disabled={status === "sending"}
 							aria-label={labels.close}
 							className={cn(
-								"absolute top-3 right-3 rounded-md p-1.5 text-white/55 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40",
+								"absolute top-3 right-3 rounded-md p-1.5 text-white/55 transition-colors hover:bg-white/10 hover:text-white",
 								focusRingOnDark,
 							)}
 						>
@@ -357,7 +395,11 @@ export function ReportIssueDialog({ labels }: ReportIssueDialogProps) {
 										focusRingOnDark,
 									)}
 								>
-									{status === "sending" ? labels.sending : labels.submit}
+									{status === "sending"
+										? labels.sending
+										: status === "error"
+											? labels.retry
+											: labels.submit}
 								</button>
 							</form>
 						)}

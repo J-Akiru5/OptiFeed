@@ -68,6 +68,20 @@ vi.mock("@/lib/auth/session", () => ({
 	getCurrentPondOwnerId: vi.fn(async () => "farm-1"),
 }));
 
+vi.mock("@/lib/auth/permissions", () => ({
+	getCurrentPermissions: vi.fn(
+		async () => new Set(["control_feeder", "manage_schedule", "view_dashboard"]),
+	),
+	writeCapabilities: (writeAccess: boolean, held: Set<string>) => ({
+		canControlFeeder: writeAccess && held.has("control_feeder"),
+		canManageSchedule: writeAccess && held.has("manage_schedule"),
+		canManageCropCycle: writeAccess && held.has("manage_crop_cycle"),
+		canClaimFeeder: writeAccess && held.has("claim_feeder"),
+		canManageFarmsPonds: writeAccess && held.has("manage_farms_ponds"),
+		canManageMembers: writeAccess && held.has("manage_members"),
+	}),
+}));
+
 vi.mock("@/lib/pond-selection", () => ({
 	getActivePond: vi.fn(async () => ({
 		id: "pond-1",

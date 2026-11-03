@@ -34,7 +34,7 @@ export function Donut({
 	const total = sumValues(segments);
 	const colored = segments.map((segment, index) => ({
 		...segment,
-		color: segment.color ?? seriesColor(index),
+		color: segment.color ?? seriesColor(index, theme.dark),
 	}));
 
 	return (

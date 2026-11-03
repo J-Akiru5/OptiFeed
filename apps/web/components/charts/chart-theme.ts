@@ -30,8 +30,28 @@ export const SERIES_COLORS = [
 	CHART_COLORS.red,
 ] as const;
 
-export function seriesColor(index: number): string {
-	return SERIES_COLORS[index % SERIES_COLORS.length];
+/**
+ * The same six hues lifted for a dark surface (#631).
+ *
+ * The light palette is tuned against a white card, where navy `#0A3D62` is
+ * 11.3:1. On the console's dark surface `#111A2C` that navy falls to **1.54:1**,
+ * so the second series of a stacked bar or donut disappeared into the card
+ * (WCAG 1.4.11 asks 3:1 for graphical objects). These replacements keep the
+ * series order and stay above 6:1 on `#111A2C`; `superadmin-theme.test.tsx`
+ * reads the surface out of `globals.css` and checks every entry in both themes.
+ */
+export const DARK_SERIES_COLORS = [
+	"#F97316", // orange
+	"#7FB0D0", // sky
+	"#4ADE80", // green
+	"#5EEAD4", // teal
+	"#FBBF24", // amber
+	"#F87171", // red
+] as const;
+
+export function seriesColor(index: number, dark = false): string {
+	const palette = dark ? DARK_SERIES_COLORS : SERIES_COLORS;
+	return palette[index % palette.length];
 }
 
 export interface ChartTheme {

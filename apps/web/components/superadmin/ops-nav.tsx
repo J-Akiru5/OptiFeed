@@ -55,8 +55,8 @@ export function OpsNav() {
 									"inline-flex min-h-11 items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-bold transition-colors",
 									FOCUS_RING,
 									isActive
-										? "bg-[#0A3D62] text-white shadow-sm"
-										: "text-[#3D5568] dark:text-slate-400 hover:bg-white dark:hover:bg-[#162238] hover:text-[#0A3D62]",
+										? "bg-console-accent text-console-accent-foreground shadow-sm"
+										: "text-console-content-muted hover:bg-console-surface-raised hover:text-console-content",
 								)}
 							>
 								<tab.icon className="h-4 w-4 shrink-0" aria-hidden="true" />

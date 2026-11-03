@@ -312,7 +312,7 @@ export default async function SuperadminFleetPage() {
 			{fleet.sourceError && (
 				<div
 					role="alert"
-					className="flex items-start gap-2 rounded-xl border border-[#C42B3A]/30 bg-[#FDE8EA] px-4 py-3 text-xs font-bold text-[#C42B3A]"
+					className="flex items-start gap-2 rounded-xl border border-console-critical-content/30 bg-console-critical-surface px-4 py-3 text-xs font-bold text-console-critical-content"
 				>
 					<OctagonAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
 					<div>
@@ -334,7 +334,12 @@ export default async function SuperadminFleetPage() {
 				</Card>
 			) : (
 				<>
-					<TableFrame label={t("tableLabel")} columns={columns} minWidth="min-w-[52rem]">
+					<TableFrame
+						className="hidden md:block"
+						label={t("tableLabel")}
+						columns={columns}
+						minWidth="min-w-[52rem]"
+					>
 						{fleet.rows.map((row) => {
 							const RowIcon = ICON[row.state];
 							return (

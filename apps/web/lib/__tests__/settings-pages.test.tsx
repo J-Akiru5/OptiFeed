@@ -349,6 +349,22 @@ describe("hardware settings page", () => {
 		expect(html).not.toContain("Device record ID");
 	});
 
+	it("shows the button dose and the press the device reported (#658)", async () => {
+		vi.mocked(prisma.feedEvent.findFirst).mockResolvedValueOnce({
+			grams: 80,
+			receivedAt: new Date("2026-11-03T06:05:00.000Z"),
+		} as never);
+
+		const html = renderToStaticMarkup(
+			await HardwareSettingsPage({ searchParams: Promise.resolve({}) }),
+		);
+
+		expect(html).toContain("Button feed amount");
+		expect(html).toContain("Dose per press (g)");
+		// The control is not enough: the card must carry what the device did.
+		expect(html).toContain("Last button press: 80 g at");
+	});
+
 	it("explains read-only mode on the hardware controls", async () => {
 		vi.mocked(canWrite).mockResolvedValueOnce(false);
 

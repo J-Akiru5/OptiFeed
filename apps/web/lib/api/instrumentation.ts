@@ -72,11 +72,13 @@ export function withApi<R extends Request = Request, C = unknown>(
 			queryCount: 0,
 			phases: {},
 		};
+		const controller = new AbortController();
+		metrics.signal = controller.signal;
 
 		let response: Response;
 		try {
 			response = await runWithRequestMetrics(metrics, () =>
-				runWithTimeout(handler, request, context as C, timeoutMs, requestId),
+				runWithTimeout(handler, request, context as C, timeoutMs, requestId, controller),
 			);
 		} catch (error) {
 			const apiError = toApiError(error);
@@ -105,6 +107,7 @@ async function runWithTimeout<R extends Request, C>(
 	context: C,
 	timeoutMs: number,
 	requestId: string,
+	controller: AbortController,
 ): Promise<Response> {
 	const work = Promise.resolve().then(() => handler(request, context));
 	if (timeoutMs <= 0) return work;
@@ -117,6 +120,9 @@ async function runWithTimeout<R extends Request, C>(
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const timeout = new Promise<Response>((_, reject) => {
 		timer = setTimeout(() => {
+			// #728: cooperative cancellation. Work that checks this signal stops
+			// at its next boundary instead of running after the 504 was sent.
+			controller.abort();
 			reject(
 				new ApiError(504, "TIMEOUT", "The request exceeded its 2,000 ms budget.", {
 					headers: { "X-Request-Id": requestId },

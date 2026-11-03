@@ -23,6 +23,8 @@ export interface RequestMetrics {
 	queryCount: number;
 	/** Named durations for non-DB work that is worth isolating (e.g. auth). */
 	phases: Record<string, number>;
+	/** Aborted when the route's absolute budget expires (#728). */
+	signal?: AbortSignal;
 }
 
 const storage = new AsyncLocalStorage<RequestMetrics>();
@@ -62,6 +64,15 @@ export function recordPhase(name: string, durationMs: number): void {
 
 export function currentRequestId(): string | undefined {
 	return storage.getStore()?.requestId;
+}
+
+/**
+ * The current request's abort signal (#728). Background workers pass it into
+ * their job builders so a route that already returned 504 stops spending DB
+ * time. `undefined` outside an instrumented request.
+ */
+export function currentAbortSignal(): AbortSignal | undefined {
+	return storage.getStore()?.signal;
 }
 
 /**

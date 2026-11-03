@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.50.0] - 2026-11-03
+
+### Added
+
+- **The physical button's feed amount is now writable from the dashboard (#658).** It and its tuning were overlaid from the device but nothing in the app could set them; they now go through the existing device-config path, with the firmware's own bounds mirrored in the input and the device-reported value shown back.
+- **Hopper calibration is no longer blind (#659).** The raw ultrasonic reading and its timestamp are rendered where calibration happens, so the distance moves while someone waves a hand under the sensor, and the hopper filter is settable from the same surface instead of firmware-only.
+
+### Changed
+
+- **The console shell runs on one palette (#628).** 25 `--console-*` tokens replace every colour literal in the shell, sidebar, bottom nav, monitor primitives and dialogs, so there is no `dark:` pair left to forget. Three pre-existing contrast failures were fixed on the way: the active sidebar item and the `PLATFORM` pill were white on `#E85A2A` at 3.54:1 (now 5.18:1 and 8.06:1) and the warning badge moved 4.60 -> 5.43:1. Breakpoint composition is asserted at 1920/1440/1280/1024/768/390, which surfaced two real layout bugs: an orphaned donut between 1024 and 1279 and a dead third column in the work-queue grid at 1280 and above.
+- **Firmware tuning constants have one source of truth (#662).** Duplicated values between `firmware-main/config.h` and the web mirror are collapsed, with a parity test that fails if they drift. No device behaviour changed; native tests 69/69 and the GPIO5 build still succeed.
+
 ### Added
 
 - **The hopper filter can be tuned per device, and calibration shows the live raw distance (#659).** The seven ultrasonic filter keys (`hopper_refill_margin_pct`, `hopper_reject_below_cm`, `hopper_reject_above_margin_cm`, `hopper_ema_alpha`, `hopper_jump_pct`, `hopper_persist_cycles`, `hopper_state_hold_s`) were firmware-only constants - `editable: false` and never overlaid onto the poll response - so a bouncing or noisy sensor could only be adapted with a new build. Device settings -> Calibration now has **Hopper sensor filter**: the values are stored per device (seven nullable `EnergyDevice` columns, additive migration, no new table), written by `saveHopperFilterSettings` with write access plus the revocable `manage_schedule` permission and a `hopper_filter_changed` audit row in the same transaction, and overlaid onto the poll response's `config` object. Every bound and default comes from the shared `FIRMWARE_FIELDS` table that a test pins to `firmware/firmware-main/config.h`, so the form, the server schema and the device cannot drift. A null column sends nothing and the card says how many values still run on the firmware default. The card also shows the unit's own echo (`config_rev` / `config_source` from `diag`, compared with the last recorded change) because a write is only a promise until the unit polls. Separately, calibration was blind: `feedLevelCm` was ingested and stored but no screen rendered it, so an operator setting the full/empty references had to measure the tank externally. The hopper form now shows the raw distance and its timestamp, refreshing every few seconds while the tab is visible, with capture buttons that write the reading on screen into the full or empty field. The value comes from the existing authenticated live endpoint (`GET /api/devices/{id}/state`, now carrying `feedLevelCm`), so there is no new route and no new dependency; a failed poll keeps the last reading. Copy is in English, Hiligaynon and Tagalog (machine-drafted, queued for review).

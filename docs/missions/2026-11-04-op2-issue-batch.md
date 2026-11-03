@@ -53,8 +53,8 @@ Local gate on the combined verification tree:
 
 CI on the PRs: #738, #736 and #739 are merged and were fully green, including `docker build (no
 push)`, `quality`, `e2e`, `lighthouse budgets`, `bundle budget + latency` and the public smoke.
-#737 was merged with `origin/develop` after those landings and is rerunning; its checks were green
-before the base moved. The three migrations are independent additive tables: `20261104100000` (events),
+#737 was merged with `origin/develop` after those landings and is now fully green, ready to merge.
+#740 is this docs-only mission record; its checks rerun after each documentation edit. The three migrations are independent additive tables: `20261104100000` (events),
 `20261104110000` (imports) and `20261104120000` (reset proofs). The auth migration landed before
 the import one, so the timestamps are not the merge order; they touch different tables, so
 application order is immaterial. No deployment was triggered by these branches.

@@ -58,6 +58,10 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			"@": path.resolve(__dirname, "."),
+			// `server-only` throws when imported outside a React Server Component
+			// bundle. Vitest imports the server actions directly, so point it at an
+			// empty module; Next's build still uses the real guard.
+			"server-only": path.resolve(__dirname, "test/server-only-mock.ts"),
 		},
 	},
 });

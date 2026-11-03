@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Device-token reveals now require a fresh step-up check (#720).** `revealDeviceToken` wraps the scoped read and its audit row in `withStepUp`, so a stolen tenant-admin session cannot drain every device credential without re-entering the password. The action returns the typed `step_up_required` code and the devices UI opens the shared `StepUpDialog` then retries the same call. `lib/supabase/admin.ts` now imports `server-only` (new `server-only` dependency) so a client import fails at build time instead of shipping a service-role path. Tokens are still stored in plaintext and only a hash is used for lookup; encryption-at-rest remains open on #720.
 - **Session cookies are Secure and expire after 30 days instead of 400 (#717).** `sessionCookieOptions()` now drives both the server and browser Supabase clients, so a refresh by either one writes the same flags: `Secure` in production, `SameSite=Lax`, `path=/` and a 30-day `maxAge`. `HttpOnly` is deliberately still absent because `createBrowserClient` reads `document.cookie` for Realtime and client sign-out; setting it now would silently break those flows. The CSP still allows inline scripts. Both remaining halves need the staged work described on #717.
 ### Fixed
 

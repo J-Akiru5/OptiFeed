@@ -77,7 +77,7 @@ describe("client address derivation (F-014 / #329 / #732)", () => {
 	});
 
 	it("returns null when the selected entry is malformed", () => {
-		expect(parseClientIp("1.2.3.4, boom", 2)).toBeNull();
+		expect(parseClientIp("boom, 1.2.3.4", 2)).toBeNull();
 		expect(parseClientIp("1.2.3.4, <script>, 10.0.0.1", 2)).toBeNull();
 	});
 

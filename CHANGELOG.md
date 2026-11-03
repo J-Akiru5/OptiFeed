@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Deployment policy is recorded as `main` + `staging` and guarded against drift (D7).** The promotion chain remains `develop` → `staging` → `main`; `develop` is validation-only, matching `apps/web/vercel.json`, and the global `main` + `develop` deployment default does not apply to this repository. Vercel Deployment Protection is now documented as a required control for preview deployments, and `scripts/ops/deployment-policy.mjs` (run inside the existing `quality` job) fails if the config, the deployment document and the documented allowlist diverge.
+
 ## [1.53.1] - 2026-11-04
 
 ### Fixed

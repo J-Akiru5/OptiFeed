@@ -810,7 +810,7 @@ export const POST = withApi(
 					// device. The previous pond-wide `notification.updateMany` cleared
 					// every open connectivity alert in the pond, so a second offline
 					// feeder was silently marked recovered when this one reconnected.
-					if (wasOffline) {
+					if (wasOffline && device.pondId) {
 						await closeEpisode(tx, offlineEpisodeKey(device.id));
 					}
 

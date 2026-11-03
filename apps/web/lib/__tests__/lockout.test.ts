@@ -31,7 +31,7 @@ const IP = "203.0.113.9";
 
 describe("per-(farm, IP) hard lockout", () => {
 	beforeEach(() => {
-		vi.clearAllMocks();
+		vi.resetAllMocks();
 	});
 
 	it("locks the pair after 5 failed attempts for 15 minutes", async () => {
@@ -83,15 +83,16 @@ describe("per-(farm, IP) hard lockout", () => {
 	});
 });
 
-// F-031: the old global tier slowed login at 20/hour but NEVER locked, so an
-// attacker rotating IPs (or spoofing XFF pre-F-014) could brute-force all day.
-// The farm-wide cap locks every IP after 10 failures within 15 minutes.
-describe("farm-wide lockout cap: 10 fails / 15 min (F-031)", () => {
+// F-031 originally added a hard farm-wide lock: 10 failures across all IPs
+// locked every IP for 15 minutes. #721 removed the hard gate because two
+// source IPs could hold a farm offline indefinitely. The counter and the
+// one-shot security notification remain as an alert-only signal.
+describe("farm-wide signal: 10 fails / 15 min, alert only (#721)", () => {
 	beforeEach(() => {
-		vi.clearAllMocks();
+		vi.resetAllMocks();
 	});
 
-	it("sets lockedUntil on the farm record at the 10th failure", async () => {
+	it("does not write a farm lock at the 10th failure", async () => {
 		userLockout.findUnique.mockResolvedValue({
 			failedAttempts: 9,
 			lockedUntil: null,
@@ -106,34 +107,15 @@ describe("farm-wide lockout cap: 10 fails / 15 min (F-031)", () => {
 				where: { farmId: FARM },
 				data: expect.objectContaining({
 					failedAttempts: 10,
-					lockedUntil: expect.any(Date),
-				}),
-			}),
-		);
-	});
-
-	it("does not set lockedUntil below the threshold", async () => {
-		userLockout.findUnique.mockResolvedValue({
-			failedAttempts: 8,
-			lockedUntil: null,
-			lastFailedAt: new Date(),
-		} as never);
-		loginLockout.findUnique.mockResolvedValue(null);
-
-		await recordFailedAttempt(FARM, IP);
-
-		expect(userLockout.update).toHaveBeenCalledWith(
-			expect.objectContaining({
-				data: expect.objectContaining({
-					failedAttempts: 9,
 					lockedUntil: null,
 				}),
 			}),
 		);
 	});
 
-	it("locks every IP while the farm lock is active", async () => {
-		// This pair has never failed — the lock must apply anyway.
+	it("cannot lock the farm for a third IP, even with a legacy lock row", async () => {
+		// Two attacker IPs may have crossed the threshold; a third IP must still
+		// be able to sign in. checkLockout must not consult the farm row at all.
 		loginLockout.findUnique.mockResolvedValue(null);
 		userLockout.findUnique.mockResolvedValue({
 			failedAttempts: 10,
@@ -142,59 +124,31 @@ describe("farm-wide lockout cap: 10 fails / 15 min (F-031)", () => {
 		} as never);
 
 		const result = await checkLockout(FARM, "198.51.100.7");
-		expect(result.locked).toBe(true);
-		expect(result.secondsRemaining).toBeGreaterThan(0);
-	});
 
-	it("clears an expired farm lock and lets the login through", async () => {
-		loginLockout.findUnique.mockResolvedValue(null);
-		userLockout.findUnique.mockResolvedValue({
-			failedAttempts: 10,
-			lockedUntil: new Date(Date.now() - 1000),
-			lastFailedAt: new Date(Date.now() - 16 * 60 * 1000),
-		} as never);
-
-		const result = await checkLockout(FARM, IP);
-		expect(result.locked).toBe(false);
-		expect(userLockout.update).toHaveBeenCalledWith(
-			expect.objectContaining({
-				where: { farmId: FARM },
-				data: expect.objectContaining({ failedAttempts: 0, lockedUntil: null }),
-			}),
-		);
-	});
-
-	it("a stale counter from outside the window does not lock", async () => {
-		userLockout.findUnique.mockResolvedValue({
-			failedAttempts: 10,
-			lockedUntil: new Date(Date.now() - 5 * 60 * 1000),
-			lastFailedAt: new Date(Date.now() - 20 * 60 * 1000),
-		} as never);
-		loginLockout.findUnique.mockResolvedValue(null);
-
-		await recordFailedAttempt(FARM, IP);
-
-		// Window expired → counter restarts at 1 instead of re-locking.
-		expect(userLockout.upsert).toHaveBeenCalledWith(
-			expect.objectContaining({
-				where: { farmId: FARM },
-				update: expect.objectContaining({ failedAttempts: 1, lockedUntil: null }),
-			}),
-		);
+		expect(result).toEqual({ locked: false });
+		expect(userLockout.findUnique).not.toHaveBeenCalled();
 	});
 
 	it("notifies the farm once when crossing the cap", async () => {
-		loginLockout.findUnique.mockResolvedValue({ failedAttempts: 1 } as never);
-		userLockout.findUnique.mockResolvedValue({
-			failedAttempts: 9,
-			lockedUntil: null,
-			lastFailedAt: new Date(),
-		} as never);
+		loginLockout.findUnique.mockResolvedValue(null);
+		userLockout.findUnique
+			.mockResolvedValueOnce({
+				failedAttempts: 9,
+				lockedUntil: null,
+				lastFailedAt: new Date(),
+			} as never)
+			.mockResolvedValueOnce({
+				failedAttempts: 10,
+				lockedUntil: null,
+				lastFailedAt: new Date(),
+			} as never);
 		pond.findFirst.mockResolvedValue({ id: "pond-1" } as never);
 		notification.create.mockResolvedValue({} as never);
 
-		await recordFailedAttempt(FARM, IP);
+		await recordFailedAttempt(FARM, "203.0.113.10");
+		await recordFailedAttempt(FARM, "203.0.113.11");
 
+		expect(notification.create).toHaveBeenCalledTimes(1);
 		expect(notification.create).toHaveBeenCalledWith(
 			expect.objectContaining({
 				data: expect.objectContaining({
@@ -217,6 +171,25 @@ describe("farm-wide lockout cap: 10 fails / 15 min (F-031)", () => {
 		await recordFailedAttempt(FARM, IP);
 
 		expect(notification.create).not.toHaveBeenCalled();
+	});
+
+	it("a stale counter from outside the window restarts at 1 without locking", async () => {
+		userLockout.findUnique.mockResolvedValue({
+			failedAttempts: 10,
+			lockedUntil: new Date(Date.now() - 5 * 60 * 1000),
+			lastFailedAt: new Date(Date.now() - 20 * 60 * 1000),
+		} as never);
+		loginLockout.findUnique.mockResolvedValue(null);
+
+		await recordFailedAttempt(FARM, IP);
+
+		// Window expired → counter restarts at 1 and any legacy lock is cleared.
+		expect(userLockout.upsert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { farmId: FARM },
+				update: expect.objectContaining({ failedAttempts: 1, lockedUntil: null }),
+			}),
+		);
 	});
 });
 

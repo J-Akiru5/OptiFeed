@@ -13,11 +13,13 @@ import { type FormEvent, useState, useTransition } from "react";
  * Set a new password from a Supabase recovery session (the email link).
  *
  * Mirrors ChangePasswordForm minus the current-password field: the requester
- * proved control of the recovery link, not the old credential. On success the
- * recovery session is still valid, so the visitor goes straight to the
- * dashboard — the forced-change flag was cleared by the action.
+ * proved control of the recovery link, not the old credential. The `reset`
+ * proof from the redirect is forwarded to the action, which verifies and
+ * consumes it. On success the recovery session is still valid, so the visitor
+ * goes straight to the dashboard — the forced-change flag was cleared by the
+ * action.
  */
-export function ResetPasswordForm() {
+export function ResetPasswordForm({ resetToken }: { resetToken: string }) {
 	const t = useTranslations("password");
 	const tReset = useTranslations("resetPassword");
 	const router = useRouter();
@@ -40,12 +42,13 @@ export function ResetPasswordForm() {
 		}
 
 		startTransition(async () => {
-			const result = await completePasswordReset({ newPassword, confirmPassword });
+			const result = await completePasswordReset({ newPassword, confirmPassword, resetToken });
 
 			if ("error" in result) {
 				if (result.error === "weak_password") setError(t("weak"));
 				else if (result.error === "mismatch") setError(t("mismatch"));
 				else if (result.error === "session") setError(tReset("sessionExpired"));
+				else if (result.error === "reset_link") setError(tReset("expiredDesc"));
 				else setError(t("service"));
 				return;
 			}

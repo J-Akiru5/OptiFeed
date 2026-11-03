@@ -24,6 +24,7 @@ vi.mock("@/lib/prisma", () => ({
 		biomassLog: { findMany: vi.fn(), createMany: vi.fn() },
 		fishSample: { createMany: vi.fn() },
 		deviceStateEvent: { create: vi.fn(), createMany: vi.fn() },
+		importConfirmation: { findUnique: vi.fn() },
 		$transaction: vi.fn(),
 	},
 }));
@@ -44,6 +45,7 @@ const mockEnergyDeviceFindFirst = vi.mocked(prisma.energyDevice.findFirst);
 const mockTransaction = vi.mocked(prisma.$transaction);
 const rootBiomassLogCreateMany = vi.mocked(prisma.biomassLog.createMany);
 const rootDeviceStateEventCreate = vi.mocked(prisma.deviceStateEvent.create);
+const rootImportConfirmationFindUnique = vi.mocked(prisma.importConfirmation.findUnique);
 
 // Writes must be issued on the client handed to the transaction callback,
 // never on the root client — root writes are not rolled back if a later
@@ -52,14 +54,15 @@ const txClient = {
 	biomassLog: { createMany: vi.fn() },
 	fishSample: { createMany: vi.fn() },
 	deviceStateEvent: { create: vi.fn(), createMany: vi.fn() },
+	importConfirmation: { create: vi.fn() },
 };
 
 const BIOMASS_CSV = "sampleWeightKg,sampleCount\n10,5\n12,6";
 
-function confirmReq(type: string, csvData: string) {
+function confirmReq(type: string, csvData: string, headers: Record<string, string> = {}) {
 	return new Request("http://test.local/api/import/confirm", {
 		method: "POST",
-		headers: { "content-type": "application/json" },
+		headers: { "content-type": "application/json", ...headers },
 		body: JSON.stringify({ type, csvData }),
 	}) as never;
 }
@@ -70,6 +73,8 @@ describe("import/confirm atomicity (F-003)", () => {
 		txClient.biomassLog.createMany.mockResolvedValue({ count: 2 } as never);
 		txClient.fishSample.createMany.mockResolvedValue({ count: 2 } as never);
 		txClient.deviceStateEvent.create.mockResolvedValue({} as never);
+		txClient.importConfirmation.create.mockResolvedValue({} as never);
+		rootImportConfirmationFindUnique.mockResolvedValue(null);
 
 		mockCreateClient.mockResolvedValue({
 			auth: {
@@ -117,6 +122,31 @@ describe("import/confirm atomicity (F-003)", () => {
 		expect(mockTransaction).not.toHaveBeenCalled();
 		expect(rootBiomassLogCreateMany).not.toHaveBeenCalled();
 		expect(txClient.biomassLog.createMany).not.toHaveBeenCalled();
+	});
+
+	it("passes the Idempotency-Key header through to the confirm", async () => {
+		const res = await confirmPost(
+			confirmReq("biomass_logs", BIOMASS_CSV, { "Idempotency-Key": "confirm-key-1" }),
+		);
+
+		expect(res.status).toBe(200);
+		expect(rootImportConfirmationFindUnique).toHaveBeenCalledWith({
+			where: {
+				ownerId_idempotencyKey: {
+					ownerId: "demo-farmer-1",
+					idempotencyKey: "confirm-key-1",
+				},
+			},
+			select: { result: true },
+		});
+		expect(txClient.importConfirmation.create).toHaveBeenCalledWith({
+			data: {
+				ownerId: "demo-farmer-1",
+				idempotencyKey: "confirm-key-1",
+				type: "biomass_logs",
+				result: { importedCount: 2 },
+			},
+		});
 	});
 
 	it("rejects a CSV whose type is not an exportable type", async () => {

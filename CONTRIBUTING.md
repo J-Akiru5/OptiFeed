@@ -68,7 +68,9 @@ Then:
 1. Copy `apps/web/.env.example` to `apps/web/.env` and fill in your **own**
    development credentials. Never copy production credentials onto a laptop
    for feature work.
-2. `pnpm prisma:generate`
+2. `pnpm prisma:generate` — `pnpm install` runs it automatically when
+   `apps/web/prisma/schema.prisma` is present; rerun it after a pull that
+   changes the schema.
 3. `pnpm dev`
 4. Configure Git identity so commits are attributable:
    ```bash

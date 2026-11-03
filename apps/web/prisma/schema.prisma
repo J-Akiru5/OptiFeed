@@ -464,7 +464,9 @@ model EnergyDevice {
 model FeedEvent {
   id            String   @id @default(cuid())
   deviceId      String
-  eventId       String?  @unique
+  // #727: the firmware mints event ids per device, so uniqueness is the pair
+  // below. The column stays optional; Postgres allows multiple NULLs.
+  eventId       String?
   eventType     String // "heartbeat" | "feed_dispensed" | "schedule_acked"
   timestamp     String // device RTC time — may be "unknown" if RTC unavailable
   grams         Float?
@@ -481,6 +483,7 @@ model FeedEvent {
 
   device EnergyDevice @relation(fields: [deviceId], references: [id])
 
+  @@unique([deviceId, eventId])
   @@index([deviceId, receivedAt])
   @@index([eventType, receivedAt])
   @@index([farmId])
@@ -600,11 +603,13 @@ model PondOwnershipHistory {
   @@index([farmId])
 }
 
-// Per-farm brute-force lockout tracking.
+// Per-farm brute-force signal tracking.
 // Supabase Auth has IP-level rate limits but no per-account lockout.
 model UserLockout {
-  // Global per-farm failure counter: >= 20 fails/hour slows the next login
-  // and notifies the farm (security category), but NEVER locks the farmer out.
+  // Farm-wide failure counter: >= 10 fails in 15 minutes raises one security
+  // notification. It is alert-only and never blocks login (#721). `lockedUntil`
+  // is retained for compatibility with older rows; it is no longer read as a
+  // farm-wide lock.
   farmId         String    @id
   failedAttempts Int       @default(0)
   lockedUntil    DateTime?
@@ -627,6 +632,22 @@ model LoginLockout {
 
   @@id([farmId, ip])
   @@map("login_lockout")
+}
+
+/// Single-use proof that a recovery link was requested for a user (#718).
+/// The signed token carries `jti`; this row makes the proof single-use and
+/// lets the action reject a replay even after a successful update. There is no
+/// foreign key: the row is short-lived and expired rows can be pruned without
+/// touching `User`.
+model PasswordResetToken {
+  id         String    @id @default(cuid())
+  jti        String    @unique
+  userId     String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
 }
 
 /// Fixed-window rate-limit counters. Declared here so the Prisma schema matches
@@ -933,6 +954,27 @@ model JobArtifact {
   createdAt   DateTime      @default(now())
   expiresAt   DateTime
   job         BackgroundJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+/// One confirmed CSV import per owner and idempotency key (#723).
+///
+/// The row is written in the same transaction as the imported rows. A replay
+/// returns `result` without inserting again; a failed transaction rolls the
+/// confirmation back too, so the same key can be retried. The unique pair also
+/// makes two concurrent confirms resolve to one winner.
+model ImportConfirmation {
+  id             String   @id @default(cuid())
+  /// Tenant key (User.farmId), matching BackgroundJob.ownerId.
+  ownerId        String
+  /// Client `Idempotency-Key`, or a sha256 of type + csvData when absent.
+  idempotencyKey String
+  type           String
+  /// `{ "importedCount": number }` — the response of the winning import.
+  result         Json
+  createdAt      DateTime @default(now())
+
+  @@unique([ownerId, idempotencyKey])
+  @@index([createdAt])
 }
 
 enum DeviceApproval {

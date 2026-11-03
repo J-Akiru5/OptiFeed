@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api/errors";
+import { MAX_JOB_ARTIFACT_BYTES } from "@/lib/constants";
 import type { ExportableType } from "@/lib/csv";
 import { scrubText } from "@/lib/error-scrub";
 import { reportError } from "@/lib/observability";
@@ -230,8 +231,14 @@ async function executeJob(job: BackgroundJob): Promise<void> {
 			return;
 		}
 		case "import_confirm": {
-			const payload = job.payload as { type: ExportableType; csvData: string };
-			const result = await confirmImport(job.ownerId, payload.type, payload.csvData);
+			const payload = job.payload as {
+				type: ExportableType;
+				csvData: string;
+				idempotencyKey?: string | null;
+			};
+			const result = await confirmImport(job.ownerId, payload.type, payload.csvData, {
+				idempotencyKey: payload.idempotencyKey,
+			});
 			await completeJob(job, null, { importedCount: result.importedCount });
 			return;
 		}
@@ -262,6 +269,19 @@ async function completeJob(
 	artifact: { filename: string; contentType: string; body: ArrayBuffer } | null,
 	result: Prisma.InputJsonValue,
 ): Promise<void> {
+	// #728: refuse an oversized export before it is copied into Postgres. The
+	// job fails with this message instead of the function running out of memory.
+	if (artifact && artifact.body.byteLength > MAX_JOB_ARTIFACT_BYTES) {
+		const sizeMb = Math.ceil((artifact.body.byteLength / (1024 * 1024)) * 10) / 10;
+		const limitMb = Math.floor(MAX_JOB_ARTIFACT_BYTES / (1024 * 1024));
+		throw new ApiError(
+			413,
+			"PAYLOAD_TOO_LARGE",
+			`The generated export is ${sizeMb} MB; the ${limitMb} MB artifact limit was exceeded, so it was not stored.`,
+			{ expose: true },
+		);
+	}
+
 	await prisma.$transaction(async (tx) => {
 		// Fence the write to the attempt that still owns the lease. A timed-out
 		// attempt may finish after the job was requeued or picked up again; its

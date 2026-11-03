@@ -149,6 +149,13 @@ export const GET = withApi(
 				return new Response("Too Many Requests", { status: 429 });
 			}
 
+			// #724: build the config before claiming the pending row. The helpers
+			// behind it usually fall back instead of throwing, but if this does
+			// fail the catch below answers 503 and the request is still `pending`,
+			// so the device's next poll can claim it. Claiming first and failing
+			// afterwards would mark a real feed dispatched and silently lose it.
+			const config = await firmwareConfigFor(device);
+
 			// Lazy expiry: mark any pending requests older than 60s as expired.
 			// No cron needed — checked on every poll.
 			await prisma.feedRequest.updateMany({
@@ -182,7 +189,7 @@ export const GET = withApi(
 					grams: clamp(pendingRequest.grams, 0, MAX_ACCEPTED_FEED_GRAMS),
 					calibration,
 					...deviceConfig(device),
-					config: await firmwareConfigFor(device),
+					config,
 				});
 			}
 
@@ -192,21 +199,19 @@ export const GET = withApi(
 				grams: 0,
 				calibration: false,
 				...deviceConfig(device),
-				config: await firmwareConfigFor(device),
+				config,
 			});
 		} catch (error) {
 			reportError(error, { route: "feed-command", deviceId: device?.id ?? deviceId });
-			// Return safe idle state so ESP32 doesn't hang
-			return Response.json({
-				feed_requested: false,
-				feed_request_id: null,
-				grams: 0,
-				grams_per_feeding: 150,
-				button_feed_grams: 80,
-				hopper_empty_cm: null,
-				hopper_full_cm: null,
-				grams_per_second: 4.0,
-				temp_offset_c: 0,
+			// #724: an infrastructure failure is not an idle queue. Answering 200
+			// with `feed_requested: false` made the firmware treat the poll as
+			// successful and stop retrying, so a pending feed expired undelivered
+			// while the dashboard saw a healthy poll. 503 sends the ESP32 back
+			// around its existing 5 s loop; the safe idle JSON above is reserved
+			// for a genuinely empty queue.
+			return new Response("Service Unavailable", {
+				status: 503,
+				headers: { "Retry-After": "5" },
 			});
 		}
 	},

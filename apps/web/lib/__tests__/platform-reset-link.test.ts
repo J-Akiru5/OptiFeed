@@ -19,7 +19,7 @@ const resetEmail = vi.hoisted(() => ({
 	isResetEmailConfigured: vi.fn(() => true),
 }));
 const resetAction = vi.hoisted(() => ({
-	resolveAppBaseUrl: vi.fn(async () => "https://pakaonai.syntaxure.dev"),
+	resolveAppBaseUrl: vi.fn(async (): Promise<string | null> => "https://pakaonai.syntaxure.dev"),
 }));
 const resetProof = vi.hoisted(() => ({
 	issuePasswordResetProof: vi.fn(async () => ({

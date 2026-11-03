@@ -60,15 +60,15 @@ export default async function SuperadminLayout({
 
 	return (
 		<ChatWidgetProvider role={assistantRole}>
-			<div className="flex h-dvh flex-col overflow-hidden bg-[#F4F7F6] dark:bg-[#0B1220]">
+			<div className="flex h-dvh flex-col overflow-hidden bg-console-page">
 				<a
 					href="#main-content"
-					className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-black focus:text-[#0A3D62] focus:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] dark:focus:bg-[#111A2C] dark:focus:text-slate-100"
+					className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-console-surface focus:px-4 focus:py-2 focus:text-sm focus:font-black focus:text-console-content focus:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-focus"
 				>
 					{t("skipToContent")}
 				</a>
 
-				<header className="sticky top-0 z-30 w-full shrink-0 bg-[#0A3D62] shadow-md dark:bg-[#08111D] dark:shadow-black/40">
+				<header className="sticky top-0 z-30 w-full shrink-0 bg-console-header shadow-md">
 					<GlobalSearch shell="platform" />
 					<MobileHeader shell="platform" isTenantAdmin={hasFarmDashboard} subtitle={t("console")}>
 						<DarkModeToggle />
@@ -95,7 +95,7 @@ export default async function SuperadminLayout({
 								height={26}
 								className="h-[26px] w-auto shrink-0 object-contain brightness-0 invert"
 							/>
-							<span className="ml-2 hidden items-center gap-1.5 rounded-full bg-[#E85A2A] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-white md:inline-flex">
+							<span className="ml-2 hidden items-center gap-1.5 rounded-full bg-console-accent px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-console-accent-foreground md:inline-flex">
 								{t("platform")}
 							</span>
 						</div>
@@ -108,7 +108,7 @@ export default async function SuperadminLayout({
 								<Link
 									href="/dashboard"
 									className={cn(
-										"rounded-lg px-2 py-1 text-sm font-bold text-white/80 transition-colors hover:text-white",
+										"rounded-lg px-2 py-1 text-sm font-bold text-console-header-ink-muted transition-colors hover:text-console-header-ink",
 										FOCUS_RING_ON_DARK,
 									)}
 								>
@@ -126,11 +126,12 @@ export default async function SuperadminLayout({
 					<SuperadminSidebar showFarmDashboard={hasFarmDashboard} />
 					{/* min-w-0 lets a wide table scroll inside its own card instead of
 				    widening the page. The scope banner is the pane's first child so its
-				    negative margins cancel the pane's padding (see ScopeBanner). */}
+				    negative margins cancel the pane's padding (see .ofd-console-scope),
+				    and `.ofd-console-pane` owns the padding scale for every breakpoint. */}
 					<main
 						id="main-content"
 						tabIndex={-1}
-						className="ofd-main relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto p-4 md:p-8"
+						className="ofd-console-pane relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto"
 					>
 						<ConsoleScopeBanner />
 						{children}

@@ -1,6 +1,8 @@
+import { ButtonFeedForm } from "@/components/ButtonFeedForm";
 import { DeviceDailyCapForm } from "@/components/DeviceDailyCapForm";
 import { DurationCalibrationForm } from "@/components/DurationCalibrationForm";
 import { HopperCalibrationForm } from "@/components/HopperCalibrationForm";
+import { type HopperFilterEchoReport, HopperFilterForm } from "@/components/HopperFilterForm";
 import { TemperatureCalibrationForm } from "@/components/TemperatureCalibrationForm";
 import {
 	CalibrationHistory,
@@ -22,7 +24,8 @@ import {
 	DeviceSettingsTabs,
 	type DeviceSwitcherOption,
 } from "@/components/settings/device-settings-tabs";
-import { updateDeviceDailyCap } from "@/lib/actions/settings";
+import { saveHopperFilterSettings } from "@/lib/actions/energy";
+import { updateDeviceButtonFeed, updateDeviceDailyCap } from "@/lib/actions/settings";
 import { canWrite } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
 import { loadCalibrationDriftWindow } from "@/lib/calibration/drift-data";
@@ -33,10 +36,22 @@ import { formatFarmDateTime } from "@/lib/date-local";
 import { toHopperSnapshot } from "@/lib/device-hopper";
 import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
 import { type FeederHeroPond, loadFeederHero } from "@/lib/feeder-hero";
+import {
+	HOPPER_FILTER_CHANGED_EVENT,
+	HOPPER_FILTER_FORM_FIELDS,
+	hopperFilterDefaults,
+	resolveHopperFilterValues,
+} from "@/lib/firmware/hopper-filter";
 import { getPageCount, parsePage } from "@/lib/pagination";
 import { getActivePondId, listSelectablePonds } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { AP_PREFIX } from "@/lib/provisioning-ap";
+import { buttonFeedConfirmation, loadButtonFeedReport } from "@/lib/settings/button-feed";
+import {
+	configEchoState,
+	loadDeviceConfigEcho,
+	loadDeviceEventAt,
+} from "@/lib/settings/config-echo";
 import {
 	deviceSettingsQuery,
 	parseDeviceSettingsTab,
@@ -48,6 +63,7 @@ import {
 	CalendarClock,
 	Cpu,
 	Gauge,
+	Hand,
 	History,
 	RefreshCw,
 	Ruler,
@@ -229,14 +245,23 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 					label: true,
 					lastSeenAt: true,
 					feedLevelPercent: true,
+					feedLevelCm: true,
 					feedLevelUpdatedAt: true,
 					hopperFullCm: true,
 					hopperEmptyCm: true,
 					hopperCapacityG: true,
 					hopperDiameterCm: true,
 					hopperBulkDensityGCm3: true,
+					hopperRefillMarginPct: true,
+					hopperRejectBelowCm: true,
+					hopperRejectAboveMarginCm: true,
+					hopperEmaAlpha: true,
+					hopperJumpPct: true,
+					hopperPersistCycles: true,
+					hopperStateHoldS: true,
 					gramsPerSecond: true,
 					gramsPerFeeding: true,
+					buttonFeedGrams: true,
 					dailyCapG: true,
 					lastCalibratedAt: true,
 					recalibrationIntervalDays: true,
@@ -282,6 +307,48 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 		energyDevice && heroPond && pondName
 			? await loadFeederHero({ pond: heroPond, deviceId: energyDevice.id, now })
 			: null;
+
+	// #658: the firmware reports one config revision for the whole config, never
+	// the per-key values, so the last button press is the only device-side
+	// evidence of the dose the unit is actually using. Loaded after the hero so
+	// the existing config/firmware reads keep their order.
+	const buttonFeedReport = energyDevice
+		? await loadButtonFeedReport(energyDevice.id, energyDevice.buttonFeedGrams)
+		: null;
+	const buttonFeedState = buttonFeedReport
+		? buttonFeedConfirmation(buttonFeedReport)
+		: "unavailable";
+	const buttonFeedLastPressLabel = buttonFeedReport?.lastPress
+		? formatFarmDateTime(buttonFeedReport.lastPress.receivedAt, tDates).full
+		: null;
+
+	// #659: the hopper filter card shows the values the dashboard wrote *and*
+	// what the unit echoed back. One config revision covers the whole config, so
+	// the echo is the only device-side evidence and the change timestamp is what
+	// makes "applied" mean something.
+	const [filterEcho, filterChangedAt] = energyDevice
+		? await Promise.all([
+				loadDeviceConfigEcho(energyDevice.id),
+				loadDeviceEventAt(energyDevice.id, HOPPER_FILTER_CHANGED_EVENT),
+			])
+		: [null, null];
+	const hopperFilterReport: HopperFilterEchoReport | null =
+		energyDevice && filterEcho
+			? {
+					available: filterEcho.available,
+					state: configEchoState(filterEcho.reportedAt, filterChangedAt),
+					reportedAtLabel: filterEcho.reportedAt
+						? formatFarmDateTime(filterEcho.reportedAt, tDates).full
+						: null,
+					reportedRev: filterEcho.reportedRev,
+					configSource: filterEcho.configSource,
+					changedAtLabel: filterChangedAt ? formatFarmDateTime(filterChangedAt, tDates).full : null,
+				}
+			: null;
+	const hopperFilterValues = energyDevice ? resolveHopperFilterValues(energyDevice) : null;
+	const hopperFilterDefaultsInUse = energyDevice
+		? hopperFilterDefaults(energyDevice).usingDefaults
+		: [];
 
 	// #574: the health view already arrives with the hero, so the hopper card can
 	// mark the sensor offline without another query.
@@ -597,6 +664,29 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 									/>
 								</DashboardSection>
 							)}
+
+							{/* Physical button dose (#658) */}
+							{energyDevice && buttonFeedReport && (
+								<DashboardSection
+									id="button-feed"
+									title={t("buttonFeed")}
+									description={t("buttonFeedDesc")}
+									icon={Hand}
+								>
+									<ButtonFeedForm
+										key={energyDevice.id}
+										deviceId={energyDevice.id}
+										report={{
+											storedGrams: energyDevice.buttonFeedGrams,
+											lastPressGrams: buttonFeedReport.lastPress?.grams ?? null,
+											lastPressAtLabel: buttonFeedLastPressLabel,
+											confirmation: buttonFeedState,
+										}}
+										saveAction={updateDeviceButtonFeed}
+										canWrite={writeAccess}
+									/>
+								</DashboardSection>
+							)}
 						</>
 					),
 					calibration: (
@@ -630,6 +720,31 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 										hopperCapacityG={energyDevice.hopperCapacityG}
 										hopperDiameterCm={energyDevice.hopperDiameterCm}
 										hopperBulkDensityGCm3={energyDevice.hopperBulkDensityGCm3}
+										feedLevelCm={energyDevice.feedLevelCm}
+										feedLevelPercent={energyDevice.feedLevelPercent}
+										feedLevelUpdatedAt={energyDevice.feedLevelUpdatedAt}
+										readingIsStale={hopperOffline || hopperSensorOffline}
+										canWrite={writeAccess}
+									/>
+								</DashboardSection>
+							)}
+
+							{/* Hopper filter tuning (#659) */}
+							{energyDevice && hopperFilterValues && hopperFilterReport && (
+								<DashboardSection
+									id="hopper-filter"
+									title={t("hopperFilter")}
+									description={t("hopperFilterDesc")}
+									icon={Activity}
+								>
+									<HopperFilterForm
+										key={energyDevice.id}
+										deviceId={energyDevice.id}
+										values={hopperFilterValues}
+										fields={HOPPER_FILTER_FORM_FIELDS}
+										usingDefaults={hopperFilterDefaultsInUse}
+										report={hopperFilterReport}
+										saveAction={saveHopperFilterSettings}
 										canWrite={writeAccess}
 									/>
 								</DashboardSection>

@@ -23,6 +23,7 @@ const DETAIL: FeederDeviceDetail = {
 	signalDbm: -62,
 	isPaused: false,
 	feedLevelPercent: 62,
+	feedLevelCm: 11.3,
 	feedLevelUpdatedAt: new Date("2026-11-03T07:57:00.000Z"),
 	hopperCapacityG: 25_000,
 	gramsPerFeeding: 330,
@@ -64,6 +65,13 @@ describe("toStatePayload", () => {
 		expect(payload.waterTempUpdatedAt).toBeNull();
 		expect(payload.waterTempC).toBeNull();
 		expect(payload.lastFedGrams).toBe(120);
+	});
+
+	it("carries the raw distance the calibration form shows (#659)", () => {
+		const payload = toStatePayload(DETAIL);
+		expect(payload.feedLevelCm).toBe(11.3);
+
+		expect(toStatePayload({ ...DETAIL, feedLevelCm: null }).feedLevelCm).toBeNull();
 	});
 
 	it("keeps the fields the poll already carried", () => {

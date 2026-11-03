@@ -16,6 +16,8 @@ export interface FeederStatePayload {
 	lastFedAt: string | null;
 	lastFedGrams: number | null;
 	feedLevelPercent: number | null;
+	/** Raw ultrasonic distance in cm (#659), for the calibration form. */
+	feedLevelCm: number | null;
 	/** When the hopper level was measured, for the stale/age treatment. */
 	feedLevelUpdatedAt: string | null;
 	hopperCapacityG: number | null;
@@ -44,6 +46,7 @@ export function toStatePayload(detail: FeederDeviceDetail): FeederStatePayload {
 		lastFedAt: iso(detail.lastFedAt),
 		lastFedGrams: detail.lastFedGrams,
 		feedLevelPercent: detail.feedLevelPercent,
+		feedLevelCm: detail.feedLevelCm,
 		feedLevelUpdatedAt: iso(detail.feedLevelUpdatedAt),
 		hopperCapacityG: detail.hopperCapacityG,
 		gramsPerFeeding: detail.gramsPerFeeding,

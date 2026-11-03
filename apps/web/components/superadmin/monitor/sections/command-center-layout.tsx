@@ -8,7 +8,8 @@ import { MonitorPanel, PanelGrid } from "../primitives/monitor-panel";
 import { StatusMix } from "../primitives/status-mix";
 
 /**
- * Level-2 composition for the Platform Command Center (issue #479, M3C.8).
+ * Level-2 composition for the Platform Command Center (issue #479, M3C.8;
+ * responsive composition #628).
  *
  * Props-only on purpose: the page owns the translator and passes every visible
  * string down, so this file has no copy of its own and never imports the i18n
@@ -21,8 +22,28 @@ import { StatusMix } from "../primitives/status-mix";
  * work queues, then an optional footer. Every slot except the header, bands,
  * KPIs and trend is optional, so a page that has no activity feed (or keeps its
  * own detailed attention cards) does not render an empty panel.
+ *
+ * ## Grid shape, per width
+ *
+ * The console pane is `viewport − sidebar − 2 × pane padding`, so the same
+ * viewport gives a different content width depending on the shell:
+ *
+ * | viewport | sidebar | pane padding | content | KPI row | trend row |
+ * | -------- | ------- | ------------ | ------- | ------- | --------- |
+ * | 1920     | 16rem   | 2rem         | 1600 px | 4       | 3 (2 + 1) |
+ * | 1440     | 16rem   | 2rem         | 1120 px | 4       | 3 (2 + 1) |
+ * | 1280     | 16rem   | 2rem         |  960 px | 4       | 3 (2 + 1) |
+ * | 1024     | 16rem   | 2rem         |  704 px | 2       | 2 (1 + 1) |
+ * | 768      | none    | 1.5rem       |  720 px | 2       | 1         |
+ * | 390      | none    | 1rem         |  358 px | 1       | 1         |
+ *
+ * Those are viewport breakpoints rather than container queries on purpose: the
+ * pane is the app's scroll container, and `container-type: inline-size` implies
+ * layout containment, which would turn it into the containing block for the
+ * console's `position: fixed` dialogs and trap them inside the scroll pane.
+ * `superadmin-shell-responsive.test.tsx` computes this table and asserts the
+ * classes still produce it.
  */
-
 export interface CommandCenterKpi {
 	label: string;
 	value: string;
@@ -106,17 +127,17 @@ export function CommandCenterLayout({
 	const hasWorkQueues = Boolean(attention || activity);
 	const hasTrendRow = Boolean(trend || trendNode || mix);
 
+	// With a mix panel the trend keeps two thirds from `xl`; without one it owns
+	// the row, including the laptop two-column shape.
+	const trendSpan = mix ? "min-w-0 xl:col-span-2" : "min-w-0 lg:col-span-2 xl:col-span-3";
+
 	return (
 		<section aria-label={title} className="space-y-6">
 			<header className="flex flex-wrap items-start justify-between gap-3">
 				<div className="min-w-0">
-					<h1 className="text-2xl font-black tracking-tight text-[#0A3D62] dark:text-slate-100">
-						{title}
-					</h1>
+					<h1 className="text-2xl font-black tracking-tight text-console-content">{title}</h1>
 					{description && (
-						<p className="mt-1 max-w-3xl text-sm text-[#3D5568] dark:text-slate-400">
-							{description}
-						</p>
+						<p className="mt-1 max-w-3xl text-sm text-console-content-muted">{description}</p>
 					)}
 				</div>
 				{rangeSwitcher && (
@@ -126,7 +147,10 @@ export function CommandCenterLayout({
 
 			{bands}
 
-			<PanelGrid className="grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+			<PanelGrid
+				data-console-grid="kpis"
+				className="grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+			>
 				{kpis.map((kpi) => (
 					<KpiTile
 						key={kpi.label}
@@ -142,17 +166,18 @@ export function CommandCenterLayout({
 			</PanelGrid>
 
 			{hasTrendRow && (
-				<PanelGrid className="grid-cols-1 gap-4 sm:grid-cols-1 xl:grid-cols-3">
+				<PanelGrid
+					data-console-grid="trend"
+					className="grid-cols-1 gap-4 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3"
+				>
 					{trendNode ? (
-						<div className={mix ? "min-w-0 xl:col-span-2" : "min-w-0 xl:col-span-3"}>
-							{trendNode}
-						</div>
+						<div className={trendSpan}>{trendNode}</div>
 					) : trend ? (
 						<MonitorPanel
 							title={trend.title}
 							description={trend.description}
 							meta={trend.meta}
-							className={mix ? "xl:col-span-2" : "xl:col-span-3"}
+							className={trendSpan}
 						>
 							{trend.children}
 						</MonitorPanel>
@@ -168,7 +193,10 @@ export function CommandCenterLayout({
 			{charts}
 
 			{hasWorkQueues && (
-				<PanelGrid className="grid-cols-1 gap-4 sm:grid-cols-1 lg:grid-cols-2">
+				<PanelGrid
+					data-console-grid="queues"
+					className="grid-cols-1 gap-4 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2"
+				>
 					{attention && (
 						<MonitorPanel title={attention.title} description={attention.description}>
 							<AttentionList items={attention.items} empty={attention.empty} />

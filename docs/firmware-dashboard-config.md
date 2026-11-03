@@ -155,11 +155,12 @@ change.
 | `ota_check_interval_s`, `ota_min_uptime_s`, `ota_min_rssi_dbm`, `ota_feed_guard_min`, `ota_window_start_min`, `ota_window_end_min`, `ota_min_free_heap_bytes`, `ota_no_data_timeout_ms`, `ota_download_timeout_ms`, `ota_health_check_timeout_ms` | `PlatformSetting` `firmware.gates` (same row as the gates), edited in Superadmin → Settings → OTA rollout policy (#660) |
 | `weak_after_min`, `offline_after_min` | `PlatformSetting` `device.status` (I-95), diagnostics only: the server still classifies connectivity and E36 keeps alerts on the platform policy |
 | `hopper_low_pct` | `OrgSetting.hopperLowPct` — device pond → pond owner (farm) → active organization → row (the same chain ingest alerts use). Cached per device for 60 s; a missing/unreadable org returns 20 % |
-| Calibration ceiling, hopper filter tuning, button guard, heartbeat interval | `firmware.gates` defaults (server-driven; stored and sent so a future UI or setting can move them without a reflash) |
+| `hopper_refill_margin_pct`, `hopper_reject_below_cm`, `hopper_reject_above_margin_cm`, `hopper_ema_alpha`, `hopper_jump_pct`, `hopper_persist_cycles`, `hopper_state_hold_s` | `EnergyDevice` columns (#659): the per-device hopper filter tuning, edited in Device settings -> Calibration. A null column sends nothing, so the firmware keeps its compile-time value; see "Farmer device settings: the hopper filter and the raw distance" below |
+| Calibration ceiling, button guard, heartbeat interval | `firmware.gates` defaults (server-driven; stored and sent so a future UI or setting can move them without a reflash) |
 
-No schema change is required: `PlatformSetting` is the existing key/value JSON
-store. **No item needed an additive migration**, so nothing was stopped for
-schema reasons.
+No schema change was required for I-100: `PlatformSetting` is the existing
+key/value JSON store, so no item needed an additive migration. The hopper
+filter (#659) is the one later exception and is recorded below.
 
 ### Organization hopper threshold (#456)
 
@@ -211,6 +212,78 @@ echoed a config since the last change is shown as **pending** and a unit with no
 available: the firmware reports one revision, never the individual numbers, and
 the card says so rather than inventing a second config store.
 
+## Farmer device settings: the physical button dose (#658)
+
+Device settings → **Feeding** (dashboard → Settings → Hardware) carries
+**Button feed amount** beside the daily ceiling. It writes
+`EnergyDevice.buttonFeedGrams` through `updateDeviceButtonFeed` (the existing
+settings server action; no new route or table), with the revocable
+`control_feeder` permission, a `button_feed_changed` `DeviceStateEvent` in the
+same transaction as the update, and a page revalidation so the reported block
+re-reads immediately.
+
+The input is bound to the firmware's own `button_feed_grams` envelope
+(`firmware/firmware-main/config.h`: 1-500 g). `BUTTON_FEED_GRAMS_MIN/MAX` in
+`lib/limits.ts` carry the same numbers, `buttonFeedGramsSchema` refuses outside
+it, and a unit test parses the header so the two cannot drift.
+
+A saved value is not proof the unit took it: the device keeps its last-good
+config when it refuses a config object and an offline unit never polls. The
+firmware reports one `config_rev`, never per-key values, so the only device-side
+evidence of the dose actually used is the `feed_dispensed` event a button press
+produces. The card compares the newest button-sourced `FeedEvent` with the newest
+`button_feed_changed` row: a later press that dispensed the stored dose is
+**confirmed**; a press before the change or one that dispensed another weight is
+**not confirmed**; no press at all is reported as no press rather than success. A
+failed read is shown as unavailable, not as "no press".
+
+## Farmer device settings: the hopper filter and the raw distance (#659)
+
+The seven ultrasonic filter keys (`hopper_refill_margin_pct`,
+`hopper_reject_below_cm`, `hopper_reject_above_margin_cm`, `hopper_ema_alpha`,
+`hopper_jump_pct`, `hopper_persist_cycles`, `hopper_state_hold_s`) were
+firmware-only constants: `editable: false` and never overlaid onto the poll
+response, so a bouncing or noisy sensor could only be adapted with a new build.
+
+They now live on the device row (`EnergyDevice.hopper*`, one nullable column
+each, migration `20261103120000_add_hopper_filter`) and are edited in Device
+settings -> Calibration -> **Hopper sensor filter**. `saveHopperFilterSettings`
+is the only writer: write access plus the revocable `manage_schedule`
+permission, the device resolved through the caller's own pond, the update and a
+`hopper_filter_changed` `DeviceStateEvent` in one transaction, and a page
+revalidation. The bounds and defaults are not restated anywhere: the form, the
+zod schema and the poll overlay all read the same `FIRMWARE_FIELDS` entry, which
+`firmware-config.test.ts` pins to `FW_CONFIG_FIELDS` in
+`firmware/firmware-main/config.h`. A null column sends nothing, so a unit that
+was never tuned keeps the compile-time value and the card says how many values
+still run on the default.
+
+Because a write is only a promise, the card also shows what the unit reports:
+its echoed `config_rev` / `config_source` from `diag`, and whether the newest
+`config_applied` row is newer than the last recorded filter change. The firmware
+never sends per-key values, so the echo is the only device-side evidence.
+
+The same section renders the **raw** distance the operator calibrates against.
+`feedLevelCm` was ingested and stored but no screen showed it, so setting the
+full/empty references meant measuring the tank externally with no feedback. The
+form renders the stored value, its farm-time timestamp and two capture buttons
+(full / empty) that write the reading on screen into the reference field. The
+value is polled every 4 s from the existing authenticated live endpoint
+(`GET /api/devices/{id}/state`, which now also carries `feedLevelCm`), only while
+the tab is visible; a failed poll keeps the last reading. No new table, no new
+route and no new dependency.
+
+The hopper **capacity** stays derived on purpose. It is computed from the tank
+diameter, the full/empty distances and the feed bulk density
+(`hopperCapacityFromGeometry`), and the card states that derivation next to the
+inputs. A device calibrated before #415, which has no diameter, keeps its stored
+`hopperCapacityG` and the card says so ("Saved capacity ... Enter the tank
+diameter to compute it from the tank"). There is deliberately no free-text
+capacity override: the stored number feeds the daily feed ceiling and the
+days-of-feed estimate, so typing an arbitrary value would silently raise the
+usable cap. An operator who needs a different capacity changes the geometry,
+which recomputes it and records both in the `hopper_calibrated` event.
+
 
 ## E38: the daily ceiling is the only gram cap
 
@@ -226,6 +299,22 @@ relay-time envelope. A dose that would run past the envelope is refused with
 dose or one above the derived ceiling. The server keeps its own relay-time check
 when queueing a manual feed, so a request that cannot physically run is never
 queued.
+
+## Values that are deliberately fixed (#662)
+
+The calibration-coverage audit (`docs/audits/2026-11-03-calibration-coverage.md`,
+gap 6) asked for four values that existed but were neither visible nor
+adjustable. The calibration caps and the heartbeat cadence are now mirrored to
+one place and pinned by a parity test; the RTC correction and the probe's
+plausibility window are recorded as deliberately fixed, with the clock drift
+reported instead of tuned.
+
+| Value | Where it lives | Decision |
+|---|---|---|
+| RTC drift | `diag.rtc_drift_s` (signed seconds) | **Reported, not tunable.** The server clock corrects the RTC automatically once the drift passes 60 s (`applyIsoTime`), so a manual offset would fight the correction. The signed drift observed at the last correction now rides the heartbeat and the device page renders it: positive means the clock was behind the server, negative ahead, `0` means no correction has been needed this boot. |
+| Water-probe plausibility | `fw::temperaturePlausible()` in `filters.h`: 0..50 °C, exclusive | **Deliberately fixed (class A).** It rejects the DS18B20 `-127` / `85` sentinels and values no pond here reaches; it answers "is this a real reading", not "is this reading accurate". Accuracy is corrected with `temp_offset_c`, which is already calibratable, and a probe that stops reporting is visible as `water_temp_ok: false` on the device row plus `diag.sensor_invalid_count`. There is no second threshold because the app has no reference measurement to compare against; inventing one would only add a number nobody can calibrate. |
+| `heartbeat_interval_s` | `config.h` field, `editable: false` | **Firmware-only, mirrored.** No dashboard surface, but the connectivity rollup needs the expected beat to size its gap threshold. The app reads one exported constant (`FIRMWARE_HEARTBEAT_INTERVAL_S`, derived from the field default) instead of restating `5`; the parity test pins it to the header. |
+| `calibration_max_grams` / `calibration_max_dispense_ms` | `config.h` field table | **Mirrored, not restated.** The app's calibration caps (`CALIBRATION_MAX_GRAMS`, `CALIBRATION_MAX_DISPENSE_MS`, and the derived `CALIBRATION_TEST_GRAMS_MAX`, `CALIBRATION_ACTUAL_GRAMS_MAX`, `CALIBRATION_TEST_SECONDS_MAX`) live in `apps/web/lib/limits-core.ts` and are asserted against the header by `firmware-config.test.ts`, so the two can no longer agree by luck. |
 
 ## Verification
 

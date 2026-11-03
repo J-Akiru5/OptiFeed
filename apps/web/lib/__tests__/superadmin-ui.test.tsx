@@ -76,10 +76,10 @@ describe("platform console primitives (T-09c)", () => {
 
 	it("Badge maps a tone to the console palette", () => {
 		expect(renderToStaticMarkup(<Badge tone="success">Online</Badge>)).toContain(
-			"bg-[#E8F5EC] text-[#1E7B34]",
+			"bg-console-ok-surface text-console-ok-content",
 		);
 		expect(renderToStaticMarkup(<Badge tone="danger">Offline</Badge>)).toContain(
-			"bg-[#FDE8EA] text-[#C42B3A]",
+			"bg-console-critical-surface text-console-critical-content",
 		);
 	});
 

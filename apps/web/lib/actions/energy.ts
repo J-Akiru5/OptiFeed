@@ -4,6 +4,13 @@ import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
 import { createManualFeedRequest } from "@/lib/feed/commands";
 import {
+	HOPPER_FILTER_CHANGED_EVENT,
+	HOPPER_FILTER_COLUMNS,
+	type HopperFilterKey,
+	type HopperFilterValues,
+	hopperFilterSchema,
+} from "@/lib/firmware/hopper-filter";
+import {
 	DEFAULT_HOPPER_BULK_DENSITY_G_CM3,
 	GRAMS_PER_SECOND_MAX,
 	GRAMS_PER_SECOND_MIN,
@@ -274,5 +281,88 @@ export async function saveTemperatureCalibration(
 	} catch (error) {
 		console.error("Failed to save temperature calibration:", error);
 		return { success: false, error: "Failed to save temperature calibration" };
+	}
+}
+
+/**
+ * The hopper filter tuning for one device (issue #659).
+ *
+ * The seven `hopper_*` filter keys were firmware-only constants: a bouncing or
+ * noisy ultrasonic sensor could only be adapted with a new build. They are now
+ * per-device columns, overlaid onto the poll response's `config` object like
+ * the hopper geometry, and this action is the only writer.
+ *
+ * Guarded exactly like the neighbouring hopper calibration: write access plus
+ * the revocable `manage_schedule` permission, the device resolved through the
+ * caller's own pond, the envelope enforced server-side (the form bounds are
+ * not a guard), and the update plus its `hopper_filter_changed` audit row in
+ * one transaction. The bounds come from `FIRMWARE_FIELDS` - the table the
+ * firmware contract test pins to `firmware-main/config.h` - so this action
+ * cannot accept a value the firmware would refuse.
+ */
+export async function saveHopperFilterSettings(
+	deviceId: string,
+	values: HopperFilterValues,
+): Promise<{ success: boolean; error?: string; values?: HopperFilterValues }> {
+	try {
+		await requireWriteAccess();
+		await requirePermission("manage_schedule");
+
+		const parsed = hopperFilterSchema.safeParse(values);
+		if (!parsed.success) {
+			return { success: false, error: formatZodError(parsed.error) };
+		}
+
+		const ownerId = await getCurrentPondOwnerId();
+		const device = await prisma.energyDevice.findFirst({
+			where: { id: deviceId, pond: { ownerId } },
+			select: {
+				id: true,
+				hopperRefillMarginPct: true,
+				hopperRejectBelowCm: true,
+				hopperRejectAboveMarginCm: true,
+				hopperEmaAlpha: true,
+				hopperJumpPct: true,
+				hopperPersistCycles: true,
+				hopperStateHoldS: true,
+			},
+		});
+
+		if (!device) {
+			return { success: false, error: "Device not found" };
+		}
+
+		const data = Object.fromEntries(
+			(Object.keys(HOPPER_FILTER_COLUMNS) as HopperFilterKey[]).map((key) => [
+				HOPPER_FILTER_COLUMNS[key],
+				parsed.data[key],
+			]),
+		) as Record<(typeof HOPPER_FILTER_COLUMNS)[HopperFilterKey], number>;
+
+		const before = Object.fromEntries(
+			(Object.keys(HOPPER_FILTER_COLUMNS) as HopperFilterKey[]).map((key) => [
+				key,
+				device[HOPPER_FILTER_COLUMNS[key]],
+			]),
+		);
+
+		await prisma.$transaction([
+			prisma.energyDevice.update({ where: { id: device.id }, data }),
+			prisma.deviceStateEvent.create({
+				data: {
+					deviceId: device.id,
+					eventType: HOPPER_FILTER_CHANGED_EVENT,
+					source: "user",
+					actorId: ownerId,
+					metadata: { before, after: parsed.data },
+				},
+			}),
+		]);
+
+		revalidatePath("/[locale]/(dashboard)/dashboard/settings/hardware", "page");
+		return { success: true, values: parsed.data };
+	} catch (error) {
+		console.error("Failed to save the hopper filter settings:", error);
+		return { success: false, error: "Failed to save the hopper filter settings" };
 	}
 }

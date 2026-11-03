@@ -4,9 +4,24 @@
  * re-exports everything here for server code.
  */
 
+/**
+ * Mirrors of the firmware safety envelope (#662).
+ *
+ * `firmware/firmware-main/config.h` is authoritative: the device refuses any
+ * value outside these bounds, so the app's own checks must use the same
+ * numbers. This block is the app's only copy of them - every other app constant
+ * whose bound comes from the firmware is derived here or re-exported from here,
+ * never re-typed. `__tests__/firmware-config.test.ts` parses the header and
+ * fails when one of these drifts, so a firmware change cannot silently leave
+ * the dashboard validating against an old bound.
+ */
+/** `max_grams_per_day` max: the daily hard guard (E38). */
 export const MAX_FEED_GRAMS_PER_DAY_PER_DEVICE = 5000;
+/** `max_dispense_ms` max: the ordinary relay ceiling (5 min). */
 export const MAX_DISPENSE_MS = 300_000;
-/** Calibration is the one deliberate exception: a measured run may last 10 minutes. */
+/** `calibration_max_grams` max: the most one calibration run may dispense. */
+export const CALIBRATION_MAX_GRAMS = 5000;
+/** `calibration_max_dispense_ms` max: calibration is the 10-minute exception. */
 export const CALIBRATION_MAX_DISPENSE_MS = 600_000;
 
 /**

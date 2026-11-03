@@ -1,13 +1,8 @@
 "use client";
 
-import {
-	type ChartLabels,
-	type ChartPoint,
-	Donut,
-	LineTrend,
-	StackedBars,
-	type StackedSeries,
-} from "@/components/charts";
+import type { ChartPoint, StackedSeries } from "@/components/charts/chart-data";
+import type { ChartLabels } from "@/components/charts/chart-frame";
+import { LazyDonut, LazyLineTrend, LazyStackedBars } from "@/components/charts/lazy";
 import type { AdminDeviceHealth } from "@/lib/admin-overview";
 
 interface AdminOverviewChartsProps {
@@ -49,7 +44,7 @@ export function AdminOverviewCharts({
 
 	return (
 		<div className="grid min-w-0 gap-4 lg:grid-cols-3">
-			<StackedBars
+			<LazyStackedBars
 				className="min-w-0 lg:col-span-2"
 				title={labels.feedTitle}
 				summary={labels.feedSummary}
@@ -59,7 +54,7 @@ export function AdminOverviewCharts({
 				unit="g"
 				decimals={0}
 			/>
-			<Donut
+			<LazyDonut
 				className="min-w-0"
 				title={labels.healthTitle}
 				summary={labels.healthSummary}
@@ -67,7 +62,7 @@ export function AdminOverviewCharts({
 				segments={segments}
 			/>
 			<div className="min-w-0 lg:col-span-3">
-				<LineTrend
+				<LazyLineTrend
 					title={labels.activityTitle}
 					summary={labels.activitySummary}
 					labels={labels.chart}

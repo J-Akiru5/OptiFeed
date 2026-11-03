@@ -301,7 +301,7 @@ export default async function SuperadminIncidentDetailPage({
 				{!detail.eventsAvailable ? (
 					<div
 						role="alert"
-						className="flex items-start gap-2 rounded-xl border border-[#C42B3A]/30 bg-[#FDE8EA] px-4 py-3 text-xs font-bold text-[#C42B3A]"
+						className="flex items-start gap-2 rounded-xl border border-console-critical-content/30 bg-console-critical-surface px-4 py-3 text-xs font-bold text-console-critical-content"
 					>
 						<OctagonAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
 						<p>{t("detail.timelineUnavailable")}</p>

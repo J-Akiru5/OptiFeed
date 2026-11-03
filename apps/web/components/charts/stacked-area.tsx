@@ -63,7 +63,7 @@ export function StackedArea({
 
 	const rows = useMemo(() => {
 		if (!temporal || !range) return stack.rows;
-		return filterByRange(stack.rows, (row) => row.label, range.range);
+		return filterByRange(stack.rows, (row) => row.label, range.range, range.now);
 	}, [stack.rows, temporal, range]);
 
 	const series = useMemo(
@@ -71,9 +71,9 @@ export function StackedArea({
 			stack.sources.map((key, index) => ({
 				key,
 				label: seriesLabels[key] ?? key,
-				color: seriesColor(index),
+				color: seriesColor(index, theme.dark),
 			})),
-		[stack.sources, seriesLabels],
+		[stack.sources, seriesLabels, theme.dark],
 	);
 
 	const visible = series.filter((entry) => !hidden.has(entry.key));

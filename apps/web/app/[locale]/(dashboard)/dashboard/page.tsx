@@ -5,8 +5,9 @@ import { FeedingPredictionCard } from "@/components/FeedingPredictionCard";
 import { TimeCalibrationForm } from "@/components/TimeCalibrationForm";
 import { WaterTempCard } from "@/components/WaterTempCard";
 import { PakoyLowHopper } from "@/components/assistant/pakoy-low-hopper";
-import { type ChartLabels, LineTrend, StackedBars } from "@/components/charts";
 import { formatChartNumber } from "@/components/charts/chart-data";
+import type { ChartLabels } from "@/components/charts/chart-frame";
+import { LazyLineTrend, LazyStackedBars } from "@/components/charts/lazy";
 import {
 	CONTROL_ROOM_MAIN,
 	CONTROL_ROOM_MOBILE_BAND,
@@ -645,7 +646,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					</div>
 
 					<div className="grid min-h-0 min-w-0 grid-cols-1 gap-3 max-xl:gap-0 lg:grid-cols-3">
-						<StackedBars
+						<LazyStackedBars
 							className="ofd-chart-card min-w-0"
 							plotClassName="ofd-plot"
 							title={t("controlRoom.charts.feedTitle")}
@@ -658,7 +659,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							unit="g"
 							height="100%"
 						/>
-						<LineTrend
+						<LazyLineTrend
 							className="ofd-chart-card min-w-0"
 							plotClassName="ofd-plot"
 							title={t("controlRoom.charts.hopperTitle")}
@@ -671,7 +672,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							decimals={0}
 							height="100%"
 						/>
-						<LineTrend
+						<LazyLineTrend
 							className="ofd-chart-card min-w-0"
 							plotClassName="ofd-plot"
 							title={t("waterChartTitle")}

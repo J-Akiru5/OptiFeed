@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { DARK_SERIES_COLORS, SERIES_COLORS } from "@/components/charts/chart-theme";
 import { CONSOLE_CONTRAST, CONSOLE_NON_TEXT_CONTRAST } from "@/components/superadmin/ui";
 import { describe, expect, it } from "vitest";
 import { contrast, readConsolePalette, resolvePair } from "./helpers/console-palette";
@@ -149,6 +150,84 @@ describe("console theme palette", () => {
 			offenders,
 			`light-only utilities without a dark variant: ${offenders.join(", ")}`,
 		).toEqual([]);
+	});
+});
+
+describe("console page bodies (#631)", () => {
+	const palette = readConsolePalette();
+
+	/**
+	 * The series palette is painted as bars and slices, so it is "visual
+	 * information required to understand the content" and held to 3:1
+	 * (WCAG 1.4.11). The light navy was 1.54:1 on the dark card, which is how
+	 * the second stacked-bar/donut series disappeared; the dark palette is a
+	 * second, lifted array rather than a single set that cannot satisfy both.
+	 */
+	it("keeps every chart series at 3:1 on each theme's card", () => {
+		for (const [theme, colors] of [
+			["light", SERIES_COLORS],
+			["dark", DARK_SERIES_COLORS],
+		] as const) {
+			const surface = palette[theme]["--console-surface"];
+			expect(surface, `${theme} has no --console-surface`).toBeTruthy();
+
+			for (const color of colors) {
+				expect(
+					contrast(surface, color),
+					`series ${color} on ${surface} (${theme})`,
+				).toBeGreaterThanOrEqual(3);
+			}
+		}
+	});
+
+	it("never turns a console control navy on hover", () => {
+		const offenders = consoleFiles.filter((file) =>
+			readFileSync(file, "utf8").includes("hover:text-[#0A3D62]"),
+		);
+
+		expect(
+			offenders.map((file) => file.replace(webRoot, "")),
+			"a hover colour with no dark variant disappears on the dark console",
+		).toEqual([]);
+	});
+
+	it("never paints white text on the brand orange", () => {
+		const offenders: string[] = [];
+
+		for (const file of consoleFiles) {
+			const lines = readFileSync(file, "utf8").split("\n");
+			lines.forEach((line, index) => {
+				if (!/\bbg-\[#E85A2A\](?![/\w-])/.test(line)) return;
+				if (!/\btext-white(?![/\w-])/.test(line)) return;
+				offenders.push(`${file.replace(webRoot, "")}:${index + 1}`);
+			});
+		}
+
+		expect(offenders, `white on #E85A2A is 3.54:1: ${offenders.join(", ")}`).toEqual([]);
+	});
+
+	it("keeps the fixed status surfaces on the status tokens", () => {
+		const pages = [
+			"app/[locale]/(superadmin)/superadmin/fleet/page.tsx",
+			"app/[locale]/(superadmin)/superadmin/incidents/page.tsx",
+			"app/[locale]/(superadmin)/superadmin/incidents/[incidentId]/page.tsx",
+			"app/[locale]/(superadmin)/superadmin/tenants/page.tsx",
+			"app/[locale]/(superadmin)/superadmin/tenants/compare/page.tsx",
+			"app/[locale]/(superadmin)/loading.tsx",
+		];
+		const lightOnly = ["#FDE8EA", "#E8F5EC", "bg-gray-200"];
+		const offenders: string[] = [];
+
+		for (const page of pages) {
+			const source = readFileSync(join(webRoot, page), "utf8");
+			for (const literal of lightOnly) {
+				if (source.includes(literal)) offenders.push(`${page}: ${literal}`);
+			}
+		}
+
+		expect(offenders, `a light status surface with no dark value: ${offenders.join(", ")}`).toEqual(
+			[],
+		);
 	});
 });
 

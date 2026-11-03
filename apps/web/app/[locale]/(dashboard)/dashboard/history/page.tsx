@@ -1,7 +1,8 @@
 import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
 import { FeedEventHistoryTable } from "@/components/FeedEventHistoryTable";
-import { type ChartLabels, LineTrend, StackedBars } from "@/components/charts";
 import { formatChartNumber } from "@/components/charts/chart-data";
+import type { ChartLabels } from "@/components/charts/chart-frame";
+import { LazyLineTrend, LazyStackedBars } from "@/components/charts/lazy";
 import { DashboardEmptyState, DashboardPageHeader } from "@/components/dashboard/dashboard-ui";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
@@ -264,7 +265,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 				data-help="history-charts"
 				className="grid grid-cols-1 gap-6 xl:grid-cols-2"
 			>
-				<StackedBars
+				<LazyStackedBars
 					title={t("charts.feedTitle")}
 					summary={t("charts.feedSummary", {
 						days: FEED_CHART_DAYS,
@@ -299,7 +300,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 							</Link>
 						))}
 					</nav>
-					<LineTrend
+					<LazyLineTrend
 						className="flex-1"
 						title={t("charts.hopperTitle")}
 						summary={t("charts.hopperSummary", {

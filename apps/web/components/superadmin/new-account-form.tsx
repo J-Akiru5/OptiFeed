@@ -114,7 +114,7 @@ export function NewAccountForm({
 				type="button"
 				onClick={() => router.push("/superadmin/users")}
 				className={cn(
-					"flex items-center gap-2 rounded text-sm font-bold text-[#3D5568] dark:text-slate-400 transition-colors hover:text-[#0A3D62]",
+					"flex items-center gap-2 rounded text-sm font-bold text-console-content-muted transition-colors hover:text-console-content",
 					FOCUS_RING,
 				)}
 			>

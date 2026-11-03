@@ -93,6 +93,10 @@ test("the dashboard fits one laptop screen and only the rail scrolls (#399)", as
 	await login(page);
 	await expect(page).toHaveURL(/\/dashboard/);
 	await expect(page.locator(".ofd-control-room")).toBeVisible();
+	// The three charts are code-split through `charts/lazy` (#707), so wait for
+	// their figures before measuring: the point of this test is that the room
+	// fits *with* the charts rendered, not before they arrive.
+	await expect(page.locator("figure.ofd-chart-card")).toHaveCount(3);
 
 	for (const viewport of [...LAPTOPS, PHONE]) {
 		await page.setViewportSize({ width: viewport.width, height: viewport.height });

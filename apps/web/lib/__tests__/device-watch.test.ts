@@ -70,6 +70,10 @@ vi.mock("@/lib/settings/device-status", () => ({
 	getDeviceStatusPolicy: vi.fn(),
 }));
 
+vi.mock("@/lib/ops/cron-heartbeat", () => ({
+	recordCronHeartbeat: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { GET } from "@/app/api/cron/device-watch/route";
 import {
 	DEFAULT_DEVICE_STATUS_POLICY,

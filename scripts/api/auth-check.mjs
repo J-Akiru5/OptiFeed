@@ -43,6 +43,14 @@ export const PUBLIC_ROUTES = new Map([
 		},
 	],
 	[
+		"health/cron/route.ts",
+		{
+			kind: "public",
+			reason:
+				"cron dead-man's-switch (#725): job names/timestamps/errors only, no tenant data or secrets",
+		},
+	],
+	[
 		"[...fallback]/route.ts",
 		{
 			kind: "re-export",

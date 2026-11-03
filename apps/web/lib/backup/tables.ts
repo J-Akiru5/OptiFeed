@@ -833,6 +833,8 @@ export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
 		"Generated file bytes, including previous tenant exports. Re-exporting is safer than restoring or copying them.",
 	ImportConfirmation:
 		"Transient idempotency record for an import that already committed. Restoring it could suppress a legitimate re-import and it carries no farm data beyond the owner key.",
+	CronHeartbeat:
+		"Operational heartbeat written by the cron runs (#725). Restoring an old timestamp would make the dead-man's-switch report a false stale/healthy state; it carries no farm data.",
 	IssueReport:
 		"Platform triage inbox for free-text public reports (#487). Not tenant data, and the text is personal data that an export would spread beyond the reporter's consent.",
 };

@@ -51,7 +51,7 @@ import prisma from "@/lib/prisma";
 import { checkPasswordResetRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
-const RESET_URL = "https://auth.example/recovery?token=abc";
+const TOKEN_HASH = "hashed-token-abc";
 const PRODUCTION_URL = "https://pakaonai.syntaxure.dev";
 
 const user = vi.mocked(prisma.user);
@@ -93,18 +93,17 @@ const ACCOUNT_SELECT = { id: true, email: true, farmId: true, contactEmail: true
 const accountWith = (contactEmail: string | null, id = "user-1") =>
 	({ id, email: POND_ADDRESS, farmId: "demo-farmer-1", contactEmail }) as never;
 
-function lastRedirectTo(): string {
-	const call = generateLink.mock.calls[generateLink.mock.calls.length - 1]?.[0] as
-		| { options?: { redirectTo?: string } }
+function lastResetUrl(): string {
+	const call = deliverEmail.mock.calls[deliverEmail.mock.calls.length - 1]?.[0] as
+		| { resetUrl?: string }
 		| undefined;
-	const redirectTo = call?.options?.redirectTo;
-	if (!redirectTo) throw new Error("generateLink did not receive a redirectTo");
-	return redirectTo;
+	if (!call?.resetUrl) throw new Error("no recovery URL was delivered");
+	return call.resetUrl;
 }
 
 function lastResetToken(): string {
-	const token = new URL(lastRedirectTo()).searchParams.get("reset");
-	if (!token) throw new Error("redirectTo did not carry a reset proof");
+	const token = new URL(lastResetUrl()).searchParams.get("reset");
+	if (!token) throw new Error("recovery URL did not carry a reset proof");
 	return token;
 }
 
@@ -112,7 +111,7 @@ function lastResetToken(): string {
 async function issueResetProof(userId = "user-1"): Promise<string> {
 	user.findUnique.mockResolvedValueOnce(accountWith("farmer@example.com", userId));
 	generateLink.mockResolvedValue({
-		data: { properties: { action_link: RESET_URL } },
+		data: { properties: { hashed_token: TOKEN_HASH } },
 		error: null,
 	});
 
@@ -182,7 +181,7 @@ describe("requestPasswordReset", () => {
 		rateLimit.mockResolvedValue({ success: true, remaining: 2 });
 		generateLink.mockReset();
 		generateLink.mockResolvedValue({
-			data: { properties: { action_link: RESET_URL } },
+			data: { properties: { hashed_token: TOKEN_HASH } },
 			error: null,
 		});
 		deliverEmail.mockReset();
@@ -237,17 +236,16 @@ describe("requestPasswordReset", () => {
 		expect(generateLink).toHaveBeenCalledWith({
 			type: "recovery",
 			email: POND_ADDRESS,
-			options: {
-				redirectTo: expect.stringMatching(
-					/^https:\/\/app\.example\/en\/reset-password\?reset=[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/,
-				),
-			},
 		});
+		// ...and the confirmation route carries Supabase's hash plus our proof.
+		expect(lastResetUrl()).toMatch(
+			/^https:\/\/app\.example\/en\/auth\/confirm\?token_hash=hashed-token-abc&type=recovery&reset=[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/,
+		);
 		// ...but it is mailed to the real mailbox, not the synthetic pond address.
 		expect(deliverEmail).toHaveBeenCalledWith({
 			to: "farmer@example.com",
 			farmId: "demo-farmer-1",
-			resetUrl: RESET_URL,
+			resetUrl: lastResetUrl(),
 		});
 		// The proof is persisted by jti so it can be consumed exactly once.
 		expect(resetTokens.create).toHaveBeenCalledWith({
@@ -272,7 +270,7 @@ describe("requestPasswordReset", () => {
 		// The recovery link and proof are credentials and the typed email is
 		// personal data: none may reach the audit row.
 		const proof = lastResetToken();
-		expect(JSON.stringify(auditPayload)).not.toContain(RESET_URL);
+		expect(JSON.stringify(auditPayload)).not.toContain(TOKEN_HASH);
 		expect(JSON.stringify(auditPayload)).not.toContain("farmer@example.com");
 		expect(JSON.stringify(auditPayload)).not.toContain(proof);
 	});
@@ -304,7 +302,7 @@ describe("requestPasswordReset", () => {
 		expect(deliverEmail).toHaveBeenCalledWith({
 			to: "farmer@example.com",
 			farmId: "demo-farmer-1",
-			resetUrl: RESET_URL,
+			resetUrl: lastResetUrl(),
 		});
 		const auditPayload = auditCreate.mock.calls[0]?.[0] as { data: { after: unknown } } | undefined;
 		expect(auditPayload?.data.after).toEqual({
@@ -379,8 +377,8 @@ describe("requestPasswordReset", () => {
 
 		await requestPasswordReset("farmer@example.com");
 
-		expect(lastRedirectTo()).toMatch(
-			/^https:\/\/pakaonai\.syntaxure\.dev\/en\/reset-password\?reset=/,
+		expect(lastResetUrl()).toMatch(
+			/^https:\/\/pakaonai\.syntaxure\.dev\/en\/auth\/confirm\?token_hash=hashed-token-abc&type=recovery&reset=/,
 		);
 		expect(deliverEmail).toHaveBeenCalled();
 	});

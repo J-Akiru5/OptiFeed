@@ -279,8 +279,7 @@ describe("requestPasswordReset", () => {
 
 	it("records the trusted X-Forwarded-For hop, not the first entry (#732)", async () => {
 		headersMock.mockResolvedValue({
-			get: (name: string) =>
-				name === "x-forwarded-for" ? "203.0.113.66, 198.51.100.4" : null,
+			get: (name: string) => (name === "x-forwarded-for" ? "203.0.113.66, 198.51.100.4" : null),
 		});
 		user.findUnique.mockResolvedValue(accountWith("farmer@example.com"));
 

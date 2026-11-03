@@ -52,11 +52,7 @@ export function parseClientIp(
 	raw: string | null | undefined,
 	trustedHops: number = trustedProxyHops(),
 ): string | null {
-	if (
-		!Number.isInteger(trustedHops) ||
-		trustedHops < 1 ||
-		trustedHops > MAX_TRUSTED_PROXY_HOPS
-	) {
+	if (!Number.isInteger(trustedHops) || trustedHops < 1 || trustedHops > MAX_TRUSTED_PROXY_HOPS) {
 		return null;
 	}
 

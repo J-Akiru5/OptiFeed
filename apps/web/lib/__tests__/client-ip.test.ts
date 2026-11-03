@@ -1,11 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
-import {
-	UNKNOWN_CLIENT_IP,
-	parseClientIp,
-	selectClientIp,
-	trustedProxyHops,
-} from "../client-ip";
+import { UNKNOWN_CLIENT_IP, parseClientIp, selectClientIp, trustedProxyHops } from "../client-ip";
 
 // F-014 / #329: the left-most X-Forwarded-For entry is written by the client
 // and is spoofable. #732 makes the trusted-hop count configurable and fail
@@ -64,9 +59,7 @@ describe("client address derivation (F-014 / #329 / #732)", () => {
 	});
 
 	it("selects the configured hop when a second trusted proxy is present", () => {
-		expect(parseClientIp("203.0.113.66, 198.51.100.4, 10.0.0.1", 2)).toBe(
-			"198.51.100.4",
-		);
+		expect(parseClientIp("203.0.113.66, 198.51.100.4, 10.0.0.1", 2)).toBe("198.51.100.4");
 		expect(parseClientIp("203.0.113.66, 198.51.100.4, 10.0.0.1")).toBe("10.0.0.1");
 	});
 

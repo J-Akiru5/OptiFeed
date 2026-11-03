@@ -7,12 +7,15 @@ import {
 } from "@/components/dashboard/dashboard-classes";
 import { importFeedingSchedule } from "@/lib/actions/schedule";
 import { ApiClientError, apiPost, apiPostForm } from "@/lib/api-client";
+import { EXPORT_ROW_LIMIT } from "@/lib/constants";
 import { buildFilename, downloadCsv } from "@/lib/csv";
 import { fetchJobArtifact, waitForJob } from "@/lib/jobs/client";
 import type { ScheduleCapCheck } from "@/lib/schedule/sheet";
 import { cn } from "@/lib/utils";
 import type { PreparedImport } from "@/lib/xlsx/prepare";
 import {
+	IMPORT_SHEET_TYPES,
+	type ImportSheetType,
 	PDF_REPORTS,
 	type PdfReport,
 	SHEET_TYPES,
@@ -25,11 +28,23 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 type ExportFormat = "csv" | "xlsx" | "pdf";
-type PreparedResponse = PreparedImport & { fileName: string; capCheck: ScheduleCapCheck | null };
+type PreparedResponse = PreparedImport & {
+	fileName: string;
+	/** Target pond captured by the preview; sent with the import job (#743). */
+	pondId: string;
+	pondName: string;
+	capCheck: ScheduleCapCheck | null;
+};
 
 function useDataTypes() {
 	const t = useTranslations("dashboard.importExport");
 	return SHEET_TYPES.map((id) => ({ id, label: t(`types.${id}`) }));
+}
+
+/** Audit events stay export-only, so they are not an import choice (#744). */
+function useImportDataTypes() {
+	const t = useTranslations("dashboard.importExport");
+	return IMPORT_SHEET_TYPES.map((id) => ({ id, label: t(`types.${id}`) }));
 }
 
 function saveBlob(blob: Blob, filename: string) {
@@ -88,7 +103,7 @@ export function DataExportButton() {
 							: { kind: "zip", types };
 			const job = await apiPost<{ id: string }>("/api/v1/export-jobs", body, { timeoutMs: 5_000 });
 
-			const { downloadUrl } = await waitForJob(job.id);
+			const { result, downloadUrl } = await waitForJob<{ truncated?: boolean }>(job.id);
 			if (!downloadUrl) throw new Error(t("exportNotReady"));
 
 			const response = await fetchJobArtifact(downloadUrl);
@@ -102,6 +117,11 @@ export function DataExportButton() {
 				const name = format === "pdf" ? `pakaonai-${report}-${date}` : `pakaonai_export_${date}`;
 				saveBlob(await response.blob(), `${name}.${extension}`);
 				toast.success(t("batchExportSuccess"));
+			}
+			// >50k rows cannot fit in one artifact; the job keeps the newest
+			// rows and says so instead of silently dropping them (#755).
+			if (result?.truncated) {
+				toast.warning(t("exportTruncated", { limit: EXPORT_ROW_LIMIT.toLocaleString() }));
 			}
 			setOpen(false);
 			setSelectedTypes(new Set());
@@ -253,9 +273,9 @@ export function DataExportButton() {
 
 export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 	const t = useTranslations("dashboard.importExport");
-	const dataTypes = useDataTypes();
+	const dataTypes = useImportDataTypes();
 	const [open, setOpen] = useState(false);
-	const [type, setType] = useState<SheetType>("biomass_logs");
+	const [type, setType] = useState<ImportSheetType>("biomass_logs");
 	const [file, setFile] = useState<File | null>(null);
 	const [prepared, setPrepared] = useState<PreparedResponse | null>(null);
 	const [overrides, setOverrides] = useState<Record<string, string>>({});
@@ -314,7 +334,7 @@ export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 			} else {
 				const job = await apiPost<{ id: string }>(
 					"/api/v1/import-jobs",
-					{ type, csvData: prepared.csvData },
+					{ type, csvData: prepared.csvData, pondId: prepared.pondId },
 					{ timeoutMs: 10_000 },
 				);
 				const { result } = await waitForJob<{ importedCount: number }>(job.id);
@@ -445,10 +465,15 @@ export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 
 						{prepared && (
 							<p
-								className="mb-4 text-sm font-bold text-[#0A3D62] dark:text-gray-100"
+								className="mb-1 text-sm font-bold text-[#0A3D62] dark:text-gray-100"
 								aria-live="polite"
 							>
 								{t("rowsReady", { valid: prepared.validRows, total: prepared.totalRows })}
+							</p>
+						)}
+						{prepared && (
+							<p className="mb-4 text-xs text-[#3D5568] dark:text-gray-300">
+								{t("targetPond", { pond: prepared.pondName })}
 							</p>
 						)}
 

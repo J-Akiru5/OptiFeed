@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+### Fixed
+
+- **Imports are pinned to the preview pond and audit events are export-only (#743, #744).** A pond switch cannot retarget the queued job, mismatched row ids are rejected, and uploaded rows can no longer forge audit provenance.
+- **Large exports keep the newest rows and imports cannot commit after a failed job (#754, #755, #758).** Time-series exports are newest-first with a truncation warning, the summary PDF uses recent reports, the admin table shows the membership role, and the import transaction budget is shorter than the job limit.
+
 ## [1.52.0] - 2026-11-04
 
 ### Fixed

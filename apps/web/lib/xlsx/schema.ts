@@ -9,7 +9,7 @@
  *
  * Client components may import this (no zod, no server import).
  */
-import type { ExportableType } from "@/lib/csv";
+import { type ExportableType, isImportableType } from "@/lib/csv";
 
 /** The seven dataset types plus the feeding schedule (a derived sheet, not a table). */
 export type SheetType = ExportableType | "feeding_schedule";
@@ -25,8 +25,22 @@ export const SHEET_TYPES: SheetType[] = [
 	"feeding_schedule",
 ];
 
+/**
+ * The sheets a user may upload. Audit events are export-only (#744), so they
+ * are absent here even though they remain a valid export type.
+ */
+export type ImportSheetType = Exclude<SheetType, "audit_events">;
+
+export const IMPORT_SHEET_TYPES: ImportSheetType[] = SHEET_TYPES.filter(
+	(type): type is ImportSheetType => isImportableType(type) || type === "feeding_schedule",
+);
+
 export function isSheetType(value: unknown): value is SheetType {
 	return typeof value === "string" && (SHEET_TYPES as string[]).includes(value);
+}
+
+export function isImportSheetType(value: unknown): value is ImportSheetType {
+	return isImportableType(value) || value === "feeding_schedule";
 }
 
 /** PDF exports: the existing pond summary plus the growth, SGR and FCR reports (export only). */

@@ -20,6 +20,9 @@ vi.mock("@/lib/auth/with-auth", () => ({
 			handler(request, { ownerId: "farm-1", user: { id: "user-1", email: "u@example.com" } }),
 }));
 vi.mock("@/lib/auth/session", () => ({ requireWriteAccess }));
+vi.mock("@/lib/auth/pond-access", () => ({
+	resolveActivePond: vi.fn(async () => ({ id: "pond-1", name: "Pond A" })),
+}));
 vi.mock("@/lib/rate-limit", () => ({ checkApiRateLimit }));
 vi.mock("@/lib/schedule/sheet", () => ({ checkScheduleAgainstCap }));
 
@@ -32,6 +35,8 @@ interface Prepared {
 	structural: string | null;
 	mapping: Record<string, string>;
 	schedule: { scheduleStart: string; scheduleEnd: string; feedsPerDay: number } | null;
+	pondId: string;
+	pondName: string;
 	capCheck: unknown;
 }
 
@@ -97,6 +102,17 @@ describe("POST /api/import-prepare guards", () => {
 		expect((await POST(upload({ type: "biomass_logs", file: csvFile("") }))).status).toBe(400);
 	});
 
+	it("refuses the export-only audit-event type (#744)", async () => {
+		const res = await POST(
+			upload({
+				type: "audit_events",
+				file: csvFile("eventType,source\nlogin,import"),
+			}),
+		);
+
+		expect(res.status).toBe(400);
+	});
+
 	it("refuses macro workbooks and other extensions", async () => {
 		const macro = await POST(upload({ type: "biomass_logs", file: csvFile("x", "x.xlsm") }));
 		const text = await POST(upload({ type: "biomass_logs", file: csvFile("x", "x.txt") }));
@@ -140,6 +156,8 @@ describe("POST /api/import-prepare previews", () => {
 		expect(body.validRows).toBe(2);
 		expect(body.structural).toBeNull();
 		expect(body.csvData).toContain("sampleWeightKg");
+		expect(body.pondId).toBe("pond-1");
+		expect(body.pondName).toBe("Pond A");
 		expect(body.capCheck).toBeNull();
 	});
 

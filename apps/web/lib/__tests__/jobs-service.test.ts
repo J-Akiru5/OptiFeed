@@ -66,7 +66,12 @@ vi.mock("@/lib/jobs/export-data", () => ({
 }));
 vi.mock("@/lib/jobs/pdf-export", () => ({ buildPdfExport: mocks.buildPdfExport }));
 vi.mock("@/lib/jobs/report-pdf", () => ({ buildReportPdf: mocks.buildReportPdf }));
-vi.mock("@/lib/jobs/import-data", () => ({ confirmImport: mocks.confirmImport }));
+vi.mock("@/lib/jobs/import-data", () => ({
+	confirmImport: mocks.confirmImport,
+	// Mirrors the real helper: 12 s job limit → 8 s transaction budget.
+	importTransactionTimeoutMs: (limitMs: number) =>
+		Math.max(500, Math.min(8_000, limitMs - 4_000)),
+}));
 
 import { ApiError } from "@/lib/api/errors";
 import { MAX_JOB_ARTIFACT_BYTES } from "@/lib/constants";
@@ -269,6 +274,20 @@ describe("runJob exports", () => {
 		});
 	});
 
+	it("records truncation in the job result when the export hit the row ceiling", async () => {
+		mocks.buildCsvExport.mockResolvedValue({ ...ARTIFACT, truncated: true });
+
+		await runJob(JOB);
+
+		expect(mocks.updateMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					result: expect.objectContaining({ truncated: true }),
+				}),
+			}),
+		);
+	});
+
 	it("fails an oversized artifact before storing it, with a readable message", async () => {
 		mocks.buildCsvExport.mockResolvedValue({
 			...ARTIFACT,
@@ -352,6 +371,8 @@ describe("runJob imports", () => {
 
 		expect(mocks.confirmImport).toHaveBeenCalledWith("farm-a", "feed_events", "a,b\n1,2\n", {
 			idempotencyKey: undefined,
+			pondId: undefined,
+			transactionTimeoutMs: 8_000,
 		});
 		expect(mocks.updateMany).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -364,16 +385,35 @@ describe("runJob imports", () => {
 		expect(mocks.upsert).not.toHaveBeenCalled();
 	});
 
-	it("passes the queued idempotency key to the importer", async () => {
+	it("passes the queued idempotency key and target pond to the importer", async () => {
 		await runJob({
 			...JOB,
 			type: "import_confirm",
-			payload: { type: "feed_events", csvData: "a,b\n1,2\n", idempotencyKey: "job-key-1" },
+			payload: {
+				type: "feed_events",
+				csvData: "a,b\n1,2\n",
+				pondId: "pond-2",
+				idempotencyKey: "job-key-1",
+			},
 		} as unknown as BackgroundJob);
 
 		expect(mocks.confirmImport).toHaveBeenCalledWith("farm-a", "feed_events", "a,b\n1,2\n", {
 			idempotencyKey: "job-key-1",
+			pondId: "pond-2",
+			transactionTimeoutMs: 8_000,
 		});
+	});
+
+	it("gives the import transaction a budget shorter than the 12 s job limit (#758)", async () => {
+		await runJob({
+			...JOB,
+			type: "import_confirm",
+			payload: { type: "feed_events", csvData: "a,b\n1,2\n", pondId: "pond-1" },
+		} as unknown as BackgroundJob);
+
+		const options = mocks.confirmImport.mock.calls[0]?.[3] as { transactionTimeoutMs: number };
+		expect(options.transactionTimeoutMs).toBeLessThan(12_000);
+		expect(options.transactionTimeoutMs).toBe(8_000);
 	});
 });
 
@@ -581,6 +621,44 @@ describe("retry policy", () => {
 		};
 		expect(data.status).toBe("failed");
 		expect(data.error).toBe("The import may have been applied. Check the data before retrying.");
+	});
+
+	it("reports a rolled-back transaction as safe to retry (#758)", async () => {
+		mocks.confirmImport.mockRejectedValue(
+			Object.assign(new Error("Transaction already closed"), { code: "P2028" }),
+		);
+
+		await runJob({
+			...JOB,
+			type: "import_confirm",
+			payload: { type: "feed_events", csvData: "a,b\n1,2\n", pondId: "pond-1" },
+			attempts: 1,
+		} as unknown as BackgroundJob);
+
+		const data = mocks.updateMany.mock.calls[0]?.[0].data as {
+			status: string;
+			error: string;
+		};
+		expect(data.status).toBe("failed");
+		expect(data.error).toBe("The import timed out and was rolled back. It is safe to retry.");
+	});
+
+	it("reports a rejected import target instead of claiming it may have applied", async () => {
+		mocks.confirmImport.mockRejectedValue(new ApiError(404, "NOT_FOUND", "Pond not found."));
+
+		await runJob({
+			...JOB,
+			type: "import_confirm",
+			payload: { type: "feed_events", csvData: "a,b\n1,2\n", pondId: "pond-gone" },
+			attempts: 1,
+		} as unknown as BackgroundJob);
+
+		const data = mocks.updateMany.mock.calls[0]?.[0].data as {
+			status: string;
+			error: string;
+		};
+		expect(data.status).toBe("failed");
+		expect(data.error).toBe("Pond not found.");
 	});
 });
 

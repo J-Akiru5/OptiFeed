@@ -22,7 +22,7 @@ vi.mock("@/lib/prisma", () => {
 	const client = {
 		user: { findUnique: vi.fn() },
 		pond: { findMany: vi.fn() },
-		energyDevice: { findFirst: vi.fn() },
+		energyDevice: { findMany: vi.fn() },
 		biomassLog: { findMany: vi.fn(), createMany: vi.fn() },
 		fishSample: { createMany: vi.fn() },
 		deviceStateEvent: { create: vi.fn() },
@@ -44,7 +44,7 @@ const mockRequireWriteAccess = vi.mocked(requireWriteAccess);
 const mockCreateClient = vi.mocked(createClient);
 const mockUserFindUnique = vi.mocked(prisma.user.findUnique);
 const mockPondFindMany = vi.mocked(prisma.pond.findMany);
-const mockEnergyDeviceFindFirst = vi.mocked(prisma.energyDevice.findFirst);
+const mockEnergyDeviceFindMany = vi.mocked(prisma.energyDevice.findMany);
 const mockBiomassLogFindMany = vi.mocked(prisma.biomassLog.findMany);
 const mockFishSampleCreateMany = vi.mocked(prisma.fishSample.createMany);
 
@@ -77,7 +77,7 @@ describe("fish_samples import enforces biomassLogId ownership (F-004)", () => {
 		mockPondFindMany.mockResolvedValue([
 			{ id: "pond-1", ownerId: "demo-farmer-1", status: "ACTIVE" },
 		] as never);
-		mockEnergyDeviceFindFirst.mockResolvedValue({ id: "dev-1" } as never);
+		mockEnergyDeviceFindMany.mockResolvedValue([{ id: "dev-1" }] as never);
 		mockFishSampleCreateMany.mockResolvedValue({ count: 2 } as never);
 		vi.mocked(prisma.importConfirmation.findUnique).mockResolvedValue(null);
 		vi.mocked(prisma.importConfirmation.create).mockResolvedValue({} as never);
@@ -95,7 +95,7 @@ describe("fish_samples import enforces biomassLogId ownership (F-004)", () => {
 			expect.objectContaining({
 				where: expect.objectContaining({
 					id: { in: ["log-1", "log-2"] },
-					pond: { ownerId: "demo-farmer-1" },
+					pond: { id: "pond-1", ownerId: "demo-farmer-1" },
 				}),
 			}),
 		);

@@ -19,6 +19,29 @@ export const EXPORT_LABELS: Record<ExportableType, string> = {
 	audit_events: "Audit Events",
 };
 
+/**
+ * Datasets a user may import (#744).
+ *
+ * Audit events are export-only: `source`, `actorId` and `createdAt` decide what
+ * the audit trail claims happened, so accepting them from an uploaded file
+ * would let any tenant writer forge security history. The importer records its
+ * own `data_imported` event with server-generated provenance instead.
+ */
+export const IMPORTABLE_TYPES = [
+	"biomass_logs",
+	"fish_samples",
+	"feed_events",
+	"fcr_reports",
+	"feed_level_logs",
+	"notifications",
+] as const satisfies readonly ExportableType[];
+
+export type ImportableType = (typeof IMPORTABLE_TYPES)[number];
+
+export function isImportableType(value: unknown): value is ImportableType {
+	return typeof value === "string" && (IMPORTABLE_TYPES as readonly string[]).includes(value);
+}
+
 interface CsvRow {
 	[key: string]: string | number | boolean | null;
 }

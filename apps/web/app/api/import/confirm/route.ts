@@ -3,16 +3,21 @@ import { withApi } from "@/lib/api/instrumentation";
 import { requireWriteAccess } from "@/lib/auth/session";
 import { withAuth } from "@/lib/auth/with-auth";
 import { LEGACY_API_SUNSET } from "@/lib/constants";
-import type { ExportableType } from "@/lib/csv";
+import { type ImportableType, isImportableType } from "@/lib/csv";
 import { MAX_CSV_IMPORT_BYTES, confirmImport } from "@/lib/jobs/import-data";
 import { checkApiRateLimit } from "@/lib/rate-limit";
 import { revalidatePath } from "next/cache";
 
 export const dynamic = "force-dynamic";
 
+/** Kept below the route's 35 s envelope so the transaction aborts before it. */
+const SYNC_IMPORT_TRANSACTION_TIMEOUT_MS = 20_000;
+
 interface ImportConfirmRequest {
-	type: ExportableType;
+	type: ImportableType;
 	csvData: string;
+	/** Optional on the legacy route; the queued job path always sends it. */
+	pondId?: string;
 }
 
 export const POST = withApi(
@@ -36,8 +41,14 @@ export const POST = withApi(
 			return Response.json({ error: "Invalid JSON body" }, { status: 400 });
 		}
 
-		const { type, csvData } = body;
-		if (!type || typeof csvData !== "string" || csvData.length === 0) {
+		const { type, csvData, pondId } = body;
+		if (!isImportableType(type)) {
+			return Response.json(
+				{ error: "Invalid type. Audit events are export-only." },
+				{ status: 400 },
+			);
+		}
+		if (typeof csvData !== "string" || csvData.length === 0) {
 			return Response.json({ error: "Missing type or csvData" }, { status: 400 });
 		}
 		// The async import job enforces the same ceiling; the synchronous
@@ -49,7 +60,11 @@ export const POST = withApi(
 		// A client retry should carry the same key; without one, confirmImport
 		// derives a stable payload hash so a double submit still imports once.
 		const idempotencyKey = request.headers.get("idempotency-key");
-		const result = await confirmImport(ownerId, type, csvData, { idempotencyKey });
+		const result = await confirmImport(ownerId, type, csvData, {
+			idempotencyKey,
+			pondId: typeof pondId === "string" ? pondId : null,
+			transactionTimeoutMs: SYNC_IMPORT_TRANSACTION_TIMEOUT_MS,
+		});
 
 		revalidatePath("/[locale]/(dashboard)/dashboard", "page");
 		revalidatePath("/[locale]/(dashboard)/dashboard/growth", "page");

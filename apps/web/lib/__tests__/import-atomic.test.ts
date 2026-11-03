@@ -20,7 +20,7 @@ vi.mock("@/lib/prisma", () => ({
 	default: {
 		user: { findUnique: vi.fn() },
 		pond: { findMany: vi.fn() },
-		energyDevice: { findFirst: vi.fn() },
+		energyDevice: { findMany: vi.fn() },
 		biomassLog: { findMany: vi.fn(), createMany: vi.fn() },
 		fishSample: { createMany: vi.fn() },
 		deviceStateEvent: { create: vi.fn(), createMany: vi.fn() },
@@ -41,7 +41,7 @@ const mockRequireWriteAccess = vi.mocked(requireWriteAccess);
 const mockCreateClient = vi.mocked(createClient);
 const mockUserFindUnique = vi.mocked(prisma.user.findUnique);
 const mockPondFindMany = vi.mocked(prisma.pond.findMany);
-const mockEnergyDeviceFindFirst = vi.mocked(prisma.energyDevice.findFirst);
+const mockEnergyDeviceFindMany = vi.mocked(prisma.energyDevice.findMany);
 const mockTransaction = vi.mocked(prisma.$transaction);
 const rootBiomassLogCreateMany = vi.mocked(prisma.biomassLog.createMany);
 const rootDeviceStateEventCreate = vi.mocked(prisma.deviceStateEvent.create);
@@ -92,7 +92,7 @@ describe("import/confirm atomicity (F-003)", () => {
 		mockPondFindMany.mockResolvedValue([
 			{ id: "pond-1", ownerId: "demo-farmer-1", status: "ACTIVE" },
 		] as never);
-		mockEnergyDeviceFindFirst.mockResolvedValue({ id: "dev-1" } as never);
+		mockEnergyDeviceFindMany.mockResolvedValue([{ id: "dev-1" }] as never);
 		// $transaction is overloaded (array / interactive forms); cast the
 		// interactive-form implementation past the overload union.
 		mockTransaction.mockImplementation((async (fn: (tx: typeof txClient) => Promise<unknown>) =>
@@ -103,7 +103,7 @@ describe("import/confirm atomicity (F-003)", () => {
 		const res = await confirmPost(confirmReq("biomass_logs", BIOMASS_CSV));
 
 		expect(res.status).toBe(200);
-		expect(mockTransaction).toHaveBeenCalledWith(expect.any(Function), { timeout: 30_000 });
+		expect(mockTransaction).toHaveBeenCalledWith(expect.any(Function), { timeout: 20_000 });
 		expect(txClient.biomassLog.createMany).toHaveBeenCalledTimes(1);
 		expect(txClient.deviceStateEvent.create).toHaveBeenCalledTimes(1);
 		expect(rootBiomassLogCreateMany).not.toHaveBeenCalled();
@@ -184,7 +184,7 @@ describe("import/confirm atomicity (F-003)", () => {
 	});
 
 	it("skips the audit event when the pond has no device (no empty deviceId)", async () => {
-		mockEnergyDeviceFindFirst.mockResolvedValue(null);
+		mockEnergyDeviceFindMany.mockResolvedValue([]);
 
 		const res = await confirmPost(confirmReq("biomass_logs", BIOMASS_CSV));
 

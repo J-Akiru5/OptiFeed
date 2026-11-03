@@ -27,10 +27,12 @@ const { resolveActivePond, prisma } = vi.hoisted(() => {
 vi.mock("@/lib/auth/pond-access", () => ({ resolveActivePond }));
 vi.mock("@/lib/prisma", () => ({ default: prisma }));
 
+import { EXPORT_ROW_LIMIT } from "@/lib/constants";
 import {
 	buildBatchExport,
 	buildCsvExport,
 	buildExportRows,
+	buildExportRowsWithMeta,
 	loadExportContext,
 } from "@/lib/jobs/export-data";
 
@@ -105,8 +107,8 @@ describe("buildExportRows biomass_logs", () => {
 		]);
 		expect(prisma.biomassLog.findMany).toHaveBeenCalledWith({
 			where: { pondId: "pond-1" },
-			orderBy: { recordedAt: "asc" },
-			take: 50_000,
+			orderBy: { recordedAt: "desc" },
+			take: 50_001,
 		});
 	});
 
@@ -153,8 +155,8 @@ describe("buildExportRows fish_samples", () => {
 		]);
 		expect(prisma.fishSample.findMany).toHaveBeenCalledWith({
 			where: { biomassLogId: { in: ["log-1"] } },
-			orderBy: { id: "asc" },
-			take: 50_000,
+			orderBy: { id: "desc" },
+			take: 50_001,
 		});
 	});
 
@@ -207,8 +209,8 @@ describe("buildExportRows feed_events", () => {
 		});
 		expect(prisma.feedEvent.findMany).toHaveBeenCalledWith({
 			where: { deviceId: { in: ["dev-1", "dev-2"] } },
-			orderBy: { receivedAt: "asc" },
-			take: 50_000,
+			orderBy: { receivedAt: "desc" },
+			take: 50_001,
 		});
 	});
 });
@@ -241,8 +243,8 @@ describe("buildExportRows fcr_reports", () => {
 		});
 		expect(prisma.fcrReport.findMany).toHaveBeenCalledWith({
 			where: { pondId: "pond-1" },
-			orderBy: { periodEnd: "asc" },
-			take: 50_000,
+			orderBy: { periodEnd: "desc" },
+			take: 50_001,
 		});
 	});
 });
@@ -260,8 +262,8 @@ describe("buildExportRows feed_level_logs", () => {
 		]);
 		expect(prisma.feedLevelLog.findMany).toHaveBeenCalledWith({
 			where: { deviceId: "dev-1" },
-			orderBy: { recordedAt: "asc" },
-			take: 50_000,
+			orderBy: { recordedAt: "desc" },
+			take: 50_001,
 		});
 	});
 
@@ -329,6 +331,11 @@ describe("buildExportRows notifications", () => {
 			acknowledgedAt: null,
 			acknowledgedBy: null,
 		});
+		expect(prisma.notification.findMany).toHaveBeenCalledWith({
+			where: { pondId: "pond-1" },
+			orderBy: { createdAt: "desc" },
+			take: 50_001,
+		});
 	});
 });
 
@@ -361,8 +368,8 @@ describe("buildExportRows audit_events", () => {
 		});
 		expect(prisma.deviceStateEvent.findMany).toHaveBeenCalledWith({
 			where: { deviceId: { in: ["dev-1", "dev-2"] } },
-			orderBy: { createdAt: "asc" },
-			take: 50_000,
+			orderBy: { createdAt: "desc" },
+			take: 50_001,
 		});
 	});
 
@@ -383,6 +390,50 @@ describe("buildExportRows audit_events", () => {
 		const [row] = await buildExportRows(CONTEXT, "audit_events");
 
 		expect(row.metadata).toBeNull();
+	});
+});
+
+describe("large dataset windows (#755)", () => {
+	it("keeps the newest EXPORT_ROW_LIMIT rows and reports truncation", async () => {
+		const newest = new Date("2026-11-04T00:00:00.000Z").getTime();
+		const logs = Array.from({ length: EXPORT_ROW_LIMIT + 1 }, (_, index) => ({
+			id: `log-${index}`,
+			pondId: "pond-1",
+			sampleWeightKg: 1,
+			sampleLengthCm: 20,
+			sampleCount: 1,
+			avgWeightKg: 1,
+			batchLabel: null,
+			recordedAt: new Date(newest - index * 1_000),
+		}));
+		prisma.biomassLog.findMany.mockResolvedValue(logs);
+
+		const result = await buildExportRowsWithMeta(CONTEXT, "biomass_logs");
+
+		expect(result.truncated).toBe(true);
+		expect(result.rows).toHaveLength(EXPORT_ROW_LIMIT);
+		// The newest record is row one; the 50,001st (oldest) is the row the
+		// extra fetch proves must be dropped.
+		expect(result.rows[0].recordedAt).toBe(logs[0].recordedAt.toISOString());
+		expect(result.rows.at(-1)?.recordedAt).toBe(
+			logs[EXPORT_ROW_LIMIT - 1].recordedAt.toISOString(),
+		);
+		expect(prisma.biomassLog.findMany).toHaveBeenCalledWith({
+			where: { pondId: "pond-1" },
+			orderBy: { recordedAt: "desc" },
+			take: EXPORT_ROW_LIMIT + 1,
+		});
+	});
+
+	it("writes a header row for an empty CSV instead of a 0-byte artifact", async () => {
+		prisma.feedLevelLog.findMany.mockResolvedValue([]);
+
+		const artifact = await buildCsvExport("farm-a", "feed_level_logs");
+
+		expect(new TextDecoder().decode(artifact.body)).toBe(
+			"id,deviceId,levelPercent,distanceCm,recordedAt",
+		);
+		expect(artifact.truncated).toBe(false);
 	});
 });
 

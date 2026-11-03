@@ -1,5 +1,6 @@
 import { ok } from "@/lib/api/envelope";
 import { withApi } from "@/lib/api/instrumentation";
+import { resolveActivePond } from "@/lib/auth/pond-access";
 import { requireWriteAccess } from "@/lib/auth/session";
 import { withAuth } from "@/lib/auth/with-auth";
 import { LEGACY_API_SUNSET } from "@/lib/constants";
@@ -7,7 +8,7 @@ import { checkApiRateLimit } from "@/lib/rate-limit";
 import { checkScheduleAgainstCap } from "@/lib/schedule/sheet";
 import { prepareImport } from "@/lib/xlsx/prepare";
 import { readUploadTable } from "@/lib/xlsx/read-upload";
-import { isSheetType } from "@/lib/xlsx/schema";
+import { isImportSheetType } from "@/lib/xlsx/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -48,12 +49,22 @@ export const POST = withApi(
 		}
 
 		const type = form.get("type");
-		if (!isSheetType(type)) {
-			return Response.json({ error: "Invalid type" }, { status: 400 });
+		if (!isImportSheetType(type)) {
+			return Response.json(
+				{ error: "Invalid type. Audit events are export-only." },
+				{ status: 400 },
+			);
 		}
 		const file = form.get("file");
 		if (!(file instanceof File) || file.size === 0) {
 			return Response.json({ error: "Missing file" }, { status: 400 });
+		}
+
+		// Pin the target pond now. The confirm step sends this id with the job,
+		// so a pond switch in another tab cannot retarget the import (#743).
+		const pond = await resolveActivePond(ownerId);
+		if (!pond) {
+			return Response.json({ error: "No pond found" }, { status: 404 });
 		}
 
 		const upload = await readUploadTable(file.name, new Uint8Array(await file.arrayBuffer()), type);
@@ -72,7 +83,13 @@ export const POST = withApi(
 			? await checkScheduleAgainstCap(ownerId, prepared.schedule.feedsPerDay)
 			: null;
 
-		return ok({ ...prepared, fileName: file.name, capCheck });
+		return ok({
+			...prepared,
+			fileName: file.name,
+			pondId: pond.id,
+			pondName: pond.name,
+			capCheck,
+		});
 	}),
 	// Parsing a 5 MB workbook is CPU work; same guard as the CSV preview.
 	{ route: "POST /api/import-prepare", timeoutMs: 20_000, sunset: LEGACY_API_SUNSET },

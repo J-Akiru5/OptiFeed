@@ -471,6 +471,7 @@
 			"optional": "Opsyonal",
 			"submit": "Ipadala ang report",
 			"sending": "Ginapadala…",
+			"retry": "Tilawi liwat",
 			"success": "Salamat — nabaton na ang report mo.",
 			"error": "Wala maipadala ang report. Tilawi liwat.",
 			"rateLimited": "Sobra ka damo nga report halin sa device nga ini. Tilawi sa ulihi."

@@ -4843,6 +4843,7 @@
 			"optional": "Opsyonal",
 			"submit": "Ipadala ang ulat",
 			"sending": "Ipinapadala…",
+			"retry": "Subukan muli",
 			"success": "Salamat — natanggap na ang ulat mo.",
 			"error": "Hindi naipadala ang ulat. Subukan muli.",
 			"rateLimited": "Masyadong maraming ulat mula sa device na ito. Subukan mamaya."

@@ -15,14 +15,14 @@ interface ImportPreviewRequest {
 	csvData: string;
 }
 
-const REQUIRED_FIELDS: Record<ExportableType, string[]> = {
+const REQUIRED_FIELDS: Partial<Record<ExportableType, string[]>> = {
 	biomass_logs: ["sampleWeightKg", "sampleCount"],
 	fish_samples: ["biomassLogId", "weightGrams"],
 	feed_events: ["eventType", "timestamp"],
 	fcr_reports: ["periodStart", "periodEnd", "totalFeedKg", "biomassGainKg", "fcrValue"],
 	feed_level_logs: ["levelPercent", "distanceCm"],
 	notifications: ["tier", "message"],
-	audit_events: ["eventType", "source"],
+	// audit_events is export-only (#744).
 };
 
 export const POST = withApi(

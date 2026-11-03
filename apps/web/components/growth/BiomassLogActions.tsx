@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "@/i18n/routing";
+import { useModalDialog } from "@/lib/a11y/use-modal-dialog";
 import { deleteBiomassLog, updateBiomassLog } from "@/lib/actions/biomass";
 import { Loader2, Pencil, Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 interface BiomassLogActionsProps {
@@ -30,6 +31,8 @@ export function BiomassLogActions({ log, canWrite }: BiomassLogActionsProps) {
 	const [recordedAt, setRecordedAt] = useState(log.recordedAt.slice(0, 10));
 	const [error, setError] = useState<string | null>(null);
 	const [isPending, startTransition] = useTransition();
+	const titleId = useId();
+	const panelRef = useModalDialog<HTMLFormElement>(open, () => setOpen(false));
 
 	if (!canWrite) return null;
 
@@ -111,13 +114,19 @@ export function BiomassLogActions({ log, canWrite }: BiomassLogActionsProps) {
 
 			{open && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+					{/* biome-ignore lint/a11y/useSemanticElements: the panel is the edit form itself; a native <dialog> would need showModal() and a wrapper around the submit handling. useModalDialog supplies the focus trap, Escape and focus restoration. */}
 					<form
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby={titleId}
+						tabIndex={-1}
 						onSubmit={save}
-						className="w-full max-w-md rounded-3xl border border-gray-100 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-900"
+						ref={panelRef}
+						className="w-full max-w-md rounded-3xl border border-gray-100 bg-white p-6 shadow-2xl outline-none dark:border-gray-700 dark:bg-gray-900"
 					>
 						<div className="flex items-start justify-between gap-3">
 							<div>
-								<h3 className="text-lg font-black text-[var(--ofd-base-deep)]">
+								<h3 id={titleId} className="text-lg font-black text-[var(--ofd-base-deep)]">
 									{t("editLogTitle")}
 								</h3>
 								<p className="text-xs text-gray-500">{t("lastSaved", { date: recordedAt })}</p>

@@ -274,32 +274,14 @@ describe("per-type row mapping", () => {
 		).rejects.toMatchObject({ status: 400, message: "Row 1: read must be TRUE or FALSE." });
 	});
 
-	it("parses audit metadata JSON", async () => {
-		await confirmImport("farm-a", "audit_events", CSV.audit_events);
-
-		expect(tx.deviceStateEvent.createMany.mock.calls[0][0].data).toEqual([
-			{
-				deviceId: "dev-1",
-				eventType: "feed_dispensed",
-				source: "device",
-				actorId: null,
-				metadata: { grams: 150 },
-				deviceTime: "2026-03-02T04:00:00Z",
-				createdAt: new Date("2026-03-02T04:00:00Z"),
-			},
-		]);
-	});
-
-	it("keeps unparseable audit metadata as a raw string instead of dropping it", async () => {
-		await confirmImport(
-			"farm-a",
-			"audit_events",
-			"eventType,source,metadata\nfeed_dispensed,device,not-json",
-		);
-
-		expect(tx.deviceStateEvent.createMany.mock.calls[0][0].data[0].metadata).toEqual({
-			raw: "not-json",
+	it("refuses audit-event imports so provenance cannot be forged (#744)", async () => {
+		await expect(confirmImport("farm-a", "audit_events", CSV.audit_events)).rejects.toMatchObject({
+			status: 400,
+			message: "Unknown import type.",
 		});
+
+		expect(prisma.$transaction).not.toHaveBeenCalled();
+		expect(tx.deviceStateEvent.createMany).not.toHaveBeenCalled();
 	});
 });
 

@@ -139,7 +139,8 @@
 		"tryAgain": "Subukan muli",
 		"notFoundTitle": "Hindi mahanap ang page",
 		"notFoundDesc": "Wala ang page na hinahanap mo.",
-		"backToDashboard": "Bumalik sa Dashboard"
+		"backToDashboard": "Bumalik sa Dashboard",
+		"backToHome": "Bumalik sa Home"
 	},
 	"dashboard": {
 		"appSettings": {
@@ -2517,6 +2518,7 @@
 			"acknowledged": "Nakumpirma",
 			"actionError": "Hindi ma-update ang abiso. Subukan muli.",
 			"alert": "Alerto",
+			"dismissNotification": "Isara ang abiso",
 			"auditLink": "Audit",
 			"openLink": "Buksan",
 			"receivedAt": "Natanggap",
@@ -4706,7 +4708,7 @@
 		"views3": "Trend ng FCR: kumulatibong pakain laban sa nadagdag na biomass",
 		"hardwareTitle": "Hardware",
 		"hardwareDesc": "Mababang halaga, lokal na mapapalitan ang mga piyesa.",
-		"feederModelLabel": "Feeder ng pag-aaral ? 3D model",
+		"feederModelLabel": "Feeder ng pag-aaral — 3D model",
 		"feederAlt": "Transparent na studio render ng feeder ng pag-aaral, kasama ang malinaw na hopper jar, enclosure ng controller, motor at labasan ng auger.",
 		"feederCaption": "Ginawa mula sa 3D model ng feeder ng pag-aaral. Research prototype; hindi live na reading.",
 		"hwColPart": "Komponente",

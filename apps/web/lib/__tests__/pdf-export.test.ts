@@ -76,4 +76,14 @@ describe("buildPdfExport", () => {
 
 		await expect(buildPdfExport("farm-1")).rejects.toMatchObject({ status: 404 });
 	});
+
+	it("reads the newest ten FCR reports, not the oldest (#755)", async () => {
+		await buildPdfExport("farm-1");
+
+		expect(db.fcrReport.findMany).toHaveBeenCalledWith({
+			where: { pondId: "pond-1" },
+			orderBy: { periodEnd: "desc" },
+			take: 10,
+		});
+	});
 });

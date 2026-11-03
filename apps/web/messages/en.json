@@ -321,7 +321,7 @@
 		"views3": "FCR trend: cumulative feed against biomass gained",
 		"hardwareTitle": "Hardware",
 		"hardwareDesc": "Low-cost, locally replaceable parts.",
-		"feederModelLabel": "Study feeder ? 3D model",
+		"feederModelLabel": "Study feeder — 3D model",
 		"feederAlt": "Transparent studio render of the study feeder with its clear hopper jar, controller enclosure, motor and auger outlet.",
 		"feederCaption": "Rendered from the study feeder's 3D model. Research prototype; not a live reading.",
 		"hwColPart": "Component",
@@ -2477,6 +2477,7 @@
 			"acknowledged": "Acknowledged",
 			"actionError": "Could not update the notification. Try again.",
 			"alert": "Alert",
+			"dismissNotification": "Dismiss notification",
 			"auditLink": "Audit",
 			"openLink": "Open",
 			"receivedAt": "Received",
@@ -3150,7 +3151,8 @@
 		"tryAgain": "Try again",
 		"notFoundTitle": "Page not found",
 		"notFoundDesc": "The page you are looking for does not exist.",
-		"backToDashboard": "Back to Dashboard"
+		"backToDashboard": "Back to Dashboard",
+		"backToHome": "Back to home"
 	},
 	"dates": {
 		"months": {

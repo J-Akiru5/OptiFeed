@@ -131,6 +131,13 @@
 	/* OptiFeed design tokens — exact values, do not alter */
 	--ofd-base: #0a3d62;
 	--ofd-action: #ff6b35;
+	/* Primary CTA fill. The brand #e85a2a with white text measures 3.54:1,
+	   below the 4.5:1 WCAG AA threshold for normal-size labels (and its 4.33:1
+	   hover still failed). This darker pair keeps the orange family and measures
+	   5.18:1 resting / 7.31:1 hovered against #ffffff. #e85a2a stays available as
+	   a decorative accent and focus ring, never as a text background. */
+	--ofd-cta: #c2410c;
+	--ofd-cta-hover: #9a3412;
 	--ofd-bg: #f4f7f6;
 	--ofd-success: #28a745;
 	--ofd-critical: #dc3545;

@@ -292,7 +292,7 @@ export function OfflineSync({
 					onClick={() => void run()}
 					disabled={!online || busy}
 					title={!online ? t("retryBlockedOffline") : undefined}
-					className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#E85A2A] px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-[#d04a1f] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600 dark:disabled:bg-gray-700 dark:disabled:text-gray-300"
+					className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--ofd-cta)] px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-[var(--ofd-cta-hover)] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600 dark:disabled:bg-gray-700 dark:disabled:text-gray-300"
 				>
 					<RefreshCw className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} aria-hidden="true" />
 					{busy ? t("syncing") : t("retrySync")}

@@ -75,15 +75,57 @@ application order is immaterial. No deployment was triggered by these branches.
 | #710 — required checks (partial) | Lighthouse budget is corrected; adding required status checks is a GitHub branch-protection change and an owner action. |
 | #728 — timeout cancellation (partial) | Artifact size cap and no-copy are delivered; true cancellation needs request-signal plumbing through every builder. |
 
-## Owner actions after review
+## Owner decisions required (Jeff)
 
-1. Approve the additive migrations before `prisma migrate deploy` (reset proof, import
-   idempotency, event uniqueness). The event-uniqueness migration drops the old global unique
-   index; no data is deleted.
-2. Add the recommended required status checks on `develop`, `staging` and `main`
-   (`docs/ci-required-checks.md`).
-3. Confirm the Supabase Auth state for `superadmin`, `independent-farmer` and `test` (#712) and
-   rotate the temporary password policy.
-4. Run a real-email smoke test of the recovery link to confirm Supabase preserves the
-   `?reset=...` parameter through the action link.
-5. Decide the parked issues above; they are not silently done.
+These are the three decisions/actions the batch leaves open. Nothing below was done by an agent
+without authorization.
+
+### 1. Approve the three production migrations
+
+The normal `main` deployment applies migrations with `prisma migrate deploy`. Before the next
+production release, review and explicitly approve these three:
+
+| Migration | What it does | Decision / risk |
+| --- | --- | --- |
+| `apps/web/prisma/migrations/20261104100000_feed_event_device_unique` | Drops the global `FeedEvent.eventId` unique index and creates the compound `(deviceId, eventId)` unique index. | **Explicit approval required** under `CONTRIBUTING.md` §8 because it drops an existing index. No rows are deleted; the old constraint was stricter, so existing data cannot violate the new one. Confirm a verified backup before applying. |
+| `apps/web/prisma/migrations/20261104110000_import_idempotency` | Creates the `ImportConfirmation` table, its owner/key unique index and RLS default-deny. | Additive, no existing data touched. |
+| `apps/web/prisma/migrations/20261104120000_password_reset_proof` | Creates the `PasswordResetToken` table, its unique/indexes and RLS default-deny. | Additive, no existing data touched. |
+
+Do **not** run `prisma migrate dev` or `prisma migrate reset` against production. Approve the
+schema relaxation above, confirm the backup, and let the documented `main` release path apply
+them. If the index drop is not approved, the release must exclude that migration and the
+event-id bug remains open.
+
+### 2. Decide the required status checks
+
+#738 corrected the Lighthouse budget and added `docs/ci-required-checks.md`, but adding required
+checks is a GitHub branch-protection change and remains owner-only. Decide whether `develop`,
+`staging` and `main` should require:
+
+- `audit`
+- `CycloneDX SBOM`
+- `gitleaks`
+- `public smoke (chromium, firefox, webkit)`
+- `lighthouse budgets`
+
+The exact `gh api` capture/apply/rollback commands are in `docs/ci-required-checks.md`. If the
+answer is “not yet”, record that decision and leave the checks advisory.
+
+### 3. Complete the Supabase Auth account actions (#712)
+
+The repository cannot verify or change these; only Supabase Auth holds the credentials:
+
+- Confirm whether `superadmin` still uses `password123`; if so, rotate it to a unique random
+  password.
+- Force completion of the password change (or disable) `independent-farmer` and `test`, which
+  were still flagged `mustChangePassword = true` on 2026-11-03.
+- Stop using `password123` as a shared manual-testing fallback; use per-account random temporary
+  passwords.
+
+### Verification after the decisions
+
+- Run a real-email smoke test of the recovery link to confirm Supabase preserves the
+  `?reset=...` parameter through the action link. The flow fails closed if the parameter is
+  dropped.
+- Decide the parked issues in the table above: schedule them, accept the risk in writing, or
+  close them as won't-fix. They are not silently done.

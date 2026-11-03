@@ -4,12 +4,15 @@ How to build and run the OptiFeed web app as a container, what configuration it 
 still unverified.
 
 Measured 2026-10-29 against `origin/develop` @ `8eb6ce4` (workstream I-70).
+Container build added to CI 2026-11-04 (#714).
 
-> **Honest status.** The `Dockerfile` and `docker-compose.yml` in this repository have **never been
-> built or run**. Docker is not installed in the environment that wrote them, and CI does not build
-> the image yet. Everything below is the intended procedure, checked only as far as a machine without
-> Docker allows: file syntax, referenced paths, `pnpm install --frozen-lockfile`, Prisma generation,
-> TypeScript, Biome and the unit tests. See [§6](#6-what-is-verified-and-what-is-not).
+> **Honest status.** The `Dockerfile` and `docker-compose.yml` have **never been run**. CI now
+> builds the image (`.github/workflows/docker.yml`): `docker build` with the Dockerfile's default
+> build arguments, no registry push and no secret, whenever the Dockerfile, the compose file, the
+> lockfile, the manifests or the workflow change. That proves the build, not the runtime. Everything
+> below is the intended procedure, checked only as far as a machine without Docker allows: file
+> syntax, referenced paths, `pnpm install --frozen-lockfile`, Prisma generation, TypeScript, Biome
+> and the unit tests. See [§6](#6-what-is-verified-and-what-is-not).
 
 ## 1. What the image is
 
@@ -137,7 +140,8 @@ schema-level work such as `prisma migrate diff` or `prisma validate`.
 - No application behaviour changes. The only runtime-visible change in this workstream is that
   `robots.txt`, `sitemap.xml` and the Open Graph/Twitter metadata read `NEXT_PUBLIC_SITE_URL`, which
   defaults to `https://pakaonai.syntaxure.dev` — byte-for-byte today's output when it is unset.
-- `.github/workflows/**` is untouched. CI does not build the image.
+- `.github/workflows/**` is unchanged by the container workstream except for the build-only
+  `docker.yml` job (#714). CI builds the image but never pushes or deploys it.
 
 ## 6. What is verified and what is not
 
@@ -150,8 +154,8 @@ schema-level work such as `prisma migrate diff` or `prisma validate`.
 | `docker-compose.yml` is valid YAML with the intended services, profiles and arguments | **Verified** | Parsed with a YAML 2.x parser; structure inspected |
 | Environment matrix matches the code | **Verified** | `process.env` sweep across `apps/web`, `scripts`, `prisma`, `e2e` |
 | Env-driven site URL with production default | **Verified** | 10 unit tests; biome clean; `tsc --noEmit` exit 0 |
-| `next build` succeeds with the image's placeholder environment | **Not verified** | Deferred: the host was under resource pressure (red level) while this branch was prepared. CI's `quality` job runs the equivalent `next build` with the same placeholders on every pull request. |
-| The image builds | **Not verified** | Docker is not installed in the environment that wrote it |
+| `next build` succeeds with the image's placeholder environment | **Not verified locally** | The Docker workflow runs the same `next build` inside the builder stage; its first result is pending. CI's `quality` job runs the equivalent build with the same placeholders on every pull request. |
+| The image builds | **Configured, not yet observed** | `.github/workflows/docker.yml` runs `docker build` with the default arguments (no push) when its inputs change; the first run happens after merge. Docker is still not installed in the environment that wrote this document. |
 | The container starts and serves traffic | **Not verified** | Same reason |
 | `HEALTHCHECK` reports healthy | **Not verified** | Needs a running container and a reachable database |
 | Prisma query engine resolves inside the runner | **Not verified** | Expected from Node 22 bookworm's OpenSSL 3 and the `openssl` package installed in the image; unproven until built |
@@ -159,8 +163,9 @@ schema-level work such as `prisma migrate diff` or `prisma validate`.
 
 ## 7. Known limitations and follow-ups
 
-- **No image build in CI.** Adding a `docker build` job is the next step; it requires a Docker-capable
-  runner and, until the build is known-good, should not block merges.
+- **The image build is not a required check.** `.github/workflows/docker.yml` builds it on changes
+  (no push), but the first run is pending and, until it is known-good, it should not block merges.
+  Runtime verification still needs a Docker host.
 - **Base image is tag-pinned, not digest-pinned.** `node:22-bookworm-slim` moves. Pinning a digest is
   the remaining reproducibility step and needs a Docker host to resolve and verify.
 - **Image size.** No `standalone` output (see §1), so dev dependencies ship in the image.

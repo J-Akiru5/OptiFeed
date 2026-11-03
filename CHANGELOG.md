@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **The shared fallback password is retired in the manual-testing documentation (#712).** `docs/password-auth-plan.md` now records that `password123` must not be used for any account, that `superadmin`, `independent-farmer` and `test` still need owner action in Supabase Auth, and that per-account random temporary passwords are required. The accounts are not claimed as fixed.
+
 ### Added
 
 - **CI builds the container image (#714).** `.github/workflows/docker.yml` runs `docker build` with the Dockerfile's default arguments when the Dockerfile, compose file, lockfile, manifests or the workflow change. It never pushes or deploys, and the first run is pending; the runtime container path remains unverified.

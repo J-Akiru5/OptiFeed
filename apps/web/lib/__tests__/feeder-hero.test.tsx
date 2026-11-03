@@ -36,7 +36,7 @@ function heroData(overrides: Partial<FeederHeroData> = {}): FeederHeroData {
 		lastSeenAt: new Date(2026, 9, 27, 9, 12),
 		rssiDbm: null,
 		hopperLevelPercent: 82,
-		hopperUpdatedAt: new Date(2026, 9, 27, 9, 10),
+		hopperUpdatedAt: new Date("2026-10-27T01:10:00.000Z"),
 		gramsToday: 1240,
 		nextFeedSlot: { hours: 14, minutes: 0, dayOffset: 0 },
 		waterTempC: 28.4,

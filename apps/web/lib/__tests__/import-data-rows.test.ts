@@ -20,8 +20,9 @@ const { resolveActivePond, prisma, tx } = vi.hoisted(() => {
 		importConfirmation: { create: vi.fn() },
 	};
 	const prisma = {
-		energyDevice: { findFirst: vi.fn() },
+		energyDevice: { findFirst: vi.fn(), findMany: vi.fn() },
 		biomassLog: { findMany: vi.fn() },
+		pond: { findFirst: vi.fn() },
 		importConfirmation: { findUnique: vi.fn() },
 		$transaction: vi.fn(),
 	};
@@ -52,6 +53,8 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	resolveActivePond.mockResolvedValue({ id: "pond-1" });
 	prisma.energyDevice.findFirst.mockResolvedValue({ id: "dev-1" });
+	prisma.energyDevice.findMany.mockResolvedValue([{ id: "dev-1" }]);
+	prisma.pond.findFirst.mockResolvedValue({ id: "pond-1" });
 	prisma.biomassLog.findMany.mockResolvedValue([{ id: "log-1" }]);
 	prisma.importConfirmation.findUnique.mockResolvedValue(null);
 	prisma.$transaction.mockImplementation(async (fn: (client: typeof tx) => Promise<number>) =>
@@ -82,8 +85,71 @@ describe("import guards", () => {
 			message: "One or more biomassLogId values are not owned by this farm.",
 		});
 		expect(prisma.biomassLog.findMany).toHaveBeenCalledWith({
-			where: { id: { in: ["log-1"] }, pond: { ownerId: "farm-a" } },
+			where: { id: { in: ["log-1"] }, pondId: "pond-1", pond: { ownerId: "farm-a" } },
 			select: { id: true },
+		});
+		expect(prisma.$transaction).not.toHaveBeenCalled();
+	});
+});
+
+describe("target pond (#743)", () => {
+	it("uses the pond captured by the request, not the caller's later active pond", async () => {
+		resolveActivePond.mockResolvedValue({ id: "pond-b" });
+		prisma.pond.findFirst.mockResolvedValue({ id: "pond-a" });
+
+		await confirmImport("farm-a", "biomass_logs", CSV.biomass_logs, { pondId: "pond-a" });
+
+		expect(prisma.pond.findFirst).toHaveBeenCalledWith({
+			where: { id: "pond-a", ownerId: "farm-a" },
+			select: { id: true },
+		});
+		expect(resolveActivePond).not.toHaveBeenCalled();
+		expect(prisma.energyDevice.findFirst).toHaveBeenCalledWith(
+			expect.objectContaining({ where: { pondId: "pond-a" } }),
+		);
+		expect(tx.biomassLog.createMany.mock.calls[0][0].data[0]).toMatchObject({
+			pondId: "pond-a",
+		});
+	});
+
+	it("refuses a target pond owned by another farm", async () => {
+		prisma.pond.findFirst.mockResolvedValue(null);
+
+		await expect(
+			confirmImport("farm-a", "biomass_logs", CSV.biomass_logs, { pondId: "pond-foreign" }),
+		).rejects.toMatchObject({ status: 404 });
+		expect(prisma.$transaction).not.toHaveBeenCalled();
+	});
+
+	it("rejects a row whose pondId belongs to a different pond", async () => {
+		prisma.pond.findFirst.mockResolvedValue({ id: "pond-a" });
+		const csv = "pondId,sampleWeightKg,sampleCount\npond-a,10,5\npond-b,12,6";
+
+		await expect(
+			confirmImport("farm-a", "biomass_logs", csv, { pondId: "pond-a" }),
+		).rejects.toMatchObject({
+			status: 400,
+			message: "Row 2: pondId belongs to a different pond.",
+		});
+		expect(prisma.$transaction).not.toHaveBeenCalled();
+	});
+
+	it("rejects a deviceId that is not in the target pond", async () => {
+		prisma.pond.findFirst.mockResolvedValue({ id: "pond-a" });
+		prisma.energyDevice.findMany.mockResolvedValue([]);
+
+		await expect(
+			confirmImport(
+				"farm-a",
+				"feed_events",
+				"deviceId,eventType,timestamp\ndev-other,feed_dispensed,2026-03-02T04:00:00Z",
+				{
+					pondId: "pond-a",
+				},
+			),
+		).rejects.toMatchObject({
+			status: 400,
+			message: "Row 1: deviceId is not in the target pond.",
 		});
 		expect(prisma.$transaction).not.toHaveBeenCalled();
 	});

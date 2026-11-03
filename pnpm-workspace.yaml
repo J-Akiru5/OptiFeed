@@ -2,6 +2,21 @@ packages:
   - "apps/*"
   - "packages/*"
 
+# pnpm 10 no longer reads the `pnpm` field in package.json. Dependency
+# overrides live in this settings file instead. `pnpm config get overrides`
+# prints the active set; scripts/security/check-overrides.mjs fails when a
+# resolved security pin drifts from these ranges.
+overrides:
+  baseline-browser-mapping: ^2.11.0
+  browserslist: ^4.28.7
+  dompurify: ^3.4.17
+  proxy-addr: ^2.0.8
+  source-map-js: ^1.2.2
+  exceljs>uuid: 11.1.1
+  uuid@^8.3.0: 11.1.1
+  minimatch@^3.0.4: 3.1.5
+  minimatch@^3.1.0: 3.1.5
+
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver

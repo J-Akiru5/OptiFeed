@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.48.1] - 2026-11-03
+
+### Changed
+
+- **Dependencies moved to their next major where the full suite proves it.** `sonner` 1.7 -> 2.0 (toasts; 20 call sites use only `success` / `error` / `info` / `warning` and the single `<Toaster>` mount, verified against a jsdom render) and `@commitlint/cli` 19 -> 21 (the commit-msg hook still blocks a malformed message and accepts a conventional one). Both were tested on throwaway branches before merge: full unit suite 439 files / 5,252 tests, typecheck and lint clean, `pnpm install --frozen-lockfile` accepted.
+
+### Notes
+
+- `@commitlint/cli` 21 requires **Node 22.12 or newer**. CI already uses Node 22; local setups below 22.12 will install fine and then fail on the first commit. The README now says so.
+
 ## [1.48.0] - 2026-11-03
 
 ### Added

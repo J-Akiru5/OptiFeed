@@ -1,8 +1,10 @@
 import { saveBiomassLog } from "@/lib/actions/biomass";
 import { isBrowserOnline } from "@/lib/pwa/feed-safety";
 import {
+	OUTBOX_MAX_ATTEMPTS,
 	type OutboxItem,
 	type StoredOutboxRecord,
+	claimOutboxItem,
 	isBiomassOutboxItem,
 	listOutbox,
 	listOutboxRecords,
@@ -29,10 +31,11 @@ export interface FlushOutboxResult {
 	discardedFeed: number;
 	/** True when another replay (this tab or another tab) was already running. */
 	busy: boolean;
+	/** Items that used up every automatic attempt during this flush and now need a manual retry. */
+	exhausted: number;
 }
 
 const REPLAY_LOCK = "optifeed-outbox-replay";
-const MAX_ATTEMPTS = 3;
 
 /** Same-tab guard for browsers without the Web Locks API. */
 let replaying = false;
@@ -101,31 +104,63 @@ async function purgeUnsafeRecords(): Promise<number> {
 	return unsafe.length;
 }
 
+async function idleResult(
+	scope: string,
+	discardedFeed: number,
+	busy: boolean,
+): Promise<FlushOutboxResult> {
+	const [remaining, failures] = await Promise.all([
+		remainingForScope(scope),
+		failuresForScope(scope),
+	]);
+	return {
+		synced: 0,
+		remaining,
+		errors: [],
+		failures,
+		discardedFeed,
+		busy,
+		exhausted: 0,
+	};
+}
+
 async function runReplay(scope: string, discardedFeed: number): Promise<FlushOutboxResult> {
 	if (!isBrowserOnline()) {
-		return {
-			synced: 0,
-			remaining: await remainingForScope(scope),
-			errors: [],
-			failures: await failuresForScope(scope),
-			discardedFeed,
-			busy: false,
-		};
+		return idleResult(scope, discardedFeed, false);
 	}
 
 	// Only pending items are retried automatically. Failed/conflicted items stay
-	// visible until the user retries or discards them.
-	const items = (await listOutbox()).filter(
+	// visible until the user retries or discards them. `listOutbox` sorts oldest
+	// first, and the loop sends one at a time, so samples for a pond keep their
+	// order.
+	const candidates = (await listOutbox()).filter(
 		(item) => item.payload.scope === scope && item.status === "pending",
 	);
 	let synced = 0;
+	let exhausted = 0;
 	const errors: string[] = [];
+	// If an earlier sample for a pond is claimed elsewhere (another drain, or a
+	// stale claim after a crash), hold that pond's later samples back for this
+	// pass instead of sending them out of order. The next timer retries it.
+	const blockedPonds = new Set<string>();
 
-	for (const item of items) {
+	for (const candidate of candidates) {
 		if (!isBrowserOnline()) break;
+		if (blockedPonds.has(candidate.payload.pondId)) continue;
+
+		// Claim before sending. A second drain (the online handler racing the
+		// timer, a remount, another tab after the lock) gets no claim and skips
+		// the item, so the same sample is never submitted twice.
+		const item = await claimOutboxItem(candidate.id);
+		if (!item) {
+			blockedPonds.add(candidate.payload.pondId);
+			continue;
+		}
+
 		try {
 			const result = await saveBiomassLog(buildFormData(item));
 			if (result.success) {
+				// Remove on success only: a failed attempt keeps the item queued.
 				await removeOutboxItem(item.id);
 				synced += 1;
 				continue;
@@ -140,7 +175,8 @@ async function runReplay(scope: string, discardedFeed: number): Promise<FlushOut
 
 			const attempts = item.attempts + 1;
 			await markOutboxAttempt(item.id, result.error);
-			if (kind === "session" || attempts >= MAX_ATTEMPTS) break;
+			if (attempts >= OUTBOX_MAX_ATTEMPTS) exhausted += 1;
+			if (kind === "session" || attempts >= OUTBOX_MAX_ATTEMPTS) break;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Network error";
 			const kind = classifyFailure(message);
@@ -149,9 +185,20 @@ async function runReplay(scope: string, discardedFeed: number): Promise<FlushOut
 				await markOutboxConflict(item.id, message);
 				continue;
 			}
+			const attempts = item.attempts + 1;
 			await markOutboxAttempt(item.id, message);
+			if (attempts >= OUTBOX_MAX_ATTEMPTS) exhausted += 1;
 			break;
 		}
+	}
+
+	// Never drop an item silently: an item that used up its attempts becomes
+	// `failed` and stays in the panel for a user decision. The console line is
+	// for field diagnostics when nobody is looking at the panel.
+	if (exhausted > 0) {
+		console.warn(
+			`[offline-sync] ${exhausted} queued sample(s) used all ${OUTBOX_MAX_ATTEMPTS} automatic attempts and need a manual retry`,
+		);
 	}
 
 	return {
@@ -161,6 +208,7 @@ async function runReplay(scope: string, discardedFeed: number): Promise<FlushOut
 		failures: await failuresForScope(scope),
 		discardedFeed,
 		busy: false,
+		exhausted,
 	};
 }
 
@@ -179,18 +227,15 @@ async function withReplayLock<T>(fn: () => Promise<T>): Promise<T> {
  *
  * Each item carries its clientEventId, so a reload or a duplicated replay can
  * never insert the sample twice. A cross-tab Web Lock keeps two tabs from
- * replaying the same queue concurrently.
+ * replaying the same queue concurrently, and each item is additionally claimed
+ * before it is sent so a double drain cannot submit it twice.
+ *
+ * Safe to call from a mount, a timer, an `online` event and an outbox change:
+ * callers do not need to coordinate.
  */
 export async function flushBiomassOutbox(scope: string): Promise<FlushOutboxResult> {
 	if (replaying) {
-		return {
-			synced: 0,
-			remaining: await remainingForScope(scope),
-			errors: [],
-			failures: await failuresForScope(scope),
-			discardedFeed: 0,
-			busy: true,
-		};
+		return idleResult(scope, 0, true);
 	}
 
 	replaying = true;

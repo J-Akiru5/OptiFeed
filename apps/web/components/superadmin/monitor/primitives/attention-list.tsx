@@ -3,7 +3,7 @@ import { AlertTriangle, HelpCircle, type LucideIcon, OctagonAlert } from "lucide
 import type { ReactNode } from "react";
 
 /**
- * The "what needs a decision" list (issue #479, M3C.8).
+ * The "what needs a decision" list (issue #479, M3C.8; tokens #628).
  *
  * Severity gets a distinct icon shape (octagon, triangle, question mark) as
  * well as a colour, and the row's title and meta text say what happened; the
@@ -20,9 +20,9 @@ const SEVERITY_ICONS: Record<Severity, LucideIcon> = {
 };
 
 const SEVERITY_TONES: Record<Severity, string> = {
-	critical: "text-[#C42B3A] dark:text-[#F87171]",
-	warning: "text-[#B45309] dark:text-[#FBBF24]",
-	unknown: "text-[#3D5568] dark:text-[#94A3B8]",
+	critical: "text-console-critical-content",
+	warning: "text-console-warn-content",
+	unknown: "text-console-content-muted",
 };
 
 export function AttentionList({
@@ -44,7 +44,7 @@ export function AttentionList({
 		return (
 			<p
 				className={cn(
-					"rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-xs font-bold text-[#3D5568] dark:border-[#24304A] dark:text-slate-400",
+					"rounded-xl border border-dashed border-console-border px-4 py-6 text-center text-xs font-bold text-console-content-muted",
 					className,
 				)}
 			>
@@ -54,23 +54,23 @@ export function AttentionList({
 	}
 
 	return (
-		<ul className={cn("divide-y divide-gray-100 dark:divide-[#24304A]", className)}>
+		<ul className={cn("min-w-0 divide-y divide-console-border", className)}>
 			{items.map((item) => {
 				const Icon = SEVERITY_ICONS[item.severity];
 				return (
 					<li
 						key={item.id}
 						data-severity={item.severity}
-						className="flex items-start gap-3 py-3 first:pt-0 last:pb-0"
+						className="flex min-w-0 items-start gap-3 py-3 first:pt-0 last:pb-0"
 					>
 						<Icon
 							className={cn("mt-0.5 h-4 w-4 shrink-0", SEVERITY_TONES[item.severity])}
 							aria-hidden="true"
 						/>
 						<div className="min-w-0 flex-1">
-							<p className="text-xs font-bold text-[#0A3D62] dark:text-slate-100">{item.title}</p>
+							<p className="text-xs font-bold text-console-content">{item.title}</p>
 							{item.meta && (
-								<p className="mt-0.5 text-[11px] leading-snug text-[#3D5568] dark:text-slate-400">
+								<p className="mt-0.5 text-[11px] leading-snug text-console-content-muted">
 									{item.meta}
 								</p>
 							)}

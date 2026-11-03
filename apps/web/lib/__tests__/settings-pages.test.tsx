@@ -115,6 +115,7 @@ vi.mock("@/lib/prisma", () => ({
 				hopperCapacityG: 7000,
 				gramsPerSecond: 12.5,
 				gramsPerFeeding: 500,
+				buttonFeedGrams: 80,
 				isPaused: false,
 				lastCalibratedAt: null,
 				recalibrationIntervalDays: 30,
@@ -136,6 +137,7 @@ vi.mock("@/lib/prisma", () => ({
 				hopperCapacityG: 7000,
 				gramsPerSecond: 12.5,
 				gramsPerFeeding: 500,
+				buttonFeedGrams: 80,
 				isPaused: false,
 				lastCalibratedAt: null,
 				recalibrationIntervalDays: 30,
@@ -161,6 +163,7 @@ vi.mock("@/lib/prisma", () => ({
 			findMany: vi.fn(async () => []),
 		},
 		feedEvent: {
+			findFirst: vi.fn(async () => null),
 			findMany: vi.fn(async () => []),
 			aggregate: vi.fn(async () => ({ _sum: { grams: 0 } })),
 		},
@@ -184,9 +187,11 @@ vi.mock("@/lib/actions/farm", () => ({
 vi.mock("@/lib/actions/settings", () => ({
 	updatePondSettings: vi.fn(),
 	updateDeviceDailyCap: vi.fn(),
+	updateDeviceButtonFeed: vi.fn(),
 }));
 vi.mock("@/lib/actions/energy", () => ({
 	saveHopperCalibration: vi.fn(),
+	saveHopperFilterSettings: vi.fn(),
 	saveTemperatureCalibration: vi.fn(),
 	saveDurationCalibration: vi.fn(),
 }));
@@ -343,6 +348,36 @@ describe("hardware settings page", () => {
 		expect(html).toContain("v1.6.0");
 		expect(html).toContain("Support ID: dev-1");
 		expect(html).not.toContain("Device record ID");
+	});
+
+	it("shows the button dose and the press the device reported (#658)", async () => {
+		vi.mocked(prisma.feedEvent.findFirst).mockResolvedValueOnce({
+			grams: 80,
+			receivedAt: new Date("2026-11-03T06:05:00.000Z"),
+		} as never);
+
+		const html = renderToStaticMarkup(
+			await HardwareSettingsPage({ searchParams: Promise.resolve({}) }),
+		);
+
+		expect(html).toContain("Button feed amount");
+		expect(html).toContain("Dose per press (g)");
+		// The control is not enough: the card must carry what the device did.
+		expect(html).toContain("Last button press: 80 g at");
+	});
+
+	it("shows the raw ultrasonic distance and the hopper filter card (#659)", async () => {
+		const html = renderToStaticMarkup(
+			await HardwareSettingsPage({ searchParams: Promise.resolve({}) }),
+		);
+
+		// The distance being calibrated against is the device's own reading, and
+		// the filter that guards it is on the same tab.
+		expect(html).toContain("Raw sensor distance");
+		expect(html).toContain("Hopper sensor filter");
+		expect(html).toContain("Smoothing weight");
+		// A write is only a promise: the card must carry what the device reported.
+		expect(html).toContain("Reported by the device");
 	});
 
 	it("explains read-only mode on the hardware controls", async () => {

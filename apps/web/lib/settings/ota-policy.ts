@@ -1,5 +1,13 @@
 import { FIRMWARE_OTA_POLICY_AUDIT_ACTION } from "@/lib/firmware/config";
 import prisma from "@/lib/prisma";
+import {
+	CONFIG_APPLIED_EVENT,
+	type ConfigEchoState,
+	type ConfigSource,
+	configEchoState,
+	readConfigRev,
+	readDiagSource,
+} from "@/lib/settings/config-echo";
 
 /**
  * What the fleet reports back about the OTA rollout policy (issue #660).
@@ -18,6 +26,9 @@ import prisma from "@/lib/prisma";
  * "this unit reports these ten numbers". A unit that never echoed one is shown
  * as never reported rather than assumed applied.
  *
+ * The echo reader and the classifier live in `lib/settings/config-echo.ts`,
+ * shared with the hopper filter card (#659).
+ *
  * Read-only and platform-gated by its caller (the superadmin settings page
  * already runs behind `requirePlatformAdmin` through the layout).
  */
@@ -28,7 +39,7 @@ export const OTA_POLICY_DEVICE_LIMIT = 500;
 /** Rows rendered in the settings card; the counts still cover every device. */
 export const OTA_POLICY_ROW_LIMIT = 8;
 
-export type OtaConfigSource = "server" | "nvs" | "default";
+export type OtaConfigSource = ConfigSource;
 
 /**
  * - `applied`: echoed a config after the last recorded policy change.
@@ -36,7 +47,7 @@ export type OtaConfigSource = "server" | "nvs" | "default";
  * - `reported`: no policy change is recorded, so there is nothing to compare.
  * - `never_reported`: no `config_applied` row exists (pre-1.7.0 or never polled).
  */
-export type OtaConfirmationState = "applied" | "pending" | "reported" | "never_reported";
+export type OtaConfirmationState = ConfigEchoState;
 
 export interface OtaDeviceReport {
 	id: string;
@@ -76,32 +87,8 @@ const STATE_ORDER: Record<OtaConfirmationState, number> = {
 	applied: 3,
 };
 
-/** True when the value came from the firmware's documented `config_source`. */
-function readConfigSource(value: unknown): OtaConfigSource | null {
-	return value === "server" || value === "nvs" || value === "default" ? value : null;
-}
-
-/** `diag.config_rev` as a finite non-negative integer, or null. */
-function readConfigRev(diag: unknown): number | null {
-	if (typeof diag !== "object" || diag === null || Array.isArray(diag)) return null;
-	const value = (diag as Record<string, unknown>).config_rev;
-	return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
-}
-
-function readDiagSource(diag: unknown): OtaConfigSource | null {
-	if (typeof diag !== "object" || diag === null || Array.isArray(diag)) return null;
-	return readConfigSource((diag as Record<string, unknown>).config_source);
-}
-
 /** Classify one unit against the last recorded policy change. */
-export function otaConfirmationState(
-	reportedAt: Date | null,
-	changedAt: Date | null,
-): OtaConfirmationState {
-	if (!reportedAt) return "never_reported";
-	if (!changedAt) return "reported";
-	return reportedAt.getTime() >= changedAt.getTime() ? "applied" : "pending";
-}
+export const otaConfirmationState = configEchoState;
 
 /**
  * Reduce the device reports to the card's summary.
@@ -173,7 +160,7 @@ export async function getOtaPolicyStatus(): Promise<OtaPolicyStatus> {
 			}),
 			prisma.deviceStateEvent.groupBy({
 				by: ["deviceId"],
-				where: { eventType: "config_applied" },
+				where: { eventType: CONFIG_APPLIED_EVENT },
 				_max: { createdAt: true },
 			}),
 		]);

@@ -86,10 +86,12 @@ vi.mock("@/lib/actions/growth-target", () => ({ clearGrowthTarget: vi.fn() }));
 vi.mock("@/lib/actions/settings", () => ({
 	updatePondSettings: vi.fn(),
 	updateDeviceDailyCap: vi.fn(),
+	updateDeviceButtonFeed: vi.fn(),
 }));
 vi.mock("@/lib/actions/energy", () => ({
 	requestFeed: vi.fn(),
 	saveHopperCalibration: vi.fn(),
+	saveHopperFilterSettings: vi.fn(),
 	saveTemperatureCalibration: vi.fn(),
 	saveDurationCalibration: vi.fn(),
 }));
@@ -215,6 +217,7 @@ vi.mock("@/lib/prisma", () => ({
 				hopperCapacityG: 7000,
 				gramsPerSecond: 12.5,
 				gramsPerFeeding: 500,
+				buttonFeedGrams: 80,
 				isPaused: false,
 				lastCalibratedAt: null,
 				recalibrationIntervalDays: 30,
@@ -236,6 +239,7 @@ vi.mock("@/lib/prisma", () => ({
 				hopperCapacityG: 7000,
 				gramsPerSecond: 12.5,
 				gramsPerFeeding: 500,
+				buttonFeedGrams: 80,
 				isPaused: false,
 				lastCalibratedAt: null,
 				recalibrationIntervalDays: 30,
@@ -255,6 +259,7 @@ vi.mock("@/lib/prisma", () => ({
 			findMany: vi.fn(async () => []),
 		},
 		feedEvent: {
+			findFirst: vi.fn(async () => null),
 			findMany: vi.fn(async () => []),
 			aggregate: vi.fn(async () => ({ _sum: { grams: 0 } })),
 		},

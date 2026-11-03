@@ -7,6 +7,8 @@ import {
 	hopperCapacityFromGeometry,
 } from "./hopper-capacity";
 import {
+	CALIBRATION_MAX_DISPENSE_MS,
+	CALIBRATION_MAX_GRAMS,
 	DAILY_CAP_MIN_G,
 	MAX_ACCEPTED_FEED_GRAMS,
 	MAX_FEED_GRAMS_PER_DAY_PER_DEVICE,
@@ -113,10 +115,11 @@ export const hopperCalibrationSchema = z
 // Guided motor calibration: run the motor for a bounded test window, weigh the
 // output, then derive grams per second. The upper bounds keep a test dose
 // inside the calibration ceiling and the weighed output physically plausible.
+// Both maxima are the firmware's own envelope (#662) - see `limits-core.ts`.
 export const CALIBRATION_TEST_SECONDS_MIN = 3;
-export const CALIBRATION_TEST_SECONDS_MAX = 600;
-export const CALIBRATION_TEST_GRAMS_MAX = 5000;
-export const CALIBRATION_ACTUAL_GRAMS_MAX = 5000;
+export const CALIBRATION_TEST_SECONDS_MAX = CALIBRATION_MAX_DISPENSE_MS / 1000;
+export const CALIBRATION_TEST_GRAMS_MAX = CALIBRATION_MAX_GRAMS;
+export const CALIBRATION_ACTUAL_GRAMS_MAX = CALIBRATION_MAX_GRAMS;
 
 // Target check (issue #191): dispense an exact target, weigh it, and correct
 // grams per second from the error. The target bounds are the calibration

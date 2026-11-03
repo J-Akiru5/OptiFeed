@@ -45,14 +45,21 @@ export interface FirmwareFieldSpec {
 	/** True when the superadmin config centre exposes an input for it. */
 	editable: boolean;
 	/**
-	 * Which superadmin form owns the input (issue #660).
+	 * Which dashboard surface owns the input (issues #659, #660).
 	 *
-	 * `editable` stays the gate-form flag; `surface: "ota"` marks the ten
-	 * rollout-policy keys instead, so the feed-safety form does not grow ten
-	 * unrelated inputs and the OTA writer can enforce its own cross-field
-	 * window rule rather than the gate writer's envelope-only check.
+	 * `editable` stays the superadmin gate-form flag.
+	 *
+	 * - `ota` marks the ten rollout-policy keys, so the feed-safety form does not
+	 *   grow ten unrelated inputs and the OTA writer can enforce its own
+	 *   cross-field window rule rather than the gate writer's envelope-only
+	 *   check.
+	 * - `hopper_filter` marks the hopper filter tuning, which is *per device*
+	 *   (`EnergyDevice.hopper*` columns) rather than a platform setting: a noisy
+	 *   or bouncing ultrasonic sensor is a property of one installation, so the
+	 *   device settings page owns it and the value rides the poll response's
+	 *   `config` object.
 	 */
-	surface?: "ota";
+	surface?: "ota" | "hopper_filter";
 }
 
 /**
@@ -252,6 +259,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		defaultValue: 10,
 		group: "device",
 		editable: false,
+		surface: "hopper_filter",
 	},
 
 	// Hopper filter tuning (guards the reading against field noise).
@@ -264,6 +272,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		defaultValue: 2,
 		group: "runtime",
 		editable: false,
+		surface: "hopper_filter",
 	},
 	{
 		id: "hopper_reject_above_margin_cm",
@@ -274,6 +283,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		defaultValue: 10,
 		group: "runtime",
 		editable: false,
+		surface: "hopper_filter",
 	},
 	{
 		id: "hopper_ema_alpha",
@@ -284,6 +294,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		defaultValue: 0.35,
 		group: "runtime",
 		editable: false,
+		surface: "hopper_filter",
 	},
 	{
 		id: "hopper_jump_pct",
@@ -294,6 +305,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		defaultValue: 15,
 		group: "runtime",
 		editable: false,
+		surface: "hopper_filter",
 	},
 	{
 		id: "hopper_persist_cycles",
@@ -304,6 +316,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		defaultValue: 3,
 		group: "runtime",
 		editable: false,
+		surface: "hopper_filter",
 	},
 	{
 		id: "hopper_state_hold_s",
@@ -314,6 +327,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		defaultValue: 600,
 		group: "runtime",
 		editable: false,
+		surface: "hopper_filter",
 	},
 
 	// Button guard (debounce, boot grace, quiet window, cooldown, noise guard).
@@ -557,6 +571,18 @@ export const FIRMWARE_DEFAULTS: FirmwareValues = Object.fromEntries(
 	FIRMWARE_FIELDS.map((field) => [field.id, field.defaultValue]),
 );
 
+/**
+ * The expected device beat, in seconds (#662).
+ *
+ * `heartbeat_interval_s` is deliberately firmware-only (`editable: false`): the
+ * dashboard never sets it, and the device keeps whatever its config carries.
+ * The app needs one number only - the cadence a reachable unit is expected to
+ * beat at, used to size the connectivity gap threshold. Exported once so no
+ * module invents a second cadence; `firmware-config.test.ts` pins it to the
+ * header's default.
+ */
+export const FIRMWARE_HEARTBEAT_INTERVAL_S = FIRMWARE_DEFAULTS.heartbeat_interval_s;
+
 /** Editable gate fields, in display order. */
 export const FIRMWARE_GATE_FIELDS = FIRMWARE_FIELDS.filter((field) => field.editable);
 
@@ -574,6 +600,25 @@ export const FIRMWARE_OTA_FIELDS = FIRMWARE_FIELDS.filter((field) => field.surfa
 export const FIRMWARE_OTA_POLICY_IDS: readonly string[] = FIRMWARE_OTA_FIELDS.map(
 	(field) => field.id,
 );
+
+/**
+ * Hopper filter tuning (issue #659), in display order.
+ *
+ * These seven keys guard the ultrasonic reading against field noise and were
+ * `editable: false` with no dashboard surface, so a bouncing sensor could only
+ * be adapted with a firmware build. They stay out of the platform gate form
+ * (`editable` is still false) because the right filter depends on one
+ * installation, not on the whole platform: the *device row* carries them and
+ * `buildFirmwareConfig` overlays them onto the poll response like the hopper
+ * geometry. Envelope and defaults are the firmware's own, taken from the same
+ * table `firmware-config.test.ts` pins to `firmware-main/config.h`.
+ */
+export const FIRMWARE_HOPPER_FILTER_FIELDS = FIRMWARE_FIELDS.filter(
+	(field) => field.surface === "hopper_filter",
+);
+
+/** Per-device overrides keyed by the firmware field id; absent/null keeps the default. */
+export type FirmwareHopperFilterOverrides = Partial<Record<string, number | null | undefined>>;
 
 /**
  * PlatformAuditLog action recorded when the OTA rollout policy changes.
@@ -664,6 +709,12 @@ export interface DeviceConfigInput {
 	dailyCapG: number;
 	/** Platform relay-time cap (`feeding.limits.maxDispenseMs`). */
 	maxDispenseMs: number;
+	/**
+	 * Per-device hopper filter tuning (issue #659), keyed by firmware field id.
+	 * A null/absent key keeps the stored gate value, which is the compile-time
+	 * default for these seven.
+	 */
+	hopperFilter?: FirmwareHopperFilterOverrides | null;
 }
 
 export interface BuildFirmwareConfigInput {
@@ -707,6 +758,12 @@ export function buildFirmwareConfig(input: BuildFirmwareConfigInput): FirmwareCo
 	set("max_dispense_ms", input.device.maxDispenseMs);
 	set("weak_after_min", input.deviceStatus?.weakAfterMin);
 	set("offline_after_min", input.deviceStatus?.offlineAfterMin);
+
+	// #659: the hopper filter is tuned per device. A unit that never had it
+	// written keeps the firmware's compile-time value.
+	for (const field of FIRMWARE_HOPPER_FILTER_FIELDS) {
+		set(field.id, input.device.hopperFilter?.[field.id]);
+	}
 
 	// #456: the organization's hopper threshold overrides the stored gate value.
 	// Unlike `set`, a missing value leaves the gate/default alone: the org row is

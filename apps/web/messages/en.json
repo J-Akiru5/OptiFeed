@@ -471,6 +471,7 @@
 			"optional": "Optional",
 			"submit": "Send report",
 			"sending": "Sending…",
+			"retry": "Try again",
 			"success": "Thank you — your report was received.",
 			"error": "Could not send the report. Please try again.",
 			"rateLimited": "Too many reports from this device. Please try again later."

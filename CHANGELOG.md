@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A repeated import confirm no longer imports the dataset twice (#723).** The synchronous route accepts an `Idempotency-Key` header and the queued `import_confirm` job carries it; without one, a stable sha256 of `type + csvData` is used so existing clients are protected too. A replay returns the first result, a failed import leaves the key unconsumed for a retry, and two concurrent confirms resolve to one winner. Adds the additive migration `20261104090000_import_idempotency` (one new table, no data change).
+
 ## [1.51.0] - 2026-11-03
 
 ### Added

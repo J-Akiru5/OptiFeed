@@ -330,7 +330,9 @@ describe("runJob imports", () => {
 			payload: { type: "feed_events", csvData: "a,b\n1,2\n" },
 		} as unknown as BackgroundJob);
 
-		expect(mocks.confirmImport).toHaveBeenCalledWith("farm-a", "feed_events", "a,b\n1,2\n");
+		expect(mocks.confirmImport).toHaveBeenCalledWith("farm-a", "feed_events", "a,b\n1,2\n", {
+			idempotencyKey: undefined,
+		});
 		expect(mocks.updateMany).toHaveBeenCalledWith(
 			expect.objectContaining({
 				data: expect.objectContaining({
@@ -340,6 +342,18 @@ describe("runJob imports", () => {
 			}),
 		);
 		expect(mocks.upsert).not.toHaveBeenCalled();
+	});
+
+	it("passes the queued idempotency key to the importer", async () => {
+		await runJob({
+			...JOB,
+			type: "import_confirm",
+			payload: { type: "feed_events", csvData: "a,b\n1,2\n", idempotencyKey: "job-key-1" },
+		} as unknown as BackgroundJob);
+
+		expect(mocks.confirmImport).toHaveBeenCalledWith("farm-a", "feed_events", "a,b\n1,2\n", {
+			idempotencyKey: "job-key-1",
+		});
 	});
 });
 

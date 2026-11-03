@@ -935,6 +935,27 @@ model JobArtifact {
   job         BackgroundJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 }
 
+/// One confirmed CSV import per owner and idempotency key (#723).
+///
+/// The row is written in the same transaction as the imported rows. A replay
+/// returns `result` without inserting again; a failed transaction rolls the
+/// confirmation back too, so the same key can be retried. The unique pair also
+/// makes two concurrent confirms resolve to one winner.
+model ImportConfirmation {
+  id             String   @id @default(cuid())
+  /// Tenant key (User.farmId), matching BackgroundJob.ownerId.
+  ownerId        String
+  /// Client `Idempotency-Key`, or a sha256 of type + csvData when absent.
+  idempotencyKey String
+  type           String
+  /// `{ "importedCount": number }` — the response of the winning import.
+  result         Json
+  createdAt      DateTime @default(now())
+
+  @@unique([ownerId, idempotencyKey])
+  @@index([createdAt])
+}
+
 enum DeviceApproval {
   PENDING
   APPROVED

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { badRequest, notFound } from "@/lib/api/errors";
 import { resolveActivePond } from "@/lib/auth/pond-access";
 import { IMPORT_ROW_LIMIT } from "@/lib/constants";
@@ -10,8 +11,60 @@ export interface ImportResult {
 	importedCount: number;
 }
 
+export interface ConfirmImportOptions {
+	/** Client-supplied `Idempotency-Key`; when absent the payload is hashed. */
+	idempotencyKey?: string | null;
+}
+
 /** Requests above this size are refused before parsing (5 MB). */
 export const MAX_CSV_IMPORT_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Resolve the key that makes one confirm retry-safe (#723).
+ *
+ * An explicit client key wins. Without one — the legacy synchronous route, a
+ * queued job from an older client, the current UI — the canonical type and CSV
+ * are hashed so a double submit still resolves to the same key. The prefix
+ * keeps a derived key separate from a client key that happens to be 64 hex
+ * characters.
+ */
+function resolveImportIdempotencyKey(
+	type: ExportableType,
+	csvData: string,
+	supplied?: string | null,
+): string {
+	const explicit = supplied?.trim();
+	if (explicit) return explicit;
+	const digest = createHash("sha256")
+		.update(type)
+		.update("\0")
+		.update(csvData)
+		.digest("hex");
+	return `payload-sha256:${digest}`;
+}
+
+/**
+ * A stored result is returned as-is. A malformed row must not re-run the
+ * insert: the imported rows may already be committed, so correctness beats
+ * reporting a count we cannot reconstruct.
+ */
+function storedImportResult(value: unknown): ImportResult {
+	const importedCount =
+		typeof value === "object" &&
+		value !== null &&
+		!Array.isArray(value) &&
+		typeof (value as { importedCount?: unknown }).importedCount === "number"
+			? (value as { importedCount: number }).importedCount
+			: 0;
+	return { importedCount };
+}
+
+/** Prisma reports P2002; a raw PostgreSQL driver can surface 23505. */
+function isUniqueViolation(error: unknown): boolean {
+	if (typeof error !== "object" || error === null) return false;
+	const record = error as { code?: unknown; meta?: { code?: unknown } };
+	return record.code === "P2002" || record.code === "23505" || record.meta?.code === "23505";
+}
 
 function numberField(
 	row: Record<string, unknown>,
@@ -69,11 +122,17 @@ function optionalDateField(
  * background worker. Callers enforce write access before enqueuing the job;
  * the worker re-resolves the owner's active pond and re-checks ownership of
  * referenced rows.
+ *
+ * Idempotent by `options.idempotencyKey` (#723): the confirmation row is
+ * created in the same transaction as the imported rows, so a replay returns
+ * the first result, a failed import can be retried with the same key, and a
+ * concurrent duplicate loses the unique race without committing its rows.
  */
 export async function confirmImport(
 	ownerId: string,
 	type: ExportableType,
 	csvData: string,
+	options: ConfirmImportOptions = {},
 ): Promise<ImportResult> {
 	// The value arrives from a request body or a queued job payload, so it is not
 	// trustworthy just because the type says so. Without this check an unknown
@@ -82,6 +141,17 @@ export async function confirmImport(
 	if (!CSV_EXPORT_TYPES.includes(type)) {
 		throw badRequest("Unknown import type.");
 	}
+
+	const idempotencyKey = resolveImportIdempotencyKey(type, csvData, options.idempotencyKey);
+	const idempotencyWhere = { ownerId_idempotencyKey: { ownerId, idempotencyKey } };
+
+	// A replay needs no pond, parse or transaction: the winning result is the
+	// only thing the caller is owed.
+	const existing = await prisma.importConfirmation.findUnique({
+		where: idempotencyWhere,
+		select: { result: true },
+	});
+	if (existing) return storedImportResult(existing.result);
 
 	const pond = await resolveActivePond(ownerId);
 	if (!pond) throw notFound("No pond found.");
@@ -111,7 +181,7 @@ export async function confirmImport(
 		}
 	}
 
-	const importedCount = await prisma.$transaction(
+	const pending = prisma.$transaction(
 		async (tx) => {
 			let count = 0;
 
@@ -246,10 +316,38 @@ export async function confirmImport(
 				});
 			}
 
+			// Same transaction as the rows: a failure rolls this back so the key
+			// is not consumed, and the unique index commits only with the data.
+			await tx.importConfirmation.create({
+				data: {
+					ownerId,
+					idempotencyKey,
+					type,
+					result: { importedCount: count },
+				},
+			});
+
 			return count;
 		},
 		{ timeout: 30_000 },
 	);
+
+	let importedCount: number;
+	try {
+		importedCount = await pending;
+	} catch (error) {
+		// Two confirms raced past the lookup. The unique index let exactly one
+		// commit; the loser's transaction (including its rows) rolled back, so
+		// return the winner's result instead of inserting a second copy.
+		if (isUniqueViolation(error)) {
+			const winner = await prisma.importConfirmation.findUnique({
+				where: idempotencyWhere,
+				select: { result: true },
+			});
+			if (winner) return storedImportResult(winner.result);
+		}
+		throw error;
+	}
 
 	return { importedCount };
 }

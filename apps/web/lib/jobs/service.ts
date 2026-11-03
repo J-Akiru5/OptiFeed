@@ -230,8 +230,14 @@ async function executeJob(job: BackgroundJob): Promise<void> {
 			return;
 		}
 		case "import_confirm": {
-			const payload = job.payload as { type: ExportableType; csvData: string };
-			const result = await confirmImport(job.ownerId, payload.type, payload.csvData);
+			const payload = job.payload as {
+				type: ExportableType;
+				csvData: string;
+				idempotencyKey?: string | null;
+			};
+			const result = await confirmImport(job.ownerId, payload.type, payload.csvData, {
+				idempotencyKey: payload.idempotencyKey,
+			});
 			await completeJob(job, null, { importedCount: result.importedCount });
 			return;
 		}

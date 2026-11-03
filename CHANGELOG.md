@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.47.1] - 2026-11-03
+
+### Fixed
+
+- **A backup dump can no longer be altered through the request reason (#671).** The operator-supplied reason was concatenated into the dump statement, so a newline in the text could start a new statement. It is now passed as data, and a regression test covers both a newline and a quote.
+- **A manual feed command can no longer be dispatched twice (#670).** The dispatch path read the request and then updated it; it now claims the request atomically before dispatching, so two concurrent workers cannot both send the same dose.
+
+### Changed
+
+- Dependency updates within their existing majors: driver.js, `jspdf-autotable`, `jszip`, `papaparse`, `resend`, and the GitHub Actions group (#544, #541).
+
 ## [1.47.0] - 2026-11-03
 
 ### Added

@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.48.0] - 2026-11-03
+
+### Added
+
+- **A platform admin can email a password-reset link from the console (#608).** The account action sends the reset through Supabase rather than setting a password by hand, so the operator never sees or transmits a credential.
+- **Critical alerts and a daily digest can go out by email (#609).** Critical notifications and a once-daily warning summary are delivered to the address on the account, alongside the existing in-app bell.
+- **Pakoy's settings actions are owner-scoped and can propose a daily feed cap (#610).** The assistant only offers settings changes the caller is allowed to make, and a proposed daily cap lands as a reviewable change rather than a silent write.
+
+### Fixed
+
+- **Deleting a user can no longer leave a row with no working login (#686).** The Supabase login is revoked after the delete transaction commits instead of inside it. The external call could not be rolled back, so a later statement failing used to leave the user record intact with its login already gone. If the cleanup fails after the commit, the account still cannot reach the app and the orphaned login is logged for follow-up.
+
 ## [1.47.1] - 2026-11-03
 
 - **A platform administrator can email a password-reset link, instead of only issuing a temporary password.** The superadmin account actions gain **Send link**: it mints a single-use recovery link for the account's login address (Supabase `generateLink`) and delivers it through Resend to the contact email on file, with the same step-up, reason and audit rules as every other platform mutation. The link itself is never returned, logged or written to the audit row; the row records only whether delivery succeeded. When the account has no contact email, or the deployment cannot send mail, the action refuses with a typed reason and tells the administrator to add an address or use the existing temporary-password reset. The profile page now shows a prominent "no email on file" notice, because password reset by email is unavailable until an administrator adds one. The superadmin configuration centre also reports whether the password-reset sender is configured, separately from invites and reminders.

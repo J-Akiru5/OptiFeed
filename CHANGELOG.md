@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.49.0] - 2026-11-03
+
+### Added
+
+- **The feed calculator takes either kilograms or grams (#683).** A labelled unit control switches every weight field and result, converting what is already typed (1.5 kg <-> 1500 g) without drift. The server still receives kilograms and `gramsPerFeeding` stays in grams, so the device contract is unchanged.
+- **The OTA rollout policy is visible and editable from the console (#660).** Ten fields generated from the firmware field table, written through the existing platform settings path with an audit row and a guard against an inverted rollout window. The card also reports each unit's state - applied, pending, reported, never reported - by comparing the echoed `config_rev`, so an unsaved value never looks applied.
+
+### Fixed
+
+- **A sample queued offline no longer waits for an `online` transition (#665).** The outbox drains on mount, on a 30-second timer, on visibility change and on a new queued item. Per-item claims with a two-minute expiry make a double drain safe, per-pond order is preserved, and an item that fails three times is surfaced instead of retried forever. The replay engine is lazy-loaded, so the dashboard chunk did not grow.
+- **The dashboard bar no longer claims to be sticky when it never was (#572).** The shell already keeps it permanently visible as a flex sibling of the single scroll pane, so `sticky top-0` was decorative; it is removed, the height stays 64 px because the control-room and calendar chrome subtract it, and separation is an inset hairline. CSS only.
+
 ### Added
 
 - **The feed calculator accepts weights in kilograms or grams (#683).** A labelled **Weight unit** control re-expresses the current and target weights when it is switched (`1.5 kg` <-> `1500 g`), so a farmer weighing fingerlings can type grams instead of `0.015`. Every weight field and result on the card follows the selected unit; the per-meal dose stays in grams because the feeder firmware works in grams. The server contract is unchanged: values are converted to kilograms at the UI boundary before `calculateFcrFeed` receives `currentWeightKg` / `targetWeightKg`. Copy is in English, Hiligaynon and Tagalog; blank or malformed input is rejected rather than sent as `NaN`.

@@ -62,8 +62,7 @@ if (result.error) {
 
 if (result.status !== 0) {
 	console.error(
-		`prisma-generate-if-present: prisma generate failed with exit code ` +
-			`${result.status ?? "unknown"}`,
+		`prisma-generate-if-present: prisma generate failed with exit code ${result.status ?? "unknown"}`,
 	);
 	process.exit(result.status ?? 1);
 }

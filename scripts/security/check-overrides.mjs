@@ -259,8 +259,7 @@ for (const target of TARGETS) {
 	if (versions.length === 0) {
 		if (target.required) {
 			problems.push(
-				`no resolved ${target.name}; the override no longer has a target. ` +
-					"Remove the override and this check together.",
+				`no resolved ${target.name}; the override no longer has a target. Remove the override and this check together.`,
 			);
 		}
 		rows.push({ name: target.name, versions: "(not installed)", rule, state: "OK" });
@@ -324,6 +323,5 @@ console.log(
 	`\nResult: PASS - ${EXPECTED_OVERRIDES.size} overrides declared and the security pins hold.`,
 );
 appendStepSummary(
-	`## Security overrides: PASS\n\n${EXPECTED_OVERRIDES.size} overrides declared; ` +
-		"resolved security versions are within their floors.\n",
+	`## Security overrides: PASS\n\n${EXPECTED_OVERRIDES.size} overrides declared; resolved security versions are within their floors.\n`,
 );

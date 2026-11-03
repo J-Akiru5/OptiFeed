@@ -22,8 +22,10 @@ import {
 import {
 	FIRMWARE_GATES_SETTING_KEY,
 	FIRMWARE_GATE_FIELDS,
+	FIRMWARE_OTA_FIELDS,
 	type FirmwareValues,
 	formatFirmwareValue,
+	isOtaWindowValid,
 	isWithinFirmwareField,
 	normalizeFirmwareValues,
 } from "@/lib/firmware/config";
@@ -308,6 +310,117 @@ export async function setFirmwareGates(
 
 		return after;
 	});
+
+	revalidatePath("/[locale]/(superadmin)", "layout");
+	return { success: true, value: saved };
+}
+
+/**
+ * OTA rollout policy (issue #660).
+ *
+ * The ten `ota_*` keys are settable on the device but had no dashboard surface,
+ * so every unit stayed on the compile-time values. They live in the same
+ * `firmware.gates` row as the feed-safety gates (no new table): this action
+ * merges the submitted policy over the stored values, so a gate written
+ * elsewhere is preserved and vice versa.
+ *
+ * Two rules the gate writer does not have:
+ * - `ota_window_start_min < ota_window_end_min`, or the firmware rejects the
+ *   whole `config` object and keeps its last-good copy. A silently repaired
+ *   window would look saved while the device kept running the old one.
+ * - Only the ten policy ids are accepted; every other id is refused by name.
+ */
+export async function setFirmwareOtaPolicy(
+	input: FirmwareGatesInput,
+	reason: string,
+): Promise<FirmwareGatesActionResult> {
+	await requirePlatformAdmin();
+
+	if (typeof input !== "object" || input === null || Array.isArray(input)) {
+		return { error: "The OTA policy values are invalid." };
+	}
+
+	const policy = new Map(FIRMWARE_OTA_FIELDS.map((field) => [field.id, field]));
+	for (const [id, value] of Object.entries(input)) {
+		const field = policy.get(id);
+		if (!field) {
+			return { error: `${id} is not an OTA rollout policy field.` };
+		}
+		if (!isWithinFirmwareField(field, value)) {
+			return {
+				error: `${field.id} must be ${field.integer ? "a whole number" : "a number"} from ${formatFirmwareValue(field.min)} to ${formatFirmwareValue(field.max)}.`,
+			};
+		}
+	}
+
+	const parsedReason = inputSchema.shape.reason.safeParse(reason);
+	if (!parsedReason.success) {
+		return {
+			error: `A reason of at least ${MIN_REASON_LENGTH} characters is required.`,
+		};
+	}
+
+	const actor = await actorContext();
+
+	const saved = await prisma.$transaction(async (tx) => {
+		const existing = await tx.platformSetting.findUnique({
+			where: { key: FIRMWARE_GATES_SETTING_KEY },
+			select: { value: true },
+		});
+		const before = normalizeFirmwareValues(existing?.value);
+		const after: FirmwareValues = { ...before };
+		for (const [id, value] of Object.entries(input)) {
+			after[id] = value;
+		}
+
+		// Validate the merged pair, not just the submitted one: a partial update
+		// can still invert the window against a stored value.
+		if (!isOtaWindowValid(after.ota_window_start_min, after.ota_window_end_min)) {
+			return null;
+		}
+
+		await tx.platformSetting.upsert({
+			where: { key: FIRMWARE_GATES_SETTING_KEY },
+			create: {
+				key: FIRMWARE_GATES_SETTING_KEY,
+				value: after as unknown as Prisma.InputJsonValue,
+				updatedById: actor.id,
+			},
+			update: {
+				value: after as unknown as Prisma.InputJsonValue,
+				updatedById: actor.id,
+			},
+		});
+
+		const changed = Object.fromEntries(
+			Object.keys(input)
+				.filter((id) => before[id] !== after[id])
+				.map((id) => [id, { before: before[id], after: after[id] }]),
+		);
+
+		await writePlatformAudit(tx, {
+			actorUserId: actor.id,
+			// `FIRMWARE_OTA_POLICY_AUDIT_ACTION` in lib/firmware/config.ts names the
+			// same code for the reader that compares the last change with each
+			// device's config echo; `ota-policy.test.ts` fails if they drift.
+			action: "platform.settings.firmware_ota_policy",
+			targetType: "platform_setting",
+			targetId: FIRMWARE_GATES_SETTING_KEY,
+			reason: parsedReason.data,
+			temporaryGrant: actor.temporaryGrant,
+			before: { otaPolicy: changed },
+			after: { otaPolicy: after },
+		});
+
+		return after;
+	});
+
+	if (!saved) {
+		return {
+			error:
+				"The rollout window must start before it ends, or the firmware refuses the whole config.",
+		};
+	}
 
 	revalidatePath("/[locale]/(superadmin)", "layout");
 	return { success: true, value: saved };

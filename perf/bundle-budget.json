@@ -250,8 +250,8 @@
 			"budgetKb": 981.4
 		},
 		"/[locale]/(superadmin)/superadmin/settings/page": {
-			"baselineKb": 987,
-			"budgetKb": 1006.8
+			"baselineKb": 990,
+			"budgetKb": 1009.8
 		},
 		"/[locale]/(superadmin)/superadmin/tenants/compare/page": {
 			"baselineKb": 957.6,

@@ -12,11 +12,14 @@ import {
 } from "@/components/superadmin/config-status";
 import { DeviceStatusSettings } from "@/components/superadmin/device-status-settings";
 import { FirmwareGatesSettings } from "@/components/superadmin/firmware-gates-settings";
+import { OtaPolicySettings } from "@/components/superadmin/ota-policy-settings";
+import { OtaPolicyStatusCard } from "@/components/superadmin/ota-policy-status";
 import { PlatformListSettings } from "@/components/superadmin/platform-settings";
 import { PageHeader } from "@/components/superadmin/ui";
 import { Link } from "@/i18n/routing";
 import { listAiProviderConfig } from "@/lib/actions/ai-providers";
 import { MEMBER_ROLES } from "@/lib/auth/member-rules";
+import { otaPolicyValues } from "@/lib/firmware/config";
 import { getDeviceStatusSetting } from "@/lib/settings/device-status";
 import { getEmailConfiguration } from "@/lib/settings/email-status";
 import {
@@ -37,6 +40,7 @@ import {
 	ORG_OFFLINE_AFTER_MIN_MIN,
 	getOrgDefaultSettings,
 } from "@/lib/settings/org";
+import { getOtaPolicyStatus } from "@/lib/settings/ota-policy";
 import {
 	LIST_PAGE_SIZE_DEFAULT,
 	LIST_PAGE_SIZE_MAX,
@@ -64,6 +68,7 @@ export default async function SuperadminSettingsPage() {
 		aiProviders,
 		deviceStatus,
 		gates,
+		otaStatus,
 		t,
 		tBackup,
 	] = await Promise.all([
@@ -75,6 +80,7 @@ export default async function SuperadminSettingsPage() {
 		listAiProviderConfig(),
 		getDeviceStatusSetting(),
 		getFirmwareGates(),
+		getOtaPolicyStatus(),
 		getTranslations("superadmin.settings"),
 		getTranslations("superadmin.backup"),
 	]);
@@ -103,6 +109,18 @@ export default async function SuperadminSettingsPage() {
 			title: t("firmwareGates.title"),
 			description: t("firmwareGates.description"),
 			content: <FirmwareGatesSettings initial={gates} />,
+		},
+		{
+			id: "ota-policy",
+			icon: "ota",
+			title: t("otaPolicy.title"),
+			description: t("otaPolicy.description"),
+			content: (
+				<>
+					<OtaPolicySettings initial={otaPolicyValues(gates)} />
+					<OtaPolicyStatusCard status={otaStatus} />
+				</>
+			),
 		},
 		{
 			id: "device-status",

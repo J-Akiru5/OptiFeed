@@ -16,10 +16,10 @@ import { ORG_SETTINGS_DEFAULTS } from "./org-shared";
  * `settings.hopperLowPct`.
  *
  * This runs inside the 5-second poll response, so it must never throw. A
- * rejected read would reach the route's catch and replace the whole payload
- * with the safe idle fallback (no `config` at all), which is an outage for
- * every 1.7.0 unit. Every failure path logs a warning and returns the schema
- * default instead, and a resolved value is cached per device for
+ * rejected read would reach the route's catch and fail the whole poll with a
+ * 503 (#724), which is an outage for every 1.7.0 unit. Every failure path logs
+ * a warning and returns the schema default instead, and a resolved value is
+ * cached per device for
  * `ORG_HOPPER_CACHE_TTL_MS` so the org chain does not run on every poll.
  */
 

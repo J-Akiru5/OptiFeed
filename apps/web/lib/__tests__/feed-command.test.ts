@@ -336,15 +336,39 @@ describe("GET /api/feed-command", () => {
 		});
 	});
 
-	it("returns safe idle defaults when the route throws", async () => {
+	it("returns 503 with Retry-After when the route throws (#724)", async () => {
 		mockEnergyDevice.findUnique.mockRejectedValue(new Error("db down") as never);
+
 		const res = await GET(pollRequest("test-token"));
+
+		// The old 200 idle body made the firmware believe the poll succeeded and
+		// stop retrying, so the pending feed expired undelivered.
+		expect(res.status).toBe(503);
+		expect(res.headers.get("Retry-After")).toBe("5");
+		expect(await res.text()).toBe("Service Unavailable");
+		expect(mockFeedRequest.updateMany).not.toHaveBeenCalled();
+	});
+
+	it("#724: a failure while claiming leaves the pending request unmutated", async () => {
+		// Verification and config succeed; the claim read then fails. No row may
+		// be marked dispatched, so the next poll can still deliver the feed.
+		mockFeedRequest.findFirst.mockRejectedValue(new Error("db down") as never);
+
+		const res = await GET(pollRequest("test-token"));
+
+		expect(res.status).toBe(503);
+		const dispatchedWrites = mockFeedRequest.updateMany.mock.calls.filter(
+			([arg]) => (arg as { data?: { status?: string } }).data?.status === "dispatched",
+		);
+		expect(dispatchedWrites).toHaveLength(0);
+	});
+
+	it("#724: an empty queue still returns 200 idle", async () => {
+		const res = await GET(pollRequest("test-token"));
+
+		expect(res.status).toBe(200);
 		const body = await res.json();
 		expect(body.feed_requested).toBe(false);
 		expect(body.feed_request_id).toBeNull();
-		expect(body.grams).toBe(0);
-		// Hardcoded safe fallbacks so the ESP32 never hangs
-		expect(body.grams_per_feeding).toBe(150);
-		expect(body.grams_per_second).toBe(4.0);
 	});
 });

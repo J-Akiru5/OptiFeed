@@ -290,14 +290,25 @@ describe("GET /api/schedule-sync", () => {
 		expect(body.feeding_rate_pct).toBe(0.1);
 	});
 
-	it("returns safe default schedule when the route throws", async () => {
+	it("returns 503 with Retry-After when the route throws (#724)", async () => {
 		mockEnergyDevice.findUnique.mockRejectedValue(new Error("db down") as never);
+
 		const res = await GET(syncRequest());
+
+		// A 200 default here told the firmware the poll succeeded, so a pending
+		// schedule command was never retried.
+		expect(res.status).toBe(503);
+		expect(res.headers.get("Retry-After")).toBe("5");
+		expect(await res.text()).toBe("Service Unavailable");
+	});
+
+	it("#724: an unchanged schedule still returns 200 with schedule_changed false", async () => {
+		const res = await GET(syncRequest());
+
+		expect(res.status).toBe(200);
 		const body = await res.json();
 		expect(body.schedule_changed).toBe(false);
 		expect(body.command_id).toBeNull();
 		expect(body.feeds_per_day).toBeNull();
-		expect(body.grams_per_feeding).toBe(150);
-		expect(body.grams_per_second).toBe(4.0);
 	});
 });

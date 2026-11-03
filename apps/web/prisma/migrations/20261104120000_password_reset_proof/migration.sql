@@ -4,10 +4,10 @@
 -- when the recovery link is requested; this table stores only its `jti`, never
 -- the token itself.
 --
--- ADDITIVE ONLY: one new table with its primary key, one unique index and one
--- lookup index. No existing table, column, constraint, policy or row is
--- touched. `userId` has no foreign key by design: the row is short-lived and
--- expired rows can be pruned without cascading through `User`.
+-- ADDITIVE ONLY: one new table with its primary key, one unique index, one
+-- lookup index and deny-by-default RLS. No existing table, column, constraint,
+-- policy or row is touched. `userId` has no foreign key by design: the row is
+-- short-lived and expired rows can be pruned without cascading through `User`.
 --
 -- Not applied by this change. Production applies it through the documented
 -- `main` deployment path; `staging` builds skip migrations.
@@ -29,3 +29,8 @@ CREATE UNIQUE INDEX "PasswordResetToken_jti_key" ON "PasswordResetToken"("jti");
 
 -- CreateIndex
 CREATE INDEX "PasswordResetToken_userId_idx" ON "PasswordResetToken"("userId");
+
+-- Deny-by-default for PostgREST roles, matching the other new-table migrations.
+-- No policies are created, so anon/authenticated see zero rows; the app's Prisma
+-- owner role bypasses RLS. Do NOT add FORCE ROW LEVEL SECURITY.
+ALTER TABLE "PasswordResetToken" ENABLE ROW LEVEL SECURITY;

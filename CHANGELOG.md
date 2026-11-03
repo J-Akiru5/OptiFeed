@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The OTA rollout policy has a dashboard surface and a report-back view (#660).** The ten `ota_*` keys (check interval, uptime and signal floors, near-feed guard, quiet window, heap floor and the download and health-check timeouts) were settable on the device but had no input anywhere, so every unit stayed on the compile-time values. Superadmin → Settings → **OTA rollout policy** now edits all ten through `setFirmwareOtaPolicy`, which writes the same `firmware.gates` row (no new table), refuses any id outside the ten, refuses a quiet window whose start is not before its end instead of letting the reader repair it to the defaults, and records one `platform.settings.firmware_ota_policy` audit row with the before/after values and the required reason. The same section shows what the fleet reports back: firmware 1.7.0+ echoes one `config_rev` for the whole config plus `config_source`, so each unit is shown as applied, pending, reported or never reported by comparing its newest `config_applied` row with the last recorded policy change. Per-key device values are not shown because the firmware never sends them. Copy is in English, Hiligaynon and Tagalog (machine-drafted, queued for review); no new dependency and no schema change.
+
 ## [1.48.1] - 2026-11-03
 
 ### Changed

@@ -4097,6 +4097,93 @@
 				"invalidField": "{field} dapat yara sa {min} hasta {max}.",
 				"failed": "Indi ma-save ang mga limitasyon sang firmware.",
 				"note": "Ginailapat sang mga device ang pagbag-o sa ila masunod nga poll (mga kada 5 s). Ang permanente nga envelope — relay on-time, ang 5,000 g nga adlaw-adlaw nga hard guard, ang relay overrun trip kag ang mga pin — naka-compile sa firmware kag indi gid madugangan halin diri."
+			},
+			"otaPolicy": {
+				"title": "Polisiya sang OTA rollout",
+				"description": "Kon san-o kag paano makakuha sang firmware update ang isa ka unit: ang check interval, ang uptime kag signal nga salog, ang feed guard, ang quiet window, ang heap floor kag ang download kag health-check timeouts. Ang tagsa ka balor yara sa sulod sang envelope nga naka-compile sa firmware.",
+				"fields": {
+					"ota_check_interval_s": {
+						"label": "Kon kada pila ka segundo nagacheck sang update ang unit (s)",
+						"hint": "Bug-os nga segundo halin {min} tubtob {max}. Sa sini nga interval ginabasa sang firmware ang signed channel."
+					},
+					"ota_min_uptime_s": {
+						"label": "Pinakamababa nga uptime bag-o mag-update (s)",
+						"hint": "Bug-os nga segundo halin {min} tubtob {max}. Ang unit nga bag-o lang nag-boot nagahulat sini nga lawig bag-o mag-install."
+					},
+					"ota_min_rssi_dbm": {
+						"label": "Pinakamababa nga signal bag-o mag-update (dBm)",
+						"hint": "Bug-os nga dBm halin {min} tubtob {max}. Kon maluya ang link, ginadala sa masunod ang download sa baylo nga mapaslawan sa tunga."
+					},
+					"ota_feed_guard_min": {
+						"label": "Feed guard palibut sang update (min)",
+						"hint": "Bug-os nga minuto halin {min} tubtob {max}. Wala sing dose nga ginaschedule sa sini kalapit sa update."
+					},
+					"ota_window_start_min": {
+						"label": "Pagsugod sang quiet window (minuto sang adlaw)",
+						"hint": "Bug-os nga minuto halin {min} tubtob {max}, ginabilang halin sa tungang gab-i. Dapat una sa katapusan sang window."
+					},
+					"ota_window_end_min": {
+						"label": "Katapusan sang quiet window (minuto sang adlaw)",
+						"hint": "Bug-os nga minuto halin {min} tubtob {max}, ginabilang halin sa tungang gab-i. Dapat matapos pagkatapos sang pagsugod sang window."
+					},
+					"ota_min_free_heap_bytes": {
+						"label": "Pinakamababa nga libre nga heap bag-o mag-update (bytes)",
+						"hint": "Bug-os nga bytes halin {min} tubtob {max}. Ginadala sa masunod ang download kon ang libre nga heap kubos sa sini."
+					},
+					"ota_no_data_timeout_ms": {
+						"label": "Timeout sang download nga nagahulat (ms)",
+						"hint": "Bug-os nga millisecond halin {min} tubtob {max}. Ang koneksyon nga wala sing data nga mas malawig sa sini ginaputol ang download."
+					},
+					"ota_download_timeout_ms": {
+						"label": "Timeout sang bug-os nga download (ms)",
+						"hint": "Bug-os nga millisecond halin {min} tubtob {max}. Dapat matapos ang pag-download sang image sa sulod sini nga window."
+					},
+					"ota_health_check_timeout_ms": {
+						"label": "Health check pagkatapos sang update (ms)",
+						"hint": "Bug-os nga millisecond halin {min} tubtob {max}. Dapat mapamatud-an sang bag-o nga image ang kaugalingon sa sini nga lawig bag-o ini tipigan."
+					}
+				},
+				"reasonLabel": "Rason",
+				"reasonPlaceholder": "hal. Ibutang ang rollout sa quiet window sang gab-i samtang peak harvest",
+				"reasonHint": "Narekord sa platform audit log. Labing menos 10 ka karakter.",
+				"save": "I-save ang OTA policy",
+				"saving": "Ginasave...",
+				"saved": "Na-save ang OTA rollout policy. Ilaplikar ini sang mga unit sa ila masunod nga poll.",
+				"failed": "Indi ma-save ang OTA rollout policy.",
+				"invalidField": "Ang {field} dapat sa tunga sang {min} kag {max}.",
+				"windowOrder": "Dapat magsugod ang quiet window bag-o ini matapos.",
+				"note": "Ginabasa sang mga device ang policy sa ila masunod nga poll (mga kada 5 s). Ginadumili sang firmware ang bug-os nga config kon ang pagsugod sang quiet window indi una sa katapusan, gani ginadumili ini sang form una.",
+				"statusTitle": "Ang ginabalik nga report sang mga unit",
+				"statusDescription": "Ang tagsa ka unit nagabalik sang isa ka config revision para sa tanan nga ginaplikar sini, kag kon ginadagan sini ang server config, ang iya kaugalingon nga naka-save nga kopya ukon ang naka-compile nga defaults.",
+				"statusChangedAt": "Katapusan nga pagbag-o {when}",
+				"statusSummary": "{applied} sa {total} ka unit ang nagbalik sang config halin sang katapusan nga pagbag-o sang policy.",
+				"statusNoChange": "Wala pa sing nakarekord nga pagbag-o sang policy, gani wala sing maikomparar. Ang mga balor sa ibabaw amo ang naka-compile nga defaults kon wala sing dati nga pagsulat bag-o sini nga screen.",
+				"counts": {
+					"applied": "Ginaaplikar: {count}",
+					"pending": "Naghulat: {count}",
+					"reported": "Nagreport: {count}",
+					"never_reported": "Wala gid nagreport: {count}"
+				},
+				"state": {
+					"applied": "Ginaaplikar",
+					"pending": "Naghulat",
+					"reported": "Nagreport",
+					"never_reported": "Wala gid nagreport"
+				},
+				"revValue": "rev {rev}",
+				"revNone": "wala sing revision nga ginreport",
+				"sourceServer": "ginadagan ang server config",
+				"sourceNvs": "ginadagan ang naka-save nga kopya",
+				"sourceDefault": "ginadagan ang naka-compile nga defaults",
+				"sourceUnknown": "wala mahibaluan ang config source",
+				"confirmedAt": "katapusan nga balik {when}",
+				"neverConfirmed": "wala pa sing config echo",
+				"rowMeta": "{rev} · {source} · {confirmed}",
+				"statusEmpty": "Wala pa sing unit nga nagreport sang config.",
+				"statusUnavailable": "Indi mabasa ang mga report sang device, gani indi ini ebidensya nga wala sing nagbag-o.",
+				"statusAttention": "Ang mga unit nga wala pa makumpirma sang kasamtangan nga policy ang una nga nalista.",
+				"statusTruncated": "Ang 500 ka pinakabag-o nga nakita nga unit lang ang ginabilang.",
+				"statusNote": "Ang firmware nagabalik sang isa ka revision para sa bug-os nga config, indi per-key nga balor. Ang unit nga ginaaplikar nagkuha sang sini nga policy kaupod sang iban nga setting; ang unit nga wala gid nagreport wala gid nagpadala sang config echo (firmware nga daan sa 1.7.0, ukon wala gid nagpoll)."
 			}
 		},
 		"backup": {
@@ -4764,6 +4851,7 @@
 				"setFeedingSafetyCaps": "Ilisan ang feeding safety caps",
 				"setFeatureFlag": "Ilisan ang feature flag",
 				"setFirmwareGates": "Ilisan ang firmware gates",
+				"setFirmwareOtaPolicy": "Ilisan ang OTA rollout policy",
 				"setOrgDefaults": "Ilisan ang default sang tenant",
 				"setDeviceStatusThresholds": "Ilisan ang threshold sang device",
 				"publishAnnouncement": "I-publish ang announcement",
@@ -4776,6 +4864,7 @@
 				"feedingCaps": "Ang oras sang dispense kag ang inadlaw nga pagkain mabuhinan lamang sa idalom sang hard maximum. Mabalik, kinahanglan ang rason, may audit.",
 				"featureFlag": "Nagapaandar ukon nagapatay sang feature sang platform. Mabalik, kinahanglan ang rason, may audit.",
 				"firmwareGates": "Nagaset sang pinakamanubo nga firmware nga sarang maandar sang device. Mabalik, kinahanglan ang rason, may audit.",
+				"otaPolicy": "Ginabalhin ang OTA check, signal, window kag timeout limits sa sulod sang envelope sang firmware. Mabalik, kinahanglan ang rason, may audit.",
 				"orgDefaults": "Default para sa bag-o nga tenant lamang; ang existing nga tenant nagapadayon sang iya seting. Mabalik, kinahanglan ang rason, may audit.",
 				"deviceStatus": "Kilahid para sa online kag offline detection. Mabalik, kinahanglan ang rason, may audit.",
 				"announcement": "Ginabag-o ang banner sang platform. Mabalik, kinahanglan ang rason, may audit.",

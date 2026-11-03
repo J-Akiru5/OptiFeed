@@ -148,6 +148,7 @@ export default function LandingPage() {
 		optional: tReport("optional"),
 		submit: tReport("submit"),
 		sending: tReport("sending"),
+		retry: tReport("retry"),
 		success: tReport("success"),
 		error: tReport("error"),
 		rateLimited: tReport("rateLimited"),

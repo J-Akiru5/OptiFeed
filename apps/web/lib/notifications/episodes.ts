@@ -101,6 +101,9 @@ function isUniqueViolation(error: unknown): boolean {
 	return code === "P2002" || code === "23505";
 }
 
+/** Higher number = more urgent. Unknown tiers rank below INFO. */
+const TIER_SEVERITY: Record<string, number> = { INFO: 1, WARNING: 2, CRITICAL: 3 };
+
 async function reconcileOpenEpisode(
 	store: EpisodeStore,
 	open: { id: string; tier: string; message: string },
@@ -110,6 +113,11 @@ async function reconcileOpenEpisode(
 		return { created: false, updated: false, id: open.id };
 	}
 
+	// An escalation must reach the reader again: the previous acknowledgement
+	// belonged to the milder alert. Rewording without escalating (or resolving)
+	// keeps the acknowledgement and only marks the row unread.
+	const escalated = (TIER_SEVERITY[input.tier] ?? 0) > (TIER_SEVERITY[open.tier] ?? 0);
+
 	await store.notification.update({
 		where: { id: open.id },
 		data: {
@@ -117,6 +125,7 @@ async function reconcileOpenEpisode(
 			message: input.message,
 			linkTo: input.linkTo ?? null,
 			read: false,
+			...(escalated ? { acknowledgedAt: null, acknowledgedBy: null } : {}),
 		},
 	});
 	return { created: false, updated: true, id: open.id };

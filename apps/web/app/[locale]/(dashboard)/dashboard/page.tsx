@@ -41,6 +41,7 @@ import { HealthNotice } from "@/components/feeder/health-notice";
 import { DashboardSnapshot } from "@/components/pwa/dashboard-snapshot";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
+import { getCurrentPermissions, writeCapabilities } from "@/lib/auth/permissions";
 import { canWrite, getCurrentUser } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
 import { loadCalibrationDriftWindow } from "@/lib/calibration/drift-data";
@@ -114,6 +115,9 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 				},
 			}),
 		]);
+
+	// Control visibility mirrors the actions' `requirePermission` gates (#750).
+	const can = writeCapabilities(writeAccess, await getCurrentPermissions());
 
 	// The legacy Device table is no longer written, so a pond counts as set up
 	// once an EnergyDevice is registered on it.
@@ -747,7 +751,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							connectionStatus={connection.state}
 							rssiDbm={hopper?.rssiDbm ?? null}
 							hopperLevelPct={hopper?.levelPercent ?? null}
-							canWrite={writeAccess}
+							canWrite={can.canControlFeeder}
 							isFallow={pond.isFallow}
 							gramsPerSecond={energyDevice?.gramsPerSecond}
 							feedNowLimit={feedNowLimit}
@@ -1020,7 +1024,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 									gramsPerSecond={energyDevice.gramsPerSecond}
 									lastSeenAt={energyDevice.lastSeenAt}
 									isOffline={esp32Offline}
-									canWrite={writeAccess}
+									canWrite={can.canControlFeeder}
 									recalibrationDue={recalibration.isOverdue}
 									recalibrationDaysOverdue={recalibration.daysOverdue}
 									feedNowLimit={feedNowLimit}

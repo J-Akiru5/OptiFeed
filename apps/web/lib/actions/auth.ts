@@ -3,7 +3,11 @@
 import { redirect } from "@/i18n/routing";
 import { checkLockout, recordFailedAttempt, resetLockout } from "@/lib/auth/lockout";
 import { validatePassword } from "@/lib/auth/password";
-import { type PostLoginDestination, getPostLoginDestination } from "@/lib/auth/post-login";
+import {
+	type PostLoginDestination,
+	getPostLoginDestination,
+	sanitizePostLoginPath,
+} from "@/lib/auth/post-login";
 import { buildPondEmail } from "@/lib/auth/session";
 import { reportError } from "@/lib/observability";
 import { checkLoginRateLimit, getClientIp } from "@/lib/rate-limit";
@@ -30,7 +34,11 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
 	}
 }
 
-export async function loginWithPassword(farmId: string, password: string): Promise<LoginResult> {
+export async function loginWithPassword(
+	farmId: string,
+	password: string,
+	nextPath?: string,
+): Promise<LoginResult> {
 	try {
 		if (!farmId.trim()) return { error: "invalid" };
 		// Legacy PINs are numeric passwords. Login deliberately accepts any
@@ -81,7 +89,12 @@ export async function loginWithPassword(farmId: string, password: string): Promi
 		} catch (dbError) {
 			reportError(dbError, { action: "loginWithPassword.landing", farmId });
 		}
-		redirect({ href: landing, locale });
+
+		// #760: return to the page the proxy intercepted, but never override a
+		// forced password change. The path is validated as same-origin by the
+		// pure helper; an unsafe value silently falls back to the normal landing.
+		const requested = landing === "/change-password" ? null : sanitizePostLoginPath(nextPath);
+		redirect({ href: requested ?? landing, locale });
 	} catch (error) {
 		// redirect() throws NEXT_REDIRECT — never swallow it.
 		if (

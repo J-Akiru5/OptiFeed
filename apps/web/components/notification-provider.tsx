@@ -13,6 +13,10 @@ interface NotificationPayload {
 	message: string;
 	/** Present on the realtime row; drives Pakoy's icon (#221). */
 	category?: string | null;
+	/** Episode lifecycle, present on realtime UPDATE payloads. */
+	acknowledgedAt?: string | null;
+	resolvedAt?: string | null;
+	autoCleared?: boolean;
 }
 
 interface NotificationContextType {
@@ -61,34 +65,51 @@ export function NotificationProvider({
 		if (!pondId) return;
 
 		const supabase = createClient();
+		const filter = `pondId=eq.${pondId}`;
+		// Last tier+message shown per notification id. UPDATE events also fire for
+		// read/acknowledged writes, which must not re-alert; a tier or message
+		// change is the escalation that must (#747).
+		const shown = new Map<string, string>();
+		const signature = (notification: NotificationPayload) =>
+			`${notification.tier}:${notification.message}`;
+
+		const showAlert = (notification: NotificationPayload, isUpdate: boolean) => {
+			if (isUpdate) {
+				// Acknowledgements and episode resolutions are not new alerts;
+				// checking the row fields also covers a page loaded after the row
+				// was created, when the local signature map is still empty.
+				if (notification.acknowledgedAt || notification.resolvedAt) return;
+				if (notification.autoCleared) return;
+				if (shown.get(notification.id) === signature(notification)) return;
+			}
+			shown.set(notification.id, signature(notification));
+
+			// Only a genuinely new row changes the badge; the next server render
+			// reconciles it after an escalation (which reopens the row).
+			if (!isUpdate) setUnreadCount((prev) => prev + 1);
+
+			if (notification.tier === "CRITICAL") {
+				setActiveBanner(notification);
+			} else {
+				setActiveToast(notification);
+				// Auto-dismiss toast after 5s
+				setTimeout(() => {
+					setActiveToast(null);
+				}, 5000);
+			}
+		};
 
 		const channel = supabase
 			.channel("realtime-notifications")
 			.on(
 				"postgres_changes",
-				{
-					event: "INSERT",
-					schema: "public",
-					table: "Notification",
-					filter: `pondId=eq.${pondId}`,
-				},
-				(payload) => {
-					const newNotif = payload.new as NotificationPayload;
-
-					// Always increment unread badge
-					setUnreadCount((prev) => prev + 1);
-
-					// Show UI feedback based on tier
-					if (newNotif.tier === "CRITICAL") {
-						setActiveBanner(newNotif);
-					} else {
-						setActiveToast(newNotif);
-						// Auto-dismiss toast after 5s
-						setTimeout(() => {
-							setActiveToast(null);
-						}, 5000);
-					}
-				},
+				{ event: "INSERT", schema: "public", table: "Notification", filter },
+				(payload) => showAlert(payload.new as NotificationPayload, false),
+			)
+			.on(
+				"postgres_changes",
+				{ event: "UPDATE", schema: "public", table: "Notification", filter },
+				(payload) => showAlert(payload.new as NotificationPayload, true),
 			)
 			.subscribe();
 

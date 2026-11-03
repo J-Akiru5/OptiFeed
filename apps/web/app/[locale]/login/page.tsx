@@ -31,12 +31,13 @@ const FARM_ID_STORAGE_KEY = "optifeed:last-farm-id";
 
 /**
  * Compact locale toggle in the login footer. Language names are exonyms and
- * stay untranslated; Tagalog is marked Beta until the machine-draft review
- * queue in `messages/tl.draft-keys.json` is cleared (#457).
+ * stay untranslated. Tagalog is marked Beta until the machine-draft review
+ * queue in `messages/tl.draft-keys.json` is cleared (#457); Hiligaynon is Beta
+ * while its landing copy is still largely untranslated (#762).
  */
 const LOCALE_OPTIONS = [
 	{ code: "en", label: "EN", title: "English" },
-	{ code: "hil", label: "HIL", title: "Hiligaynon" },
+	{ code: "hil", label: "HIL", title: "Hiligaynon (Beta)" },
 	{ code: "tl", label: "TL", title: "Tagalog (Beta)" },
 ] as const;
 
@@ -132,7 +133,13 @@ export default function LoginPage() {
 		}
 
 		startTransition(async () => {
-			const result = await loginWithPassword(farmId, password);
+			// The proxy adds ?next= when it intercepts a protected page. Read it at
+			// submit time so the static render never depends on the query string.
+			const requestedNext =
+				typeof window === "undefined"
+					? null
+					: new URLSearchParams(window.location.search).get("next");
+			const result = await loginWithPassword(farmId, password, requestedNext ?? undefined);
 			if (result?.error === "locked") {
 				const minutes = result.secondsRemaining ? Math.ceil(result.secondsRemaining / 60) : 15;
 				setError(t("errorLocked", { minutes }));

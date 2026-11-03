@@ -1021,6 +1021,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 									lastSeenAt={energyDevice.lastSeenAt}
 									isOffline={esp32Offline}
 									canWrite={writeAccess}
+									isFallow={pond.isFallow}
 									recalibrationDue={recalibration.isOverdue}
 									recalibrationDaysOverdue={recalibration.daysOverdue}
 									feedNowLimit={feedNowLimit}

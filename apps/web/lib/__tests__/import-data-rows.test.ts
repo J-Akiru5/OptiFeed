@@ -177,6 +177,7 @@ describe("per-type row mapping", () => {
 				rtcOk: null,
 				feederActive: null,
 				receivedAt: new Date("2026-03-02T04:00:05Z"),
+				dataSource: "import",
 			},
 		]);
 	});
@@ -214,6 +215,7 @@ describe("per-type row mapping", () => {
 				levelPercent: 62,
 				distanceCm: 18,
 				recordedAt: new Date("2026-03-02T04:00:00Z"),
+				dataSource: "import",
 			},
 		]);
 	});

@@ -107,6 +107,8 @@ async function main() {
 				levelPercent,
 				distanceCm,
 				recordedAt,
+				// #709: seeded history is not device telemetry.
+				dataSource: "seed",
 			},
 		});
 	}
@@ -157,39 +159,19 @@ async function main() {
 					source: feedSources[feed],
 					feedRequestId: feedRequest.id,
 					receivedAt,
+					// #709: seeded history is not device telemetry.
+					dataSource: "seed",
 				},
 			});
 		}
 	}
 
-	// 5. Create FCR Reports (trending-downward history)
-	const fcrReports = [
-		{
-			pondId: pond.id,
-			periodStart: new Date(now.getTime() - 40 * 24 * 60 * 60 * 1000),
-			periodEnd: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
-			totalFeedKg: 150.5,
-			biomassGainKg: 83.6,
-			fcrValue: 1.8,
-		},
-		{
-			pondId: pond.id,
-			periodStart: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
-			periodEnd: new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000),
-			totalFeedKg: 180.0,
-			biomassGainKg: 120.0,
-			fcrValue: 1.5,
-		},
-		{
-			pondId: pond.id,
-			periodStart: new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000),
-			periodEnd: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000),
-			totalFeedKg: 200.0,
-			biomassGainKg: 153.8,
-			fcrValue: 1.3,
-		},
-	];
-	await prisma.fcrReport.createMany({ data: fcrReports });
+	// 5. FCR Reports
+	// #709: the old fixture wrote reports whose periods predate the pond and
+	// whose feed/gain values match no FeedEvent or BiomassLog row. FCR is
+	// derived from the crop cycle and stored logs; a seed must not invent
+	// numbers that cannot be reconciled.
+	console.log("Skipped seed FCR reports (computed from the cycle)");
 
 	console.log("Seeding complete!");
 }

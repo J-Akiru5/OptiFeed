@@ -245,6 +245,9 @@ export async function confirmImport(
 						rtcOk: booleanField(row, "rtcOk", index),
 						feederActive: booleanField(row, "feederActive", index),
 						receivedAt: optionalDateField(row, "receivedAt", index) ?? new Date(),
+						// #709: mark imported rows so they are distinguishable from real
+						// telemetry instead of inheriting the `device` default.
+						dataSource: "import",
 					}));
 					count = (await tx.feedEvent.createMany({ data: rows })).count;
 					break;
@@ -268,6 +271,8 @@ export async function confirmImport(
 						levelPercent: numberField(row, "levelPercent", index, { min: 0 }),
 						distanceCm: numberField(row, "distanceCm", index, { min: 0 }),
 						recordedAt: optionalDateField(row, "recordedAt", index) ?? new Date(),
+						// #709: imported history is not a device reading.
+						dataSource: "import",
 					}));
 					count = (await tx.feedLevelLog.createMany({ data: rows })).count;
 					break;

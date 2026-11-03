@@ -822,6 +822,8 @@ export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
 		"Transient brute-force counter. Restoring an old lockout would unexpectedly slow a farm's next login.",
 	LoginLockout:
 		"Transient per-(farm, IP) lockout. Restoring it would lock out an address that may no longer be at fault.",
+	PasswordResetToken:
+		"Short-lived, single-use recovery proofs. Restoring a consumed or expired jti could make an old reset link usable again, and the rows carry no farm data.",
 	RateLimitBucket: "Short-lived limiter windows, regenerated on demand; no farm data.",
 	ImpersonationSession:
 		"Session data. The brief forbids session data in any export, and an ended view-as session has no restore value.",

@@ -47,7 +47,8 @@ export async function loginWithPassword(farmId: string, password: string): Promi
 			return { error: "rate_limited" };
 		}
 
-		// Per-(farm, IP) hard lockout + farm-wide cap (F-031) before Supabase
+		// Per-(farm, IP) hard lock, plus a farm-wide alert signal (F-031/#721)
+		// that never blocks a different IP.
 		const lockout = await withRetry(() => checkLockout(normalizedFarmId, ip));
 		if (lockout.locked) {
 			return { error: "locked", secondsRemaining: lockout.secondsRemaining };

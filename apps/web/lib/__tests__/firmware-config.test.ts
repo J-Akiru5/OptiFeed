@@ -234,6 +234,55 @@ describe("buildFirmwareConfig: organization hopper threshold (#456)", () => {
 	});
 });
 
+describe("buildFirmwareConfig: per-device hopper filter (#659)", () => {
+	const filters = {
+		hopper_refill_margin_pct: 15,
+		hopper_reject_below_cm: 3,
+		hopper_reject_above_margin_cm: 12,
+		hopper_ema_alpha: 0.2,
+		hopper_jump_pct: 25,
+		hopper_persist_cycles: 5,
+		hopper_state_hold_s: 120,
+	};
+
+	it("overlays the device's filter values onto the config", () => {
+		const config = buildFirmwareConfig({
+			device: { ...DEVICE, hopperFilter: filters },
+			gates: FIRMWARE_DEFAULTS,
+		});
+		for (const [key, value] of Object.entries(filters)) {
+			expect(config[key], key).toBe(value);
+		}
+		expect(config.rev).not.toBe(build().rev);
+	});
+
+	it("keeps the compile-time value when a column is null", () => {
+		const config = buildFirmwareConfig({
+			device: { ...DEVICE, hopperFilter: { hopper_ema_alpha: null } },
+			gates: FIRMWARE_DEFAULTS,
+		});
+		expect(config.hopper_ema_alpha).toBe(FIRMWARE_DEFAULTS.hopper_ema_alpha);
+	});
+
+	it("clamps a bad stored value instead of sending it to the device", () => {
+		const config = buildFirmwareConfig({
+			device: {
+				...DEVICE,
+				hopperFilter: { hopper_ema_alpha: 0, hopper_persist_cycles: 99 },
+			},
+			gates: FIRMWARE_DEFAULTS,
+		});
+		expect(config.hopper_ema_alpha).toBe(0.05);
+		expect(config.hopper_persist_cycles).toBe(20);
+	});
+
+	it("leaves every filter at its default when the device has none", () => {
+		const config = build();
+		expect(config.hopper_ema_alpha).toBe(0.35);
+		expect(config.hopper_state_hold_s).toBe(600);
+	});
+});
+
 describe("contract with firmware/firmware-main/config.h", () => {
 	it("parses a field table with the same size", () => {
 		expect(firmwareFields()).toHaveLength(FIRMWARE_FIELDS.length);

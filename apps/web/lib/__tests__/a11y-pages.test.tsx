@@ -91,6 +91,7 @@ vi.mock("@/lib/actions/settings", () => ({
 vi.mock("@/lib/actions/energy", () => ({
 	requestFeed: vi.fn(),
 	saveHopperCalibration: vi.fn(),
+	saveHopperFilterSettings: vi.fn(),
 	saveTemperatureCalibration: vi.fn(),
 	saveDurationCalibration: vi.fn(),
 }));

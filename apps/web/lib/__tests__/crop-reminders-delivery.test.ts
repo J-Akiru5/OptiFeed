@@ -573,8 +573,10 @@ describe("processCropReminders delivery", () => {
 		});
 	});
 
-	it("counts a harvest email as skipped when the owner has no address", async () => {
-		mockUser.findMany.mockResolvedValue([] as never);
+	it("counts a harvest email as skipped when the owner has no deliverable address", async () => {
+		// #742: the login address is synthetic (`...@pond.optifeed.local`);
+		// only contactEmail is mailable. An account without one is skipped.
+		mockUser.findMany.mockResolvedValue([{ farmId: "owner-1", contactEmail: null }] as never);
 		const sendEmail = vi.fn().mockResolvedValue({ ok: true });
 
 		const summary = await processCropReminders({

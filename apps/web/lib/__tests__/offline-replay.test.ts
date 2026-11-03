@@ -48,6 +48,15 @@ function expireClaims() {
 	window.localStorage.setItem(OUTBOX_STORAGE_KEY, JSON.stringify(records));
 }
 
+/** Pin queue order explicitly; enqueue timestamps can share a millisecond. */
+function setCreatedAt(id: string, createdAt: string) {
+	const records = JSON.parse(window.localStorage.getItem(OUTBOX_STORAGE_KEY) ?? "[]");
+	for (const record of records) {
+		if (record.id === id) record.createdAt = createdAt;
+	}
+	window.localStorage.setItem(OUTBOX_STORAGE_KEY, JSON.stringify(records));
+}
+
 beforeEach(() => {
 	window.localStorage.clear();
 	mockedSave.mockReset();
@@ -140,6 +149,8 @@ describe("offline replay is idempotent across overlapping drains", () => {
 	it("keeps a pond in order and waits when its earlier sample is claimed", async () => {
 		await enqueueBiomassSample(sample("offline-order-1"));
 		await enqueueBiomassSample(sample("offline-order-2"));
+		setCreatedAt("offline-order-1", "2026-10-26T08:00:01.000Z");
+		setCreatedAt("offline-order-2", "2026-10-26T08:00:02.000Z");
 		await claimOutboxItem("offline-order-1");
 
 		const blocked = await flushBiomassOutbox("farm-1");
@@ -174,13 +185,10 @@ describe("offline replay is idempotent across overlapping drains", () => {
 		await enqueueBiomassSample(sample("offline-order-a"));
 		await enqueueBiomassSample(sample("offline-order-b"));
 		await enqueueBiomassSample(sample("offline-order-c"));
-
-		const records = JSON.parse(window.localStorage.getItem(OUTBOX_STORAGE_KEY) ?? "[]");
-		const ordered = ["offline-order-c", "offline-order-a", "offline-order-b"];
-		for (const record of records) {
-			record.createdAt = `2026-10-26T08:00:0${ordered.indexOf(record.id)}.000Z`;
-		}
-		window.localStorage.setItem(OUTBOX_STORAGE_KEY, JSON.stringify(records));
+		// Not insertion order: the queue must follow `createdAt`.
+		setCreatedAt("offline-order-c", "2026-10-26T08:00:01.000Z");
+		setCreatedAt("offline-order-a", "2026-10-26T08:00:02.000Z");
+		setCreatedAt("offline-order-b", "2026-10-26T08:00:03.000Z");
 
 		await flushBiomassOutbox("farm-1");
 

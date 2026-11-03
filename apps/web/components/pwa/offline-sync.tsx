@@ -8,7 +8,6 @@ import {
 	removeOutboxItem,
 	resetOutboxItem,
 } from "@/lib/offline/outbox";
-import { flushBiomassOutbox } from "@/lib/offline/sync";
 import { useOnlineStatus } from "@/lib/pwa/use-online-status";
 import { createClient } from "@/lib/supabase/client";
 import { AlertTriangle, CloudOff, RefreshCw, Trash2, X } from "lucide-react";
@@ -51,6 +50,24 @@ export interface OfflineSyncProps {
 	scope: string;
 	/** Overridable for tests; production uses {@link OUTBOX_FLUSH_INTERVAL_MS}. */
 	flushIntervalMs?: number;
+}
+
+/**
+ * The replay engine (server-action proxy, claim bookkeeping, queue walk) is not
+ * needed for first paint. Keep it in its own chunk so the dashboard layout's
+ * initial JS does not grow for a feature that only runs after hydration.
+ */
+let replayModule: Promise<typeof import("@/lib/offline/sync")> | null = null;
+
+function loadReplay(): Promise<typeof import("@/lib/offline/sync")> {
+	if (!replayModule) {
+		// A failed chunk fetch must not poison every later drain in this tab.
+		replayModule = import("@/lib/offline/sync").catch((error: unknown) => {
+			replayModule = null;
+			throw error;
+		});
+	}
+	return replayModule;
 }
 
 /**
@@ -111,6 +128,7 @@ export function OfflineSync({
 		running.current = true;
 		setBusy(true);
 		try {
+			const { flushBiomassOutbox } = await loadReplay();
 			const result = await flushBiomassOutbox(scope);
 			if (result.discardedFeed > 0) {
 				toast.warning(t("feedDiscarded", { count: result.discardedFeed }));

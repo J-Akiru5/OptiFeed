@@ -31,7 +31,11 @@ const { resolveActivePond, prisma, tx } = vi.hoisted(() => {
 vi.mock("@/lib/auth/pond-access", () => ({ resolveActivePond }));
 vi.mock("@/lib/prisma", () => ({ default: prisma }));
 
-import { confirmImport } from "@/lib/jobs/import-data";
+import {
+	IMPORT_TRANSACTION_MAX_WAIT_MS,
+	IMPORT_TRANSACTION_TIMEOUT_MS,
+	confirmImport,
+} from "@/lib/jobs/import-data";
 
 const CSV: Record<string, string> = {
 	biomass_logs:
@@ -302,7 +306,10 @@ describe("import audit trail", () => {
 				metadata: { type: "biomass_logs", count: 3 },
 			},
 		});
-		expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { timeout: 30_000 });
+		expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+			timeout: IMPORT_TRANSACTION_TIMEOUT_MS,
+			maxWait: IMPORT_TRANSACTION_MAX_WAIT_MS,
+		});
 	});
 
 	it("skips the audit event when the pond has no device", async () => {

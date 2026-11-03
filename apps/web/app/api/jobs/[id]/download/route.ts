@@ -11,6 +11,14 @@ interface RouteContext {
 	params: Promise<{ id: string }>;
 }
 
+/**
+ * Postgres bytea is returned whole by a normal Prisma read. The artifact can be
+ * up to 25 MB, so the download streams it in bounded `substring` chunks instead
+ * of buffering the blob in function memory (#728). Chunks are 1 MiB; a 25 MB
+ * artifact is 25 small reads rather than one 25 MB allocation.
+ */
+const ARTIFACT_CHUNK_BYTES = 1024 * 1024;
+
 function artifactTooLarge(): ApiError {
 	const limitMb = Math.floor(MAX_JOB_ARTIFACT_BYTES / (1024 * 1024));
 	return new ApiError(
@@ -19,6 +27,30 @@ function artifactTooLarge(): ApiError {
 		`This export exceeds the ${limitMb} MB download limit.`,
 		{ expose: true },
 	);
+}
+
+function streamArtifact(jobId: string, totalBytes: number): ReadableStream<Uint8Array> {
+	let offset = 0;
+	return new ReadableStream<Uint8Array>({
+		async pull(controller) {
+			if (offset >= totalBytes) {
+				controller.close();
+				return;
+			}
+			const rows = await prisma.$queryRaw<Array<{ chunk: Uint8Array | null }>>`
+				SELECT substring("data" FROM ${offset + 1} FOR ${ARTIFACT_CHUNK_BYTES}) AS chunk
+				FROM "JobArtifact"
+				WHERE "jobId" = ${jobId}
+			`;
+			const chunk = rows[0]?.chunk;
+			if (!chunk || chunk.byteLength === 0) {
+				controller.close();
+				return;
+			}
+			offset += chunk.byteLength;
+			controller.enqueue(new Uint8Array(chunk));
+		},
+	});
 }
 
 export const GET = withApi(
@@ -30,24 +62,16 @@ export const GET = withApi(
 			throw conflict("The export is not ready yet.");
 		}
 
-		// Check the metadata before loading the bytea: an oversized stored
-		// artifact must be refused without pulling it into function memory.
+		// The metadata size is checked before any bytea is read; an oversized
+		// stored artifact is refused without pulling it into function memory.
 		if (job.artifact.size > MAX_JOB_ARTIFACT_BYTES) throw artifactTooLarge();
 
-		const artifact = await prisma.jobArtifact.findUnique({ where: { jobId: id } });
-		if (!artifact) throw notFound("Export artifact not found.");
-		// Defensive second check for a row whose stored size disagrees with its
-		// bytes. The real Content-Length below always comes from the bytes.
-		if (artifact.data.byteLength > MAX_JOB_ARTIFACT_BYTES) throw artifactTooLarge();
+		const filename = job.artifact.filename.replace(/["\\]/g, "_");
 
-		const filename = artifact.filename.replace(/["\\]/g, "_");
-
-		// `artifact.data` is already a Uint8Array/Buffer and is a valid
-		// Response body; passing it directly avoids the second full copy.
-		return new Response(artifact.data, {
+		return new Response(streamArtifact(id, job.artifact.size), {
 			headers: {
-				"Content-Type": artifact.contentType,
-				"Content-Length": String(artifact.data.byteLength),
+				"Content-Type": job.artifact.contentType,
+				"Content-Length": String(job.artifact.size),
 				"Content-Disposition": `attachment; filename="${filename}"`,
 				"Cache-Control": "private, no-store",
 			},

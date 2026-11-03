@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api/errors";
+import { currentAbortSignal } from "@/lib/api/request-context";
 import { MAX_JOB_ARTIFACT_BYTES } from "@/lib/constants";
 import type { ExportableType } from "@/lib/csv";
 import { scrubText } from "@/lib/error-scrub";
@@ -6,6 +7,7 @@ import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
 import type { PdfReport, SheetType } from "@/lib/xlsx/schema";
 import type { BackgroundJob, Prisma } from "@prisma/client";
+import { jobSignal } from "./cancellation";
 import { buildBatchExport, buildCsvExport, buildXlsxExport } from "./export-data";
 import { confirmImport } from "./import-data";
 import { buildPdfExport } from "./pdf-export";
@@ -170,22 +172,24 @@ export async function claimNextJob(workerId: string): Promise<BackgroundJob | nu
 
 export async function runJob(
 	job: BackgroundJob,
-	options: { timeLimitMs?: number } = {},
+	options: { timeLimitMs?: number; signal?: AbortSignal } = {},
 ): Promise<void> {
 	const limitMs =
 		options.timeLimitMs ?? JOB_TIME_LIMITS_MS[job.type as JobType] ?? JOB_TIME_LIMIT_MS;
+	const jobController = new AbortController();
+	const signal = jobSignal(options.signal, jobController);
 	try {
-		await withTimeLimit(executeJob(job), limitMs);
+		await withTimeLimit(executeJob(job, signal), limitMs, () => jobController.abort());
 	} catch (error) {
 		await failJob(job, error);
 	}
 }
 
-async function executeJob(job: BackgroundJob): Promise<void> {
+async function executeJob(job: BackgroundJob, signal: AbortSignal): Promise<void> {
 	switch (job.type) {
 		case "export_csv": {
 			const payload = job.payload as { type: SheetType };
-			const artifact = await buildCsvExport(job.ownerId, payload.type);
+			const artifact = await buildCsvExport(job.ownerId, payload.type, signal);
 			await completeJob(job, artifact, {
 				filename: artifact.filename,
 				content_type: artifact.contentType,
@@ -196,7 +200,7 @@ async function executeJob(job: BackgroundJob): Promise<void> {
 		}
 		case "export_zip": {
 			const payload = job.payload as { types?: SheetType[] };
-			const artifact = await buildBatchExport(job.ownerId, payload.types);
+			const artifact = await buildBatchExport(job.ownerId, payload.types, signal);
 			await completeJob(job, artifact, {
 				filename: artifact.filename,
 				content_type: artifact.contentType,
@@ -207,7 +211,7 @@ async function executeJob(job: BackgroundJob): Promise<void> {
 		}
 		case "export_xlsx": {
 			const payload = job.payload as { types?: SheetType[] };
-			const artifact = await buildXlsxExport(job.ownerId, payload.types);
+			const artifact = await buildXlsxExport(job.ownerId, payload.types, signal);
 			await completeJob(job, artifact, {
 				filename: artifact.filename,
 				content_type: artifact.contentType,
@@ -220,8 +224,8 @@ async function executeJob(job: BackgroundJob): Promise<void> {
 			const payload = (job.payload ?? {}) as { report?: PdfReport };
 			const artifact =
 				payload.report && payload.report !== "summary"
-					? await buildReportPdf(job.ownerId, payload.report)
-					: await buildPdfExport(job.ownerId);
+					? await buildReportPdf(job.ownerId, payload.report, signal)
+					: await buildPdfExport(job.ownerId, signal);
 			await completeJob(job, artifact, {
 				filename: artifact.filename,
 				content_type: artifact.contentType,
@@ -252,10 +256,19 @@ async function executeJob(job: BackgroundJob): Promise<void> {
  * limit is smaller, so an overrun is recorded as a failed attempt instead of
  * the process being killed with the lock still held.
  */
-async function withTimeLimit<T>(work: Promise<T>, limitMs: number): Promise<T> {
+async function withTimeLimit<T>(
+	work: Promise<T>,
+	limitMs: number,
+	onTimeout?: () => void,
+): Promise<T> {
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const timeout = new Promise<never>((_, reject) => {
-		timer = setTimeout(() => reject(new JobTimeoutError(limitMs)), limitMs);
+		timer = setTimeout(() => {
+			// #728: cooperative cancellation; the job's builder checks the signal
+			// at its next boundary instead of running after the failure is recorded.
+			onTimeout?.();
+			reject(new JobTimeoutError(limitMs));
+		}, limitMs);
 	});
 	try {
 		return await Promise.race([work, timeout]);
@@ -524,7 +537,10 @@ export async function processJobs(options: {
 		}
 		claimed += 1;
 
-		await runJob(job, { timeLimitMs: Math.min(typeLimit, remaining - 500) });
+		await runJob(job, {
+			timeLimitMs: Math.min(typeLimit, remaining - 500),
+			signal: currentAbortSignal(),
+		});
 
 		const after = await prisma.backgroundJob.findUnique({
 			where: { id: job.id },

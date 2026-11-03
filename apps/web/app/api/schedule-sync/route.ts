@@ -223,7 +223,7 @@ export const GET = withApi(
 			// default here told the firmware the poll succeeded, so it never
 			// retried and a pending command could be missed. 503 keeps the
 			// existing 5 s poll loop and lets the device retry; an unchanged
-			// schedule still returns 200 with `schedule_changed: false` below.
+			// schedule still returns 200 with `schedule_changed: false`.
 			return new Response("Service Unavailable", {
 				status: 503,
 				headers: { "Retry-After": "5" },

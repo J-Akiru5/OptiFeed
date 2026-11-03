@@ -251,8 +251,8 @@ describe("GET /api/feed-command", () => {
 		const res = await GET(pollRequest("test-token"));
 		expect(res.status).toBe(200);
 		const body = await res.json();
-		// The route catch drops `config` entirely; the helper's own fallback must
-		// keep the poll answering with the full object at the schema default.
+		// The helper's own fallback must keep the poll answering 200 with the
+		// full object at the schema default; a throw here is now a 503 (#724).
 		expect(body.feed_requested).toBe(false);
 		expect(body.config).toMatchObject({
 			version: 1,

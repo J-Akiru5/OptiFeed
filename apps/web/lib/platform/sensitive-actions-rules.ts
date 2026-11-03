@@ -150,6 +150,14 @@ export const SENSITIVE_ACTIONS: readonly SensitiveAction[] = [
 		requirement: "step-up",
 	},
 	{
+		id: "sendPlatformUserResetLink",
+		surface: "users",
+		action: "sendPlatformUserResetLink",
+		module: "lib/actions/superadmin.ts",
+		auditActions: ["platform.user.password_reset_link"],
+		requirement: "step-up",
+	},
+	{
 		id: "grantPlatformAdmin",
 		surface: "users",
 		action: "grantPlatformAdmin",

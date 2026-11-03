@@ -5,6 +5,7 @@ import {
 	revokeMember,
 	setUserPermission,
 } from "@/lib/actions/admin";
+import { inviteRoleError } from "@/lib/auth/member-rules";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import type { MemberRole } from "@prisma/client";
 import { z } from "zod";
@@ -39,6 +40,12 @@ export const adminActions = {
 		permission: "manage_members",
 		tenantAdminOnly: true,
 		requiresStepUp: true,
+		validateProposal(payload, caller) {
+			if (!caller.membershipRole) {
+				return "Only an organization owner or admin can invite members.";
+			}
+			return inviteRoleError(caller.membershipRole, payload.role as MemberRole);
+		},
 		describe(payload) {
 			return {
 				summary: `Invite ${str(payload.email)} as ${str(payload.role)}. The invitee gets a one-time temporary password.`,
@@ -81,6 +88,7 @@ export const adminActions = {
 		}),
 		permission: "manage_members",
 		tenantAdminOnly: true,
+		ownerOnly: true,
 		requiresStepUp: true,
 		describe(payload) {
 			return {
@@ -111,6 +119,7 @@ export const adminActions = {
 		}),
 		permission: "manage_members",
 		tenantAdminOnly: true,
+		ownerOnly: true,
 		requiresStepUp: true,
 		describe(payload) {
 			return {

@@ -18,6 +18,23 @@ const MAX_ERROR_LENGTH = 300;
 
 let warnedMissingConfig = false;
 
+/**
+ * The canonical site URL, matching `lib/actions/password-reset.ts`. A recovery
+ * link must point somewhere stable; a preview deployment can override it with
+ * `NEXT_PUBLIC_BASE_URL`.
+ *
+ * `NEXT_PUBLIC_BASE_URL` used to be a hard requirement here. It is scoped to
+ * Preview/staging in the Vercel project, so production had the key and the
+ * sender but silently skipped every reset email. The link target always has a
+ * value, so only the key and the sender decide whether we can send.
+ */
+export const DEFAULT_BASE_URL = "https://pakaonai.syntaxure.dev";
+
+export function resetBaseUrl(env: Record<string, string | undefined> = process.env): string {
+	const configured = env.NEXT_PUBLIC_BASE_URL || env.NEXT_PUBLIC_SITE_URL || DEFAULT_BASE_URL;
+	return configured.replace(/\/+$/, "");
+}
+
 export interface ResetEmailInput {
 	/** The account's contact email: the pond login address can never receive mail. */
 	to: string;
@@ -42,7 +59,7 @@ export function resetFromAddress(
 export function isResetEmailConfigured(
 	env: Record<string, string | undefined> = process.env,
 ): boolean {
-	return Boolean(env.RESEND_API_KEY && resetFromAddress(env) && env.NEXT_PUBLIC_BASE_URL);
+	return Boolean(env.RESEND_API_KEY && resetFromAddress(env));
 }
 
 /** Test helper: let the next missing-config call log again. */
@@ -59,7 +76,6 @@ export function warnResetEmailNotConfiguredOnce(
 		`[email] password reset email skipped: ${[
 			!env.RESEND_API_KEY && "RESEND_API_KEY",
 			!resetFromAddress(env) && "RESET_FROM_EMAIL/INVITE_FROM_EMAIL",
-			!env.NEXT_PUBLIC_BASE_URL && "NEXT_PUBLIC_BASE_URL",
 		]
 			.filter(Boolean)
 			.join(", ")} is not configured.`,
@@ -80,7 +96,7 @@ export async function sendPasswordResetEmail(
 	}
 
 	const from = resetFromAddress(env) as string;
-	const loginUrl = `${(env.NEXT_PUBLIC_BASE_URL ?? "").replace(/\/+$/, "")}/login`;
+	const loginUrl = `${resetBaseUrl(env)}/login`;
 
 	try {
 		const resend = new Resend(env.RESEND_API_KEY);

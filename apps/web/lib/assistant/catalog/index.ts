@@ -4,6 +4,7 @@ import { adminActions } from "./admin";
 import { feedingActions } from "./feeding";
 import { pondsActions } from "./ponds";
 import { recordsActions } from "./records";
+import { settingsActions } from "./settings";
 import { superadminActions } from "./superadmin";
 import { supportActions } from "./support";
 
@@ -25,6 +26,7 @@ export const ASSISTANT_ACTION_DEFINITIONS: Record<AssistantToolId, AssistantActi
 	...feedingActions,
 	...recordsActions,
 	...pondsActions,
+	...settingsActions,
 	...adminActions,
 	...superadminActions,
 	...supportActions,

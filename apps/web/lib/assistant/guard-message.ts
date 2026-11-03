@@ -1,3 +1,4 @@
+import type { Permission } from "@/lib/auth/permissions";
 import type { AssistantActionDefinition } from "./types";
 
 /**
@@ -24,8 +25,33 @@ export function tenantAdminRefusal(definition: AssistantActionDefinition): strin
 	return `Only an organization owner or admin can ${actionPhrase(definition.label)}.`;
 }
 
+export function ownerRefusal(definition: AssistantActionDefinition): string {
+	return `Only an organization owner can ${actionPhrase(definition.label)}.`;
+}
+
+/**
+ * The role that normally holds a permission. Permissions can be granted or
+ * revoked per membership, so the refusal names this as a hint rather than a
+ * hard role rule; the permission itself is the gate.
+ */
+const PERMISSION_ROLE_HINT: Record<Permission, string> = {
+	view_dashboard: "any member",
+	view_reports: "any member",
+	manage_members: "an organization owner",
+	manage_farms_ponds: "an organization owner or admin",
+	manage_schedule: "an operator or above",
+	manage_crop_cycle: "an operator or above",
+	claim_feeder: "an operator or above",
+	control_feeder: "an operator or above",
+	record_dispatch: "an operator or above",
+	view_billing: "an organization owner or admin",
+};
+
 export function permissionRefusal(definition: AssistantActionDefinition): string {
-	return `You need the "${definition.permission ?? "required"}" permission to ${actionPhrase(definition.label)}. Ask an organization admin to grant it.`;
+	const permission = definition.permission;
+	const hint = permission ? PERMISSION_ROLE_HINT[permission] : null;
+	const scope = hint ? ` (normally ${hint})` : "";
+	return `You need the "${permission ?? "required"}" permission${scope} to ${actionPhrase(definition.label)}. Ask an organization admin to grant it.`;
 }
 
 /** A caller with no write access (for a kind that has no named permission). */

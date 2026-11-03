@@ -36,6 +36,7 @@ function dependencies(overrides: Partial<AcceptDependencies> = {}) {
 		canWrite: vi.fn(async () => true),
 		isPlatformAdmin: vi.fn(async () => false),
 		isTenantAdmin: vi.fn(async () => false),
+		isOwner: vi.fn(async () => true),
 		requireStepUp: vi.fn(async () => undefined),
 		execute: vi.fn(async () => ({ success: true, message: "Paused." })),
 		...overrides,
@@ -179,6 +180,49 @@ describe("acceptAssistantActionWith", () => {
 		expect(deps.execute).not.toHaveBeenCalled();
 	});
 
+	it("refuses an owner-only action for a tenant admin who is not an owner", async () => {
+		const deps = dependencies({
+			load: vi.fn(async () =>
+				row({
+					kind: "admin.change_role",
+					payload: { userId: "member-1", role: "OPERATOR" },
+				}),
+			),
+			isTenantAdmin: vi.fn(async () => true),
+			isOwner: vi.fn(async () => false),
+		});
+
+		const result = await acceptAssistantActionWith("user-1", "action-1", deps);
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.error).toBe("Only an organization owner can change a member role.");
+		}
+		expect(deps.execute).not.toHaveBeenCalled();
+	});
+
+	it("runs the owner-only action for an owner", async () => {
+		const deps = dependencies({
+			load: vi.fn(async () =>
+				row({
+					kind: "admin.change_role",
+					payload: { userId: "member-1", role: "OPERATOR" },
+				}),
+			),
+			isTenantAdmin: vi.fn(async () => true),
+			isOwner: vi.fn(async () => true),
+		});
+
+		const result = await acceptAssistantActionWith("user-1", "action-1", deps);
+
+		expect(result).toEqual({ success: true, message: "Paused." });
+		expect(deps.execute).toHaveBeenCalledWith(
+			"admin.change_role",
+			{ userId: "member-1", role: "OPERATOR" },
+			"user-1",
+		);
+	});
+
 	it("marks the row FAILED when the underlying action reports an error", async () => {
 		const deps = dependencies({
 			execute: vi.fn(async () => ({ success: false, message: "Feeder offline." })),
@@ -223,6 +267,7 @@ const ALL_KINDS: Array<[string, Record<string, unknown>]> = [
 	["ponds.delete", { pondId: "pond-1", confirmName: "Pond A" }],
 	["ponds.move_device", { deviceId: "device-1", targetPondId: "pond-2" }],
 	["ponds.unassign_device", { deviceId: "device-1" }],
+	["settings.propose", { setting: "daily_feed_cap", value: 4500 }],
 	["admin.invite_member", { email: "new@example.com", role: "OPERATOR" }],
 	["admin.change_role", { userId: "member-1", role: "OPERATOR" }],
 	["admin.set_permission", { userId: "member-1", permission: "manage_schedule", granted: true }],

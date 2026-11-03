@@ -14,6 +14,11 @@ import {
 	normalizeContactEmail,
 } from "@/lib/contact-email";
 import { feedingRatePctSchema, formatZodError } from "@/lib/limits";
+import {
+	deliverPasswordResetEmail,
+	isResetEmailConfigured,
+	resetBaseUrl,
+} from "@/lib/notify/reset-email";
 import { resolvePagination } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
 import { ORG_SETTINGS_DEFAULTS, getOrgSettings } from "@/lib/settings/org";
@@ -943,6 +948,111 @@ export async function resetPlatformUserPassword(
 	// The old credential is dead; the cached farm binding must not outlive it.
 	invalidateFarm(user.supabaseId);
 	return { success: true, temporaryPassword };
+}
+
+export type SendPlatformResetLinkResult =
+	| { success: true; sentTo: string }
+	| {
+			error: string;
+			code?: "step_up_required" | "no_contact_email" | "email_not_configured";
+	  };
+
+/**
+ * Email a single-use recovery link to the account's contact address.
+ *
+ * This is the counterpart to `resetPlatformUserPassword`: when a deliverable
+ * address is on file, the person chooses their own password instead of being
+ * handed a one-time credential. The link is minted in code (Supabase
+ * `generateLink`) and delivered through Resend, exactly like the self-service
+ * flow; it is never returned, logged or written to the audit row.
+ *
+ * Refusals are typed because each has a different remedy: no address on file
+ * (add one, or issue a temporary password) versus email not configured on this
+ * deployment (fix the environment).
+ */
+export async function sendPlatformUserResetLink(
+	userId: string,
+	reason: string,
+): Promise<SendPlatformResetLinkResult> {
+	await requirePlatformAdmin();
+	const trimmedReason = requireReason(reason);
+
+	const user = await prisma.user.findUnique({
+		where: { id: userId },
+		select: { id: true, email: true, farmId: true, contactEmail: true },
+	});
+	if (!user) return { error: "User not found." };
+	if (!user.contactEmail) {
+		return {
+			error: "This account has no contact email. Add one first, or issue a temporary password.",
+			code: "no_contact_email",
+		};
+	}
+	if (!isResetEmailConfigured(process.env)) {
+		return {
+			error:
+				"Password-reset email is not configured on this deployment. Issue a temporary password instead.",
+			code: "email_not_configured",
+		};
+	}
+
+	const actor = await actorId();
+	const supabase = createAdminClient();
+	// The target's locale is not known here; the default locale renders the same
+	// reset page the self-service link uses.
+	const redirectTo = `${resetBaseUrl(process.env)}/en/reset-password`;
+	const recipient = user.contactEmail;
+
+	try {
+		await withStepUp(async (stepUpAt) => {
+			const { data, error } = await supabase.auth.admin.generateLink({
+				type: "recovery",
+				email: user.email,
+				options: { redirectTo },
+			});
+			const actionLink = data?.properties?.action_link;
+			if (error || !actionLink) {
+				throw new Error(
+					`could not mint a recovery link: ${error?.message ?? "no action_link returned"}`,
+				);
+			}
+
+			const emailSent = await deliverPasswordResetEmail({
+				to: recipient,
+				farmId: user.farmId,
+				resetUrl: actionLink,
+			});
+
+			// The attempt is audited even when delivery failed: the row records
+			// whether mail went out, and the link itself is never stored.
+			await prisma.$transaction((tx) =>
+				audit(
+					{
+						action: "platform.user.password_reset_link",
+						targetId: user.id,
+						reason: trimmedReason,
+						actorUserId: actor,
+						stepUpAt,
+						before: { farmId: user.farmId },
+						after: { emailSent },
+					},
+					tx,
+				),
+			);
+
+			if (!emailSent) throw new Error("reset email delivery failed");
+		});
+	} catch (e) {
+		const stepUp = stepUpFailure(e);
+		if (stepUp) return stepUp;
+		console.error("[superadmin] sendPlatformUserResetLink error:", e);
+		return {
+			error:
+				"The reset email could not be sent. Check the email configuration, or issue a temporary password.",
+		};
+	}
+
+	return { success: true, sentTo: recipient };
 }
 
 // ─── Organizations ────────────────────────────────────────────────────────────

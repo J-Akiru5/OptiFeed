@@ -1705,7 +1705,9 @@
 					"saveFailed": "Could not save the picture. Try again."
 				}
 			},
-			"emailNone": "No email on file. Ask your administrator to add one so you can reset your password."
+			"emailNone": "No email on file. Ask your administrator to add one so you can reset your password.",
+			"emailMissingTitle": "No email on file",
+			"emailMissingDesc": "Password reset by email is unavailable until an administrator adds a contact email for this account. Ask your organization owner or platform administrator."
 		},
 		"adminUsers": {
 			"actionsColumn": "Actions",
@@ -3511,6 +3513,7 @@
 				"disable": "Disable account",
 				"enable": "Enable account",
 				"reset": "Reset password",
+				"resetLink": "Send password reset link",
 				"email": "Change contact email"
 			},
 			"stepUpActions": {
@@ -3519,6 +3522,7 @@
 				"disable": "disable this account",
 				"enable": "enable this account",
 				"reset": "reset this password",
+				"resetLink": "send a password reset link",
 				"email": "change this contact email"
 			},
 			"buttons": {
@@ -3527,11 +3531,21 @@
 				"disable": "Disable",
 				"enable": "Enable",
 				"reset": "Reset",
+				"resetLink": "Send link",
 				"email": "Email"
 			},
 			"disableWarning": "This bans the login and revokes every membership. No data is deleted; Enable restores access later.",
 			"enableWarning": "Restores the login and the memberships recorded by the last disable.",
 			"resetWarning": "Replaces the account's password with a one-time temporary password, shown once below. The person must change it at the next sign-in.",
+			"resetLinkWarning": "Emails a single-use reset link to the contact address on file. The link is never shown here.",
+			"resetLinkNoEmailWarning": "This account has no contact email. Add one first, or use Reset to issue a temporary password.",
+			"resetLinkSent": {
+				"title": "Reset link sent",
+				"description": "The person can set a new password from the link in that email.",
+				"sentTo": "Sent to {email}",
+				"fallback": "If the mail does not arrive, issue a temporary password instead.",
+				"done": "Done"
+			},
 			"issued": {
 				"title": "Temporary password",
 				"descriptionPrefix": "Share it directly with",
@@ -3948,6 +3962,7 @@
 				"inviteFromLabel": "Invite sender variable",
 				"baseUrlLabel": "Base URL",
 				"reminderFromLabel": "Reminder sender variable",
+				"resetFromLabel": "Password-reset sender variable",
 				"inviteSenderLabel": "Invite sender in use",
 				"reminderSenderLabel": "Reminder sender in use",
 				"noReminderSender": "Not set — reminder email is skipped",
@@ -3955,7 +3970,9 @@
 				"inviteReady": "Invites ready",
 				"inviteNotReady": "Invites skipped",
 				"reminderReady": "Reminders ready",
-				"reminderNotReady": "Reminders skipped"
+				"reminderNotReady": "Reminders skipped",
+				"resetReady": "Reset email ready",
+				"resetNotReady": "Reset email skipped"
 			},
 			"safety": {
 				"title": "Feeding safety caps",
@@ -4739,6 +4756,7 @@
 				"disablePlatformUser": "Disable a platform user",
 				"enablePlatformUser": "Enable a platform user",
 				"resetPlatformUserPassword": "Reset a platform user password",
+				"sendPlatformUserResetLink": "Send a password reset link",
 				"grantPlatformAdmin": "Grant platform admin",
 				"revokePlatformAdmin": "Revoke platform admin",
 				"startViewAs": "Start view-as (impersonation)",

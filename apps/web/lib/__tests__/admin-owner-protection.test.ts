@@ -1,8 +1,4 @@
-import {
-	ADMIN_EDIT_OWNER_MESSAGE,
-	ADMIN_EDIT_OWNER_PERMISSION_MESSAGE,
-	ADMIN_REMOVE_OWNER_MESSAGE,
-} from "@/lib/auth/member-rules";
+import { ADMIN_REMOVE_OWNER_MESSAGE, OWNER_REQUIRED_MESSAGE } from "@/lib/auth/member-rules";
 import type { MemberRole } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -147,7 +143,7 @@ describe("the other membership mutations keep the same boundary (#584)", () => {
 		setOrgARole(VIEWER_A_ID, "OWNER");
 
 		expect(await changeMemberRole(VIEWER_A_ID, "VIEWER")).toEqual({
-			error: ADMIN_EDIT_OWNER_MESSAGE,
+			error: OWNER_REQUIRED_MESSAGE,
 		});
 	});
 
@@ -166,7 +162,7 @@ describe("the other membership mutations keep the same boundary (#584)", () => {
 
 		expect(result).toEqual({
 			success: false,
-			error: ADMIN_EDIT_OWNER_PERMISSION_MESSAGE,
+			error: OWNER_REQUIRED_MESSAGE,
 		});
 		expect(
 			tenancy().tables.membershipPermissions.some(

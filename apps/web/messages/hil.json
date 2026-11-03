@@ -1705,7 +1705,9 @@
 					"saveFailed": "Indi ma-save ang laray. Tilawi liwat."
 				}
 			},
-			"emailNone": "Wala sing email nga naka-save. Pangayo sa imo administrator nga magdugang sang isa agod makareset ka sang password."
+			"emailNone": "Wala sing email nga naka-save. Pangayo sa imo administrator nga magdugang sang isa agod makareset ka sang password.",
+			"emailMissingTitle": "Wala sang email sa rekord",
+			"emailMissingDesc": "Indi makapadala sang password reset paagi sa email samtang wala pa sing contact email nga gindugang sang administrator. Pangabay sa tag-iya sang organisasyon ukon platform administrator nga magdugang."
 		},
 		"audit": {
 			"title": "Talaan ng Audit",
@@ -3511,6 +3513,7 @@
 				"disable": "I-disable ang account",
 				"enable": "I-enable ang account",
 				"reset": "Bag-oha ang password",
+				"resetLink": "Ipadala ang link",
 				"email": "Usbon ang contact email"
 			},
 			"stepUpActions": {
@@ -3519,6 +3522,7 @@
 				"disable": "i-disable ini nga account",
 				"enable": "i-enable ini nga account",
 				"reset": "bag-uhon ang password",
+				"resetLink": "magpadala sang password reset link",
 				"email": "usbon ang contact email sini"
 			},
 			"buttons": {
@@ -3527,11 +3531,21 @@
 				"disable": "Disable",
 				"enable": "Enable",
 				"reset": "Bag-oha",
+				"resetLink": "Ipadala ang link",
 				"email": "Email"
 			},
 			"disableWarning": "Ginadilian sini ang pag-login kag ginabawi ang tanan nga membership. Wala sing data nga ginatangtang; ang Enable nagabalik sang access sa ulihi.",
 			"enableWarning": "Ginabalik ang pag-login kag ang mga membership nga ginrekord sang katapusan nga pag-disable.",
 			"resetWarning": "Pamalihun ang password sang account ubos sang isa ka beses nga temporary password, nga ipakita sa idalom. Kinahanglan bag-uhon ini sa sunod nga pag-log in.",
+			"resetLinkWarning": "Mag-email sang isa lang ka beses nga reset link sa contact address nga narekord. Wala ginapakita ang link diri.",
+			"resetLinkNoEmailWarning": "Wala sang contact email ini nga account. Dugangi anay, ukon gamita ang Bag-oha para makahatag sang temporaryo nga password.",
+			"resetLinkSent": {
+				"title": "Napadala ang reset link",
+				"description": "Makapili ang tawo sang bag-o nga password halin sa link sa email.",
+				"sentTo": "Napadala sa {email}",
+				"fallback": "Kon indi mag-abot ang email, maghatag sang temporaryo nga password.",
+				"done": "Tapos"
+			},
 			"issued": {
 				"title": "Temporaryo nga password",
 				"descriptionPrefix": "Ipaambit direkta sa",
@@ -3955,7 +3969,10 @@
 				"inviteReady": "Handa ang mga invite",
 				"inviteNotReady": "Ginaskip ang mga invite",
 				"reminderReady": "Handa ang mga reminder",
-				"reminderNotReady": "Ginaskip ang mga reminder"
+				"reminderNotReady": "Ginaskip ang mga reminder",
+				"resetFromLabel": "Password-reset sender variable",
+				"resetReady": "Handa ang reset email",
+				"resetNotReady": "Ginlaktawan ang reset email"
 			},
 			"safety": {
 				"title": "Mga safety cap sang pagpakaon",
@@ -4739,6 +4756,7 @@
 				"disablePlatformUser": "I-disable ang user sang platform",
 				"enablePlatformUser": "I-enable ang user sang platform",
 				"resetPlatformUserPassword": "I-reset ang password sang user",
+				"sendPlatformUserResetLink": "Magpadala sang password reset link",
 				"grantPlatformAdmin": "Hatagan sang platform admin",
 				"revokePlatformAdmin": "Kuhaon ang platform admin",
 				"startViewAs": "Sugdan ang view-as (impersonation)",

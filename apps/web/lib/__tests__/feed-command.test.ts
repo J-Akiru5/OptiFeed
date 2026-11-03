@@ -251,8 +251,8 @@ describe("GET /api/feed-command", () => {
 		const res = await GET(pollRequest("test-token"));
 		expect(res.status).toBe(200);
 		const body = await res.json();
-		// The route catch drops `config` entirely; the helper's own fallback must
-		// keep the poll answering with the full object at the schema default.
+		// The helper's own fallback must keep the poll answering 200 with the
+		// full object at the schema default; a throw here is now a 503 (#724).
 		expect(body.feed_requested).toBe(false);
 		expect(body.config).toMatchObject({
 			version: 1,
@@ -336,15 +336,64 @@ describe("GET /api/feed-command", () => {
 		});
 	});
 
-	it("returns safe idle defaults when the route throws", async () => {
+	it("returns 503 with Retry-After when the route throws (#724)", async () => {
 		mockEnergyDevice.findUnique.mockRejectedValue(new Error("db down") as never);
+
 		const res = await GET(pollRequest("test-token"));
+
+		// The old 200 idle body made the firmware believe the poll succeeded and
+		// stop retrying, so the pending feed expired undelivered.
+		expect(res.status).toBe(503);
+		expect(res.headers.get("Retry-After")).toBe("5");
+		expect(await res.text()).toBe("Service Unavailable");
+		expect(mockFeedRequest.updateMany).not.toHaveBeenCalled();
+	});
+
+	it("#724: a failed claim leaves the request pending for the next poll", async () => {
+		const pending = {
+			id: "req-retry-724",
+			deviceId: DEVICE.id,
+			grams: 120,
+			kind: "feed",
+			status: "pending",
+			createdAt: new Date(),
+		};
+		let dbDown = true;
+		mockFeedRequest.findFirst.mockImplementation((async () => {
+			if (dbDown) throw new Error("db down");
+			return pending as never;
+		}) as never);
+		mockFeedRequest.updateMany.mockImplementation((async (args: {
+			where?: { id?: string };
+			data?: { status?: string };
+		}) => {
+			if (args.where?.id && args.data?.status === "dispatched") {
+				pending.status = "dispatched";
+				return { count: 1 };
+			}
+			return { count: 0 };
+		}) as never);
+
+		// Verification and config succeed; the claim read then fails.
+		const failed = await GET(pollRequest("test-token"));
+		expect(failed.status).toBe(503);
+		expect(pending.status).toBe("pending");
+
+		// The same row is claimable once the database is back.
+		dbDown = false;
+		const retry = await GET(pollRequest("test-token"));
+		expect(retry.status).toBe(200);
+		const body = await retry.json();
+		expect(body.feed_requested).toBe(true);
+		expect(body.feed_request_id).toBe("req-retry-724");
+	});
+
+	it("#724: an empty queue still returns 200 idle", async () => {
+		const res = await GET(pollRequest("test-token"));
+
+		expect(res.status).toBe(200);
 		const body = await res.json();
 		expect(body.feed_requested).toBe(false);
 		expect(body.feed_request_id).toBeNull();
-		expect(body.grams).toBe(0);
-		// Hardcoded safe fallbacks so the ESP32 never hangs
-		expect(body.grams_per_feeding).toBe(150);
-		expect(body.grams_per_second).toBe(4.0);
 	});
 });

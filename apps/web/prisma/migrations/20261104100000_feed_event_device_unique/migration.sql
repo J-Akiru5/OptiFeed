@@ -1,0 +1,22 @@
+-- #727: scope FeedEvent.eventId uniqueness to the device.
+--
+-- The firmware mints event ids per unit, so the global unique index created in
+-- 20260711000001_audit_fixes rejected a legitimate event whenever two devices
+-- (or a reflashed unit restarting its counter) produced the same id. The ingest
+-- route then answered 204 and the real dispense was silently dropped.
+--
+-- SCHEMA RELAXATION, NOT DATA LOSS: no column, row or table is deleted. The
+-- global index is replaced by the same guarantee scoped to (deviceId, eventId),
+-- so a replay from one device is still rejected while two devices may share an
+-- id. Because this drops an existing index it needs the owner's explicit
+-- approval and a verified backup before it is applied to production
+-- (CONTRIBUTING.md section 8). Do not apply it with prisma migrate dev.
+--
+-- eventId stays nullable; Postgres unique indexes allow multiple NULLs, so
+-- events without an id are unaffected.
+--
+-- Both statements run in Prisma's migration transaction, so the DROP takes an
+-- ACCESS EXCLUSIVE lock and no writer can insert between the drop and the
+-- create. The table is small; an online index build is not required.
+DROP INDEX IF EXISTS "FeedEvent_eventId_key";
+CREATE UNIQUE INDEX IF NOT EXISTS "FeedEvent_deviceId_eventId_key" ON "FeedEvent"("deviceId", "eventId");

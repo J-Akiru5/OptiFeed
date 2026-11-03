@@ -290,14 +290,53 @@ describe("GET /api/schedule-sync", () => {
 		expect(body.feeding_rate_pct).toBe(0.1);
 	});
 
-	it("returns safe default schedule when the route throws", async () => {
+	it("returns 503 with Retry-After when the route throws (#724)", async () => {
 		mockEnergyDevice.findUnique.mockRejectedValue(new Error("db down") as never);
+
 		const res = await GET(syncRequest());
+
+		// A 200 default here told the firmware the poll succeeded, so a pending
+		// schedule command was never retried.
+		expect(res.status).toBe(503);
+		expect(res.headers.get("Retry-After")).toBe("5");
+		expect(await res.text()).toBe("Service Unavailable");
+	});
+
+	it("#724: an unchanged schedule still returns 200 with schedule_changed false", async () => {
+		const res = await GET(syncRequest());
+
+		expect(res.status).toBe(200);
 		const body = await res.json();
 		expect(body.schedule_changed).toBe(false);
 		expect(body.command_id).toBeNull();
 		expect(body.feeds_per_day).toBeNull();
-		expect(body.grams_per_feeding).toBe(150);
-		expect(body.grams_per_second).toBe(4.0);
+	});
+
+	it("#724: a command marked sent before a failure is still served on the next poll", async () => {
+		mockScheduleCommand.findFirst.mockResolvedValue({
+			id: "cmd-724",
+			status: "pending",
+			scheduleStart: new Date("2024-01-01T06:00:00Z"),
+			scheduleEnd: new Date("2024-01-01T18:00:00Z"),
+			feedsPerDay: 3,
+			feedingRatePct: 3.5,
+			createdAt: new Date(),
+		} as never);
+		// The pending -> sent transition commits, then the audit write fails.
+		mockDeviceStateEvent.create.mockRejectedValueOnce(new Error("db down") as never);
+
+		const failed = await GET(syncRequest());
+		expect(failed.status).toBe(503);
+
+		// The command is still pending/sent, so the retry re-serves it: the 503
+		// did not lose the schedule change.
+		mockScheduleCommand.updateMany.mockResolvedValue({ count: 0 } as never);
+		const retry = await GET(syncRequest());
+
+		expect(retry.status).toBe(200);
+		const body = await retry.json();
+		expect(body.schedule_changed).toBe(true);
+		expect(body.command_id).toBe("cmd-724");
+		expect(body.feeds_per_day).toBe(3);
 	});
 });

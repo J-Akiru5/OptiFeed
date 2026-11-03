@@ -464,7 +464,9 @@ model EnergyDevice {
 model FeedEvent {
   id            String   @id @default(cuid())
   deviceId      String
-  eventId       String?  @unique
+  // #727: the firmware mints event ids per device, so uniqueness is the pair
+  // below. The column stays optional; Postgres allows multiple NULLs.
+  eventId       String?
   eventType     String // "heartbeat" | "feed_dispensed" | "schedule_acked"
   timestamp     String // device RTC time — may be "unknown" if RTC unavailable
   grams         Float?
@@ -481,6 +483,7 @@ model FeedEvent {
 
   device EnergyDevice @relation(fields: [deviceId], references: [id])
 
+  @@unique([deviceId, eventId])
   @@index([deviceId, receivedAt])
   @@index([eventType, receivedAt])
   @@index([farmId])

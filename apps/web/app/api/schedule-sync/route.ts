@@ -219,22 +219,14 @@ export const GET = withApi(
 			});
 		} catch (error) {
 			reportError(error, { route: "schedule-sync", deviceId: device?.id ?? deviceId });
-			// Return safe defaults so ESP32 doesn't hang
-			return Response.json({
-				server_time: new Date().toISOString(),
-				time_sync: null,
-				schedule_changed: false,
-				command_id: null,
-				schedule_start: null,
-				schedule_end: null,
-				feeds_per_day: null,
-				feeding_rate_pct: null,
-				grams_per_feeding: 150,
-				button_feed_grams: 80,
-				hopper_empty_cm: null,
-				hopper_full_cm: null,
-				grams_per_second: 4.0,
-				temp_offset_c: 0,
+			// #724: a database/handler failure is not "no schedule change". A 200
+			// default here told the firmware the poll succeeded, so it never
+			// retried and a pending command could be missed. 503 keeps the
+			// existing 5 s poll loop and lets the device retry; an unchanged
+			// schedule still returns 200 with `schedule_changed: false`.
+			return new Response("Service Unavailable", {
+				status: 503,
+				headers: { "Retry-After": "5" },
 			});
 		}
 	},

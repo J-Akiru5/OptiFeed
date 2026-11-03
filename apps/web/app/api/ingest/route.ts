@@ -165,6 +165,17 @@ const safetyTripSchema = baseSchema.extend({
 	uptime_s: z.number().int().min(0).optional(),
 });
 
+/**
+ * A P2002 on one of the device-delivery dedupe indexes. The route answers 204
+ * because the ESP32 treats that as "delivered": the row it tried to write is
+ * already there.
+ *
+ * #727: for FeedEvent the key is (deviceId, eventId), not a global event id.
+ * A P2002 therefore means *this device* already sent this event — the genuine
+ * replay guard. The same event id from a different device inserts a second,
+ * valid row. The partial index on `feedRequestId` (20261103090000) is an
+ * independent dedupe for retried requests.
+ */
 function isUniqueConstraintError(error: unknown): boolean {
 	return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }

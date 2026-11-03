@@ -194,9 +194,7 @@ export async function confirmImport(
 	// learn a stored result for a pond they no longer own, and the pond is part
 	// of the derived idempotency key.
 	const requestedPondId = options.pondId?.trim() || null;
-	const requestedPond = requestedPondId
-		? await resolveActivePond(ownerId, requestedPondId)
-		: null;
+	const requestedPond = requestedPondId ? await resolveActivePond(ownerId, requestedPondId) : null;
 	if (requestedPondId && !requestedPond) throw notFound("Pond not found.");
 
 	const idempotencyKey = resolveImportIdempotencyKey(

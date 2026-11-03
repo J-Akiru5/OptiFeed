@@ -410,7 +410,7 @@ export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 								id="import-type"
 								value={type}
 								onChange={(e) => {
-									setType(e.target.value as SheetType);
+									setType(e.target.value as ImportSheetType);
 									reset();
 									if (fileInputRef.current) fileInputRef.current.value = "";
 								}}

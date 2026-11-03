@@ -51,7 +51,7 @@ function renderAndSubmit() {
 	fireEvent.change(screen.getByLabelText("Avg. Fish Weight (grams)"), {
 		target: { value: "220" },
 	});
-	fireEvent.change(screen.getByLabelText("Avg. Fish Length (cm)"), {
+	fireEvent.change(screen.getByLabelText("Average Length (cm)"), {
 		target: { value: "24" },
 	});
 	fireEvent.click(screen.getByRole("button", { name: "Save Sample" }));
@@ -102,7 +102,7 @@ describe("biomass result status (#751)", () => {
 			expect(screen.getByText("Device schedule not changed")).toBeInTheDocument();
 		});
 		expect(
-			screen.getByText("Device schedule unchanged - no device is linked to this pond."),
+			screen.getByText(/Device schedule unchanged .* no device is linked to this pond\./),
 		).toBeInTheDocument();
 	});
 });

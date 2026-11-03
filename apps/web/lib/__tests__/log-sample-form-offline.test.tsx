@@ -52,7 +52,7 @@ function fillAverageSample() {
 	fireEvent.change(screen.getByLabelText("Avg. Fish Weight (grams)"), {
 		target: { value: "220" },
 	});
-	fireEvent.change(screen.getByLabelText("Avg. Fish Length (cm)"), {
+	fireEvent.change(screen.getByLabelText("Average Length (cm)"), {
 		target: { value: "24" },
 	});
 }

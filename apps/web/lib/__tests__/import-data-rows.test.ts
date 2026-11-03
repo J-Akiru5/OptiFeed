@@ -134,12 +134,9 @@ describe("target pond pinning (#743)", () => {
 
 	it("rejects a row exported from a different pond", async () => {
 		await expect(
-			confirmImport(
-				"farm-a",
-				"biomass_logs",
-				"pondId,sampleWeightKg,sampleCount\npond-1,10,5",
-				{ pondId: "pond-2" },
-			),
+			confirmImport("farm-a", "biomass_logs", "pondId,sampleWeightKg,sampleCount\npond-1,10,5", {
+				pondId: "pond-2",
+			}),
 		).rejects.toMatchObject({
 			status: 400,
 			message: "Row 1: pondId does not match the selected pond.",

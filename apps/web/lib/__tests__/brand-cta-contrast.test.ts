@@ -33,10 +33,9 @@ const DARK_SOLID_BG = /^dark:(?:(?:hover|focus|active):)?bg-\[(#[0-9a-fA-F]{6})\
 
 /** Double-quoted and template-literal class strings in a source file. */
 function classStrings(source: string): string[] {
-	return [
-		...source.matchAll(/"(?:[^"\\]|\\.)*"/g),
-		...source.matchAll(/`(?:[^`\\]|\\.)*`/g),
-	].map((match) => match[0]);
+	return [...source.matchAll(/"(?:[^"\\]|\\.)*"/g), ...source.matchAll(/`(?:[^`\\]|\\.)*`/g)].map(
+		(match) => match[0],
+	);
 }
 
 describe("brand CTA contrast (#756)", () => {

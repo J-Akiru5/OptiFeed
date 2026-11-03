@@ -35,7 +35,11 @@ export function normalizeReturnPath(
 	// network-path references by browsers.
 	if (!value.startsWith("/") || value.startsWith("//")) return null;
 	if (value.includes("\\")) return null;
-	if (/[\u0000-\u001f\u007f]/.test(value)) return null;
+	const hasControlCharacter = Array.from(value).some((character) => {
+		const code = character.codePointAt(0) ?? 0;
+		return code < 0x20 || code === 0x7f;
+	});
+	if (hasControlCharacter) return null;
 
 	let url: URL;
 	try {

@@ -69,8 +69,7 @@ vi.mock("@/lib/jobs/report-pdf", () => ({ buildReportPdf: mocks.buildReportPdf }
 vi.mock("@/lib/jobs/import-data", () => ({
 	confirmImport: mocks.confirmImport,
 	// Mirrors the real helper: 12 s job limit → 8 s transaction budget.
-	importTransactionTimeoutMs: (limitMs: number) =>
-		Math.max(500, Math.min(8_000, limitMs - 4_000)),
+	importTransactionTimeoutMs: (limitMs: number) => Math.max(500, Math.min(8_000, limitMs - 4_000)),
 }));
 
 import { ApiError } from "@/lib/api/errors";

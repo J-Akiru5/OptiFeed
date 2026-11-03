@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { mintPasswordResetProof } from "@/lib/auth/password-reset-proof";
 import {
 	buildRecoveryConfirmUrl,
 	isRecoveryProof,
 	parseRecoveryConfirmation,
 	recoveryRedirectPath,
 } from "@/lib/auth/recovery-link";
-import { mintPasswordResetProof } from "@/lib/auth/password-reset-proof";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 // The proof module imports the Prisma singleton for persistence; minting is
@@ -132,9 +132,9 @@ describe("parseRecoveryConfirmation", () => {
 			action: "invalid",
 			reason: "malformed",
 		});
-		expect(
-			parseRecoveryConfirmation(new URLSearchParams({ token_hash: "a".repeat(600) })),
-		).toEqual({ action: "invalid", reason: "malformed" });
+		expect(parseRecoveryConfirmation(new URLSearchParams({ token_hash: "a".repeat(600) }))).toEqual(
+			{ action: "invalid", reason: "malformed" },
+		);
 	});
 });
 

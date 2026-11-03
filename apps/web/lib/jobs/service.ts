@@ -338,9 +338,7 @@ async function completeJob(
 /** Prisma's code for an interactive transaction that expired and was rolled back. */
 function isExpiredTransaction(error: unknown): boolean {
 	return (
-		typeof error === "object" &&
-		error !== null &&
-		(error as { code?: unknown }).code === "P2028"
+		typeof error === "object" && error !== null && (error as { code?: unknown }).code === "P2028"
 	);
 }
 

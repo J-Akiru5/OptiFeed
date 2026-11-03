@@ -106,7 +106,12 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	tenancy().reset();
 	auth.generateLink.mockReset().mockResolvedValue({
-		data: { properties: { action_link: "https://auth.example/recovery?token=secret", hashed_token: "hashed-token-value" } },
+		data: {
+			properties: {
+				action_link: "https://auth.example/recovery?token=secret",
+				hashed_token: "hashed-token-value",
+			},
+		},
 		error: null,
 	});
 	resetEmail.deliverPasswordResetEmail.mockReset().mockResolvedValue(true);
@@ -188,7 +193,8 @@ describe("sendPlatformUserResetLink", () => {
 		expect(resetEmail.deliverPasswordResetEmail).toHaveBeenCalledWith({
 			to: "farmer@example.test",
 			farmId: userById(tenancy(), FARMER_A_ID).farmId,
-			resetUrl: "https://pakaonai.syntaxure.dev/en/auth/confirm?token_hash=hashed-token-value&type=recovery&reset=proof-token",
+			resetUrl:
+				"https://pakaonai.syntaxure.dev/en/auth/confirm?token_hash=hashed-token-value&type=recovery&reset=proof-token",
 		});
 
 		const audits = tenancy().tables.platformAuditLogs.filter(

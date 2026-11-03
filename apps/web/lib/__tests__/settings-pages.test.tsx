@@ -419,7 +419,8 @@ describe("profile settings page", () => {
 		expect(html.match(/<h1/g)).toHaveLength(1);
 		expect(html).toContain("Profile Information");
 		expect(html).toContain("Security");
-		expect(html).toContain("Notification Preferences");
+		expect(html).toContain("Pond Alert Settings");
+		expect(html).toContain("These alert settings apply to every member of the pond.");
 		// The contact email is shown; the session email is the synthetic login
 		// address, which cannot receive mail (#449).
 		expect(html).toContain("juan.farmer@example.com");
@@ -445,6 +446,15 @@ describe("profile settings page", () => {
 		const html = renderToStaticMarkup(await ProfileSettingsPage());
 
 		expectReadOnlyNote(html);
+	});
+
+	it("disables pond alert settings for a member without pond-management permission", async () => {
+		vi.mocked(hasPermission).mockResolvedValueOnce(false);
+
+		const html = renderToStaticMarkup(await ProfileSettingsPage());
+
+		expect(hasPermission).toHaveBeenCalledWith("manage_farms_ponds");
+		expect(html).toContain("Only the pond owner or an admin can change these settings.");
 	});
 });
 

@@ -14,6 +14,8 @@ vi.mock("@/lib/prisma", () => {
 			pond: { findMany: vi.fn() },
 			biomassLog: { groupBy: vi.fn() },
 			user: { findMany: vi.fn() },
+			membership: { findMany: vi.fn() },
+			organization: { findMany: vi.fn() },
 			reminderLog: {
 				create: reminderCreate,
 				findMany: vi.fn(),
@@ -68,6 +70,8 @@ const mockCycle = vi.mocked(prisma.cropCycle);
 const mockPond = vi.mocked(prisma.pond);
 const mockBiomass = vi.mocked(prisma.biomassLog);
 const mockUser = vi.mocked(prisma.user);
+const mockMembership = vi.mocked(prisma.membership);
+const mockOrganization = vi.mocked(prisma.organization);
 const mockReminderLog = vi.mocked(prisma.reminderLog);
 const mockNotification = vi.mocked(prisma.notification);
 const mockPondEvent = vi.mocked(prisma.pondEvent);
@@ -112,7 +116,11 @@ beforeEach(() => {
 	mockCycle.findMany.mockResolvedValue([CYCLE] as never);
 	mockPond.findMany.mockResolvedValue([POND] as never);
 	mockBiomass.groupBy.mockResolvedValue([] as never);
-	mockUser.findMany.mockResolvedValue([{ farmId: "owner-1", email: "owner@example.com" }] as never);
+	mockUser.findMany.mockResolvedValue([
+		{ id: "user-owner-1", farmId: "owner-1", contactEmail: "owner@example.com" },
+	] as never);
+	mockMembership.findMany.mockResolvedValue([] as never);
+	mockOrganization.findMany.mockResolvedValue([] as never);
 	mockReminderLog.findMany.mockResolvedValue([] as never);
 	mockReminderLog.update.mockResolvedValue({} as never);
 	mockPondEvent.findMany.mockResolvedValue([] as never);
@@ -366,18 +374,78 @@ describe("sampling cadence fallbacks", () => {
 });
 
 describe("recipient grouping", () => {
-	it("skips blank addresses and returns an empty map when nobody is reachable", () => {
+	it("uses the deliverable contact address and skips synthetic or blank addresses", () => {
 		expect(
 			collectRecipientsByOwner([
-				{ farmId: "owner-1", email: null },
-				{ farmId: "owner-1", email: "   " },
+				{ farmId: "owner-1", contactEmail: null },
+				{ farmId: "owner-1", contactEmail: "   " },
+				{ farmId: "owner-1", contactEmail: "owner-1@pond.optifeed.local" },
+				{ farmId: "owner-1", contactEmail: "not-an-address" },
 			]),
 		).toEqual(new Map());
 		expect(
-			collectRecipientsByOwner([{ farmId: "owner-1", email: "  owner@example.com  " }]).get(
+			collectRecipientsByOwner([{ farmId: "owner-1", contactEmail: "  owner@example.com  " }]).get(
 				"owner-1",
 			),
 		).toEqual(["owner@example.com"]);
+	});
+
+	it("adds OWNER and ADMIN members of the owner's active organization", async () => {
+		mockUser.findMany
+			.mockResolvedValueOnce([
+				{ id: "user-owner", farmId: "owner-1", contactEmail: "owner@example.com" },
+			] as never)
+			.mockResolvedValueOnce([
+				{ id: "user-admin", farmId: "admin-1", contactEmail: "admin@example.com" },
+				{ id: "user-synthetic", farmId: "admin-2", contactEmail: "admin-2@pond.optifeed.local" },
+				{ id: "user-no-contact", farmId: "admin-3", contactEmail: null },
+			] as never);
+		mockMembership.findMany
+			.mockResolvedValueOnce([{ userId: "user-owner", orgId: "org-1" }] as never)
+			.mockResolvedValueOnce([
+				{ orgId: "org-1", userId: "user-admin" },
+				{ orgId: "org-1", userId: "user-synthetic" },
+				{ orgId: "org-1", userId: "user-no-contact" },
+			] as never);
+		mockOrganization.findMany.mockResolvedValueOnce([{ id: "org-1" }] as never);
+		const sendEmail = vi.fn().mockResolvedValue({ ok: true });
+
+		const summary = await processCropReminders({
+			today: "2026-10-18",
+			emailConfigured: true,
+			sendEmail,
+		});
+
+		expect(summary).toMatchObject({ emailsSent: 1 });
+		expect(sendEmail).toHaveBeenCalledWith(
+			expect.objectContaining({ to: ["owner@example.com", "admin@example.com"] }),
+		);
+		expect(mockMembership.findMany).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining({
+				where: expect.objectContaining({
+					orgId: { in: ["org-1"] },
+					role: { in: ["OWNER", "ADMIN"] },
+					revokedAt: null,
+				}),
+			}),
+		);
+	});
+
+	it("skips an owner with no contact address instead of using the login address", async () => {
+		mockUser.findMany.mockResolvedValue([
+			{ id: "user-owner", farmId: "owner-1", contactEmail: "owner-1@pond.optifeed.local" },
+		] as never);
+		const sendEmail = vi.fn().mockResolvedValue({ ok: true });
+
+		const summary = await processCropReminders({
+			today: "2026-10-18",
+			emailConfigured: true,
+			sendEmail,
+		});
+
+		expect(summary).toMatchObject({ emailsSkipped: 1, emailsSent: 0 });
+		expect(sendEmail).not.toHaveBeenCalled();
 	});
 });
 

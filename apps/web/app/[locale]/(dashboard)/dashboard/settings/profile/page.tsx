@@ -8,6 +8,7 @@ import {
 import { NotificationPrefsForm } from "@/components/notification-prefs-form";
 import { AvatarUpload } from "@/components/profile/avatar-upload";
 import { Link } from "@/i18n/routing";
+import { hasPermission } from "@/lib/auth/permissions";
 import { canWrite, getCurrentUser } from "@/lib/auth/session";
 import { getSignedAvatarUrls } from "@/lib/avatars";
 import { DPO_EMAIL, LEGAL_APP_RELEASE, LEGAL_PUBLISHED, LEGAL_VERSION } from "@/lib/legal/config";
@@ -37,6 +38,9 @@ export default async function ProfileSettingsPage() {
 	// receive mail; the contact email an administrator recorded is the real one.
 	const contactEmail = currentUser?.contactEmail ?? "";
 	const writeAccess = await canWrite();
+	// Pond notification preferences are shared by every member (#748); only the
+	// roles that manage farms and ponds may change them.
+	const canManagePondAlerts = await hasPermission("manage_farms_ponds");
 
 	const avatarUrls = currentUser
 		? await getSignedAvatarUrls([{ id: currentUser.id, avatarPath: currentUser.avatarPath }])
@@ -188,7 +192,7 @@ export default async function ProfileSettingsPage() {
 				<NotificationPrefsForm
 					pondId={pond.id}
 					initialPrefs={notificationPrefs}
-					canWrite={writeAccess}
+					canWrite={canManagePondAlerts}
 				/>
 			) : null}
 		</div>

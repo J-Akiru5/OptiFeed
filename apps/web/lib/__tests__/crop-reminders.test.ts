@@ -14,6 +14,8 @@ vi.mock("@/lib/prisma", () => {
 			pond: { findMany: vi.fn() },
 			biomassLog: { groupBy: vi.fn() },
 			user: { findMany: vi.fn() },
+			membership: { findMany: vi.fn() },
+			organization: { findMany: vi.fn() },
 			reminderLog: {
 				create: reminderCreate,
 				findMany: vi.fn(),
@@ -78,6 +80,8 @@ const mockCycle = vi.mocked(prisma.cropCycle);
 const mockPond = vi.mocked(prisma.pond);
 const mockBiomass = vi.mocked(prisma.biomassLog);
 const mockUser = vi.mocked(prisma.user);
+const mockMembership = vi.mocked(prisma.membership);
+const mockOrganization = vi.mocked(prisma.organization);
 const mockReminderLog = vi.mocked(prisma.reminderLog);
 const mockNotification = vi.mocked(prisma.notification);
 const mockPondEvent = vi.mocked(prisma.pondEvent);
@@ -94,7 +98,11 @@ beforeEach(() => {
 	mockCycle.findMany.mockResolvedValue([CYCLE] as never);
 	mockPond.findMany.mockResolvedValue([POND] as never);
 	mockBiomass.groupBy.mockResolvedValue([] as never);
-	mockUser.findMany.mockResolvedValue([{ farmId: "owner-1", email: "owner@example.com" }] as never);
+	mockUser.findMany.mockResolvedValue([
+		{ id: "user-owner-1", farmId: "owner-1", contactEmail: "owner@example.com" },
+	] as never);
+	mockMembership.findMany.mockResolvedValue([] as never);
+	mockOrganization.findMany.mockResolvedValue([] as never);
 	mockReminderLog.findMany.mockResolvedValue([] as never);
 	mockReminderLog.update.mockResolvedValue({} as never);
 	mockPondEvent.findMany.mockResolvedValue([] as never);
@@ -423,12 +431,12 @@ describe("email configuration and recipients", () => {
 		).toEqual(["Owner@Example.com", "admin@example.com"]);
 	});
 
-	it("groups and deduplicates recipients by pond owner", () => {
+	it("groups and deduplicates contact addresses by pond owner", () => {
 		const grouped = collectRecipientsByOwner([
-			{ farmId: "owner-1", email: "owner@example.com" },
-			{ farmId: "owner-1", email: "OWNER@example.com" },
-			{ farmId: "owner-1", email: "admin@example.com" },
-			{ farmId: "owner-2", email: "other@example.com" },
+			{ farmId: "owner-1", contactEmail: "owner@example.com" },
+			{ farmId: "owner-1", contactEmail: "OWNER@example.com" },
+			{ farmId: "owner-1", contactEmail: "admin@example.com" },
+			{ farmId: "owner-2", contactEmail: "other@example.com" },
 		]);
 		expect(grouped.get("owner-1")).toEqual(["owner@example.com", "admin@example.com"]);
 		expect(grouped.get("owner-2")).toEqual(["other@example.com"]);

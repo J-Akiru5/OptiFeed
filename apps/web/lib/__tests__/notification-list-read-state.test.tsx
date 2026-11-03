@@ -35,7 +35,14 @@ vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 vi.mock("@/lib/supabase/client", () => ({
 	createClient: () => ({
-		channel: () => ({ on: () => ({ subscribe: () => undefined }) }),
+		channel: () => ({
+			on() {
+				return this;
+			},
+			subscribe() {
+				return this;
+			},
+		}),
 		removeChannel: () => undefined,
 	}),
 }));
@@ -206,5 +213,49 @@ describe("NotificationList read state", () => {
 		await waitFor(() => expect(mockAcknowledge).toHaveBeenCalledWith("n1"));
 		// n1 was read already, so the badge stays at 1 (n2 is still unread).
 		expect(screen.getByTestId("badge")).toHaveTextContent("1");
+	});
+
+	it("labels harvest, sampling, event and security categories", () => {
+		render(
+			<NotificationProvider pondId="pond-1" initialUnreadCount={0}>
+				<NotificationList
+					initialNotifications={[
+						{ ...NOTIFICATIONS[0], id: "h", category: "harvest", message: "Harvest soon" },
+						{ ...NOTIFICATIONS[0], id: "s", category: "sampling", message: "Sampling due" },
+						{ ...NOTIFICATIONS[0], id: "e", category: "event", message: "Event today" },
+						{ ...NOTIFICATIONS[0], id: "x", category: "security", message: "New sign-in" },
+					]}
+					pondId="pond-1"
+				/>
+			</NotificationProvider>,
+		);
+
+		expect(screen.getAllByText("Harvest")).toHaveLength(2);
+		expect(screen.getAllByText("Sampling")).toHaveLength(2);
+		expect(screen.getAllByText("Events")).toHaveLength(2);
+		expect(screen.getAllByText("Security")).toHaveLength(2);
+		expect(screen.queryByText("harvest")).toBeNull();
+		expect(screen.queryByText("security")).toBeNull();
+	});
+
+	it("renders the stored deep link once and leaves unsafe links out", () => {
+		render(
+			<NotificationProvider pondId="pond-1" initialUnreadCount={0}>
+				<NotificationList
+					initialNotifications={[
+						{ ...NOTIFICATIONS[0], linkTo: "/en/dashboard/calendar" },
+						{ ...NOTIFICATIONS[1], linkTo: "https://evil.example/dashboard" },
+					]}
+					pondId="pond-1"
+				/>
+			</NotificationProvider>,
+		);
+
+		const openLinks = screen.getAllByRole("link", { name: "Open" });
+		expect(openLinks).toHaveLength(2); // table + card view
+		for (const link of openLinks) {
+			expect(link).toHaveAttribute("href", "/dashboard/calendar");
+		}
+		expect(screen.getAllByText("Hopper level is low")).toHaveLength(2);
 	});
 });

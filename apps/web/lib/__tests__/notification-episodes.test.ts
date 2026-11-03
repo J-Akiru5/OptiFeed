@@ -139,6 +139,8 @@ describe("notification episodes (#534)", () => {
 				message: CRITICAL_MESSAGE,
 				linkTo: null,
 				read: false,
+				acknowledgedAt: null,
+				acknowledgedBy: null,
 			},
 		});
 		expect(store.notification.create).not.toHaveBeenCalled();
@@ -197,6 +199,8 @@ describe("notification episodes (#534)", () => {
 				message: CRITICAL_MESSAGE,
 				linkTo: "/dashboard/settings",
 				read: false,
+				acknowledgedAt: null,
+				acknowledgedBy: null,
 			},
 		});
 	});
@@ -268,6 +272,34 @@ describe("notification episode concurrency and transaction scope (#585)", () => 
 		const rows = openNotifications(db);
 		expect(rows).toHaveLength(1);
 		expect(rows[0]).toMatchObject({ tier: "CRITICAL", message: CRITICAL_MESSAGE });
+	});
+
+	it("re-opens an acknowledged episode when it escalates", async () => {
+		const db = createTenancyDb();
+
+		const first = await openEpisode(db.client as never, INPUT);
+		const row = db.tables.notifications.find((candidate) => candidate.id === first.id);
+		expect(row).toBeDefined();
+		if (!row) return;
+		row.read = true;
+		row.acknowledgedAt = new Date("2026-10-18T08:00:00.000Z");
+		row.acknowledgedBy = "user-1";
+
+		const second = await openEpisode(db.client as never, {
+			...INPUT,
+			tier: "CRITICAL",
+			message: CRITICAL_MESSAGE,
+		});
+
+		expect(second).toEqual({ created: false, updated: true, id: first.id });
+		const updated = db.tables.notifications.find((candidate) => candidate.id === first.id);
+		expect(updated).toMatchObject({
+			tier: "CRITICAL",
+			message: CRITICAL_MESSAGE,
+			read: false,
+			acknowledgedAt: null,
+			acknowledgedBy: null,
+		});
 	});
 
 	it("does its reads and writes through the transaction client the caller supplies", async () => {

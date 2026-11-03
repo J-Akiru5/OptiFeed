@@ -29,6 +29,8 @@ export type ReportIssueLabels = {
 	optional: string;
 	submit: string;
 	sending: string;
+	cancel: string;
+	retry: string;
 	success: string;
 	error: string;
 	rateLimited: string;
@@ -46,6 +48,9 @@ const CATEGORY_OPTIONS = [
 ] as const;
 
 type SubmitStatus = "idle" | "sending" | "success" | "error" | "rateLimited";
+
+/** A hung request must not trap the visitor in the dialog (#759). */
+export const REPORT_REQUEST_TIMEOUT_MS = 15_000;
 
 const focusRingOnDark =
 	"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF8A5C] focus-visible:ring-offset-2 focus-visible:ring-offset-[#061B2B]";
@@ -71,19 +76,27 @@ export function ReportIssueDialog({ labels }: ReportIssueDialogProps) {
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const firstFieldRef = useRef<HTMLSelectElement>(null);
 	const successRef = useRef<HTMLOutputElement>(null);
+	const requestRef = useRef<AbortController | null>(null);
 
-	// Escape closes, except mid-submit: the request is already in flight and the
-	// user must see its outcome.
+	function cancelInFlight() {
+		requestRef.current?.abort();
+		requestRef.current = null;
+	}
+
+	// Escape always closes: a request that is still in flight is aborted and
+	// the typed values stay in state for the next open.
 	useEffect(() => {
 		if (!open) return;
 		const onKeyDown = (event: KeyboardEvent) => {
-			if (event.key !== "Escape" || status === "sending") return;
+			if (event.key !== "Escape") return;
 			event.preventDefault();
+			requestRef.current?.abort();
+			requestRef.current = null;
 			setOpen(false);
 		};
 		window.addEventListener("keydown", onKeyDown);
 		return () => window.removeEventListener("keydown", onKeyDown);
-	}, [open, status]);
+	}, [open]);
 
 	// Lock background scrolling, move focus into the dialog, and hand focus back
 	// to whatever opened it when the dialog closes or unmounts.
@@ -112,8 +125,14 @@ export function ReportIssueDialog({ labels }: ReportIssueDialogProps) {
 	}
 
 	function closeDialog() {
-		if (status === "sending") return;
+		cancelInFlight();
 		setOpen(false);
+	}
+
+	function cancelSending() {
+		cancelInFlight();
+		setStatus("idle");
+		firstFieldRef.current?.focus();
 	}
 
 	function handleBackdropPointerDown(event: React.PointerEvent<HTMLDivElement>) {
@@ -146,10 +165,19 @@ export function ReportIssueDialog({ labels }: ReportIssueDialogProps) {
 		if (status === "sending") return;
 		setStatus("sending");
 
+		const controller = new AbortController();
+		requestRef.current = controller;
+		let timedOut = false;
+		const timeout = setTimeout(() => {
+			timedOut = true;
+			controller.abort();
+		}, REPORT_REQUEST_TIMEOUT_MS);
+
 		try {
 			const response = await fetch("/api/reports", {
 				method: "POST",
 				headers: { "content-type": "application/json" },
+				signal: controller.signal,
 				body: JSON.stringify({
 					category,
 					message,
@@ -159,6 +187,8 @@ export function ReportIssueDialog({ labels }: ReportIssueDialogProps) {
 					website,
 				}),
 			});
+
+			if (controller.signal.aborted) return;
 
 			if (response.status === 201) {
 				setStatus("success");
@@ -171,9 +201,14 @@ export function ReportIssueDialog({ labels }: ReportIssueDialogProps) {
 
 			setStatus(response.status === 429 ? "rateLimited" : "error");
 		} catch {
-			// A network failure (offline, DNS, aborted request) gets the same
-			// generic message as a server error; no detail is shown or logged.
+			// A user cancel or a close already aborted the request; the dialog is
+			// gone or back in edit mode, so there is no outcome to announce. A
+			// timeout is different: keep the typed report and offer a retry.
+			if (controller.signal.aborted && !timedOut) return;
 			setStatus("error");
+		} finally {
+			clearTimeout(timeout);
+			if (requestRef.current === controller) requestRef.current = null;
 		}
 	}
 
@@ -212,10 +247,9 @@ export function ReportIssueDialog({ labels }: ReportIssueDialogProps) {
 						<button
 							type="button"
 							onClick={closeDialog}
-							disabled={status === "sending"}
 							aria-label={labels.close}
 							className={cn(
-								"absolute top-3 right-3 rounded-md p-1.5 text-white/55 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40",
+								"absolute top-3 right-3 rounded-md p-1.5 text-white/55 transition-colors hover:bg-white/10 hover:text-white",
 								focusRingOnDark,
 							)}
 						>
@@ -349,16 +383,34 @@ export function ReportIssueDialog({ labels }: ReportIssueDialogProps) {
 									</p>
 								) : null}
 
-								<button
-									type="submit"
-									disabled={status === "sending"}
-									className={cn(
-										"mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-[#E85A2A] px-4 text-[14px] font-semibold text-white shadow-[0_10px_30px_-12px_rgba(232,90,42,0.7)] transition-colors hover:bg-[#D24E22] disabled:cursor-not-allowed disabled:opacity-60",
-										focusRingOnDark,
+								<div className="mt-5 flex gap-2">
+									{status === "sending" && (
+										<button
+											type="button"
+											onClick={cancelSending}
+											className={cn(
+												"inline-flex h-11 items-center justify-center rounded-lg border border-white/20 bg-white/[0.04] px-4 text-[14px] font-medium text-white transition-colors hover:border-white/30 hover:bg-white/10",
+												focusRingOnDark,
+											)}
+										>
+											{labels.cancel}
+										</button>
 									)}
-								>
-									{status === "sending" ? labels.sending : labels.submit}
-								</button>
+									<button
+										type="submit"
+										disabled={status === "sending"}
+										className={cn(
+											"inline-flex h-11 flex-1 items-center justify-center rounded-lg bg-[#E85A2A] px-4 text-[14px] font-semibold text-white shadow-[0_10px_30px_-12px_rgba(232,90,42,0.7)] transition-colors hover:bg-[#D24E22] disabled:cursor-not-allowed disabled:opacity-60",
+											focusRingOnDark,
+										)}
+									>
+										{status === "sending"
+											? labels.sending
+											: status === "error" || status === "rateLimited"
+												? labels.retry
+												: labels.submit}
+									</button>
+								</div>
 							</form>
 						)}
 					</div>

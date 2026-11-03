@@ -117,6 +117,11 @@ async function reconcileOpenEpisode(
 			message: input.message,
 			linkTo: input.linkTo ?? null,
 			read: false,
+			// An escalation or a reworded condition is a new alert: clear the
+			// acknowledgement so the reader sees it again instead of the row
+			// staying "handled" while the message got more urgent (#747).
+			acknowledgedAt: null,
+			acknowledgedBy: null,
 		},
 	});
 	return { created: false, updated: true, id: open.id };

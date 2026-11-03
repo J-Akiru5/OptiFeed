@@ -75,6 +75,7 @@ export default async function NotificationsPage({
 		tier: n.tier,
 		message: n.message,
 		category: n.category,
+		linkTo: n.linkTo,
 		read: n.read,
 		autoCleared: n.autoCleared,
 		acknowledgedAt: n.acknowledgedAt?.toISOString() ?? null,
@@ -92,9 +93,19 @@ export default async function NotificationsPage({
 	const categories = [
 		{ key: "all", labelKey: "categoryAll" },
 		{ key: "connectivity", labelKey: "categoryConnectivity" },
+		{ key: "device_offline", labelKey: "categoryDeviceOffline" },
 		{ key: "feeding", labelKey: "categoryFeeding" },
+		{ key: "missed_feeding", labelKey: "categoryMissedFeeding" },
+		{ key: "hopper_low", labelKey: "categoryHopperLow" },
+		{ key: "hopper", labelKey: "categoryHopper" },
+		{ key: "pellet", labelKey: "categoryPellet" },
+		{ key: "pge", labelKey: "categoryPge" },
 		{ key: "schedule", labelKey: "categorySchedule" },
 		{ key: "system", labelKey: "categorySystem" },
+		{ key: "harvest", labelKey: "categoryHarvest" },
+		{ key: "sampling", labelKey: "categorySampling" },
+		{ key: "event", labelKey: "categoryEvent" },
+		{ key: "security", labelKey: "categorySecurity" },
 	];
 
 	const tierHref = (key: string) =>

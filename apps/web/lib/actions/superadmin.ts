@@ -2,6 +2,7 @@
 
 import { randomBytes } from "node:crypto";
 import { passwordErrorMessage, validatePassword } from "@/lib/auth/password";
+import { issuePasswordResetProof } from "@/lib/auth/password-reset-proof";
 import { isPlatformAdminActive } from "@/lib/auth/platform-admin";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
@@ -14,17 +15,14 @@ import {
 	normalizeContactEmail,
 } from "@/lib/contact-email";
 import { feedingRatePctSchema, formatZodError } from "@/lib/limits";
-import {
-	deliverPasswordResetEmail,
-	isResetEmailConfigured,
-	resetBaseUrl,
-} from "@/lib/notify/reset-email";
+import { deliverPasswordResetEmail, isResetEmailConfigured } from "@/lib/notify/reset-email";
 import { resolvePagination } from "@/lib/pagination";
 import prisma from "@/lib/prisma";
 import { ORG_SETTINGS_DEFAULTS, getOrgSettings } from "@/lib/settings/org";
 import { getListPageSize } from "@/lib/settings/platform";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { MemberRole, Prisma, UserRole } from "@prisma/client";
+import { resolveAppBaseUrl } from "./password-reset";
 import { requestOrigin } from "./platform/audit";
 
 /**
@@ -996,15 +994,26 @@ export async function sendPlatformUserResetLink(
 		};
 	}
 
+	const appBaseUrl = await resolveAppBaseUrl();
+	if (!appBaseUrl) {
+		return {
+			error:
+				"Password-reset links are not configured for this deployment. Set NEXT_PUBLIC_BASE_URL or NEXT_PUBLIC_SITE_URL.",
+			code: "email_not_configured",
+		};
+	}
+
 	const actor = await actorId();
 	const supabase = createAdminClient();
-	// The target's locale is not known here; the default locale renders the same
-	// reset page the self-service link uses.
-	const redirectTo = `${resetBaseUrl(process.env)}/en/reset-password`;
 	const recipient = user.contactEmail;
 
 	try {
 		await withStepUp(async (stepUpAt) => {
+			// The target's locale is not known here; the default locale renders the
+			// same reset page the self-service link uses. The proof is minted only
+			// after step-up succeeds so an unverified attempt leaves no usable row.
+			const proof = await issuePasswordResetProof(user.id);
+			const redirectTo = `${appBaseUrl}/en/reset-password?reset=${encodeURIComponent(proof.token)}`;
 			const { data, error } = await supabase.auth.admin.generateLink({
 				type: "recovery",
 				email: user.email,

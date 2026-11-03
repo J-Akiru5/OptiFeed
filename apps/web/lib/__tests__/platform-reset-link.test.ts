@@ -17,7 +17,15 @@ const auth = vi.hoisted(() => ({
 const resetEmail = vi.hoisted(() => ({
 	deliverPasswordResetEmail: vi.fn(),
 	isResetEmailConfigured: vi.fn(() => true),
-	resetBaseUrl: vi.fn(() => "https://pakaonai.syntaxure.dev"),
+}));
+const resetAction = vi.hoisted(() => ({
+	resolveAppBaseUrl: vi.fn(async () => "https://pakaonai.syntaxure.dev"),
+}));
+const resetProof = vi.hoisted(() => ({
+	issuePasswordResetProof: vi.fn(async () => ({
+		token: "proof-token",
+		expiresAt: new Date("2026-11-02T12:15:00.000Z"),
+	})),
 }));
 const STEP_UP_AT = vi.hoisted(() => new Date("2026-11-02T12:00:00.000Z"));
 
@@ -48,6 +56,8 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 vi.mock("@/lib/notify/reset-email", () => resetEmail);
+vi.mock("@/lib/actions/password-reset", () => resetAction);
+vi.mock("@/lib/auth/password-reset-proof", () => resetProof);
 
 vi.mock("@/i18n/routing", () => ({
 	redirect: vi.fn(() => {
@@ -100,7 +110,11 @@ beforeEach(() => {
 	});
 	resetEmail.deliverPasswordResetEmail.mockReset().mockResolvedValue(true);
 	resetEmail.isResetEmailConfigured.mockReset().mockReturnValue(true);
-	resetEmail.resetBaseUrl.mockReset().mockReturnValue("https://pakaonai.syntaxure.dev");
+	resetAction.resolveAppBaseUrl.mockReset().mockResolvedValue("https://pakaonai.syntaxure.dev");
+	resetProof.issuePasswordResetProof.mockReset().mockResolvedValue({
+		token: "proof-token",
+		expiresAt: new Date("2026-11-02T12:15:00.000Z"),
+	});
 	mockWithStepUp.mockImplementation(async (action: (stepUpAt: Date) => Promise<unknown>) =>
 		action(STEP_UP_AT),
 	);
@@ -135,6 +149,29 @@ describe("sendPlatformUserResetLink", () => {
 		expect(auth.generateLink).not.toHaveBeenCalled();
 	});
 
+	it("refuses when no reset base URL is configured on this deployment", async () => {
+		resetAction.resolveAppBaseUrl.mockResolvedValue(null);
+
+		await expect(sendPlatformUserResetLink(FARMER_A_ID, REASON)).resolves.toMatchObject({
+			code: "email_not_configured",
+		});
+		expect(resetProof.issuePasswordResetProof).not.toHaveBeenCalled();
+		expect(auth.generateLink).not.toHaveBeenCalled();
+	});
+
+	it("mints a single-use proof and carries it in the recovery redirect", async () => {
+		await sendPlatformUserResetLink(FARMER_A_ID, REASON);
+
+		expect(resetProof.issuePasswordResetProof).toHaveBeenCalledWith(FARMER_A_ID);
+		expect(auth.generateLink).toHaveBeenCalledWith(
+			expect.objectContaining({
+				options: {
+					redirectTo: "https://pakaonai.syntaxure.dev/en/reset-password?reset=proof-token",
+				},
+			}),
+		);
+	});
+
 	it("mints the link for the login address and mails the contact address", async () => {
 		const result = await sendPlatformUserResetLink(FARMER_A_ID, `  ${REASON}  `);
 
@@ -143,7 +180,9 @@ describe("sendPlatformUserResetLink", () => {
 		expect(auth.generateLink).toHaveBeenCalledWith({
 			type: "recovery",
 			email: userById(tenancy(), FARMER_A_ID).email,
-			options: { redirectTo: "https://pakaonai.syntaxure.dev/en/reset-password" },
+			options: {
+				redirectTo: "https://pakaonai.syntaxure.dev/en/reset-password?reset=proof-token",
+			},
 		});
 		expect(resetEmail.deliverPasswordResetEmail).toHaveBeenCalledWith({
 			to: "farmer@example.test",

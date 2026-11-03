@@ -3,6 +3,7 @@
 import { useRouter } from "@/i18n/routing";
 import { useModalDialog } from "@/lib/a11y/use-modal-dialog";
 import { deleteBiomassLog, updateBiomassLog } from "@/lib/actions/biomass";
+import { farmDateOnly } from "@/lib/date-local";
 import { Loader2, Pencil, Trash2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState, useTransition } from "react";
@@ -28,7 +29,9 @@ export function BiomassLogActions({ log, canWrite }: BiomassLogActionsProps) {
 	const [weight, setWeight] = useState(String(log.sampleWeightKg));
 	const [length, setLength] = useState(String(log.sampleLengthCm));
 	const [label, setLabel] = useState(log.batchLabel ?? "");
-	const [recordedAt, setRecordedAt] = useState(log.recordedAt.slice(0, 10));
+	// #753: the date input must show the farm date, not the UTC slice of the
+	// stored ISO string (00:00-07:59 PHT would pre-fill the previous day).
+	const [recordedAt, setRecordedAt] = useState(farmDateOnly(new Date(log.recordedAt)));
 	const [error, setError] = useState<string | null>(null);
 	const [isPending, startTransition] = useTransition();
 	const titleId = useId();

@@ -5,7 +5,7 @@ import { ItemCardGrid } from "@/components/ui/item-card";
 import { ViewToggle, useListViewPreference } from "@/components/ui/view-toggle";
 import { Link, useRouter } from "@/i18n/routing";
 import { acknowledgeNotification, markAllNotificationsRead } from "@/lib/actions/notifications";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { safeNotificationLink } from "@/lib/notifications/links";
 import { showsPakoy } from "@/lib/pakoy-alerts";
 import {
@@ -127,7 +127,7 @@ export function NotificationList({ initialNotifications, canWrite = true }: Noti
 		notification.acknowledgedAt !== null || handledIds[notification.id] === true;
 
 	const formatDate = (dateStr: string) => {
-		const loc = formatDateTimeLocal(new Date(dateStr), tDates);
+		const loc = formatFarmDateTime(new Date(dateStr), tDates);
 		return `${loc.date}, ${loc.time}`;
 	};
 

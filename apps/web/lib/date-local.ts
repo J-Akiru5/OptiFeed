@@ -95,3 +95,36 @@ export function formatWallClockTime(
 	const anchor = new Date(2000, 0, 1, hour, minute, 0, 0);
 	return formatDateTimeLocal(anchor, tDates).time;
 }
+
+/**
+ * The Asia/Manila calendar date (`YYYY-MM-DD`) of a stored instant.
+ *
+ * Date inputs and reminder text must show the farm's date, not the UTC date:
+ * a 00:30 PHT sample is stored on the previous UTC day and used to pre-fill
+ * yesterday (#753).
+ */
+export function farmDateOnly(date: Date): string {
+	const clock = farmWallClock(date);
+	if (
+		!Number.isFinite(clock.year) ||
+		!Number.isFinite(clock.month) ||
+		!Number.isFinite(clock.day)
+	) {
+		return date.toISOString().slice(0, 10);
+	}
+	const month = String(clock.month).padStart(2, "0");
+	const day = String(clock.day).padStart(2, "0");
+	return `${clock.year}-${month}-${day}`;
+}
+
+/**
+ * Start and end of the Asia/Manila calendar day containing `nowMs`, as UTC
+ * instants. The Philippines has a fixed UTC+8 offset (no DST), so a whole-day
+ * shift is exact. Used by every farm-day filter; do not re-derive it (#753).
+ */
+export function manilaDayRange(nowMs = Date.now()): { start: Date; end: Date } {
+	const HOUR_MS = 60 * 60 * 1000;
+	const DAY_MS = 24 * HOUR_MS;
+	const startOfLocalDay = Math.floor((nowMs + 8 * HOUR_MS) / DAY_MS) * DAY_MS - 8 * HOUR_MS;
+	return { start: new Date(startOfLocalDay), end: new Date(startOfLocalDay + DAY_MS) };
+}

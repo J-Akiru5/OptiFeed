@@ -80,3 +80,33 @@ describe("FcrCalculator growth target", () => {
 		expect(saveTarget).not.toHaveBeenCalled();
 	});
 });
+
+describe("weight unit (#683)", () => {
+	it("converts the entered values when the unit changes and still sends kilograms", async () => {
+		render(<FcrCalculator latestFcr={1.5} pondId="pond-a" population={1000} />);
+
+		fireEvent.change(screen.getByLabelText("Weight unit"), { target: { value: "g" } });
+		fireEvent.change(screen.getByLabelText("Current average weight (g)"), { target: { value: "150" } });
+		fireEvent.change(screen.getByLabelText("Target Weight (g)"), { target: { value: "400" } });
+		fireEvent.change(screen.getByLabelText("Days to Target"), { target: { value: "60" } });
+		fireEvent.click(screen.getByRole("button", { name: "Calculate Feed Requirement" }));
+
+		await waitFor(() => expect(calculate).toHaveBeenCalled());
+		expect(calculate).toHaveBeenCalledWith(
+			expect.objectContaining({ currentWeightKg: 0.15, targetWeightKg: 0.4 }),
+		);
+	});
+
+	it("round-trips 1.5 kg to 1500 g and back without drift", () => {
+		render(<FcrCalculator latestFcr={1.5} pondId="pond-a" population={1000} />);
+
+		const current = screen.getByLabelText("Current average weight (kg)") as HTMLInputElement;
+		fireEvent.change(current, { target: { value: "1.5" } });
+
+		fireEvent.change(screen.getByLabelText("Weight unit"), { target: { value: "g" } });
+		expect((screen.getByLabelText("Current average weight (g)") as HTMLInputElement).value).toBe("1500");
+
+		fireEvent.change(screen.getByLabelText("Weight unit"), { target: { value: "kg" } });
+		expect((screen.getByLabelText("Current average weight (kg)") as HTMLInputElement).value).toBe("1.5");
+	});
+});

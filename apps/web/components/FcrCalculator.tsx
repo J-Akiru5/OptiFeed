@@ -34,6 +34,8 @@ interface FcrCalculatorProps {
 	canSetTarget?: boolean;
 }
 
+type WeightUnit = "kg" | "g";
+
 export function FcrCalculator({
 	latestFcr,
 	pondId,
@@ -46,6 +48,9 @@ export function FcrCalculator({
 	const router = useRouter();
 	const [currentWeight, setCurrentWeight] = useState("");
 	const [targetWeight, setTargetWeight] = useState("");
+	// Weights are entered in whichever unit the operator picked (#683); the
+	// server contract stays kilograms, so every value is converted at this edge.
+	const [unit, setUnit] = useState<WeightUnit>("kg");
 	const [fishCount, setFishCount] = useState(population ? String(population) : "");
 	const [days, setDays] = useState("");
 	const [result, setResult] = useState<FcrResult | null>(null);
@@ -54,14 +59,43 @@ export function FcrCalculator({
 	const [loading, setLoading] = useState(false);
 	const [isSavingTarget, startSaveTarget] = useTransition();
 
+	// (#683) The operator may weigh fish in grams or kilograms. Everything the
+	// server sees is kilograms, so conversion happens here and nowhere else.
+	const toKg = (value: string): number => {
+		const parsed = Number.parseFloat(value);
+		if (!Number.isFinite(parsed)) return Number.NaN;
+		return unit === "g" ? parsed / 1000 : parsed;
+	};
+	const toDisplay = (kg: number): number => (unit === "g" ? kg * 1000 : kg);
+	const unitLabel = unit === "g" ? t("g") : t("kg");
+	const formatWeight = (kg: number): string => {
+		const value = toDisplay(kg);
+		return unit === "g"
+			? Math.round(value).toString()
+			: (Math.round(value * 100) / 100).toString();
+	};
+	const handleUnitChange = (next: WeightUnit) => {
+		if (next === unit) return;
+		const convert = (value: string): string => {
+			const parsed = Number.parseFloat(value);
+			if (!Number.isFinite(parsed)) return value;
+			const kg = unit === "g" ? parsed / 1000 : parsed;
+			const converted = next === "g" ? kg * 1000 : kg;
+			return String(Math.round(converted * 10000) / 10000);
+		};
+		setCurrentWeight(convert(currentWeight));
+		setTargetWeight(convert(targetWeight));
+		setUnit(next);
+	};
+
 	// Right padding leaves room for the unit suffix; hiding the native number
 	// spinners keeps them from being painted underneath that suffix.
 	const numberInputClass =
 		"w-full rounded-xl border border-gray-200 bg-[#F4F7F6] py-3 pl-4 pr-12 text-sm font-semibold text-[#0A3D62] placeholder:text-gray-400 transition-all focus:border-[#E85A2A] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/50 [appearance:textfield] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
 
 	const handleCalculate = async () => {
-		const current = Number.parseFloat(currentWeight);
-		const target = Number.parseFloat(targetWeight);
+		const current = toKg(currentWeight);
+		const target = toKg(targetWeight);
 		const count = Number.parseInt(fishCount, 10);
 		const daysNum = Number.parseInt(days, 10);
 
@@ -142,13 +176,31 @@ export function FcrCalculator({
 				</div>
 			</div>
 
+			<div className="mb-4 flex flex-wrap items-center gap-3">
+				<label
+					htmlFor="weightUnit"
+					className="text-xs font-bold text-[#3D5568] uppercase tracking-wider dark:text-gray-400"
+				>
+					{t("unitLabel")}
+				</label>
+				<select
+					id="weightUnit"
+					value={unit}
+					onChange={(event) => handleUnitChange(event.target.value as WeightUnit)}
+					className="rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-2 text-sm font-bold text-[#0A3D62] focus:border-[#E85A2A] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+				>
+					<option value="kg">{t("kg")}</option>
+					<option value="g">{t("g")}</option>
+				</select>
+			</div>
+
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
 				<div>
 					<label
 						htmlFor="currentWeight"
 						className="block text-xs font-bold text-[#3D5568] dark:text-gray-400 uppercase tracking-wider mb-1.5"
 					>
-						{t("currentWeight")}
+						{t("currentWeight")} ({unitLabel})
 					</label>
 					<div className="relative">
 						<input
@@ -156,11 +208,11 @@ export function FcrCalculator({
 							type="number"
 							value={currentWeight}
 							onChange={(e) => setCurrentWeight(e.target.value)}
-							placeholder="0.00"
+							placeholder={unit === "g" ? "0" : "0.00"}
 							className={numberInputClass}
 						/>
 						<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 select-none text-xs font-bold text-[#3D5568] dark:text-gray-400">
-							{t("kg")}
+							{unitLabel}
 						</span>
 					</div>
 				</div>
@@ -170,7 +222,7 @@ export function FcrCalculator({
 						htmlFor="target"
 						className="block text-xs font-bold text-[#3D5568] dark:text-gray-400 uppercase tracking-wider mb-1.5"
 					>
-						{t("targetWeight")}
+						{t("targetWeight")} ({unitLabel})
 					</label>
 					<div className="relative">
 						<input
@@ -178,11 +230,11 @@ export function FcrCalculator({
 							type="number"
 							value={targetWeight}
 							onChange={(e) => setTargetWeight(e.target.value)}
-							placeholder="0.00"
+							placeholder={unit === "g" ? "0" : "0.00"}
 							className={numberInputClass}
 						/>
 						<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 select-none text-xs font-bold text-[#3D5568] dark:text-gray-400">
-							{t("kg")}
+							{unitLabel}
 						</span>
 					</div>
 				</div>
@@ -256,7 +308,7 @@ export function FcrCalculator({
 									{t("totalFeed")}
 								</p>
 								<p className="text-lg font-black text-[#0A3D62] dark:text-gray-100">
-									{result.totalFeedNeededKg} {t("kg")}
+									{formatWeight(result.totalFeedNeededKg)} {unitLabel}
 								</p>
 							</div>
 						</div>
@@ -269,7 +321,7 @@ export function FcrCalculator({
 									{t("dailyRation")}
 								</p>
 								<p className="text-lg font-black text-[#0A3D62] dark:text-gray-100">
-									{result.dailyFeedRationKg} {t("kg")}
+									{formatWeight(result.dailyFeedRationKg)} {unitLabel}
 								</p>
 							</div>
 						</div>
@@ -282,7 +334,7 @@ export function FcrCalculator({
 									{t("biomassGain")}
 								</p>
 								<p className="text-lg font-black text-[#0A3D62] dark:text-gray-100">
-									{result.totalBiomassGainKg} {t("kg")}
+									{formatWeight(result.totalBiomassGainKg)} {unitLabel}
 								</p>
 							</div>
 						</div>

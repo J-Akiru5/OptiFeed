@@ -72,4 +72,19 @@ describe("StuckRequestBanner", () => {
 		const link = screen.getByRole("link", { name: "Check Device" });
 		expect(link.getAttribute("href")).toBe("/dashboard/settings/hardware");
 	});
+
+	it("disables retry actions when their permission is revoked", () => {
+		render(
+			<StuckRequestBanner
+				{...baseProps}
+				stuckFeedRequests={[{ id: "feed-1", grams: 100, createdAt: "2026-10-27T10:00:00.000Z" }]}
+				stuckScheduleCommands={[{ id: "cmd-1", createdAt: "2026-10-27T10:00:00.000Z" }]}
+				canControlFeeder={false}
+				canManageSchedule={false}
+			/>,
+		);
+
+		expect(screen.getByRole("button", { name: "Retry Feed Now" })).toBeDisabled();
+		expect(screen.getByRole("button", { name: "Force Resync" })).toBeDisabled();
+	});
 });

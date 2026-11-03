@@ -65,15 +65,30 @@ describe("EnergyControllerCard Feed Now input", () => {
 		);
 	});
 
-	it("sends a dose above 1,000 g when the daily ceiling allows it", async () => {
+	it("asks for confirmation before sending a dose above 1,000 g", async () => {
 		actionMocks.requestFeed.mockResolvedValue({ success: true });
 
 		render(<EnergyControllerCard {...baseProps} feedNowLimit={limit} />);
 		fireEvent.click(screen.getByRole("button", { name: /Feed Now/ }));
 
+		// #749: the card must not fire on the first click.
+		expect(actionMocks.requestFeed).not.toHaveBeenCalled();
+		expect(screen.getByTestId("energy-feed-confirm")).toBeInTheDocument();
+
+		fireEvent.click(screen.getByRole("button", { name: "Yes, Dispense Now" }));
+
 		await waitFor(() => {
 			expect(actionMocks.requestFeed).toHaveBeenCalledWith("device-1", 1300.5);
 		});
+	});
+
+	it("cancels without sending when the confirmation is dismissed", () => {
+		render(<EnergyControllerCard {...baseProps} feedNowLimit={limit} />);
+		fireEvent.click(screen.getByRole("button", { name: /Feed Now/ }));
+		fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+		expect(screen.queryByTestId("energy-feed-confirm")).not.toBeInTheDocument();
+		expect(actionMocks.requestFeed).not.toHaveBeenCalled();
 	});
 
 	it("blocks a manually typed amount above the remaining daily grams", () => {
@@ -84,5 +99,27 @@ describe("EnergyControllerCard Feed Now input", () => {
 		});
 
 		expect(screen.getByRole("button", { name: /Feed Now/ })).toBeDisabled();
+	});
+
+	it("disables Feed Now on a fallow pond and explains why", () => {
+		render(<EnergyControllerCard {...baseProps} feedNowLimit={limit} isFallow />);
+
+		expect(screen.getByRole("button", { name: /Feed Now/ })).toBeDisabled();
+		expect(
+			screen.getByText(
+				"This pond is fallow after harvest. Start the next grow-out cycle before feeding.",
+			),
+		).toBeInTheDocument();
+	});
+
+	it("disables Feed Now when control_feeder is revoked", () => {
+		render(<EnergyControllerCard {...baseProps} feedNowLimit={limit} canControlFeeder={false} />);
+
+		expect(screen.getByRole("button", { name: /Feed Now/ })).toBeDisabled();
+		expect(
+			screen.getByText(
+				"You do not have permission to feed this pond. Ask an owner or admin to grant Feed Now access.",
+			),
+		).toBeInTheDocument();
 	});
 });

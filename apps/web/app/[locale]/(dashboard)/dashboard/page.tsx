@@ -41,6 +41,7 @@ import { HealthNotice } from "@/components/feeder/health-notice";
 import { DashboardSnapshot } from "@/components/pwa/dashboard-snapshot";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
+import { hasPermission } from "@/lib/auth/permissions";
 import { canWrite, getCurrentUser } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
 import { loadCalibrationDriftWindow } from "@/lib/calibration/drift-data";
@@ -96,24 +97,44 @@ function first(value: string | string[] | undefined): string | undefined {
 export default async function DashboardHomePage({ searchParams }: DashboardHomePageProps) {
 	const params = await searchParams;
 	const waterRange = parseWaterTempRange(first(params.water));
-	const [t, tBtn, tHist, tPred, tHarvest, tDates, tCommon, writeAccess, currentUser, pond] =
-		await Promise.all([
-			getTranslations("dashboard.home"),
-			getTranslations("button"),
-			getTranslations("dashboard.history"),
-			getTranslations("dashboard.growth.prediction"),
-			getTranslations("dashboard.harvest.summary"),
-			getTranslations("dates"),
-			getTranslations("dashboard.common"),
-			canWrite(),
-			getCurrentUser(),
-			getActivePond({
-				energyDevices: {
-					orderBy: { createdAt: "asc" },
-					select: { id: true, label: true },
-				},
-			}),
-		]);
+	const [
+		t,
+		tBtn,
+		tHist,
+		tPred,
+		tHarvest,
+		tDates,
+		tCommon,
+		writeAccess,
+		canControlFeeder,
+		canManageSchedule,
+		currentUser,
+		pond,
+	] = await Promise.all([
+		getTranslations("dashboard.home"),
+		getTranslations("button"),
+		getTranslations("dashboard.history"),
+		getTranslations("dashboard.growth.prediction"),
+		getTranslations("dashboard.harvest.summary"),
+		getTranslations("dates"),
+		getTranslations("dashboard.common"),
+		canWrite(),
+		hasPermission("control_feeder"),
+		hasPermission("manage_schedule"),
+		getCurrentUser(),
+		getActivePond({
+			energyDevices: {
+				orderBy: { createdAt: "asc" },
+				select: { id: true, label: true },
+			},
+		}),
+	]);
+
+	// #750: the dashboard's server actions also check the revocable permissions,
+	// so the client controls receive the effective result rather than role-only
+	// write access.
+	const canFeed = writeAccess && canControlFeeder;
+	const canCalibrate = writeAccess && canManageSchedule;
 
 	// The legacy Device table is no longer written, so a pond counts as set up
 	// once an EnergyDevice is registered on it.
@@ -747,7 +768,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							connectionStatus={connection.state}
 							rssiDbm={hopper?.rssiDbm ?? null}
 							hopperLevelPct={hopper?.levelPercent ?? null}
-							canWrite={writeAccess}
+							canWrite={canFeed}
 							isFallow={pond.isFallow}
 							gramsPerSecond={energyDevice?.gramsPerSecond}
 							feedNowLimit={feedNowLimit}
@@ -1021,12 +1042,14 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 									lastSeenAt={energyDevice.lastSeenAt}
 									isOffline={esp32Offline}
 									canWrite={writeAccess}
+									canControlFeeder={canControlFeeder}
+									isFallow={pond.isFallow}
 									recalibrationDue={recalibration.isOverdue}
 									recalibrationDaysOverdue={recalibration.daysOverdue}
 									feedNowLimit={feedNowLimit}
 								/>
 							</ControlPanel>
-							<TimeCalibrationForm deviceId={energyDevice.id} canWrite={writeAccess} />
+							<TimeCalibrationForm deviceId={energyDevice.id} canWrite={canCalibrate} />
 						</div>
 					)}
 				</ControlRoomRail>

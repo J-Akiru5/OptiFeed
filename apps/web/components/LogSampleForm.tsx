@@ -4,12 +4,17 @@ import { mobileStickyActions } from "@/components/mobile/form-actions";
 import { useRouter } from "@/i18n/routing";
 import { type FeedCalculationResult, saveBiomassLog } from "@/lib/actions/biomass";
 import { dailyFeedG, feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
-import { enqueueBiomassSample, newClientEventId } from "@/lib/offline/outbox";
+import {
+	type BiomassOutboxPayload,
+	enqueueBiomassSample,
+	newClientEventId,
+} from "@/lib/offline/outbox";
+import { isTransportFailure } from "@/lib/offline/transport-error";
 import { useOnlineStatus } from "@/lib/pwa/use-online-status";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, CheckCircle2, Fish, Loader2, Plus, Ruler, Scale, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 interface LogSampleFormProps {
 	pondId: string;
@@ -44,6 +49,10 @@ export function LogSampleForm({
 	const online = useOnlineStatus();
 	const [isPending, startTransition] = useTransition();
 	const [queuedOffline, setQueuedOffline] = useState(false);
+	const [isQueuing, setIsQueuing] = useState(false);
+	// A ref, not state: a double-click can start two submits before React
+	// re-renders, and each one would generate its own client event id (#751).
+	const submitLock = useRef(false);
 
 	const effectivePopulation = population && population > 0 ? population : null;
 	const populationUnset = effectivePopulation === null;
@@ -133,8 +142,27 @@ export function LogSampleForm({
 		}
 	};
 
+	const queueOfflineSample = async (payload: BiomassOutboxPayload) => {
+		setIsQueuing(true);
+		try {
+			const queued = await enqueueBiomassSample(payload);
+			if (!queued) {
+				submitLock.current = false;
+				setError(tLog("queuedOfflineError"));
+				return;
+			}
+			setQueuedOffline(true);
+		} catch {
+			submitLock.current = false;
+			setError(tLog("queuedOfflineError"));
+		} finally {
+			setIsQueuing(false);
+		}
+	};
+
 	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
+		if (submitLock.current || !canWrite) return;
 		setError(null);
 		setRowErrors({});
 
@@ -222,13 +250,12 @@ export function LogSampleForm({
 		formData.append("clientEventId", offlinePayload.clientEventId);
 		formData.append("recordedAt", offlinePayload.recordedAt);
 
+		// Set before the first await: a second click can arrive while the server
+		// action or the outbox write is still in flight.
+		submitLock.current = true;
+
 		if (typeof navigator !== "undefined" && !navigator.onLine) {
-			const queued = await enqueueBiomassSample(offlinePayload);
-			if (!queued) {
-				setError(tLog("queuedOfflineError"));
-				return;
-			}
-			setQueuedOffline(true);
+			await queueOfflineSample(offlinePayload);
 			return;
 		}
 
@@ -236,22 +263,27 @@ export function LogSampleForm({
 			try {
 				const result = await saveBiomassLog(formData);
 				if (!result.success) {
+					submitLock.current = false;
 					setError(result.error);
 					return;
 				}
 				setFeedResult(result.feed);
-			} catch {
-				const queued = await enqueueBiomassSample(offlinePayload);
-				if (queued) {
-					setQueuedOffline(true);
-				} else {
-					setError(tLog("errorSaveFailed"));
+			} catch (error) {
+				// #751: only a connectivity failure is safe to replay. A denied
+				// permission, expired session or validation error must be shown.
+				if (isTransportFailure(error)) {
+					await queueOfflineSample(offlinePayload);
+					return;
 				}
+				submitLock.current = false;
+				setError(tLog("errorSaveFailed"));
 			}
 		});
 	};
 
 	const resetForAnother = () => {
+		submitLock.current = false;
+		setIsQueuing(false);
 		setFeedResult(null);
 		setQueuedOffline(false);
 		setError(null);
@@ -342,30 +374,70 @@ export function LogSampleForm({
 			skipped_target_plan: tLog("statusSkippedTargetPlan"),
 		};
 		const status = feedResult.status;
+		// Green means the device schedule actually moved. `unchanged` is
+		// neutral, and every rejected/skipped status is a warning that the
+		// device kept its previous dose (#751).
+		const scheduleApplied = status === "updated" || status === "unchanged";
+		const statusIcon =
+			status === "updated"
+				? {
+						Icon: CheckCircle2,
+						wrap: "bg-green-100 dark:bg-green-500/15",
+						tone: "text-green-600 dark:text-green-300",
+					}
+				: status === "unchanged"
+					? {
+							Icon: CheckCircle2,
+							wrap: "bg-blue-100 dark:bg-blue-500/15",
+							tone: "text-blue-600 dark:text-blue-300",
+						}
+					: {
+							Icon: AlertTriangle,
+							wrap: "bg-amber-100 dark:bg-amber-500/15",
+							tone: "text-amber-600 dark:text-amber-300",
+						};
+		const StatusIcon = statusIcon.Icon;
 
 		return (
 			<div className="space-y-6 py-4 text-center">
 				<div className="flex justify-center">
-					<div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-500/15">
-						<CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-300" />
+					<div
+						data-testid="biomass-result-icon"
+						data-status={status}
+						className={`flex h-14 w-14 items-center justify-center rounded-full ${statusIcon.wrap}`}
+					>
+						<StatusIcon className={`h-8 w-8 ${statusIcon.tone}`} />
 					</div>
 				</div>
 
 				<div>
-					<p className="text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400">
-						{tLog("feedPerFeeding")}
-					</p>
-					<p className="mt-1 text-5xl font-black text-[#E85A2A]">
-						{headlineGrams !== null ? headlineGrams.toFixed(2) : "—"}
-						<span className="text-2xl"> g</span>
-					</p>
-					{feedResult.dailyFeedG !== null && (
-						<p className="mt-1 text-sm font-medium text-[#3D5568] dark:text-gray-400">
-							{tLog("dailyTotal", {
-								grams: feedResult.dailyFeedG.toFixed(2),
-								feeds: feedResult.feedsPerDay,
-							})}
-						</p>
+					{scheduleApplied ? (
+						<>
+							<p className="text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400">
+								{tLog("feedPerFeeding")}
+							</p>
+							<p className="mt-1 text-5xl font-black text-[#E85A2A]">
+								{headlineGrams !== null ? headlineGrams.toFixed(2) : "—"}
+								<span className="text-2xl"> g</span>
+							</p>
+							{feedResult.dailyFeedG !== null && (
+								<p className="mt-1 text-sm font-medium text-[#3D5568] dark:text-gray-400">
+									{tLog("dailyTotal", {
+										grams: feedResult.dailyFeedG.toFixed(2),
+										feeds: feedResult.feedsPerDay,
+									})}
+								</p>
+							)}
+						</>
+					) : (
+						<>
+							<p className="text-xl font-black text-amber-700 dark:text-amber-300">
+								{tLog("headlineNotApplied")}
+							</p>
+							<p className="mt-1 text-sm font-medium text-[#3D5568] dark:text-gray-400">
+								{tLog("scheduleNotChanged")}
+							</p>
+						</>
 					)}
 					<p className="mt-2 text-sm text-[#3D5568] dark:text-gray-400">
 						{feedResult.batchLabel
@@ -381,7 +453,7 @@ export function LogSampleForm({
 
 				<div className={`rounded-xl border p-4 text-sm font-medium text-left ${statusCls[status]}`}>
 					{statusText[status]}
-					{feedResult.deviceOffline && (
+					{feedResult.deviceOffline && scheduleApplied && (
 						<span className="mt-1.5 block font-normal">
 							<AlertTriangle aria-hidden="true" className="mr-1 inline h-3.5 w-3.5 -mt-0.5" />
 							{tLog("deviceOfflineNote")}
@@ -786,7 +858,7 @@ export function LogSampleForm({
 				>
 					<button
 						type="submit"
-						disabled={isPending || avgWeightG === 0 || !canWrite}
+						disabled={isPending || isQueuing || avgWeightG === 0 || !canWrite}
 						className="w-full md:w-auto bg-[#E85A2A] text-white px-8 py-3.5 rounded-2xl font-black shadow-lg hover:bg-[#d04a1f] hover:shadow-xl transition-all transform active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex justify-center items-center gap-2"
 					>
 						{isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : tBtn("saveSample")}

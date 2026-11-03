@@ -32,6 +32,10 @@ interface StuckRequestBannerProps {
 	feedsPerDay: number;
 	feedingRatePct: number;
 	canWrite?: boolean;
+	/** Effective `control_feeder` permission; `false` disables the retry-feed action. */
+	canControlFeeder?: boolean;
+	/** Effective `manage_schedule` permission; `false` disables the retry-schedule action. */
+	canManageSchedule?: boolean;
 }
 
 export function StuckRequestBanner({
@@ -46,7 +50,11 @@ export function StuckRequestBanner({
 	feedsPerDay,
 	feedingRatePct,
 	canWrite = true,
+	canControlFeeder,
+	canManageSchedule,
 }: StuckRequestBannerProps) {
+	const canRetryFeed = canWrite && canControlFeeder !== false;
+	const canRetrySchedule = canWrite && canManageSchedule !== false;
 	const t = useTranslations("dashboard.schedule.stuckBanner");
 	const tDates = useTranslations("dates");
 	const [isPendingFeed, startFeedTransition] = useTransition();
@@ -129,7 +137,7 @@ export function StuckRequestBanner({
 					</div>
 					<button
 						type="button"
-						disabled={isPendingFeed || !canWrite || !online}
+						disabled={isPendingFeed || !canRetryFeed || !online}
 						title={reason}
 						className="shrink-0 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:bg-red-900/40 dark:text-red-200 dark:hover:bg-red-900/60"
 						onClick={() => {
@@ -163,7 +171,7 @@ export function StuckRequestBanner({
 					</div>
 					<button
 						type="button"
-						disabled={isPendingFeed || !canWrite || !online}
+						disabled={isPendingFeed || !canRetryFeed || !online}
 						title={reason}
 						className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-50 disabled:opacity-50 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-200 dark:hover:bg-amber-900/60"
 						onClick={() => {
@@ -199,7 +207,7 @@ export function StuckRequestBanner({
 					</div>
 					<button
 						type="button"
-						disabled={isPendingSchedule || !canWrite}
+						disabled={isPendingSchedule || !canRetrySchedule}
 						className="shrink-0 rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-50 disabled:opacity-50 dark:border-blue-800 dark:bg-blue-900/40 dark:text-blue-200 dark:hover:bg-blue-900/60"
 						onClick={() => {
 							startScheduleTransition(async () => {

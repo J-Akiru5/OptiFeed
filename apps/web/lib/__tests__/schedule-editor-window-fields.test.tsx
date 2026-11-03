@@ -108,3 +108,50 @@ describe("ScheduleEditor feeding time fields (#483)", () => {
 		expect(slotTexts()).toEqual(["7:00 AM", "5:00 PM"]);
 	});
 });
+
+describe("ScheduleEditor window validation and unsaved guard (#763)", () => {
+	it("rejects a zero-length window when more than one feed is scheduled", () => {
+		renderEditor({ initialFeedsPerDay: 2 });
+
+		fireEvent.change(screen.getByLabelText("Last feed time"), { target: { value: "06:00" } });
+
+		expect(screen.getByTestId("feeding-window-error")).toHaveTextContent(
+			"First and last feed cannot be the same time when there is more than one feeding.",
+		);
+		expect(screen.getByLabelText("First feed time")).toHaveAttribute("aria-invalid", "true");
+		expect(screen.getByRole("button", { name: "Save Changes" })).toBeDisabled();
+	});
+
+	it("allows the same clock time for a single daily feed", () => {
+		renderEditor({ initialFeedsPerDay: 1 });
+
+		fireEvent.change(screen.getByLabelText("Last feed time"), { target: { value: "06:00" } });
+
+		expect(screen.queryByTestId("feeding-window-error")).not.toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Save Changes" })).toBeEnabled();
+	});
+
+	it("disables save and resync when manage_schedule is revoked", () => {
+		renderEditor({ canManageSchedule: false });
+
+		expect(screen.getByRole("button", { name: "Save Changes" })).toBeDisabled();
+		expect(screen.getByRole("button", { name: "Force Resync" })).toBeDisabled();
+		expect(
+			screen.getByText("You do not have permission to change the feeding schedule."),
+		).toBeInTheDocument();
+	});
+
+	it("guards a reload only while the form has unsaved edits", () => {
+		renderEditor();
+
+		const clean = new Event("beforeunload", { cancelable: true });
+		window.dispatchEvent(clean);
+		expect(clean.defaultPrevented).toBe(false);
+
+		fireEvent.change(screen.getByLabelText("First feed time"), { target: { value: "05:00" } });
+
+		const dirty = new Event("beforeunload", { cancelable: true });
+		window.dispatchEvent(dirty);
+		expect(dirty.defaultPrevented).toBe(true);
+	});
+});

@@ -10,6 +10,7 @@ import {
 } from "@/components/dashboard/dashboard-ui";
 import { HealthNotice } from "@/components/feeder/health-notice";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
+import { hasPermission } from "@/lib/auth/permissions";
 import { canWrite } from "@/lib/auth/session";
 import { getDeviceHealthSafe } from "@/lib/device-health";
 import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
@@ -155,7 +156,14 @@ export default async function SchedulePage() {
 	// `pond.*` only reflects the current config when no EnergyDevice is paired;
 	// otherwise the newest pending/sent command wins, then the last applied one.
 	const currentCommand = serializeCommand(pendingCommand ?? latestAppliedCommand);
-	const writeAccess = await canWrite();
+	// #750: match the server guards. Pause/Feed Now need `control_feeder`;
+	// schedule and calibration writes need `manage_schedule`.
+	const [writeAccess, canControlFeeder, canManageSchedule] = await Promise.all([
+		canWrite(),
+		hasPermission("control_feeder"),
+		hasPermission("manage_schedule"),
+	]);
+	const canManageScheduleNow = writeAccess && canManageSchedule;
 
 	const scheduleSnapshot: ScheduleSnapshotData = {
 		pondName: pond.name,
@@ -185,7 +193,7 @@ export default async function SchedulePage() {
 
 			<HealthNotice health={deviceHealth} tone="themed" />
 
-			{!writeAccess && (
+			{(!writeAccess || !canControlFeeder || !canManageSchedule) && (
 				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
 			)}
 
@@ -198,7 +206,7 @@ export default async function SchedulePage() {
 			<div className="flex flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
 				<div className="contents xl:flex xl:min-w-0 xl:flex-col xl:gap-6">
 					<div className="order-1 xl:order-none">
-						<TimeCalibrationForm deviceId={energyDevice.id} canWrite={writeAccess} />
+						<TimeCalibrationForm deviceId={energyDevice.id} canWrite={canManageScheduleNow} />
 					</div>
 					<div className="order-4 xl:order-none">
 						<ScheduleEditor
@@ -211,6 +219,7 @@ export default async function SchedulePage() {
 							pendingCommand={serializeCommand(pendingCommand)}
 							latestAppliedCommand={serializeCommand(latestAppliedCommand)}
 							canWrite={writeAccess}
+							canManageSchedule={canManageSchedule}
 						/>
 					</div>
 				</div>
@@ -239,6 +248,8 @@ export default async function SchedulePage() {
 							feedsPerDay={currentCommand?.feedsPerDay ?? pond.feedsPerDay}
 							feedingRatePct={currentCommand?.feedingRatePct ?? pond.feedingRatePct}
 							canWrite={writeAccess}
+							canControlFeeder={canControlFeeder}
+							canManageSchedule={canManageSchedule}
 						/>
 					</div>
 					<div className="order-3 xl:order-none">
@@ -248,6 +259,7 @@ export default async function SchedulePage() {
 							gramsPerFeeding={energyDevice.gramsPerFeeding}
 							gramsPerSecond={energyDevice.gramsPerSecond}
 							canWrite={writeAccess}
+							canControlFeeder={canControlFeeder}
 							feedNowLimit={feedNowLimit}
 						/>
 					</div>

@@ -54,6 +54,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 vi.mock("@/lib/auth/session", () => ({
 	canWrite: vi.fn(async () => true),
+	canManagePondAlertSettings: vi.fn(async () => true),
 	getCurrentUser: vi.fn(async () => ({
 		farmId: "farm-1",
 		role: "ADMIN",
@@ -64,6 +65,15 @@ vi.mock("@/lib/auth/session", () => ({
 vi.mock("@/lib/auth/permissions", () => ({
 	hasPermission: vi.fn(async () => true),
 	requirePermission: vi.fn(async () => undefined),
+	getCurrentPermissions: vi.fn(async () => new Set()),
+	writeCapabilities: (writeAccess: boolean) => ({
+		canControlFeeder: writeAccess,
+		canManageSchedule: writeAccess,
+		canManageCropCycle: writeAccess,
+		canClaimFeeder: writeAccess,
+		canManageFarmsPonds: writeAccess,
+		canManageMembers: writeAccess,
+	}),
 }));
 
 vi.mock("@/lib/pond-selection", () => ({
@@ -419,7 +429,7 @@ describe("profile settings page", () => {
 		expect(html.match(/<h1/g)).toHaveLength(1);
 		expect(html).toContain("Profile Information");
 		expect(html).toContain("Security");
-		expect(html).toContain("Notification Preferences");
+		expect(html).toContain("Pond alert settings");
 		// The contact email is shown; the session email is the synthetic login
 		// address, which cannot receive mail (#449).
 		expect(html).toContain("juan.farmer@example.com");

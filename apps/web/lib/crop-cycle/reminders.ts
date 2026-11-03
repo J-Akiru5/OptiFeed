@@ -366,11 +366,11 @@ export function dedupeEmailAddresses(values: Array<string | null | undefined>): 
 }
 
 export function collectRecipientsByOwner(
-	users: Array<{ farmId: string; email: string | null }>,
+	users: Array<{ farmId: string; contactEmail: string | null }>,
 ): Map<string, string[]> {
 	const grouped = new Map<string, string[]>();
 	for (const user of users) {
-		const email = user.email?.trim();
+		const email = user.contactEmail?.trim();
 		if (!email) continue;
 		const list = grouped.get(user.farmId) ?? [];
 		list.push(email);
@@ -515,18 +515,15 @@ export async function processCropReminders(
 			where: { pondId: { in: pondIds } },
 			_max: { recordedAt: true },
 		}),
+		// Reminder mail goes to the pond owner. `User.email` is the synthetic
+		// `<farmId>@pond.optifeed.local` login address and can never receive mail,
+		// so only an administrator-recorded contact address qualifies (#748).
 		prisma.user.findMany({
 			where: {
-				email: { not: "" },
-				OR: [
-					{ farmId: { in: ownerIds } },
-					{
-						farm: { is: { ownerId: { in: ownerIds } } },
-						role: { in: ["ADMIN", "OPERATOR"] },
-					},
-				],
+				farmId: { in: ownerIds },
+				contactEmail: { not: null },
 			},
-			select: { farmId: true, email: true },
+			select: { farmId: true, contactEmail: true },
 		}),
 		prisma.reminderLog.findMany({
 			where: {

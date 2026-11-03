@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -23,6 +23,7 @@ const labels: ReportIssueLabels = {
 	optional: "optional",
 	submit: "Send report",
 	sending: "Sending…",
+	retry: "Try again",
 	success: "Thank you — your report was sent.",
 	error: "The report could not be sent. Please try again.",
 	rateLimited: "Too many reports from this connection. Please try again later.",
@@ -117,5 +118,89 @@ describe("ReportIssueDialog", () => {
 		fireEvent.click(screen.getByRole("button", { name: labels.submit }));
 
 		expect(await screen.findByRole("alert")).toHaveTextContent(labels.rateLimited);
+	});
+});
+
+/**
+ * #759 — disabling Escape, the backdrop and the close button while `sending`,
+ * with an unbounded `fetch`, trapped the user in the dialog for as long as the
+ * socket stayed open. A hung request must time out or be cancelable, and the
+ * typed report must survive either path.
+ */
+describe("ReportIssueDialog request lifecycle", () => {
+	const REPORT = "The schedule page freezes when I open it.";
+
+	/** A request that never answers on its own, but rejects when aborted. */
+	function hangingFetch() {
+		return vi.fn(
+			(_input: RequestInfo | URL, init?: RequestInit) =>
+				new Promise<Response>((_resolve, reject) => {
+					init?.signal?.addEventListener("abort", () =>
+						reject(new DOMException("Aborted", "AbortError")),
+					);
+				}),
+		);
+	}
+
+	function openAndSubmit() {
+		fireEvent.click(screen.getByRole("button", { name: labels.trigger }));
+		fireEvent.change(screen.getByLabelText(labels.message), { target: { value: REPORT } });
+		fireEvent.click(screen.getByRole("button", { name: labels.submit }));
+	}
+
+	it("times out, says the report was not sent, and offers a retry", async () => {
+		vi.useFakeTimers();
+		try {
+			vi.stubGlobal("fetch", hangingFetch());
+			render(<ReportIssueDialog labels={labels} />);
+
+			openAndSubmit();
+			expect(screen.getByRole("button", { name: labels.sending })).toBeDisabled();
+
+			await act(async () => {
+				vi.advanceTimersByTime(15_000);
+			});
+
+			expect(screen.getByRole("alert")).toHaveTextContent(labels.error);
+			expect(screen.getByRole("button", { name: labels.retry })).toBeEnabled();
+			// The typed report is preserved for the retry.
+			expect(screen.getByLabelText(labels.message)).toHaveValue(REPORT);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("closes while sending, aborts the request and keeps the draft", async () => {
+		const fetchMock = hangingFetch();
+		vi.stubGlobal("fetch", fetchMock);
+		render(<ReportIssueDialog labels={labels} />);
+
+		openAndSubmit();
+		fireEvent.click(screen.getByRole("button", { name: labels.close }));
+
+		expect(screen.queryByRole("dialog")).toBeNull();
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+
+		fireEvent.click(screen.getByRole("button", { name: labels.trigger }));
+		expect(screen.getByRole("dialog")).toBeInTheDocument();
+		expect(screen.getByLabelText(labels.message)).toHaveValue(REPORT);
+	});
+
+	it("does not let an aborted request overwrite the dialog state", async () => {
+		vi.stubGlobal("fetch", hangingFetch());
+		render(<ReportIssueDialog labels={labels} />);
+
+		openAndSubmit();
+		fireEvent.click(screen.getByRole("button", { name: labels.close }));
+
+		await act(async () => {
+			await Promise.resolve();
+		});
+
+		// The rejection was ignored, so reopening starts idle rather than showing
+		// the stale error of a report the user already dismissed.
+		fireEvent.click(screen.getByRole("button", { name: labels.trigger }));
+		expect(screen.queryByRole("alert")).toBeNull();
+		expect(screen.getByRole("button", { name: labels.submit })).toBeEnabled();
 	});
 });

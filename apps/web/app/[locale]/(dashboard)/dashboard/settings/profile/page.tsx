@@ -8,7 +8,7 @@ import {
 import { NotificationPrefsForm } from "@/components/notification-prefs-form";
 import { AvatarUpload } from "@/components/profile/avatar-upload";
 import { Link } from "@/i18n/routing";
-import { canWrite, getCurrentUser } from "@/lib/auth/session";
+import { canManagePondAlertSettings, canWrite, getCurrentUser } from "@/lib/auth/session";
 import { getSignedAvatarUrls } from "@/lib/avatars";
 import { DPO_EMAIL, LEGAL_APP_RELEASE, LEGAL_PUBLISHED, LEGAL_VERSION } from "@/lib/legal/config";
 import { getActivePond } from "@/lib/pond-selection";
@@ -37,6 +37,9 @@ export default async function ProfileSettingsPage() {
 	// receive mail; the contact email an administrator recorded is the real one.
 	const contactEmail = currentUser?.contactEmail ?? "";
 	const writeAccess = await canWrite();
+	// Pond alert settings are one shared row, so only the owner or an admin may
+	// change them even when the viewer has write access elsewhere (#748).
+	const canManageAlerts = await canManagePondAlertSettings();
 
 	const avatarUrls = currentUser
 		? await getSignedAvatarUrls([{ id: currentUser.id, avatarPath: currentUser.avatarPath }])
@@ -189,6 +192,7 @@ export default async function ProfileSettingsPage() {
 					pondId={pond.id}
 					initialPrefs={notificationPrefs}
 					canWrite={writeAccess}
+					canManage={canManageAlerts}
 				/>
 			) : null}
 		</div>

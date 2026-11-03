@@ -4,12 +4,23 @@ import { mobileStickyActions } from "@/components/mobile/form-actions";
 import { useRouter } from "@/i18n/routing";
 import { type FeedCalculationResult, saveBiomassLog } from "@/lib/actions/biomass";
 import { dailyFeedG, feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
+import { shouldQueueOffline } from "@/lib/offline/classify";
 import { enqueueBiomassSample, newClientEventId } from "@/lib/offline/outbox";
 import { useOnlineStatus } from "@/lib/pwa/use-online-status";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, Fish, Loader2, Plus, Ruler, Scale, X } from "lucide-react";
+import {
+	AlertTriangle,
+	CheckCircle2,
+	Fish,
+	Info,
+	Loader2,
+	Plus,
+	Ruler,
+	Scale,
+	X,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 interface LogSampleFormProps {
 	pondId: string;
@@ -65,6 +76,10 @@ export function LogSampleForm({
 
 	const [error, setError] = useState<string | null>(null);
 	const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
+	const [submitting, setSubmitting] = useState(false);
+	// Synchronous guard: `submitting` only updates the UI on the next render, so
+	// two clicks in the same tick would both pass it and mint two event ids.
+	const submitLock = useRef(false);
 
 	const w = Number.parseFloat(weightGrams);
 	const l = Number.parseFloat(lengthCm);
@@ -197,6 +212,17 @@ export function LogSampleForm({
 			sampleCount = validRows.length;
 		}
 
+		// Validation is synchronous, so a guard placed here already runs before a
+		// second click can start its own save. Without it, a rapid double-click
+		// while offline enqueued two samples with different client event ids.
+		if (submitLock.current || isPending) return;
+		submitLock.current = true;
+		setSubmitting(true);
+		const releaseSubmit = () => {
+			submitLock.current = false;
+			setSubmitting(false);
+		};
+
 		const formData = new FormData();
 		formData.append("pondId", pondId);
 		formData.append("sampleWeightKg", sampleWeightKg.toString());
@@ -223,12 +249,18 @@ export function LogSampleForm({
 		formData.append("recordedAt", offlinePayload.recordedAt);
 
 		if (typeof navigator !== "undefined" && !navigator.onLine) {
-			const queued = await enqueueBiomassSample(offlinePayload);
-			if (!queued) {
+			try {
+				const queued = await enqueueBiomassSample(offlinePayload);
+				if (!queued) {
+					setError(tLog("queuedOfflineError"));
+					return;
+				}
+				setQueuedOffline(true);
+			} catch {
 				setError(tLog("queuedOfflineError"));
-				return;
+			} finally {
+				releaseSubmit();
 			}
-			setQueuedOffline(true);
 			return;
 		}
 
@@ -240,13 +272,25 @@ export function LogSampleForm({
 					return;
 				}
 				setFeedResult(result.feed);
-			} catch {
-				const queued = await enqueueBiomassSample(offlinePayload);
-				if (queued) {
-					setQueuedOffline(true);
-				} else {
+			} catch (saveError) {
+				// Only a request that never reached the server is worth replaying;
+				// an application error would fail again and must stay visible.
+				if (!shouldQueueOffline(saveError, navigator.onLine)) {
+					setError(tLog("errorSaveFailed"));
+					return;
+				}
+				try {
+					const queued = await enqueueBiomassSample(offlinePayload);
+					if (queued) {
+						setQueuedOffline(true);
+					} else {
+						setError(tLog("errorSaveFailed"));
+					}
+				} catch {
 					setError(tLog("errorSaveFailed"));
 				}
+			} finally {
+				releaseSubmit();
 			}
 		});
 	};
@@ -342,23 +386,63 @@ export function LogSampleForm({
 			skipped_target_plan: tLog("statusSkippedTargetPlan"),
 		};
 		const status = feedResult.status;
+		// Green and "Feed to dispense" only mean the device schedule changed.
+		// A rejected or skipped calculation must not look like a success.
+		const applied = status === "updated";
+		const rejected = status === "rejected_deviation" || status === "rejected_out_of_range";
+		const skipped = !applied && !rejected && status !== "unchanged";
+		const headlineLabel = applied
+			? tLog("feedPerFeeding")
+			: rejected
+				? tLog("resultRejectedTitle")
+				: status === "unchanged"
+					? tLog("resultUnchangedTitle")
+					: tLog("resultSkippedTitle");
+		const headlineTone = applied
+			? "text-[#E85A2A]"
+			: rejected
+				? "text-amber-700 dark:text-amber-300"
+				: "text-[#0A3D62] dark:text-[#8fc0ea]";
 
 		return (
 			<div className="space-y-6 py-4 text-center">
 				<div className="flex justify-center">
-					<div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-500/15">
-						<CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-300" />
+					<div
+						className={cn(
+							"flex h-14 w-14 items-center justify-center rounded-full",
+							applied
+								? "bg-green-100 dark:bg-green-500/15"
+								: rejected
+									? "bg-amber-100 dark:bg-amber-500/15"
+									: "bg-blue-100 dark:bg-blue-500/15",
+						)}
+					>
+						{applied ? (
+							<CheckCircle2
+								aria-hidden="true"
+								className="h-8 w-8 text-green-600 dark:text-green-300"
+							/>
+						) : rejected ? (
+							<AlertTriangle
+								aria-hidden="true"
+								className="h-8 w-8 text-amber-600 dark:text-amber-300"
+							/>
+						) : (
+							<Info aria-hidden="true" className="h-8 w-8 text-blue-600 dark:text-blue-300" />
+						)}
 					</div>
 				</div>
 
 				<div>
 					<p className="text-xs uppercase font-extrabold tracking-wider text-[#3D5568] dark:text-gray-400">
-						{tLog("feedPerFeeding")}
+						{headlineLabel}
 					</p>
-					<p className="mt-1 text-5xl font-black text-[#E85A2A]">
-						{headlineGrams !== null ? headlineGrams.toFixed(2) : "—"}
-						<span className="text-2xl"> g</span>
-					</p>
+					{skipped ? null : (
+						<p className={cn("mt-1 text-5xl font-black", headlineTone)}>
+							{headlineGrams !== null ? headlineGrams.toFixed(2) : "—"}
+							<span className="text-2xl"> g</span>
+						</p>
+					)}
 					{feedResult.dailyFeedG !== null && (
 						<p className="mt-1 text-sm font-medium text-[#3D5568] dark:text-gray-400">
 							{tLog("dailyTotal", {
@@ -786,10 +870,14 @@ export function LogSampleForm({
 				>
 					<button
 						type="submit"
-						disabled={isPending || avgWeightG === 0 || !canWrite}
+						disabled={isPending || submitting || avgWeightG === 0 || !canWrite}
 						className="w-full md:w-auto bg-[#E85A2A] text-white px-8 py-3.5 rounded-2xl font-black shadow-lg hover:bg-[#d04a1f] hover:shadow-xl transition-all transform active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex justify-center items-center gap-2"
 					>
-						{isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : tBtn("saveSample")}
+						{isPending || submitting ? (
+							<Loader2 className="w-5 h-5 animate-spin" />
+						) : (
+							tBtn("saveSample")
+						)}
 					</button>
 				</div>
 			</div>

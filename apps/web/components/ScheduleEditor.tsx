@@ -1,6 +1,7 @@
 "use client";
 
 import { mobileStickyActions } from "@/components/mobile/form-actions";
+import { useUnsavedChangesWarning } from "@/lib/a11y/use-unsaved-changes-warning";
 import { updateScheduleCommand } from "@/lib/actions/schedule";
 import type { UpdateScheduleResult } from "@/lib/actions/schedule";
 import { formatFarmDateTime } from "@/lib/date-local";
@@ -90,6 +91,19 @@ export function ScheduleEditor({
 
 	const hasPendingChanges = pendingCommand !== null;
 
+	// #763: start === end with more than one meal is a zero-length window; the
+	// preview would show the same time N times and the device would feed them all
+	// at once. One meal at a single time is legitimate.
+	const feedsCount = Number.parseInt(feedsPerDay, 10);
+	const windowError = feedsCount > 1 && start !== "" && start === end;
+
+	const dirty =
+		start !== initialStart ||
+		end !== initialEnd ||
+		feedsPerDay !== String(initialFeedsPerDay) ||
+		feedingRate !== String(initialFeedingRatePct);
+	useUnsavedChangesWarning(dirty);
+
 	// #431: the displayed times must follow the inputs, not the last command the
 	// device applied. Deriving them on every render means changing the frequency
 	// from 2 to 3 adds the third row immediately, before the device reconnects.
@@ -118,6 +132,7 @@ export function ScheduleEditor({
 		const rate = Number.parseFloat(feedingRate);
 		if (Number.isNaN(feeds) || feeds < 1 || feeds > 24) return;
 		if (Number.isNaN(rate) || rate < 0) return;
+		if (windowError) return;
 
 		startTransition(async () => {
 			const result: UpdateScheduleResult = await updateScheduleCommand(pondId, deviceId, {
@@ -248,7 +263,10 @@ export function ScheduleEditor({
 								type="time"
 								value={start}
 								onChange={(e) => setStart(e.target.value)}
-								aria-describedby="feeding-window-hint"
+								aria-invalid={windowError}
+								aria-describedby={
+									windowError ? "feeding-window-hint feeding-window-error" : "feeding-window-hint"
+								}
 								className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-gray-900 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:[color-scheme:dark]"
 								required
 							/>
@@ -266,12 +284,25 @@ export function ScheduleEditor({
 								type="time"
 								value={end}
 								onChange={(e) => setEnd(e.target.value)}
-								aria-describedby="feeding-window-hint"
+								aria-invalid={windowError}
+								aria-describedby={
+									windowError ? "feeding-window-hint feeding-window-error" : "feeding-window-hint"
+								}
 								className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-gray-900 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:[color-scheme:dark]"
 								required
 							/>
 						</div>
 					</div>
+
+					{windowError && (
+						<p
+							id="feeding-window-error"
+							role="alert"
+							className="mt-2 text-xs font-semibold text-red-600 dark:text-red-400"
+						>
+							{t("windowError")}
+						</p>
+					)}
 
 					{previewSlots.length > 0 ? (
 						<div className="mt-4">
@@ -385,15 +416,20 @@ export function ScheduleEditor({
 				    to cover instead, keeping the sync card fully tappable. */}
 				<div aria-hidden="true" className="h-20 sm:hidden" />
 
-				<div className={cn("flex items-center gap-4", mobileStickyActions)}>
+				<div className={cn("flex flex-wrap items-center gap-4", mobileStickyActions)}>
 					<button
 						type="submit"
-						disabled={isPending || !canWrite}
+						disabled={isPending || !canWrite || windowError}
 						data-help="schedule-save"
 						className="flex min-h-[44px] min-w-[120px] items-center justify-center rounded-lg bg-[var(--ofd-action)] px-6 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
 					>
 						{isPending ? <Loader2 size={18} className="animate-spin" /> : t("saveChanges")}
 					</button>
+					{dirty && !success && (
+						<output className="text-sm font-medium text-amber-700 dark:text-amber-300">
+							{t("unsavedChanges")}
+						</output>
+					)}
 					{success && (
 						<span className="flex items-center gap-1 text-sm font-medium text-green-600 animate-in fade-in dark:text-green-400">
 							<CheckCircle2 size={16} />

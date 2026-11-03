@@ -95,6 +95,39 @@ export function effectivePermissions(
 }
 
 /**
+ * Capability flags a server page hands to client controls.
+ *
+ * `writeAccess` is the role/view-as authority (`canWrite()`); a permission flag
+ * is true only when that authority is present *and* the permission is held,
+ * matching the order every server action applies (`requireWriteAccess` then
+ * `requirePermission`). A legacy account with no membership has an empty
+ * permission set, which is exactly what `requirePermission` fails closed on.
+ */
+export type WriteCapabilities = {
+	canControlFeeder: boolean;
+	canManageSchedule: boolean;
+	canManageCropCycle: boolean;
+	canClaimFeeder: boolean;
+	canManageFarmsPonds: boolean;
+	canManageMembers: boolean;
+};
+
+export function writeCapabilities(
+	writeAccess: boolean,
+	held: ReadonlySet<Permission>,
+): WriteCapabilities {
+	const can = (permission: Permission) => writeAccess && held.has(permission);
+	return {
+		canControlFeeder: can("control_feeder"),
+		canManageSchedule: can("manage_schedule"),
+		canManageCropCycle: can("manage_crop_cycle"),
+		canClaimFeeder: can("claim_feeder"),
+		canManageFarmsPonds: can("manage_farms_ponds"),
+		canManageMembers: can("manage_members"),
+	};
+}
+
+/**
  * Permissions of the current user, unioned across their active memberships.
  *
  * Chain: user → memberships (`revokedAt: null`) → organizations with status

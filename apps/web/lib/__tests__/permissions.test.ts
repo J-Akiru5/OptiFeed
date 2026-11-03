@@ -21,6 +21,7 @@ import {
 	hasPermission,
 	isPermission,
 	requirePermission,
+	writeCapabilities,
 } from "@/lib/auth/permissions";
 import { assertPasswordChanged, getCurrentUser } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
@@ -311,5 +312,33 @@ describe("hasPermission and requirePermission", () => {
 		mockGetCurrentUser.mockResolvedValue(null);
 
 		await expect(requirePermission("view_dashboard")).rejects.toThrow(new Error("Forbidden"));
+	});
+});
+
+describe("writeCapabilities (#750)", () => {
+	it("requires both write authority and the permission", () => {
+		const held = effectivePermissions("OPERATOR", [
+			{ permission: "control_feeder", revokedAt: new Date() },
+		]);
+
+		expect(writeCapabilities(true, held)).toMatchObject({
+			canControlFeeder: false,
+			canManageSchedule: true,
+			canClaimFeeder: true,
+		});
+		// A VIEWER with a grant still gets nothing: write authority is the
+		// outer gate, exactly as requireWriteAccess runs before requirePermission.
+		expect(writeCapabilities(false, held).canManageSchedule).toBe(false);
+	});
+
+	it("fails closed for a legacy account with no membership", () => {
+		expect(writeCapabilities(true, new Set())).toEqual({
+			canControlFeeder: false,
+			canManageSchedule: false,
+			canManageCropCycle: false,
+			canClaimFeeder: false,
+			canManageFarmsPonds: false,
+			canManageMembers: false,
+		});
 	});
 });

@@ -26,6 +26,7 @@ import {
 } from "@/components/settings/device-settings-tabs";
 import { saveHopperFilterSettings } from "@/lib/actions/energy";
 import { updateDeviceButtonFeed, updateDeviceDailyCap } from "@/lib/actions/settings";
+import { getCurrentPermissions, writeCapabilities } from "@/lib/auth/permissions";
 import { canWrite } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
 import { loadCalibrationDriftWindow } from "@/lib/calibration/drift-data";
@@ -167,6 +168,9 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 		getTranslations("dates"),
 	]);
 	const writeAccess = await canWrite();
+	// Each form's save action applies `requirePermission`; mirror it so a
+	// revoked permission disables the form instead of failing on save (#750).
+	const can = writeCapabilities(writeAccess, await getCurrentPermissions());
 	const rawParams = await searchParams;
 	let historyPage = parsePage(first(rawParams.page));
 	const activeTab = parseDeviceSettingsTab(first(rawParams.tab));
@@ -660,7 +664,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 										deviceId={energyDevice.id}
 										currentCapG={energyDevice.dailyCapG}
 										saveAction={updateDeviceDailyCap}
-										canWrite={writeAccess}
+										canWrite={can.canControlFeeder}
 									/>
 								</DashboardSection>
 							)}
@@ -683,7 +687,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 											confirmation: buttonFeedState,
 										}}
 										saveAction={updateDeviceButtonFeed}
-										canWrite={writeAccess}
+										canWrite={can.canControlFeeder}
 									/>
 								</DashboardSection>
 							)}
@@ -724,7 +728,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 										feedLevelPercent={energyDevice.feedLevelPercent}
 										feedLevelUpdatedAt={energyDevice.feedLevelUpdatedAt}
 										readingIsStale={hopperOffline || hopperSensorOffline}
-										canWrite={writeAccess}
+										canWrite={can.canManageSchedule}
 									/>
 								</DashboardSection>
 							)}
@@ -745,7 +749,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 										usingDefaults={hopperFilterDefaultsInUse}
 										report={hopperFilterReport}
 										saveAction={saveHopperFilterSettings}
-										canWrite={writeAccess}
+										canWrite={can.canManageSchedule}
 									/>
 								</DashboardSection>
 							)}
@@ -762,7 +766,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 										deviceId={energyDevice.id}
 										currentGramsPerSecond={energyDevice.gramsPerSecond}
 										currentGramsPerFeeding={energyDevice.gramsPerFeeding}
-										canWrite={writeAccess}
+										canWrite={can.canManageSchedule && can.canControlFeeder}
 										isOffline={isDeviceOffline}
 										isFallow={pondIsFallow}
 									/>
@@ -804,7 +808,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 									<RecalibrationIntervalForm
 										deviceId={energyDevice.id}
 										currentIntervalDays={energyDevice.recalibrationIntervalDays}
-										canWrite={writeAccess}
+										canWrite={can.canManageSchedule}
 									/>
 
 									{drift.status === "drift" && drift.diffPct !== null && (
@@ -861,7 +865,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 											// The firmware already applied the stored offset (#622);
 											// the form derives the raw value from this one.
 											currentTempC={energyDevice.waterTempC}
-											canWrite={writeAccess}
+											canWrite={can.canManageSchedule}
 										/>
 									</div>
 								</DashboardSection>

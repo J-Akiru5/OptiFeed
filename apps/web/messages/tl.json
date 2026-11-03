@@ -2518,6 +2518,7 @@
 			"acknowledged": "Nakumpirma",
 			"actionError": "Hindi ma-update ang abiso. Subukan muli.",
 			"alert": "Alerto",
+			"dismissNotification": "Isara ang abiso",
 			"auditLink": "Audit",
 			"openLink": "Buksan",
 			"receivedAt": "Natanggap",

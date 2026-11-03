@@ -16,7 +16,7 @@ import {
 	WifiOff,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 interface EnergyControllerCardProps {
@@ -30,6 +30,8 @@ interface EnergyControllerCardProps {
 	lastSeenAt: Date | null;
 	isOffline: boolean;
 	canWrite?: boolean;
+	/** A fallow pond has no stock to feed; the server refuses the request. */
+	isFallow?: boolean;
 	/** True when lastCalibratedAt + the device interval has passed. */
 	recalibrationDue?: boolean;
 	recalibrationDaysOverdue?: number;
@@ -60,6 +62,7 @@ export function EnergyControllerCard({
 	lastSeenAt,
 	isOffline,
 	canWrite = true,
+	isFallow = false,
 	recalibrationDue = false,
 	recalibrationDaysOverdue = 0,
 	feedNowLimit = null,
@@ -72,6 +75,11 @@ export function EnergyControllerCard({
 	const [isPending, startTransition] = useTransition();
 	const [feedSent, setFeedSent] = useState(false);
 	const [alreadyQueued, setAlreadyQueued] = useState(false);
+	// Manual feeding is consequential, so the card asks for the same explicit
+	// confirmation as the dashboard Feed Now button instead of firing on click.
+	const [confirming, setConfirming] = useState(false);
+	const confirmTitleId = useId();
+	const confirmPanelRef = useRef<HTMLDivElement>(null);
 	const { online, reason, blockIfOffline } = useFeedCommandGuard();
 	const tViewer = useTranslations("dashboard.feederViewer");
 	const tLimit = useTranslations("dashboard.feedNowModal");
@@ -88,8 +96,28 @@ export function EnergyControllerCard({
 			? String(Number((feedGrams / gramsPerSecond).toFixed(1)))
 			: null;
 
-	const handleFeedNow = () => {
-		if (blockIfOffline() || overLimit || feedGrams < 1) return;
+	// Escape closes the confirmation and focus returns to whatever opened it, so
+	// keyboard users are never left inside a dismissed overlay.
+	useEffect(() => {
+		if (!confirming) return;
+		const previouslyFocused =
+			document.activeElement instanceof HTMLElement ? document.activeElement : null;
+		confirmPanelRef.current?.focus();
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key !== "Escape") return;
+			event.preventDefault();
+			setConfirming(false);
+		};
+		window.addEventListener("keydown", onKeyDown);
+		return () => {
+			window.removeEventListener("keydown", onKeyDown);
+			previouslyFocused?.focus();
+		};
+	}, [confirming]);
+
+	const requestFeed = () => {
+		if (blockIfOffline() || overLimit || feedGrams < 1 || isFallow) return;
+		setConfirming(false);
 		setFeedSent(false);
 		setAlreadyQueued(false);
 		startTransition(async () => {
@@ -163,6 +191,15 @@ export function EnergyControllerCard({
 					<p className="text-xs text-red-700 dark:text-red-300 font-medium">
 						Device offline — last seen {formatLastSeen(lastSeenAt)}. Dashboard feed requests are
 						rejected while offline; device-scheduled and physical button feeds still work.
+					</p>
+				</div>
+			)}
+
+			{isFallow && (
+				<div className="mb-4 flex items-center gap-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3">
+					<AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+					<p className="text-xs text-amber-700 dark:text-amber-300 font-medium">
+						{tLimit("fallowWarning")}
 					</p>
 				</div>
 			)}
@@ -258,17 +295,18 @@ export function EnergyControllerCard({
 
 					<button
 						type="button"
-						onClick={handleFeedNow}
+						onClick={() => setConfirming(true)}
 						disabled={
 							isPending ||
 							feederActive ||
 							feedGrams < 1 ||
 							overLimit ||
 							isOffline ||
+							isFallow ||
 							!canWrite ||
 							!online
 						}
-						title={reason}
+						title={isFallow ? tLimit("fallowWarning") : reason}
 						className={cn(
 							"flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 font-medium text-white transition-all shadow-md hover:shadow-lg disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 disabled:shadow-none dark:disabled:bg-gray-700 dark:disabled:text-gray-400",
 							alreadyQueued
@@ -311,6 +349,51 @@ export function EnergyControllerCard({
 					{tViewer("openViewer")}
 				</Link>
 			</div>
+
+			{confirming && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+					{/* biome-ignore lint/a11y/useSemanticElements: a native <dialog> needs showModal() and its own backdrop; this controlled panel keeps the confirmation styling and closes on Escape. */}
+					<div
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby={confirmTitleId}
+						tabIndex={-1}
+						ref={confirmPanelRef}
+						className="w-full max-w-sm rounded-3xl border border-gray-200 bg-white p-6 shadow-2xl outline-none dark:border-gray-700 dark:bg-gray-900"
+					>
+						<div className="flex items-start gap-3">
+							<AlertTriangle
+								className="mt-0.5 h-5 w-5 shrink-0 text-amber-500"
+								aria-hidden="true"
+							/>
+							<div>
+								<h3 id={confirmTitleId} className="text-lg font-black text-[var(--ofd-base-deep)]">
+									{tLimit("triggerTitle")}
+								</h3>
+								<p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+									Send {feedGrams}g to {label} now? The feeder will dispense immediately.
+								</p>
+							</div>
+						</div>
+						<div className="mt-5 flex gap-3">
+							<button
+								type="button"
+								onClick={() => setConfirming(false)}
+								className="flex-1 rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+							>
+								Cancel
+							</button>
+							<button
+								type="button"
+								onClick={requestFeed}
+								className="flex-1 rounded-xl bg-[var(--ofd-base)] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#1a4a6e]"
+							>
+								Send {feedGrams}g
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }

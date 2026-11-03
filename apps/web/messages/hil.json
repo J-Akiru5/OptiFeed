@@ -2476,6 +2476,7 @@
 			"acknowledged": "Gin-acknowledge",
 			"actionError": "Indi ma-update ang notipikasyon. Tilawi liwat.",
 			"alert": "Alerto",
+			"dismissNotification": "Isira ang notipikasyon",
 			"auditLink": "Audit",
 			"openLink": "Bukas",
 			"receivedAt": "Natanggap",

@@ -50,6 +50,8 @@ describe("GET /api/import-template", () => {
 	it("rejects an unknown type and is rate limited", async () => {
 		expect((await get("type=ponds")).status).toBe(400);
 		expect((await get("")).status).toBe(400);
+		// #744: audit events are export-only; no import template is offered.
+		expect((await get("type=audit_events")).status).toBe(400);
 
 		checkApiRateLimit.mockResolvedValue({ success: false, remaining: 0 });
 		expect((await get("type=biomass_logs")).status).toBe(429);

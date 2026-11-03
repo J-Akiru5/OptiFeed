@@ -105,7 +105,7 @@ describe("buildExportRows biomass_logs", () => {
 		]);
 		expect(prisma.biomassLog.findMany).toHaveBeenCalledWith({
 			where: { pondId: "pond-1" },
-			orderBy: { recordedAt: "asc" },
+			orderBy: { recordedAt: "desc" },
 			take: 50_000,
 		});
 	});
@@ -207,7 +207,7 @@ describe("buildExportRows feed_events", () => {
 		});
 		expect(prisma.feedEvent.findMany).toHaveBeenCalledWith({
 			where: { deviceId: { in: ["dev-1", "dev-2"] } },
-			orderBy: { receivedAt: "asc" },
+			orderBy: { receivedAt: "desc" },
 			take: 50_000,
 		});
 	});
@@ -241,7 +241,7 @@ describe("buildExportRows fcr_reports", () => {
 		});
 		expect(prisma.fcrReport.findMany).toHaveBeenCalledWith({
 			where: { pondId: "pond-1" },
-			orderBy: { periodEnd: "asc" },
+			orderBy: { periodEnd: "desc" },
 			take: 50_000,
 		});
 	});
@@ -260,7 +260,7 @@ describe("buildExportRows feed_level_logs", () => {
 		]);
 		expect(prisma.feedLevelLog.findMany).toHaveBeenCalledWith({
 			where: { deviceId: "dev-1" },
-			orderBy: { recordedAt: "asc" },
+			orderBy: { recordedAt: "desc" },
 			take: 50_000,
 		});
 	});
@@ -281,19 +281,6 @@ describe("buildExportRows notifications", () => {
 		const acknowledged = new Date("2026-03-03T00:00:00.000Z");
 		prisma.notification.findMany.mockResolvedValue([
 			{
-				id: "n-1",
-				pondId: "pond-1",
-				tier: "warning",
-				message: "Hopper low",
-				linkTo: "/devices/dev-1",
-				read: false,
-				category: "hopper",
-				acknowledgedAt: acknowledged,
-				acknowledgedBy: "user-1",
-				autoCleared: true,
-				createdAt: AT,
-			},
-			{
 				id: "n-2",
 				pondId: "pond-1",
 				tier: "info",
@@ -304,6 +291,19 @@ describe("buildExportRows notifications", () => {
 				acknowledgedAt: null,
 				acknowledgedBy: null,
 				autoCleared: false,
+				createdAt: AT,
+			},
+			{
+				id: "n-1",
+				pondId: "pond-1",
+				tier: "warning",
+				message: "Hopper low",
+				linkTo: "/devices/dev-1",
+				read: false,
+				category: "hopper",
+				acknowledgedAt: acknowledged,
+				acknowledgedBy: "user-1",
+				autoCleared: true,
 				createdAt: AT,
 			},
 		]);
@@ -361,7 +361,7 @@ describe("buildExportRows audit_events", () => {
 		});
 		expect(prisma.deviceStateEvent.findMany).toHaveBeenCalledWith({
 			where: { deviceId: { in: ["dev-1", "dev-2"] } },
-			orderBy: { createdAt: "asc" },
+			orderBy: { createdAt: "desc" },
 			take: 50_000,
 		});
 	});
@@ -396,11 +396,14 @@ describe("CSV and batch artifacts", () => {
 		const text = new TextDecoder().decode(artifact.body);
 
 		expect(artifact.contentType).toBe("text/csv; charset=utf-8");
-		expect(text.split(/\r?\n/)[0]).toBe("id,deviceId,levelPercent,distanceCm,recordedAt");
+		expect(text.split(/\r?\n/)[0]).toBe(
+			"# Exports are capped at 50000 rows; the newest rows are kept.",
+		);
+		expect(text.split(/\r?\n/)[1]).toBe("id,deviceId,levelPercent,distanceCm,recordedAt");
 		expect(text).toContain(`${ISO}`);
 	});
 
-	it("adds only the types that produced rows to the batch archive", async () => {
+	it("keeps an empty dataset in the batch archive with its header row (#755)", async () => {
 		prisma.biomassLog.findMany.mockResolvedValue([
 			{
 				id: "log-1",
@@ -417,7 +420,9 @@ describe("CSV and batch artifacts", () => {
 		const artifact = await buildBatchExport("farm-a", ["biomass_logs", "fcr_reports"]);
 		const zip = await JSZip.loadAsync(artifact.body);
 
-		expect(Object.keys(zip.files)).toEqual(["biomass_logs.csv"]);
+		expect(Object.keys(zip.files)).toEqual(["biomass_logs.csv", "fcr_reports.csv"]);
+		const empty = await zip.files["fcr_reports.csv"]?.async("string");
+		expect(empty).toContain("periodStart,periodEnd,totalFeedKg,biomassGainKg,fcrValue");
 		expect(artifact.contentType).toBe("application/zip");
 		expect(artifact.filename).toMatch(/^pakaonai_export_\d{4}-\d{2}-\d{2}\.zip$/);
 	});

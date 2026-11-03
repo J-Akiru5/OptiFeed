@@ -2476,6 +2476,7 @@
 			"acknowledged": "Acknowledged",
 			"actionError": "Could not update the notification. Try again.",
 			"alert": "Alert",
+			"dismissNotification": "Dismiss notification",
 			"auditLink": "Audit",
 			"openLink": "Open",
 			"receivedAt": "Received",

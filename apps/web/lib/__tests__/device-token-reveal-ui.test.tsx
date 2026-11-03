@@ -2,6 +2,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/actions/admin", () => ({ revealDeviceToken: vi.fn() }));
+vi.mock("@/components/superadmin/step-up-dialog", () => ({
+	StepUpDialog: ({ open }: { open: boolean }) => (open ? <div>step-up-open</div> : null),
+}));
 vi.mock("next-intl", () => ({
 	useTranslations: () => (key: string) => {
 		const strings: Record<string, string> = {
@@ -72,5 +75,19 @@ describe("DeviceTokenReveal error messages", () => {
 		fireEvent.click(screen.getByRole("button", { name: /Show token/ }));
 
 		expect(await screen.findByText("tok_visible_once")).toBeInTheDocument();
+	});
+
+	it("opens step-up instead of showing the raw step-up message (#720)", async () => {
+		mockReveal.mockResolvedValue({
+			success: false,
+			error: "Re-enter your password to continue.",
+			code: "step_up_required",
+		});
+
+		render(<DeviceTokenReveal deviceId="dev-a1" deviceLabel="Feeder 1" />);
+		fireEvent.click(screen.getByRole("button", { name: /Show token/ }));
+
+		expect(await screen.findByText("step-up-open")).toBeInTheDocument();
+		expect(screen.queryByText("Re-enter your password to continue.")).not.toBeInTheDocument();
 	});
 });

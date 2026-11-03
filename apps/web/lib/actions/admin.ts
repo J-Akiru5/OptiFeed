@@ -27,6 +27,7 @@ import {
 import { isPlatformAdminActive } from "@/lib/auth/platform-admin";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { invalidateFarm } from "@/lib/auth/session-cache";
+import { isStepUpRequiredError, withStepUp } from "@/lib/auth/step-up";
 import { TENANT_ADMIN_ROLES, requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import { getSignedAvatarUrls } from "@/lib/avatars";
 import { contactEmailRuleError, setContactEmail } from "@/lib/contact-email-update";
@@ -1632,7 +1633,7 @@ export async function adminUpdateDeviceDailyCap(
 }
 
 /** Machine-readable failure causes the reveal component can translate. */
-export type RevealDeviceTokenErrorCode = "rate_limited";
+export type RevealDeviceTokenErrorCode = "rate_limited" | "step_up_required";
 
 export type RevealDeviceTokenResult =
 	| { success: true; token: string; mac: string; label: string }
@@ -1651,9 +1652,12 @@ export type RevealDeviceTokenResult =
  * device. The audit row is written before the token is returned, so a failed
  * audit cannot produce an unlogged credential.
  *
- * The token is never logged — not on success, and not in the failure branch,
- * where the error's message (not the error object) is what gets written — and
- * it is never placed in the audit row.
+ * A reveal also requires a fresh step-up check (`withStepUp`), matching the
+ * platform SQL export: a stolen admin session cannot drain every device
+ * credential without re-entering the password (#720). The token is never
+ * logged — not on success, and not in the failure branch, where the error's
+ * message (not the error object) is what gets written — and it is never placed
+ * in the audit row.
  */
 export async function revealDeviceToken(deviceId: string): Promise<RevealDeviceTokenResult> {
 	await requireTenantAdmin();
@@ -1675,29 +1679,37 @@ export async function revealDeviceToken(deviceId: string): Promise<RevealDeviceT
 	}
 
 	try {
-		const device = await prisma.energyDevice.findFirst({
-			// `in: []` matches nothing, so a caller with no admin membership gets
-			// the same "not found" answer as a device from another tenant.
-			// A PENDING/REJECTED device is not revealable: its token exists but
-			// must stay hidden until an org admin approves the unit.
-			where: { id: deviceId, pondId: { in: scope.pondIds }, approvalStatus: "APPROVED" },
-			select: { token: true, mac: true, label: true },
+		const device = await withStepUp(async () => {
+			const found = await prisma.energyDevice.findFirst({
+				// `in: []` matches nothing, so a caller with no admin membership gets
+				// the same "not found" answer as a device from another tenant.
+				// A PENDING/REJECTED device is not revealable: its token exists but
+				// must stay hidden until an org admin approves the unit.
+				where: { id: deviceId, pondId: { in: scope.pondIds }, approvalStatus: "APPROVED" },
+				select: { token: true, mac: true, label: true },
+			});
+			if (!found) return null;
+
+			await prisma.deviceStateEvent.create({
+				data: {
+					deviceId,
+					eventType: "token_revealed",
+					source: "user",
+					// The credential itself is deliberately absent: the audit trail
+					// records who looked, not what they saw.
+					actorId: actor.id,
+				},
+			});
+
+			return found;
 		});
+
 		if (!device) return { success: false, error: "Device not found in your organization." };
-
-		await prisma.deviceStateEvent.create({
-			data: {
-				deviceId,
-				eventType: "token_revealed",
-				source: "user",
-				// The credential itself is deliberately absent: the audit trail
-				// records who looked, not what they saw.
-				actorId: actor.id,
-			},
-		});
-
 		return { success: true, token: device.token, mac: device.mac, label: device.label };
 	} catch (e) {
+		if (isStepUpRequiredError(e)) {
+			return { success: false, error: e.message, code: "step_up_required" };
+		}
 		console.error(
 			"[admin] revealDeviceToken error:",
 			e instanceof Error ? e.message : "unknown error",

@@ -63,6 +63,7 @@ vi.mock("@/i18n/routing", () => ({
 	redirect: vi.fn(() => {
 		throw new Error("NEXT_REDIRECT");
 	}),
+	routing: { locales: ["en", "hil", "tl"], defaultLocale: "en" },
 }));
 
 vi.mock("next-intl/server", () => ({
@@ -105,7 +106,7 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	tenancy().reset();
 	auth.generateLink.mockReset().mockResolvedValue({
-		data: { properties: { action_link: "https://auth.example/recovery?token=secret" } },
+		data: { properties: { action_link: "https://auth.example/recovery?token=secret", hashed_token: "hashed-token-value" } },
 		error: null,
 	});
 	resetEmail.deliverPasswordResetEmail.mockReset().mockResolvedValue(true);
@@ -166,7 +167,7 @@ describe("sendPlatformUserResetLink", () => {
 		expect(auth.generateLink).toHaveBeenCalledWith(
 			expect.objectContaining({
 				options: {
-					redirectTo: "https://pakaonai.syntaxure.dev/en/reset-password?reset=proof-token",
+					redirectTo: "https://pakaonai.syntaxure.dev/en/auth/confirm?reset=proof-token",
 				},
 			}),
 		);
@@ -181,13 +182,13 @@ describe("sendPlatformUserResetLink", () => {
 			type: "recovery",
 			email: userById(tenancy(), FARMER_A_ID).email,
 			options: {
-				redirectTo: "https://pakaonai.syntaxure.dev/en/reset-password?reset=proof-token",
+				redirectTo: "https://pakaonai.syntaxure.dev/en/auth/confirm?reset=proof-token",
 			},
 		});
 		expect(resetEmail.deliverPasswordResetEmail).toHaveBeenCalledWith({
 			to: "farmer@example.test",
 			farmId: userById(tenancy(), FARMER_A_ID).farmId,
-			resetUrl: "https://auth.example/recovery?token=secret",
+			resetUrl: "https://pakaonai.syntaxure.dev/en/auth/confirm?token_hash=hashed-token-value&type=recovery&reset=proof-token",
 		});
 
 		const audits = tenancy().tables.platformAuditLogs.filter(

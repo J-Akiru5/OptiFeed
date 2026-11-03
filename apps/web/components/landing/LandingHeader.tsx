@@ -139,7 +139,7 @@ export function LandingHeader() {
 					<Link
 						href="/login"
 						className={cn(
-							"hidden h-9 items-center gap-1.5 rounded-lg bg-[#E85A2A] px-3.5 text-[12.5px] font-semibold text-white transition-colors hover:bg-[#D24E22] sm:inline-flex",
+							"hidden h-9 items-center gap-1.5 rounded-lg bg-[#C2410C] px-3.5 text-[12.5px] font-semibold text-white transition-colors hover:bg-[#9A3412] sm:inline-flex",
 							focusRing,
 						)}
 					>
@@ -203,7 +203,7 @@ export function LandingHeader() {
 								href="/login"
 								onClick={() => setMenuOpen(false)}
 								className={cn(
-									"inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-[#E85A2A] px-4 text-[13px] font-semibold text-white",
+									"inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-[#C2410C] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#9A3412]",
 									focusRing,
 								)}
 							>

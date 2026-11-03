@@ -47,6 +47,7 @@ vi.mock("@/i18n/routing", () => ({
 	),
 	useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
 	usePathname: () => "/login",
+	routing: { locales: ["en", "hil", "tl"], defaultLocale: "en" },
 }));
 
 vi.mock("@/components/theme-provider", () => ({

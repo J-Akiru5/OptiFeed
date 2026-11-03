@@ -39,6 +39,11 @@ vi.mock("@/lib/rate-limit", () => ({
 
 vi.mock("@/lib/observability", () => ({ reportError: vi.fn() }));
 vi.mock("next-intl/server", () => ({ getLocale: vi.fn(async () => "en") }));
+// `recovery-link` resolves the supported locales for the confirmation URL.
+// Mocked so the suite does not pull next-intl navigation into jsdom.
+vi.mock("@/i18n/routing", () => ({
+	routing: { locales: ["en", "hil", "tl"], defaultLocale: "en" },
+}));
 
 import {
 	completePasswordReset,
@@ -52,6 +57,7 @@ import { checkPasswordResetRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 const RESET_URL = "https://auth.example/recovery?token=abc";
+const HAS_TOKEN_HASH = "hashed-recovery-token";
 const PRODUCTION_URL = "https://pakaonai.syntaxure.dev";
 
 const user = vi.mocked(prisma.user);
@@ -112,7 +118,7 @@ function lastResetToken(): string {
 async function issueResetProof(userId = "user-1"): Promise<string> {
 	user.findUnique.mockResolvedValueOnce(accountWith("farmer@example.com", userId));
 	generateLink.mockResolvedValue({
-		data: { properties: { action_link: RESET_URL } },
+		data: { properties: { action_link: RESET_URL, hashed_token: HAS_TOKEN_HASH } },
 		error: null,
 	});
 
@@ -182,7 +188,7 @@ describe("requestPasswordReset", () => {
 		rateLimit.mockResolvedValue({ success: true, remaining: 2 });
 		generateLink.mockReset();
 		generateLink.mockResolvedValue({
-			data: { properties: { action_link: RESET_URL } },
+			data: { properties: { action_link: RESET_URL, hashed_token: HAS_TOKEN_HASH } },
 			error: null,
 		});
 		deliverEmail.mockReset();
@@ -239,15 +245,19 @@ describe("requestPasswordReset", () => {
 			email: POND_ADDRESS,
 			options: {
 				redirectTo: expect.stringMatching(
-					/^https:\/\/app\.example\/en\/reset-password\?reset=[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/,
+					/^https:\/\/app\.example\/en\/auth\/confirm\?reset=[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/,
 				),
 			},
 		});
 		// ...but it is mailed to the real mailbox, not the synthetic pond address.
+		// The URL is app-owned so the confirmation route can establish the
+		// recovery session server-side (#741).
 		expect(deliverEmail).toHaveBeenCalledWith({
 			to: "farmer@example.com",
 			farmId: "demo-farmer-1",
-			resetUrl: RESET_URL,
+			resetUrl: expect.stringMatching(
+				/^https:\/\/app\.example\/en\/auth\/confirm\?token_hash=hashed-recovery-token&type=recovery&reset=[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/,
+			),
 		});
 		// The proof is persisted by jti so it can be consumed exactly once.
 		expect(resetTokens.create).toHaveBeenCalledWith({
@@ -304,7 +314,9 @@ describe("requestPasswordReset", () => {
 		expect(deliverEmail).toHaveBeenCalledWith({
 			to: "farmer@example.com",
 			farmId: "demo-farmer-1",
-			resetUrl: RESET_URL,
+			resetUrl: expect.stringMatching(
+				/^https:\/\/app\.example\/en\/auth\/confirm\?token_hash=hashed-recovery-token&type=recovery&reset=/,
+			),
 		});
 		const auditPayload = auditCreate.mock.calls[0]?.[0] as { data: { after: unknown } } | undefined;
 		expect(auditPayload?.data.after).toEqual({
@@ -380,7 +392,7 @@ describe("requestPasswordReset", () => {
 		await requestPasswordReset("farmer@example.com");
 
 		expect(lastRedirectTo()).toMatch(
-			/^https:\/\/pakaonai\.syntaxure\.dev\/en\/reset-password\?reset=/,
+			/^https:\/\/pakaonai\.syntaxure\.dev\/en\/auth\/confirm\?reset=/,
 		);
 		expect(deliverEmail).toHaveBeenCalled();
 	});
@@ -401,6 +413,25 @@ describe("requestPasswordReset", () => {
 			via: "email",
 			emailSent: false,
 		});
+	});
+
+	it("fails closed when Supabase returns no token hash to confirm with", async () => {
+		user.findUnique.mockResolvedValue(accountWith("farmer@example.com"));
+		// An action_link alone is not enough: it carries its session in a URL
+		// fragment, which the server never sees (#741).
+		generateLink.mockResolvedValue({
+			data: { properties: { action_link: RESET_URL } },
+			error: null,
+		});
+
+		const result = await requestPasswordReset("farmer@example.com");
+
+		expect(result).toEqual({ success: true });
+		expect(reportError).toHaveBeenCalledWith(expect.any(Error), {
+			action: "requestPasswordReset.generateLink",
+			farmId: "demo-farmer-1",
+		});
+		expect(deliverEmail).not.toHaveBeenCalled();
 	});
 
 	it("keeps the anti-enumeration answer when the proof cannot be persisted", async () => {

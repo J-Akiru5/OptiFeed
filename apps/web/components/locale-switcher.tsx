@@ -11,10 +11,12 @@ type Locale = (typeof routing.locales)[number];
 
 /**
  * Language names are exonyms: they stay in their own language in every locale,
- * so they are not catalogue keys. Tagalog ships key-complete but most strings
- * are still machine drafts awaiting human review (`messages/tl.draft-keys.json`),
- * so it carries a visible "Beta" badge (#457). The badge comes off, and the
- * locale is treated as stable, once that review queue is empty.
+ * so they are not catalogue keys. Two catalogues are not yet complete and
+ * carry a visible status in the menu so the UI never presents them as full
+ * locales: Tagalog ships key-complete but most strings are still machine
+ * drafts awaiting human review (`messages/tl.draft-keys.json`, #457), and
+ * Hiligaynon is only partially translated (#762). A locale loses its badge
+ * once its review/translation queue is empty.
  */
 const LOCALE_LABELS: Record<Locale, string> = {
 	en: "English",
@@ -22,8 +24,11 @@ const LOCALE_LABELS: Record<Locale, string> = {
 	tl: "Tagalog",
 };
 
-/** Locales whose catalogue is not yet human-reviewed, shown as a Beta badge. */
-const BETA_LOCALES: ReadonlySet<Locale> = new Set<Locale>(["tl"]);
+/** Locales that must not be presented as complete, with the badge they show. */
+const LOCALE_STATUS: Partial<Record<Locale, "Beta" | "Partial">> = {
+	hil: "Partial",
+	tl: "Beta",
+};
 
 type MenuPosition = {
 	top?: number;
@@ -142,6 +147,7 @@ export function LocaleSwitcher({ variant = "dark" }: { variant?: "light" | "dark
 					>
 						{routing.locales.map((code) => {
 							const active = code === locale;
+							const status = LOCALE_STATUS[code];
 							return (
 								<button
 									key={code}
@@ -160,7 +166,7 @@ export function LocaleSwitcher({ variant = "dark" }: { variant?: "light" | "dark
 								>
 									<span className="flex items-center gap-1.5">
 										{LOCALE_LABELS[code]}
-										{BETA_LOCALES.has(code) && (
+										{status && (
 											<span
 												className={cn(
 													"rounded-full px-1.5 py-px text-[9px] font-black uppercase tracking-wide",
@@ -169,7 +175,7 @@ export function LocaleSwitcher({ variant = "dark" }: { variant?: "light" | "dark
 														: "bg-[#E85A2A]/10 text-[#C2410C]",
 												)}
 											>
-												Beta
+												{status}
 											</span>
 										)}
 									</span>

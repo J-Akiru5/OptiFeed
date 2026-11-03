@@ -160,8 +160,8 @@ describe("Tagalog draft labelling (#327)", () => {
 	it("marks the language menu entry as Beta while drafts remain (#457)", () => {
 		const switcher = readFileSync(join(webRoot, "components/locale-switcher.tsx"), "utf8");
 		expect(switcher).toMatch(/tl: "Tagalog"/);
-		expect(switcher).toMatch(/BETA_LOCALES: ReadonlySet<Locale> = new Set<Locale>\(\["tl"\]\)/);
-		expect(switcher).toMatch(/Beta/);
+		expect(switcher).toMatch(/tl: "Beta"/);
+		expect(switcher).toMatch(/LOCALE_STATUS/);
 	});
 
 	it("offers Tagalog on the login page's compact locale toggle, labelled Beta", () => {

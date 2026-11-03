@@ -6,13 +6,13 @@ import { ArrowLeft } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 /**
- * Landing page for the Supabase recovery link (forgot-password → email →
- * here). The email link established a recovery session, so the page only has
- * to tell "arrived from the link" apart from "arrived without one": with no
- * session, or no `reset` proof carried by the redirect, the link is invalid or
- * expired and the visitor must request a new one. There is no current-password
- * field because the requester proved control of the mailbox, not the old
- * credential.
+ * Landing page for the recovery link (forgot-password → email →
+ * `/auth/confirm` → here). The confirmation route exchanges the Supabase
+ * token_hash/code and sets the session cookies; this page only has to tell
+ * "arrived from the link" apart from "arrived without one": with no session,
+ * or no `reset` proof carried by the redirect, the link is invalid or expired
+ * and the visitor must request a new one. There is no current-password field
+ * because the requester proved control of the mailbox, not the old credential.
  */
 export default async function ResetPasswordPage({
 	searchParams,

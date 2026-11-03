@@ -113,7 +113,9 @@ Three routes, in order of preference:
 1. **Self-service** — Sign in → *Forgot password?* → `/forgot-password` asks for
    the farm ID, mints the recovery link in code
    (`admin.auth.admin.generateLink`, type `recovery`) and emails it through
-   Resend; `/reset-password` sets the new password from that link's session.
+   Resend; the emailed `/[locale]/auth/confirm` link verifies the Supabase
+   recovery token server-side and `/reset-password` sets the new password from
+   that session.
    Requests are rate limited (3 per 10 minutes per IP, fail-closed) and never
    reveal whether a farm ID exists. Every request for a real account is written
    to the platform audit log as `platform.user.password_reset_requested`

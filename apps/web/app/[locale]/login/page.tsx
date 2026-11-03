@@ -2,8 +2,9 @@
 
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { useTheme } from "@/components/theme-provider";
-import { Link, usePathname, useRouter } from "@/i18n/routing";
+import { Link, routing, usePathname, useRouter } from "@/i18n/routing";
 import { loginWithPassword } from "@/lib/actions/auth";
+import { normalizeReturnPath } from "@/lib/auth/return-to";
 import { DPO_EMAIL, LEGAL_PUBLISHED } from "@/lib/legal/config";
 import { clearOfflineData } from "@/lib/offline/db";
 import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
@@ -32,11 +33,13 @@ const FARM_ID_STORAGE_KEY = "optifeed:last-farm-id";
 /**
  * Compact locale toggle in the login footer. Language names are exonyms and
  * stay untranslated; Tagalog is marked Beta until the machine-draft review
- * queue in `messages/tl.draft-keys.json` is cleared (#457).
+ * queue in `messages/tl.draft-keys.json` is cleared (#457), and Hiligaynon is
+ * marked Partial because a large share of its landing copy is still English
+ * (#762).
  */
 const LOCALE_OPTIONS = [
 	{ code: "en", label: "EN", title: "English" },
-	{ code: "hil", label: "HIL", title: "Hiligaynon" },
+	{ code: "hil", label: "HIL", title: "Hiligaynon (Partial)" },
 	{ code: "tl", label: "TL", title: "Tagalog (Beta)" },
 ] as const;
 
@@ -50,6 +53,19 @@ const inputError =
 function readStoredFarmId() {
 	try {
 		return window.localStorage.getItem(FARM_ID_STORAGE_KEY);
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * The proxy's `?next=` value (#760). Read from `window.location` rather than
+ * `useSearchParams()` so the page does not need a Suspense boundary; the value
+ * is normalised before use and validated again by the login action.
+ */
+function readNextParam(): string | null {
+	try {
+		return new URLSearchParams(window.location.search).get("next");
 	} catch {
 		return null;
 	}
@@ -85,7 +101,11 @@ export default function LoginPage() {
 		void clearOfflineData();
 		const supabase = createClient();
 		supabase.auth.getUser().then(({ data: { user } }) => {
-			if (user) router.replace("/dashboard");
+			if (user) {
+				// An already-signed-in visitor keeps the deep link the proxy
+				// preserved instead of always landing on the dashboard (#760).
+				router.replace(normalizeReturnPath(readNextParam(), routing.locales) ?? "/dashboard");
+			}
 		});
 
 		const storedFarmId = readStoredFarmId();
@@ -132,7 +152,7 @@ export default function LoginPage() {
 		}
 
 		startTransition(async () => {
-			const result = await loginWithPassword(farmId, password);
+			const result = await loginWithPassword(farmId, password, readNextParam() ?? undefined);
 			if (result?.error === "locked") {
 				const minutes = result.secondsRemaining ? Math.ceil(result.secondsRemaining / 60) : 15;
 				setError(t("errorLocked", { minutes }));
@@ -417,7 +437,7 @@ export default function LoginPage() {
 							<button
 								type="submit"
 								disabled={isPending}
-								className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#E85A2A] px-4 text-[14.5px] font-semibold text-white shadow-[0_1px_2px_rgba(10,46,71,0.15)] transition-colors hover:bg-[#D24E22] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#E85A2A]/25 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-[#E85A2A] dark:hover:bg-[#F16B3D]"
+								className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#C2410C] px-4 text-[14.5px] font-semibold text-white shadow-[0_1px_2px_rgba(10,46,71,0.15)] transition-colors hover:bg-[#9A3412] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#E85A2A]/25 disabled:cursor-not-allowed disabled:opacity-70"
 							>
 								{isPending ? (
 									<>

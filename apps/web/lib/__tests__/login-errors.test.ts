@@ -29,7 +29,10 @@ vi.mock("@/lib/rate-limit", () => ({
 	getClientIp: vi.fn(async () => "203.0.113.9"),
 }));
 
-vi.mock("@/i18n/routing", () => ({ redirect: vi.fn() }));
+vi.mock("@/i18n/routing", () => ({
+	redirect: vi.fn(),
+	routing: { locales: ["en", "hil", "tl"], defaultLocale: "en" },
+}));
 vi.mock("next-intl/server", () => ({ getLocale: vi.fn(async () => "en") }));
 
 import { redirect } from "@/i18n/routing";
@@ -132,6 +135,40 @@ describe("loginWithPassword error handling", () => {
 
 		expect(redirectMock).toHaveBeenCalledWith({
 			href: "/superadmin",
+			locale: "en",
+		});
+	});
+
+	it("returns to the requested same-origin page after sign-in (#760)", async () => {
+		await stubSupabaseSignIn({ error: null, data: { user: { id: "sb-1" } } });
+
+		await loginWithPassword("demo-farmer-1", "password123", "/en/dashboard/devices/abc?tab=state");
+
+		// The locale segment is stripped because the i18n redirect adds it back.
+		expect(redirectMock).toHaveBeenCalledWith({
+			href: "/dashboard/devices/abc?tab=state",
+			locale: "en",
+		});
+	});
+
+	it("rejects an external next and falls back to the dashboard (#760)", async () => {
+		await stubSupabaseSignIn({ error: null, data: { user: { id: "sb-1" } } });
+
+		await loginWithPassword("demo-farmer-1", "password123", "https://evil.example/steal");
+		expect(redirectMock).toHaveBeenLastCalledWith({ href: "/dashboard", locale: "en" });
+
+		await loginWithPassword("demo-farmer-1", "password123", "//evil.example/steal");
+		expect(redirectMock).toHaveBeenLastCalledWith({ href: "/dashboard", locale: "en" });
+	});
+
+	it("keeps the password-change gate ahead of a requested deep link (#760)", async () => {
+		user.findUnique.mockResolvedValue({ ...USER_ROW, mustChangePassword: true } as never);
+		await stubSupabaseSignIn({ error: null, data: { user: { id: "sb-1" } } });
+
+		await loginWithPassword("demo-farmer-1", "password123", "/en/dashboard/schedule");
+
+		expect(redirectMock).toHaveBeenCalledWith({
+			href: "/change-password",
 			locale: "en",
 		});
 	});

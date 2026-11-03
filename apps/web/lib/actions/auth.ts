@@ -1,9 +1,14 @@
 "use server";
 
-import { redirect } from "@/i18n/routing";
+import { redirect, routing } from "@/i18n/routing";
 import { checkLockout, recordFailedAttempt, resetLockout } from "@/lib/auth/lockout";
 import { validatePassword } from "@/lib/auth/password";
-import { type PostLoginDestination, getPostLoginDestination } from "@/lib/auth/post-login";
+import {
+	type PostLoginDestination,
+	choosePostLoginPath,
+	getPostLoginDestination,
+} from "@/lib/auth/post-login";
+import { normalizeReturnPath } from "@/lib/auth/return-to";
 import { buildPondEmail } from "@/lib/auth/session";
 import { reportError } from "@/lib/observability";
 import { checkLoginRateLimit, getClientIp } from "@/lib/rate-limit";
@@ -30,7 +35,11 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
 	}
 }
 
-export async function loginWithPassword(farmId: string, password: string): Promise<LoginResult> {
+export async function loginWithPassword(
+	farmId: string,
+	password: string,
+	next?: string,
+): Promise<LoginResult> {
 	try {
 		if (!farmId.trim()) return { error: "invalid" };
 		// Legacy PINs are numeric passwords. Login deliberately accepts any
@@ -73,15 +82,20 @@ export async function loginWithPassword(farmId: string, password: string): Promi
 
 		// A temporary-password account must change it before reaching any
 		// console. Otherwise platform admins land on /superadmin and everyone
-		// else on the farmer dashboard. Fail-closed: if the lookup errors we
-		// fall through to /dashboard rather than blocking a valid login.
+		// else on the farmer dashboard. A validated `next` from the proxy wins
+		// over the role landing, but never over the password gate (#760).
+		// Fail-closed: if the lookup errors we fall through to /dashboard rather
+		// than blocking a valid login.
 		let landing: PostLoginDestination = "/dashboard";
 		try {
 			landing = await getPostLoginDestination(normalizedFarmId, data.user.id);
 		} catch (dbError) {
 			reportError(dbError, { action: "loginWithPassword.landing", farmId });
 		}
-		redirect({ href: landing, locale });
+		// Re-validate on the server: the client-supplied value is untrusted even
+		// though the login page already normalised it for its own redirects.
+		const requested = normalizeReturnPath(next, routing.locales);
+		redirect({ href: choosePostLoginPath(landing, requested), locale });
 	} catch (error) {
 		// redirect() throws NEXT_REDIRECT — never swallow it.
 		if (

@@ -4,6 +4,19 @@ import prisma from "@/lib/prisma";
 export type PostLoginDestination = "/dashboard" | "/superadmin" | "/change-password";
 
 /**
+ * The requested deep link (#760) wins over the role landing page, except for a
+ * temporary-password account: that redirect is a security gate, not a
+ * convenience, so it must not be skipped by a `next` value.
+ */
+export function choosePostLoginPath(
+	landing: PostLoginDestination,
+	requested: string | null,
+): PostLoginDestination | string {
+	if (landing === "/change-password") return landing;
+	return requested ?? landing;
+}
+
+/**
  * Decide where a freshly authenticated user should land.
  *
  * The password-change flag wins over the platform console: a superadmin who

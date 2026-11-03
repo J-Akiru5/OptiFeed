@@ -40,7 +40,7 @@ export interface ResetEmailInput {
 	to: string;
 	/** Login ID (the part before @ in the account's pond address). */
 	farmId: string;
-	/** The one-time recovery URL produced by Supabase. */
+	/** The one-time recovery URL (app-owned `/auth/confirm`, #741). */
 	resetUrl: string;
 }
 

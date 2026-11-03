@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+### Fixed
+
+- **Recovery links now establish the session they need (#741).** The reset email points at an app-owned confirmation route that consumes Supabase's `hashed_token` (or a PKCE code) and sets the SSR cookies before `/reset-password` renders; the signed single-use reset proof is unchanged.
+- **Public brand CTAs meet WCAG AA and login keeps the requested page (#756, #760).** The normal-size CTA pair moved to `#C2410C` / `#9A3412`, and a validated same-origin `next` survives the proxy and sign-in without bypassing the forced-password gate.
+- **The public surface has clean copy and a localized 404 (#761, #762).** The feeder label and NPC address are corrected, a branded locale-aware 404 was added, and Hiligaynon is visibly marked Partial instead of complete.
+
 ## [1.52.0] - 2026-11-04
 
 ### Fixed

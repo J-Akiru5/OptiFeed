@@ -62,6 +62,7 @@ vi.mock("@/i18n/routing", () => ({
 	usePathname: () => "/dashboard",
 	useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
 	redirect: vi.fn(),
+	routing: { locales: ["en", "hil", "tl"], defaultLocale: "en" },
 }));
 
 vi.mock("next/navigation", () => ({

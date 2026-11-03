@@ -37,6 +37,12 @@ export interface FeederDeviceDetail {
 	signalDbm: number | null;
 	isPaused: boolean;
 	feedLevelPercent: number | null;
+	/**
+	 * Raw ultrasonic distance in cm (issue #659). The percentage is what the
+	 * surfaces show; this is what an operator calibrating the hopper needs to
+	 * see move, and it rides the same live poll instead of a second endpoint.
+	 */
+	feedLevelCm: number | null;
 	/** When the hopper level was measured; the freshness basis for that reading. */
 	feedLevelUpdatedAt: Date | null;
 	hopperCapacityG: number | null;
@@ -84,6 +90,7 @@ export async function getDeviceDetail(
 			diag: true,
 			isPaused: true,
 			feedLevelPercent: true,
+			feedLevelCm: true,
 			feedLevelUpdatedAt: true,
 			wifiRssiDbm: true,
 			wifiRssiUpdatedAt: true,

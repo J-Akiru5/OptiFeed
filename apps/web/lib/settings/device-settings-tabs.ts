@@ -23,6 +23,7 @@ export const DEVICE_SETTINGS_ANCHOR_TABS: Readonly<Record<string, DeviceSettings
 	"device-status": "overview",
 	"daily-ceiling": "feeding",
 	"hopper-calibration": "calibration",
+	"hopper-filter": "calibration",
 	calibration: "calibration",
 	recalibration: "calibration",
 	"temperature-calibration": "calibration",

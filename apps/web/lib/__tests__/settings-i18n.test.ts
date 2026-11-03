@@ -130,6 +130,8 @@ const settingsFiles = [
 	join(webRoot, "components/DataImportExport.tsx"),
 	join(webRoot, "components/DurationCalibrationForm.tsx"),
 	join(webRoot, "components/HopperCalibrationForm.tsx"),
+	join(webRoot, "components/HopperFilterForm.tsx"),
+	join(webRoot, "components/calibration/hopper-live-distance.tsx"),
 	join(webRoot, "components/TemperatureCalibrationForm.tsx"),
 	join(webRoot, "components/PondSettingsForm.tsx"),
 	join(webRoot, "components/change-password-form.tsx"),

@@ -191,6 +191,7 @@ vi.mock("@/lib/actions/settings", () => ({
 }));
 vi.mock("@/lib/actions/energy", () => ({
 	saveHopperCalibration: vi.fn(),
+	saveHopperFilterSettings: vi.fn(),
 	saveTemperatureCalibration: vi.fn(),
 	saveDurationCalibration: vi.fn(),
 }));
@@ -363,6 +364,20 @@ describe("hardware settings page", () => {
 		expect(html).toContain("Dose per press (g)");
 		// The control is not enough: the card must carry what the device did.
 		expect(html).toContain("Last button press: 80 g at");
+	});
+
+	it("shows the raw ultrasonic distance and the hopper filter card (#659)", async () => {
+		const html = renderToStaticMarkup(
+			await HardwareSettingsPage({ searchParams: Promise.resolve({}) }),
+		);
+
+		// The distance being calibrated against is the device's own reading, and
+		// the filter that guards it is on the same tab.
+		expect(html).toContain("Raw sensor distance");
+		expect(html).toContain("Hopper sensor filter");
+		expect(html).toContain("Smoothing weight");
+		// A write is only a promise: the card must carry what the device reported.
+		expect(html).toContain("Reported by the device");
 	});
 
 	it("explains read-only mode on the hardware controls", async () => {

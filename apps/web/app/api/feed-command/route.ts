@@ -3,6 +3,7 @@ import { PH_UTC_OFFSET_MINUTES, REQUEST_EXPIRY_MS } from "@/lib/constants";
 import { isDeviceApproved, verifyDeviceToken } from "@/lib/device-auth";
 import { claimPendingFeedRequest } from "@/lib/feed/commands";
 import { buildFirmwareConfig } from "@/lib/firmware/config";
+import { hopperFilterOverrides } from "@/lib/firmware/hopper-filter";
 import {
 	BUTTON_FEED_GRAMS_MAX,
 	BUTTON_FEED_GRAMS_MIN,
@@ -36,6 +37,14 @@ type DeviceConfig = {
 	tempOffsetC: number;
 	hopperCapacityG: number | null;
 	dailyCapG: number | null;
+	// #659: per-device hopper filter tuning; null keeps the firmware default.
+	hopperRefillMarginPct: number | null;
+	hopperRejectBelowCm: number | null;
+	hopperRejectAboveMarginCm: number | null;
+	hopperEmaAlpha: number | null;
+	hopperJumpPct: number | null;
+	hopperPersistCycles: number | null;
+	hopperStateHoldS: number | null;
 };
 
 function deviceConfig(device: DeviceConfig) {
@@ -85,6 +94,17 @@ async function firmwareConfigFor(device: DeviceConfig) {
 			hopperEmptyCm: device.hopperEmptyCm,
 			dailyCapG,
 			maxDispenseMs: feedingLimits.maxDispenseMs,
+			// #659: only the keys this device has a value for are sent; the rest
+			// keep the firmware's compile-time default.
+			hopperFilter: hopperFilterOverrides({
+				hopperRefillMarginPct: device.hopperRefillMarginPct,
+				hopperRejectBelowCm: device.hopperRejectBelowCm,
+				hopperRejectAboveMarginCm: device.hopperRejectAboveMarginCm,
+				hopperEmaAlpha: device.hopperEmaAlpha,
+				hopperJumpPct: device.hopperJumpPct,
+				hopperPersistCycles: device.hopperPersistCycles,
+				hopperStateHoldS: device.hopperStateHoldS,
+			}),
 		},
 		gates,
 		deviceStatus: {

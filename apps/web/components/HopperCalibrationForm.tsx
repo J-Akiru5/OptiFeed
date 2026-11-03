@@ -5,6 +5,10 @@ import {
 	calibrationFieldGrid,
 	parseCalibrationNumber,
 } from "@/components/calibration/CalibrationNumberField";
+import {
+	type HopperDistanceSnapshot,
+	HopperLiveDistance,
+} from "@/components/calibration/hopper-live-distance";
 import { dashboardButtonPrimary } from "@/components/dashboard/dashboard-classes";
 import { useReportUnsavedChanges } from "@/components/settings/unsaved-changes";
 import { saveHopperCalibration } from "@/lib/actions/energy";
@@ -22,7 +26,7 @@ import {
 } from "@/lib/limits";
 import { cn } from "@/lib/utils";
 import { useLocale, useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 interface HopperCalibrationFormProps {
@@ -34,6 +38,16 @@ interface HopperCalibrationFormProps {
 	hopperDiameterCm?: number | null;
 	hopperBulkDensityGCm3?: number | null;
 	canWrite?: boolean;
+	/**
+	 * The device-reported raw distance (#659). Rendered beside the fields so the
+	 * operator can watch the reading move while calibrating instead of measuring
+	 * the tank externally.
+	 */
+	feedLevelCm?: number | null;
+	feedLevelPercent?: number | null;
+	feedLevelUpdatedAt?: Date | null;
+	/** True when the unit or its ultrasonic sensor is not answering. */
+	readingIsStale?: boolean;
 }
 
 const DEFAULT_FULL_CM = 5;
@@ -47,6 +61,10 @@ export function HopperCalibrationForm({
 	hopperDiameterCm = null,
 	hopperBulkDensityGCm3 = null,
 	canWrite = true,
+	feedLevelCm = null,
+	feedLevelPercent = null,
+	feedLevelUpdatedAt = null,
+	readingIsStale = false,
 }: HopperCalibrationFormProps) {
 	const t = useTranslations("dashboard.appSettings");
 	const locale = useLocale();
@@ -72,6 +90,29 @@ export function HopperCalibrationForm({
 	const [error, setError] = useState<string | null>(null);
 	const [saved, setSaved] = useState(false);
 	const [isPending, startTransition] = useTransition();
+
+	// #659: the raw distance is device-reported; the two reference fields are
+	// what the operator writes. Showing both is the point of the card. The
+	// snapshot is memoised so a keystroke does not re-seed the polled value with
+	// the older server render.
+	const liveReading: HopperDistanceSnapshot = useMemo(
+		() => ({
+			cm: feedLevelCm,
+			percent: feedLevelPercent,
+			updatedAt: feedLevelUpdatedAt ? feedLevelUpdatedAt.toISOString() : null,
+		}),
+		[feedLevelCm, feedLevelPercent, feedLevelUpdatedAt],
+	);
+
+	// "Capture" writes the reading that is on screen into a reference field, so
+	// the operator holds the float at the mark and clicks, instead of measuring
+	// the tank with a tape and typing the number.
+	const handleCapture = (target: "full" | "empty", cm: number) => {
+		const value = String(Number(cm.toFixed(1)));
+		if (target === "full") setFullCm(value);
+		else setEmptyCm(value);
+		setSaved(false);
+	};
 
 	// Centimetre fields accept one decimal (owner decision, 2026-10-29) so a
 	// stored 12.3 stays 12.3 instead of being rejected, but the steppers still
@@ -181,6 +222,14 @@ export function HopperCalibrationForm({
 
 	return (
 		<div className="space-y-4" data-help="hopper-calibration">
+			<HopperLiveDistance
+				deviceId={deviceId}
+				initial={liveReading}
+				isStale={readingIsStale}
+				canWrite={canWrite}
+				onCapture={handleCapture}
+			/>
+
 			<div className={calibrationFieldGrid}>
 				<CalibrationNumberField
 					id="hopperFullCm"

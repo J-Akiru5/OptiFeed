@@ -424,6 +424,19 @@ model EnergyDevice {
   // calibrated before this field existed; hopperCapacityG is kept as-is there.
   hopperDiameterCm          Float? // inner tank diameter in cm
   hopperBulkDensityGCm3     Float? // feed bulk density in g/cm³ (floating pellet ~0.6-0.7)
+
+  // Issue #659: the hopper filter tuning. These were firmware-only constants, so
+  // a bouncing or noisy ultrasonic sensor could only be adapted with a new
+  // build. Null keeps the firmware's compile-time value; a value here is
+  // overlaid onto the poll response's `config` object exactly like the geometry
+  // above, inside the envelope `firmware/firmware-main/config.h` enforces.
+  hopperRefillMarginPct     Float? // % of usable height added before a refill is reported
+  hopperRejectBelowCm       Float? // readings closer than this are echo noise
+  hopperRejectAboveMarginCm Float? // readings this far past "empty" are rejected
+  hopperEmaAlpha            Float? // EMA weight of a new sample (0.05-1)
+  hopperJumpPct             Float? // a jump larger than this % is treated as noise
+  hopperPersistCycles       Int? // consecutive samples before the state flips
+  hopperStateHoldS          Int? // how long a hopper state is held before flipping
   dailyCapG                 Int? // pond's daily feed ceiling; null → DEFAULT_DAILY_CAP_G (2000)
   gramsPerSecond            Float     @default(4.0) // motor dispense rate — pushed via poll response
   tempOffsetC               Float     @default(0) // DS18B20 calibration offset in °C

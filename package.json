@@ -12,6 +12,7 @@
 		"format": "biome format . --write",
 		"prisma:generate": "pnpm --filter web run prisma:generate",
 		"prisma:migrate": "pnpm --filter web run prisma:migrate",
+		"postinstall": "node scripts/prisma-generate-if-present.mjs",
 		"prepare": "husky",
 		"typecheck": "pnpm -r typecheck",
 		"test": "pnpm --filter web test",
@@ -19,6 +20,7 @@
 		"api:live": "node scripts/api/live-check.mjs",
 		"self-check": "node scripts/self-check.mjs",
 		"audit:gate": "node scripts/security/audit-gate.mjs",
+		"security:overrides": "node scripts/security/check-overrides.mjs",
 		"dead-code": "knip",
 		"complexity": "pnpm --filter web complexity",
 		"perf:bundle": "node scripts/perf/bundle-budget.mjs",
@@ -38,18 +40,5 @@
 		"husky": "^9.1.7",
 		"knip": "6.44.0",
 		"lint-staged": "^17.6.0"
-	},
-	"pnpm": {
-		"overrides": {
-			"baseline-browser-mapping": "^2.11.0",
-			"browserslist": "^4.28.7",
-			"dompurify": "^3.4.17",
-			"proxy-addr": "^2.0.8",
-			"source-map-js": "^1.2.2",
-			"exceljs>uuid": "11.1.1",
-			"uuid@^8.3.0": "11.1.1",
-			"minimatch@^3.0.4": "3.1.5",
-			"minimatch@^3.1.0": "3.1.5"
-		}
 	}
 }

@@ -17,8 +17,9 @@
 # (DATABASE_URL, SUPABASE_SERVICE_ROLE_KEY, API keys) must never be build args:
 # they are read from the environment at runtime.
 #
-# Status: this file has never been built in the development environment that
-# produced it (no Docker installed). See docs/operations/deployment.md.
+# Status: CI builds this file with the default build arguments on changes
+# (.github/workflows/docker.yml, build only, no push). The image has still not
+# been run as a container; see docs/operations/deployment.md.
 
 # Base image is tag-pinned to the Node 22 Debian bookworm slim line. Pinning a
 # digest as well is the remaining reproducibility step; it needs a Docker host
@@ -54,6 +55,11 @@ ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY apps/web/package.json ./apps/web/package.json
 COPY packages/config/package.json ./packages/config/package.json
+
+# The root postinstall (#715) exits 0 when the Prisma schema is absent, which
+# it is in this stage; the wrapper itself must exist or `pnpm install` cannot
+# run it.
+COPY scripts/prisma-generate-if-present.mjs ./scripts/prisma-generate-if-present.mjs
 
 RUN pnpm install --frozen-lockfile
 

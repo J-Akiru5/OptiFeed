@@ -115,6 +115,17 @@ export default async function ProfileSettingsPage() {
 					</div>
 				</div>
 
+				{!contactEmail && (
+					<div className="mt-4 rounded-xl border border-[#E8C9A8] bg-[#FDF3E7] px-3 py-3 dark:border-[#FF8A5C]/30 dark:bg-[#FF8A5C]/10">
+						<p className="text-sm font-bold text-[#8A3B12] dark:text-[#FFB38F]">
+							{t("emailMissingTitle")}
+						</p>
+						<p className="mt-1 text-xs leading-snug text-[#3D5568] dark:text-slate-300">
+							{t("emailMissingDesc")}
+						</p>
+					</div>
+				)}
+
 				<div className="mt-6">
 					<button
 						type="button"

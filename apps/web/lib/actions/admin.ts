@@ -10,7 +10,7 @@ import {
 import {
 	inviteRoleError,
 	isMemberRole,
-	permissionEditError,
+	permissionChangeError,
 	revokeMemberError,
 	roleChangeError,
 } from "@/lib/auth/member-rules";
@@ -160,13 +160,6 @@ export async function updateUser(
 
 export type DeleteUserResult = { success: true } | { error: string };
 
-/**
- * Marks the one `deleteUser` failure that must reach the caller with its own
- * message: the Supabase login deletion failed inside the transaction. Any other
- * throw is flattened into the generic failure so internals are not leaked.
- */
-class DeleteUserAuthError extends Error {}
-
 export async function deleteUser(userId: string): Promise<DeleteUserResult> {
 	await requireTenantAdmin();
 	await requirePermission("manage_members");
@@ -203,11 +196,6 @@ export async function deleteUser(userId: string): Promise<DeleteUserResult> {
 		// deletions, so a concurrent promotion to OWNER cannot slip between the
 		// check and the write. `FOR UPDATE` makes the promotion wait for this
 		// transaction instead of committing underneath it.
-		//
-		// The Supabase deletion happens inside the transaction, matching
-		// disablePlatformAdmin (#334): a failure rolls the whole transaction back
-		// before any row is removed, and no live login is left pointing at an
-		// account that no longer exists.
 		const deleted = await prisma.$transaction(
 			async (tx) => {
 				await tx.$queryRaw<Array<{ id: string }>>`
@@ -236,18 +224,6 @@ export async function deleteUser(userId: string): Promise<DeleteUserResult> {
 				});
 				if (denied) return { ok: false as const, error: denied };
 
-				// Delete from Supabase Auth: auth.admin.deleteUser returns an error
-				// object rather than throwing, so it must be checked. Aborting here
-				// leaves both stores intact.
-				const supabase = createAdminClient();
-				const { error: authError } = await supabase.auth.admin.deleteUser(user.supabaseId);
-				if (authError) {
-					console.error("[admin] deleteUser auth error:", authError.message);
-					throw new DeleteUserAuthError(
-						"Failed to remove the account's login. Nothing was deleted.",
-					);
-				}
-
 				// Delete from DB: the farmer's whole subtree (ponds → devices → events → farm)
 				// Safety net: the guard above refuses active grants, but a revoked
 				// row must not outlive its user (PlatformAdmin has no FK to User).
@@ -267,12 +243,27 @@ export async function deleteUser(userId: string): Promise<DeleteUserResult> {
 				await deleteUserSubtree(tx, userId, user.farmId);
 				return { ok: true as const };
 			},
-			// The Supabase call runs inside the transaction, so the default 5 s
-			// interactive-transaction budget is too tight for a slow auth delete.
+			// The subtree delete can touch many rows, so keep the longer budget
+			// even though the external auth call no longer runs in here (#669).
 			{ timeout: 15_000 },
 		);
 
 		if (!deleted.ok) return { error: deleted.error };
+
+		// #669: revoke the login after the rows are gone, never inside the
+		// transaction. The Supabase call is external to Postgres, so a rollback
+		// could not undo it - running it inside meant a later statement failing
+		// left the user row intact with no working login.
+		//
+		// If this cleanup fails the account still cannot reach the app: every
+		// route resolves the user row the transaction just deleted. So it is
+		// logged for follow-up rather than reported as a failed deletion. A 404
+		// means the login is already gone, which keeps this idempotent.
+		const supabase = createAdminClient();
+		const { error: authError } = await supabase.auth.admin.deleteUser(user.supabaseId);
+		if (authError && authError.status !== 404) {
+			console.error("[admin] deleteUser orphaned an auth login:", user.id, authError.message);
+		}
 
 		// Drop any cached farm binding immediately; otherwise a valid JWT could
 		// keep passing withAuth for the cache TTL after the account is gone.
@@ -280,7 +271,6 @@ export async function deleteUser(userId: string): Promise<DeleteUserResult> {
 
 		return { success: true };
 	} catch (e) {
-		if (e instanceof DeleteUserAuthError) return { error: e.message };
 		console.error("[admin] deleteUser error:", e);
 		return { error: "Failed to delete user." };
 	}
@@ -519,20 +509,16 @@ export async function setUserPermission(
 		return { success: false, error: "Unknown permission." };
 	}
 
-	const [target, actor] = await Promise.all([resolveManagedMembership(userId), getCurrentUser()]);
-	if (!target.success) return target;
-	if (!actor) return { success: false, error: "Not authenticated." };
+	const resolved = await resolveManagedMember(userId);
+	if (!resolved.success) return { success: false, error: resolved.error };
+	const target = resolved.target;
 
-	// #584: an ADMIN may not reach an OWNER. Revoking `manage_members` or
-	// `control_feeder` from an owner's membership is a demotion in effect, so the
-	// same hierarchy rule that guards a role change applies to the permission row.
-	const ruleError = permissionEditError({
-		actorRole: target.actorRole,
-		targetRole: target.membership.role,
-	});
+	// Role and permission changes are owner-only. An ADMIN can still invite and
+	// revoke a non-owner, but it cannot edit this membership's permissions.
+	const ruleError = permissionChangeError(target.actorRole);
 	if (ruleError) return { success: false, error: ruleError };
 
-	if (actor.id === userId && permission === "manage_members" && !granted) {
+	if (target.actorUserId === userId && permission === "manage_members" && !granted) {
 		return {
 			success: false,
 			error: "You cannot remove your own permission to manage members.",
@@ -559,11 +545,6 @@ export async function setUserPermission(
 						error: "That user has no active membership in your organization.",
 					};
 				}
-				const denied = permissionEditError({
-					actorRole: target.actorRole,
-					targetRole: live.role,
-				});
-				if (denied) return { success: false as const, error: denied };
 
 				await tx.membershipPermission.upsert({
 					where: {
@@ -1602,6 +1583,7 @@ export async function adminUpdateDeviceDailyCap(
 ): Promise<{ success: boolean; error?: string; dailyCapG?: number; code?: ActionDenialReason }> {
 	try {
 		await requireTenantAdmin({ onDenied: "throw" });
+		await requirePermission("control_feeder");
 		const parsed = dailyCapSchema.safeParse(dailyCapG);
 		if (!parsed.success) {
 			return { success: false, error: formatZodError(parsed.error) };

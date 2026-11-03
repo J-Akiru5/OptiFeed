@@ -45,7 +45,12 @@ vi.mock("@/lib/rate-limit", () => ({ checkDeviceTokenRevealRateLimit: vi.fn() })
 vi.mock("@/i18n/routing", () => ({ redirect: vi.fn() }));
 vi.mock("next-intl/server", () => ({ getLocale: vi.fn().mockResolvedValue("en") }));
 
-import { changeMemberRole, inviteMember, revokeMember } from "@/lib/actions/admin";
+import {
+	changeMemberRole,
+	inviteMember,
+	revokeMember,
+	setUserPermission,
+} from "@/lib/actions/admin";
 import { resolveOrgScope } from "@/lib/auth/org-scope";
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -164,7 +169,7 @@ describe("tenant role changes", () => {
 		allowTarget("OPERATOR", "ADMIN");
 
 		await expect(changeMemberRole("u-target", "OWNER")).resolves.toEqual({
-			error: "Only an owner can promote a member to owner.",
+			error: "Only an organization owner can change roles or permissions.",
 		});
 		expect(tx.membership.update).not.toHaveBeenCalled();
 	});
@@ -173,9 +178,28 @@ describe("tenant role changes", () => {
 		allowTarget("OWNER", "ADMIN");
 
 		await expect(changeMemberRole("u-target", "ADMIN")).resolves.toEqual({
-			error: "Only an owner can change another owner's role.",
+			error: "Only an organization owner can change roles or permissions.",
 		});
 		expect(tx.membership.update).not.toHaveBeenCalled();
+	});
+
+	it("refuses an ADMIN changing an OPERATOR's role", async () => {
+		allowTarget("OPERATOR", "ADMIN");
+
+		await expect(changeMemberRole("u-target", "VIEWER")).resolves.toEqual({
+			error: "Only an organization owner can change roles or permissions.",
+		});
+		expect(tx.membership.update).not.toHaveBeenCalled();
+	});
+
+	it("refuses an ADMIN changing a permission", async () => {
+		allowTarget("OPERATOR", "ADMIN");
+
+		await expect(setUserPermission("u-target", "manage_schedule", true)).resolves.toEqual({
+			success: false,
+			error: "Only an organization owner can change roles or permissions.",
+		});
+		expect(db.membershipPermission.findMany).not.toHaveBeenCalled();
 	});
 
 	it("refuses demoting the last OWNER", async () => {
@@ -247,7 +271,16 @@ describe("tenant invites", () => {
 
 		await expect(
 			inviteMember({ email: "new@example.com", displayName: "New Member", role: "OWNER" }),
-		).resolves.toEqual({ error: "Only an owner can invite another owner." });
+		).resolves.toEqual({ error: "Only an owner can invite another admin or owner." });
+		expect(mockInvite).not.toHaveBeenCalled();
+	});
+
+	it("refuses an ADMIN inviting an ADMIN", async () => {
+		allowTarget("OPERATOR", "ADMIN");
+
+		await expect(
+			inviteMember({ email: "new@example.com", displayName: "New Member", role: "ADMIN" }),
+		).resolves.toEqual({ error: "Only an owner can invite another admin or owner." });
 		expect(mockInvite).not.toHaveBeenCalled();
 	});
 

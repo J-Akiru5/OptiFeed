@@ -18,6 +18,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **The shared fallback password is retired in the manual-testing documentation (#712).** `docs/password-auth-plan.md` now records that `password123` must not be used for any account, that `superadmin`, `independent-farmer` and `test` still need owner action in Supabase Auth, and that per-account random temporary passwords are required. The accounts are not claimed as fixed.
+### Added
+
+- **CI builds the container image (#714).** `.github/workflows/docker.yml` runs `docker build` with the Dockerfile's default arguments when the Dockerfile, compose file, lockfile, manifests or the workflow change. It never pushes or deploys, and the first run is pending; the runtime container path remains unverified.
+- **The security overrides are checked on every install (#713).** `scripts/security/check-overrides.mjs` (run as `pnpm security:overrides` in CI) fails when package.json regains the ignored `pnpm` field, when the workspace or lockfile override set drifts, or when a resolved dompurify/minimatch/uuid/browserslist/proxy-addr/source-map-js/baseline-browser-mapping version falls below its floor.
+
+### Changed
+
+- **pnpm security overrides moved to `pnpm-workspace.yaml` (#713).** pnpm 10 ignores `pnpm.overrides` in package.json and warned on every command; the same pins now live in the settings file pnpm actually reads, and the dead field is gone. The lockfile already records the same overrides, so `--frozen-lockfile` remains valid.
+- **`pnpm install` generates the Prisma client when the schema is present (#715).** The guarded root `postinstall` skips cleanly in the Docker deps stage, where only manifests are copied, so a fresh clone or a pull that changes the schema no longer fails `typecheck` until someone runs the generator by hand. `DEMO_SUPABASE_ID` is now documented in `apps/web/.env.example` for the demo seed.
+- **GitHub Actions are pinned to commit SHAs (#722).** Every `uses:` in `.github/workflows/*.yml` now names a 40-character commit with the version tag in a trailing comment, so a moved tag cannot change what CI executes. The `pnpm dlx @lhci/cli` invocation is unchanged and recorded as a follow-up; workflow permissions are unchanged.
+- **The Lighthouse transfer budget is 535,000 B (#710).** The old 525,000 B ceiling failed on samples of 526,268 / 526,263 / 526,263 B at `09d4234` and 526,595 / 527,664 / 527,654 B on develop at `d7ff4518` (0.24–0.51 % over) on every branch. The new ceiling keeps 1.4 % headroom over the worst measured sample; the performance score floors are unchanged, and `docs/ci-required-checks.md` records the decision plus the owner action for making the security, SBOM, E2E and Lighthouse checks required.
 
 ## [1.51.0] - 2026-11-03
 

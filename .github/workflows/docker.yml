@@ -1,0 +1,64 @@
+name: Docker image
+
+# Build-only verification for the container path (#714).
+#
+# The repository ships a multi-stage Dockerfile and a docker-compose.yml that
+# had never been built. This job runs `docker build` with the Dockerfile's
+# default build arguments, which point at the unreachable placeholder project,
+# and proves the image still builds.
+#
+# It never pushes, tags a registry, deploys or reads a secret. This is not part
+# of the Vercel pipeline: deployment eligibility is documented in
+# docs/deployment-workflow.md, and the container procedure in
+# docs/operations/deployment.md.
+
+on:
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "docker-compose.yml"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+      - "apps/web/package.json"
+      - "apps/web/next.config.ts"
+      - "apps/web/prisma/schema.prisma"
+      - "packages/config/package.json"
+      - "scripts/prisma-generate-if-present.mjs"
+      - ".npmrc"
+      - ".github/workflows/docker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: docker build (no push)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # No --build-arg: the Dockerfile defaults are what a bare
+      # `docker build .` uses, and they must keep working.
+      - name: Build the image
+        run: docker build --progress=plain --tag optifeed-web:ci .
+
+      - name: Record the image size
+        run: |
+          set -euo pipefail
+          bytes="$(docker image inspect --format '{{.Size}}' optifeed-web:ci)"
+          {
+            echo "### Docker image"
+            echo ""
+            echo "- image: \`optifeed-web:ci\`"
+            echo "- size: ${bytes} bytes"
+            echo "- pushed: no"
+          } >> "$GITHUB_STEP_SUMMARY"

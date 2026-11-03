@@ -60,6 +60,9 @@ There is exactly one deployment mechanism: **the Vercel Git integration**.
 - Deploy hooks: none.
 - GitHub Actions deploy workflow: none (the original `deploy.yml` was removed
   in commit `b1fc763`; CI never deploys).
+- Container build workflow: `.github/workflows/docker.yml` runs `docker build`
+  on changes to the image inputs, with no registry push and no secret. It is
+  build-only and is not a deployment path.
 
 Deployment eligibility is restricted in `apps/web/vercel.json`:
 
@@ -111,9 +114,11 @@ Triggers:
 - `pull_request` targeting `develop`, `staging`, `main`
 - manual `workflow_dispatch`
 
-Steps: pnpm install (`--frozen-lockfile`) → Prisma client generation → Prisma
-schema validation → Biome lint → TypeScript typecheck → Vitest unit tests →
-API-route authentication gate → `next build` with dummy credentials.
+Steps: pnpm install (`--frozen-lockfile`, whose guarded root `postinstall`
+generates the Prisma client when the schema is present) → security-override
+check → Prisma client generation → Prisma schema validation → Biome lint →
+TypeScript typecheck → Vitest unit tests → API-route authentication gate →
+`next build` with dummy credentials.
 
 Guarantees:
 
@@ -126,14 +131,18 @@ Guarantees:
   branch runs always finish so their result is a trustworthy gate.
 
 Not covered by the `quality` job (run manually when relevant): Playwright
-end-to-end specs (need a database and a running server), Vercel project
-configuration, and the container image (`Dockerfile` / `docker-compose.yml` —
-CI does not build it yet). Firmware compilation has its own `Firmware` workflow
-(`.github/workflows/firmware.yml`): it runs on `firmware/**` changes, compiles
-the ESP32 sketch with `arduino-cli`, and never flashes or deploys a device.
+end-to-end specs (need a database and a running server) and Vercel project
+configuration. The container image (`Dockerfile` / `docker-compose.yml`) has its
+own build-only workflow, `.github/workflows/docker.yml`: `docker build` with the
+Dockerfile's default arguments, no push and no secrets. Firmware compilation has
+its own `Firmware` workflow (`.github/workflows/firmware.yml`): it runs on
+`firmware/**` changes, compiles the ESP32 sketch with `arduino-cli`, and never
+flashes or deploys a device.
 
-Required check context: job name `quality` (displayed as `CI / quality` in the
-pull-request checks list).
+Required check contexts: `quality` (displayed as `CI / quality` in the
+pull-request checks list) and `bundle budget + latency`. The current required
+checks and the recommended additions are recorded in
+[`ci-required-checks.md`](./ci-required-checks.md).
 
 ## 4. Migrations during a build
 
@@ -338,7 +347,7 @@ Configured after the branch reconciliation, on `develop`, `staging`, and
 | Require pull request | Yes | Yes | Yes |
 | Required approvals | 0 (author may merge with green CI) | 0 | 1 |
 | Dismiss stale approvals | — | — | Yes |
-| Require `quality` check | Yes | Yes | Yes |
+| Required status checks | `quality`, `bundle budget + latency` | `quality`, `bundle budget + latency` | `quality`, `bundle budget + latency` |
 | Require branch up to date | No | No | No |
 | No force pushes | Yes | Yes | Yes |
 | No deletions | Yes | Yes | Yes |
@@ -364,8 +373,9 @@ so the human rule stands: no agent promotes `main` without that authorization.
 | Firmware compiles | Verified | `Firmware` workflow `compile` success on `aa88ef2` and `6d858d6` |
 | Release PR is bot-authored | Verified | PR #79 author `app/github-actions`, `REVIEW_REQUIRED`, `quality` + `Firmware` + Vercel green |
 | Database migrations | Verified | `prisma migrate status`: 28/28 applied and schema up to date; production `migrate deploy` is a no-op |
-| `develop`/`staging` protection | Configured on GitHub | PR + `quality`, no force push, no deletion, admins enforced |
+| `develop`/`staging` protection | Configured on GitHub | PR + `quality` + `bundle budget + latency`, no force push, no deletion, admins enforced |
 | Staging database | Shared with production **by decision** (section 6) | — |
+| Container image builds | **Configured, not yet observed** | `.github/workflows/docker.yml` runs `docker build` with the Dockerfile defaults (no push) when its inputs change; the first run happens after merge |
 | Production deploy executed | **Verified 2026-10-31** | v1.34.1 is live on `main` (PR #397) |
 
 Rows that described the pre-2026-10-26 configuration (`develop` deployed,

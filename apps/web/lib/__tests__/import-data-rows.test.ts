@@ -17,10 +17,12 @@ const { resolveActivePond, prisma, tx } = vi.hoisted(() => {
 		feedLevelLog: { createMany: vi.fn() },
 		notification: { createMany: vi.fn() },
 		deviceStateEvent: { createMany: vi.fn(), create: vi.fn() },
+		importConfirmation: { create: vi.fn() },
 	};
 	const prisma = {
 		energyDevice: { findFirst: vi.fn() },
 		biomassLog: { findMany: vi.fn() },
+		importConfirmation: { findUnique: vi.fn() },
 		$transaction: vi.fn(),
 	};
 	return { resolveActivePond: vi.fn(), prisma, tx };
@@ -51,6 +53,7 @@ beforeEach(() => {
 	resolveActivePond.mockResolvedValue({ id: "pond-1" });
 	prisma.energyDevice.findFirst.mockResolvedValue({ id: "dev-1" });
 	prisma.biomassLog.findMany.mockResolvedValue([{ id: "log-1" }]);
+	prisma.importConfirmation.findUnique.mockResolvedValue(null);
 	prisma.$transaction.mockImplementation(async (fn: (client: typeof tx) => Promise<number>) =>
 		fn(tx),
 	);

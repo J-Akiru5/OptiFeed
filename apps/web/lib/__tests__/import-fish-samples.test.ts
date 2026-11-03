@@ -26,6 +26,7 @@ vi.mock("@/lib/prisma", () => {
 		biomassLog: { findMany: vi.fn(), createMany: vi.fn() },
 		fishSample: { createMany: vi.fn() },
 		deviceStateEvent: { create: vi.fn() },
+		importConfirmation: { findUnique: vi.fn(), create: vi.fn() },
 	};
 	const $transaction = vi.fn();
 	$transaction.mockImplementation((fn: (tx: typeof client) => Promise<unknown>) => fn(client));
@@ -78,6 +79,8 @@ describe("fish_samples import enforces biomassLogId ownership (F-004)", () => {
 		] as never);
 		mockEnergyDeviceFindFirst.mockResolvedValue({ id: "dev-1" } as never);
 		mockFishSampleCreateMany.mockResolvedValue({ count: 2 } as never);
+		vi.mocked(prisma.importConfirmation.findUnique).mockResolvedValue(null);
+		vi.mocked(prisma.importConfirmation.create).mockResolvedValue({} as never);
 	});
 
 	it("rejects a biomassLogId owned by another farm and writes nothing", async () => {

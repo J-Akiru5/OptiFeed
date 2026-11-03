@@ -2,6 +2,11 @@ import { DEVICE_OFFLINE_AFTER_MIN_DEFAULT } from "./device-status";
 
 export const HOPPER_CAPACITY_KG = 22.19;
 export const EXPORT_ROW_LIMIT = 50_000;
+// Largest generated export stored in JobArtifact.data (#728). At the 50,000-row
+// ceiling a CSV is roughly 10–20 MB and XLSX/ZIP compress below that, so 25 MB
+// leaves headroom without letting one artifact consume a function's memory.
+// Anything larger must be chunked or moved to object storage instead.
+export const MAX_JOB_ARTIFACT_BYTES = 25 * 1024 * 1024;
 // A single CSV import is capped far below the export ceiling so one request
 // cannot demand an unbounded transaction (F-003).
 export const IMPORT_ROW_LIMIT = 5_000;

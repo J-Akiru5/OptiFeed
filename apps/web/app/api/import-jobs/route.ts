@@ -49,11 +49,18 @@ export const POST = withApi(
 			return Response.json({ error: "CSV payload exceeds 5 MB" }, { status: 413 });
 		}
 
+		// Persist the client's dedupe key with the job so the worker can honour
+		// it. When the header is absent the worker derives one from the payload.
+		const idempotencyKey = request.headers.get("idempotency-key");
 		const job = await createJob({
 			ownerId,
 			requestedBy: user.id,
 			type: "import_confirm",
-			payload: { type: body.type, csvData: body.csvData },
+			payload: {
+				type: body.type,
+				csvData: body.csvData,
+				...(idempotencyKey ? { idempotencyKey } : {}),
+			},
 		});
 
 		return accepted(

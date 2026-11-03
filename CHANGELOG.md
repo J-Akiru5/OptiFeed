@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Audit events are now export-only, so caller-supplied source, actor and timestamps cannot be imported (#744).
 
+### Added
+
+- Cron schedules are provisioned from environment values and every run writes a CronHeartbeat read by /api/health/cron (#725).
+
 ## [1.52.0] - 2026-11-04
 
 ### Fixed

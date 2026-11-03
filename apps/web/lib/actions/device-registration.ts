@@ -121,7 +121,7 @@ export async function addTenantDevice(input: {
 	try {
 		const pond = await prisma.pond.findFirst({
 			where: { id: input.pondId, ownerId: { in: scope.farmIds } },
-			select: { id: true, ownerId: true },
+			select: { id: true, ownerId: true, farmId: true },
 		});
 		if (!pond) return { error: "That pond is outside your organization." };
 
@@ -153,7 +153,10 @@ export async function addTenantDevice(input: {
 					eventType: "device_registered",
 					source: "user",
 					actorId: actor.id,
-					farmId: pond.ownerId,
+					// #709 (L1): stamp the immutable Farm.id, not the login slug in
+					// Pond.ownerId. The telemetry trigger honours any non-null stamp, so
+					// a slug here made the row invisible to every Farm.id-scoped query.
+					farmId: pond.farmId,
 					metadata: { orgId, approvalStatus, mac },
 				},
 			});
@@ -220,7 +223,7 @@ async function decidePendingDevice(
 			pondId: { in: scope.pondIds },
 			approvalStatus: "PENDING",
 		},
-		select: { id: true, pond: { select: { ownerId: true } } },
+		select: { id: true, pond: { select: { ownerId: true, farmId: true } } },
 	});
 	if (!device) return { error: "Device not found in your organization." };
 
@@ -236,7 +239,7 @@ async function decidePendingDevice(
 					eventType: next === "APPROVED" ? "device_approved" : "device_rejected",
 					source: "user",
 					actorId: actor.id,
-					farmId: device.pond?.ownerId ?? null,
+					farmId: device.pond?.farmId ?? null,
 				},
 			});
 		});

@@ -51,6 +51,8 @@ import {
 	ADMIN_A_ID,
 	ADMIN_B_ID,
 	FARMER_A_ID,
+	FARM_A,
+	FARM_ROW_A,
 	MEMBERSHIP_ADMIN_A,
 	ORG_A_ID,
 	POND_A_1,
@@ -125,6 +127,10 @@ describe("addTenantDevice", () => {
 			(row) => row.eventType === "device_registered",
 		);
 		expect(event).toMatchObject({ actorId: ADMIN_A_ID, source: "user" });
+		// #709 (L1): the telemetry stamp is the immutable Farm.id, not the login
+		// slug in Pond.ownerId; the trigger trusts any non-null stamp.
+		expect(event?.farmId).toBe(FARM_ROW_A);
+		expect(event?.farmId).not.toBe(FARM_A);
 		// The credential never reaches the audit trail.
 		expect(JSON.stringify(event?.metadata)).not.toContain("esp32-tok-");
 	});

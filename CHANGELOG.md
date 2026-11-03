@@ -9,11 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Session cookies are Secure and expire after 30 days instead of 400 (#717).** `sessionCookieOptions()` now drives both the server and browser Supabase clients, so a refresh by either one writes the same flags: `Secure` in production, `SameSite=Lax`, `path=/` and a 30-day `maxAge`. `HttpOnly` is deliberately still absent because `createBrowserClient` reads `document.cookie` for Realtime and client sign-out; setting it now would silently break those flows. The CSP still allows inline scripts. Both remaining halves need the staged work described on #717.
 ### Fixed
 
 - Crop reminder email gains a plain-text part and PakaonAI branding; the stale invite comment is corrected (#742).
+- Exports keep the newest rows, empty CSVs have headers and a BOM, and the PDF shows the newest FCR reports (#755).
 
 - **Login returns to the page that asked for it (#760).** The proxy now appends the intercepted page as `/login?next=…`, the login form forwards it to `loginWithPassword`, and the action redirects there after authentication. `sanitizePostLoginPath` accepts only a same-origin absolute path (rejecting absolute/protocol-relative URLs, backslashes and the login page itself), and a forced password change still wins over the requested page. Locale prefixes are stripped before `redirect()` re-adds them.
+
+### Security
+
+- Audit events are now export-only, so caller-supplied source, actor and timestamps cannot be imported (#744).
 
 ## [1.52.0] - 2026-11-04
 
@@ -29,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Audit events can no longer be imported, so their provenance cannot be forged (#744).** The CSV/workbook import accepted `audit_events` and wrote the caller's `source`, `actorId`, `metadata` and `createdAt` straight into `DeviceStateEvent`, letting a tenant writer insert a backdated system or token event attributed to another user. `audit_events` is now export-only: the prepare, prepare-template and import-job routes reject it, the import dialog no longer offers it, and `confirmImport` refuses it before opening a transaction. Reviewing the audit trail by export is unchanged.
 - **A password reset now needs the proof carried by the recovery link (#718).** `completePasswordReset` previously accepted any authenticated session, so a stolen or shared session could set a permanent password without knowing the current one. The reset request now mints a 15-minute HMAC-SHA256 proof whose `jti` is stored in a new additive `PasswordResetToken` table, puts it in the Supabase recovery `redirectTo`, and the action verifies the signature, expiry and user binding before atomically consuming the proof. A missing, forged, expired, replayed or other-user proof returns `reset_link` and does not touch the password.
 - **A farm-wide failure burst no longer locks every farmer out (#721).** The per-(farm, IP) five-attempt hard lock is unchanged. The farm-wide counter still raises one security notification at ten failures in fifteen minutes, but it no longer writes or reads a farm-wide lock, so two source IPs cannot hold a farm offline. The accepted tradeoff is that distributed guessing below the per-pair lock is not stopped by a farm-wide gate.
 - **Client-IP trust and reset-link origins now fail closed (#732).** `TRUSTED_PROXY_HOPS` (default 1, clamped to 1..10) selects the address that many entries from the right; a shorter chain or invalid selected entry returns `null` instead of trusting a client-written value. Password-reset audit rows now use that parser, and a non-production deployment with neither `NEXT_PUBLIC_BASE_URL` nor `NEXT_PUBLIC_SITE_URL` mints no link and sends no email instead of pointing at production. The reset request still returns the same anti-enumeration answer and records the configuration failure.

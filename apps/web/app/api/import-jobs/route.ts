@@ -4,7 +4,7 @@ import { requireWriteAccess } from "@/lib/auth/session";
 import { withAuth } from "@/lib/auth/with-auth";
 import { LEGACY_API_SUNSET } from "@/lib/constants";
 import type { ExportableType } from "@/lib/csv";
-import { CSV_EXPORT_TYPES } from "@/lib/jobs/export-data";
+import { IMPORTABLE_TYPES } from "@/lib/csv";
 import { MAX_CSV_IMPORT_BYTES } from "@/lib/jobs/import-data";
 import { createJob } from "@/lib/jobs/service";
 import { checkApiRateLimit } from "@/lib/rate-limit";
@@ -36,9 +36,9 @@ export const POST = withApi(
 			return Response.json({ error: "Invalid JSON body" }, { status: 400 });
 		}
 
-		if (!body.type || !CSV_EXPORT_TYPES.includes(body.type)) {
+		if (!body.type || !IMPORTABLE_TYPES.includes(body.type)) {
 			return Response.json(
-				{ error: `Invalid type. Must be one of: ${CSV_EXPORT_TYPES.join(", ")}` },
+				{ error: `Invalid type. Must be one of: ${IMPORTABLE_TYPES.join(", ")}` },
 				{ status: 400 },
 			);
 		}

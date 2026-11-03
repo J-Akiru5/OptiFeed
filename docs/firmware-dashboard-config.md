@@ -252,6 +252,22 @@ dose or one above the derived ceiling. The server keeps its own relay-time check
 when queueing a manual feed, so a request that cannot physically run is never
 queued.
 
+## Values that are deliberately fixed (#662)
+
+The calibration-coverage audit (`docs/audits/2026-11-03-calibration-coverage.md`,
+gap 6) asked for four values that existed but were neither visible nor
+adjustable. The calibration caps and the heartbeat cadence are now mirrored to
+one place and pinned by a parity test; the RTC correction and the probe's
+plausibility window are recorded as deliberately fixed, with the clock drift
+reported instead of tuned.
+
+| Value | Where it lives | Decision |
+|---|---|---|
+| RTC drift | `diag.rtc_drift_s` (signed seconds) | **Reported, not tunable.** The server clock corrects the RTC automatically once the drift passes 60 s (`applyIsoTime`), so a manual offset would fight the correction. The signed drift observed at the last correction now rides the heartbeat and the device page renders it: positive means the clock was behind the server, negative ahead, `0` means no correction has been needed this boot. |
+| Water-probe plausibility | `fw::temperaturePlausible()` in `filters.h`: 0..50 °C, exclusive | **Deliberately fixed (class A).** It rejects the DS18B20 `-127` / `85` sentinels and values no pond here reaches; it answers "is this a real reading", not "is this reading accurate". Accuracy is corrected with `temp_offset_c`, which is already calibratable, and a probe that stops reporting is visible as `water_temp_ok: false` on the device row plus `diag.sensor_invalid_count`. There is no second threshold because the app has no reference measurement to compare against; inventing one would only add a number nobody can calibrate. |
+| `heartbeat_interval_s` | `config.h` field, `editable: false` | **Firmware-only, mirrored.** No dashboard surface, but the connectivity rollup needs the expected beat to size its gap threshold. The app reads one exported constant (`FIRMWARE_HEARTBEAT_INTERVAL_S`, derived from the field default) instead of restating `5`; the parity test pins it to the header. |
+| `calibration_max_grams` / `calibration_max_dispense_ms` | `config.h` field table | **Mirrored, not restated.** The app's calibration caps (`CALIBRATION_MAX_GRAMS`, `CALIBRATION_MAX_DISPENSE_MS`, and the derived `CALIBRATION_TEST_GRAMS_MAX`, `CALIBRATION_ACTUAL_GRAMS_MAX`, `CALIBRATION_TEST_SECONDS_MAX`) live in `apps/web/lib/limits-core.ts` and are asserted against the header by `firmware-config.test.ts`, so the two can no longer agree by luck. |
+
 ## Verification
 
 | Check | Command |

@@ -625,6 +625,11 @@ String provisionedHwVariant;
 bool hardwareVariantOk = true;
 
 bool rtcAvailable = false;
+// #662: signed seconds the RTC was off at the last correction. Positive = the
+// RTC was behind the server, negative = ahead. Reported as `diag.rtc_drift_s`;
+// a value of 0 means no correction has happened this boot (or the clock was
+// already within the 60 s dead band). Diagnostic only - never an input.
+long lastRtcDriftS = 0;
 bool feederActive = false;
 unsigned long feedStartTime = 0;
 unsigned long feedDurationMs = 0;
@@ -4418,12 +4423,17 @@ void applyIsoTime(const char* iso, bool force) {
   if (!parseIsoUtc(iso, target)) return;
 
   DateTime current = rtc.now();
-  long drift = (long)target.unixtime() - (long)current.unixtime();
-  if (drift < 0) drift = -drift;
-  if (!force && drift <= 60) return;
+  const long drift = (long)target.unixtime() - (long)current.unixtime();
+  const long driftMagnitude = drift < 0 ? -drift : drift;
+  if (!force && driftMagnitude <= 60) return;
 
   rtc.adjust(target);
-  Serial.printf("[TIME] RTC %s from server (%lds drift)\n", force ? "set" : "corrected", drift);
+  // #662: the correction is automatic, so there is no offset to calibrate.
+  // Keep the signed value for the heartbeat instead: positive means the RTC
+  // was behind the server, negative that it was ahead.
+  lastRtcDriftS = drift;
+  Serial.printf("[TIME] RTC %s from server (%lds drift)\n", force ? "set" : "corrected",
+                driftMagnitude);
 }
 
 void pollScheduleCommand() {
@@ -4890,6 +4900,10 @@ void sendTelemetry() {
   diag["button_disabled"] = buttonNoise.disabled(millis());
   diag["relay_overruns"] = relayOverruns;
   diag["sensor_invalid_count"] = sensorInvalidCount;
+  // #662: the last RTC correction was serial-only, so the app could not show
+  // "clock is 12 s fast". Signed seconds at the last correction; diagnostic
+  // only, and 0 when no correction has been needed this boot.
+  diag["rtc_drift_s"] = lastRtcDriftS;
   diag["queue_drops"] = queueDropCount;
   // 1.8.0 FaultManager (bit n = fw::Fault n). Diagnostic only, like the rest.
   diag["faults_latched"] = faultManager.latchedMask();

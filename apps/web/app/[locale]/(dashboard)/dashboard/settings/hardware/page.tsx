@@ -1,3 +1,4 @@
+import { ButtonFeedForm } from "@/components/ButtonFeedForm";
 import { DeviceDailyCapForm } from "@/components/DeviceDailyCapForm";
 import { DurationCalibrationForm } from "@/components/DurationCalibrationForm";
 import { HopperCalibrationForm } from "@/components/HopperCalibrationForm";
@@ -22,7 +23,7 @@ import {
 	DeviceSettingsTabs,
 	type DeviceSwitcherOption,
 } from "@/components/settings/device-settings-tabs";
-import { updateDeviceDailyCap } from "@/lib/actions/settings";
+import { updateDeviceButtonFeed, updateDeviceDailyCap } from "@/lib/actions/settings";
 import { canWrite } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
 import { loadCalibrationDriftWindow } from "@/lib/calibration/drift-data";
@@ -37,6 +38,7 @@ import { getPageCount, parsePage } from "@/lib/pagination";
 import { getActivePondId, listSelectablePonds } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { AP_PREFIX } from "@/lib/provisioning-ap";
+import { buttonFeedConfirmation, loadButtonFeedReport } from "@/lib/settings/button-feed";
 import {
 	deviceSettingsQuery,
 	parseDeviceSettingsTab,
@@ -48,6 +50,7 @@ import {
 	CalendarClock,
 	Cpu,
 	Gauge,
+	Hand,
 	History,
 	RefreshCw,
 	Ruler,
@@ -237,6 +240,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 					hopperBulkDensityGCm3: true,
 					gramsPerSecond: true,
 					gramsPerFeeding: true,
+					buttonFeedGrams: true,
 					dailyCapG: true,
 					lastCalibratedAt: true,
 					recalibrationIntervalDays: true,
@@ -282,6 +286,20 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 		energyDevice && heroPond && pondName
 			? await loadFeederHero({ pond: heroPond, deviceId: energyDevice.id, now })
 			: null;
+
+	// #658: the firmware reports one config revision for the whole config, never
+	// the per-key values, so the last button press is the only device-side
+	// evidence of the dose the unit is actually using. Loaded after the hero so
+	// the existing config/firmware reads keep their order.
+	const buttonFeedReport = energyDevice
+		? await loadButtonFeedReport(energyDevice.id, energyDevice.buttonFeedGrams)
+		: null;
+	const buttonFeedState = buttonFeedReport
+		? buttonFeedConfirmation(buttonFeedReport)
+		: "unavailable";
+	const buttonFeedLastPressLabel = buttonFeedReport?.lastPress
+		? formatFarmDateTime(buttonFeedReport.lastPress.receivedAt, tDates).full
+		: null;
 
 	// #574: the health view already arrives with the hero, so the hopper card can
 	// mark the sensor offline without another query.
@@ -593,6 +611,29 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 										deviceId={energyDevice.id}
 										currentCapG={energyDevice.dailyCapG}
 										saveAction={updateDeviceDailyCap}
+										canWrite={writeAccess}
+									/>
+								</DashboardSection>
+							)}
+
+							{/* Physical button dose (#658) */}
+							{energyDevice && buttonFeedReport && (
+								<DashboardSection
+									id="button-feed"
+									title={t("buttonFeed")}
+									description={t("buttonFeedDesc")}
+									icon={Hand}
+								>
+									<ButtonFeedForm
+										key={energyDevice.id}
+										deviceId={energyDevice.id}
+										report={{
+											storedGrams: energyDevice.buttonFeedGrams,
+											lastPressGrams: buttonFeedReport.lastPress?.grams ?? null,
+											lastPressAtLabel: buttonFeedLastPressLabel,
+											confirmation: buttonFeedState,
+										}}
+										saveAction={updateDeviceButtonFeed}
 										canWrite={writeAccess}
 									/>
 								</DashboardSection>

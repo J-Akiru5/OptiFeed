@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The physical button's dose can be set from the device settings page (#658).** `EnergyDevice.buttonFeedGrams` was already overlaid into the poll response as `button_feed_grams`, but nothing in the dashboard wrote it, so every unit dispensed the 80 g schema default on a button press. Device settings → Feeding now has **Button feed amount** beside the daily ceiling: it saves through the existing settings server action (`updateDeviceButtonFeed`), guarded by the revocable `control_feeder` permission, and writes the device update plus a `button_feed_changed` `DeviceStateEvent` in one transaction. The input accepts only the firmware's own 1-500 g `button_feed_grams` envelope (`firmware/firmware-main/config.h`, mirrored by the shared field table and the server schema), so an out-of-range value is refused before any request. Because a write is only a promise until the unit polls, the card also shows what the device reported: the last physical-button press and its dispensed weight, with a change marked **not confirmed** until a later press reports the stored dose. A failed or unreadable report is labelled as such instead of being shown as "no press". Copy is in English, Hiligaynon and Tagalog (machine-drafted, queued for review); no schema change and no new dependency.
+
 ## [1.49.0] - 2026-11-03
 
 ### Added

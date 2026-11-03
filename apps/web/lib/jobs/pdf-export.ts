@@ -71,7 +71,8 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 
 	const fcrReports = await prisma.fcrReport.findMany({
 		where: { pondId: pond.id },
-		orderBy: { periodEnd: "asc" },
+		// Newest reports, not the ten oldest (#755).
+		orderBy: { periodEnd: "desc" },
 		take: 10,
 	});
 

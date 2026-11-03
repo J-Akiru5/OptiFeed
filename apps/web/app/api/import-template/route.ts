@@ -2,7 +2,7 @@ import { withApi } from "@/lib/api/instrumentation";
 import { withAuth } from "@/lib/auth/with-auth";
 import { LEGACY_API_SUNSET } from "@/lib/constants";
 import { checkApiRateLimit } from "@/lib/rate-limit";
-import { isSheetType } from "@/lib/xlsx/schema";
+import { isImportSheetType } from "@/lib/xlsx/schema";
 import { buildTemplateCsv, buildTemplateWorkbookBuffer } from "@/lib/xlsx/writer";
 
 export const dynamic = "force-dynamic";
@@ -16,8 +16,11 @@ export const GET = withApi(
 
 		const params = new URL(request.url).searchParams;
 		const type = params.get("type");
-		if (!isSheetType(type)) {
-			return Response.json({ error: "Invalid type" }, { status: 400 });
+		if (!isImportSheetType(type)) {
+			return Response.json(
+				{ error: "Invalid type. Audit events are export-only." },
+				{ status: 400 },
+			);
 		}
 
 		const xlsx = params.get("format") === "xlsx";

@@ -1,13 +1,13 @@
 import { ApiError } from "@/lib/api/errors";
 import { MAX_JOB_ARTIFACT_BYTES } from "@/lib/constants";
-import type { ExportableType } from "@/lib/csv";
+import type { ImportableType } from "@/lib/csv";
 import { scrubText } from "@/lib/error-scrub";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
 import type { PdfReport, SheetType } from "@/lib/xlsx/schema";
 import type { BackgroundJob, Prisma } from "@prisma/client";
 import { buildBatchExport, buildCsvExport, buildXlsxExport } from "./export-data";
-import { confirmImport } from "./import-data";
+import { confirmImport, importTransactionTimeoutMs } from "./import-data";
 import { buildPdfExport } from "./pdf-export";
 import { buildReportPdf } from "./report-pdf";
 
@@ -175,13 +175,13 @@ export async function runJob(
 	const limitMs =
 		options.timeLimitMs ?? JOB_TIME_LIMITS_MS[job.type as JobType] ?? JOB_TIME_LIMIT_MS;
 	try {
-		await withTimeLimit(executeJob(job), limitMs);
+		await withTimeLimit(executeJob(job, limitMs), limitMs);
 	} catch (error) {
 		await failJob(job, error);
 	}
 }
 
-async function executeJob(job: BackgroundJob): Promise<void> {
+async function executeJob(job: BackgroundJob, limitMs: number): Promise<void> {
 	switch (job.type) {
 		case "export_csv": {
 			const payload = job.payload as { type: SheetType };
@@ -191,6 +191,9 @@ async function executeJob(job: BackgroundJob): Promise<void> {
 				content_type: artifact.contentType,
 				size: artifact.body.byteLength,
 				download_url: `/api/v1/jobs/${job.id}/download`,
+				// #755: the artifact keeps the newest rows when the dataset is
+				// larger than the export ceiling; say so in the job result.
+				...(artifact.truncated ? { truncated: true } : {}),
 			});
 			return;
 		}
@@ -202,6 +205,9 @@ async function executeJob(job: BackgroundJob): Promise<void> {
 				content_type: artifact.contentType,
 				size: artifact.body.byteLength,
 				download_url: `/api/v1/jobs/${job.id}/download`,
+				// #755: the artifact keeps the newest rows when the dataset is
+				// larger than the export ceiling; say so in the job result.
+				...(artifact.truncated ? { truncated: true } : {}),
 			});
 			return;
 		}
@@ -213,6 +219,9 @@ async function executeJob(job: BackgroundJob): Promise<void> {
 				content_type: artifact.contentType,
 				size: artifact.body.byteLength,
 				download_url: `/api/v1/jobs/${job.id}/download`,
+				// #755: the artifact keeps the newest rows when the dataset is
+				// larger than the export ceiling; say so in the job result.
+				...(artifact.truncated ? { truncated: true } : {}),
 			});
 			return;
 		}
@@ -227,17 +236,25 @@ async function executeJob(job: BackgroundJob): Promise<void> {
 				content_type: artifact.contentType,
 				size: artifact.body.byteLength,
 				download_url: `/api/v1/jobs/${job.id}/download`,
+				// #755: the artifact keeps the newest rows when the dataset is
+				// larger than the export ceiling; say so in the job result.
+				...(artifact.truncated ? { truncated: true } : {}),
 			});
 			return;
 		}
 		case "import_confirm": {
 			const payload = job.payload as {
-				type: ExportableType;
+				type: ImportableType;
 				csvData: string;
+				pondId?: string | null;
 				idempotencyKey?: string | null;
 			};
 			const result = await confirmImport(job.ownerId, payload.type, payload.csvData, {
 				idempotencyKey: payload.idempotencyKey,
+				pondId: payload.pondId,
+				// #758: Prisma aborts the transaction before the job's own
+				// wall-clock limit, so a timed-out job cannot commit later.
+				transactionTimeoutMs: importTransactionTimeoutMs(limitMs),
 			});
 			await completeJob(job, null, { importedCount: result.importedCount });
 			return;
@@ -318,6 +335,28 @@ async function completeJob(
 	});
 }
 
+/** Prisma's code for an interactive transaction that expired and was rolled back. */
+function isExpiredTransaction(error: unknown): boolean {
+	return (
+		typeof error === "object" &&
+		error !== null &&
+		(error as { code?: unknown }).code === "P2028"
+	);
+}
+
+/**
+ * What the user is told after a failed import.
+ *
+ * A 4xx never reached a commit (unknown type, foreign pond, bad row), and an
+ * expired interactive transaction was rolled back by Prisma (#758). Only a
+ * timeout or transport failure leaves the outcome genuinely unknown.
+ */
+function importFailureMessage(error: unknown, rolledBack: boolean): string {
+	if (rolledBack) return "The import timed out and was rolled back. It is safe to retry.";
+	if (error instanceof ApiError && error.status < 500) return error.message;
+	return "The import may have been applied. Check the data before retrying.";
+}
+
 async function failJob(job: BackgroundJob, error: unknown): Promise<void> {
 	// Never serialize Prisma/stack details into the status endpoint. Only an
 	// explicitly exposed ApiError message is safe to show; everything else is
@@ -335,9 +374,13 @@ async function failJob(job: BackgroundJob, error: unknown): Promise<void> {
 	const retryable = job.type !== "import_confirm" && !permanent && !unknownType;
 	const terminal = !retryable || attempts >= JOB_MAX_ATTEMPTS;
 	const detail = scrubText(error instanceof Error ? error.message : String(error));
+	// Prisma closes (and rolls back) an interactive transaction that outlives
+	// its `timeout`; it cannot have committed. The import job sizes that budget
+	// below its own limit precisely so this is the failure mode (#758).
+	const rolledBack = isExpiredTransaction(error);
 	const message =
 		job.type === "import_confirm"
-			? "The import may have been applied. Check the data before retrying."
+			? importFailureMessage(error, rolledBack)
 			: error instanceof ApiError && error.expose
 				? error.message
 				: "The job failed. Try again.";

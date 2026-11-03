@@ -21,7 +21,7 @@ const { resolveActivePond, prisma, tx } = vi.hoisted(() => {
 		importConfirmation: { create: vi.fn() },
 	};
 	const prisma = {
-		energyDevice: { findFirst: vi.fn() },
+		energyDevice: { findMany: vi.fn() },
 		biomassLog: { findMany: vi.fn() },
 		importConfirmation: { findUnique: vi.fn() },
 		$transaction: vi.fn(),
@@ -58,8 +58,10 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	store.clear();
 
-	resolveActivePond.mockResolvedValue({ id: "pond-1" });
-	prisma.energyDevice.findFirst.mockResolvedValue({ id: "dev-1" });
+	resolveActivePond.mockImplementation(async (_ownerId: string, pondId?: string | null) => ({
+		id: pondId ?? "pond-1",
+	}));
+	prisma.energyDevice.findMany.mockResolvedValue([{ id: "dev-1" }]);
 	prisma.biomassLog.findMany.mockResolvedValue([]);
 	prisma.$transaction.mockImplementation(async (fn: (client: typeof tx) => Promise<number>) =>
 		fn(tx),
@@ -141,6 +143,48 @@ describe("confirmImport idempotency (#723)", () => {
 		// A different payload is a different action, so it still imports.
 		await confirmImport("farm-a", "biomass_logs", OTHER_CSV);
 		expect(tx.biomassLog.createMany).toHaveBeenCalledTimes(2);
+	});
+
+	it("scopes the derived key to the target pond (#743)", async () => {
+		await confirmImport("farm-a", "biomass_logs", CSV, { pondId: "pond-1" });
+		// The same file is a different action in another pond: it must not
+		// replay pond-1's stored result and skip the second import.
+		await confirmImport("farm-a", "biomass_logs", CSV, { pondId: "pond-2" });
+
+		expect(tx.biomassLog.createMany).toHaveBeenCalledTimes(2);
+
+		const keys = prisma.importConfirmation.findUnique.mock.calls.map(
+			(call) => (call[0].where as ConfirmationWhere).ownerId_idempotencyKey.idempotencyKey,
+		);
+		expect(keys[0]).toMatch(/^payload-sha256:[a-f0-9]{64}$/);
+		expect(keys[0]).not.toBe(keys[1]);
+	});
+
+	it("leaves no consumed key when the transaction is aborted at its time limit (#758)", async () => {
+		// Prisma rejects an interactive transaction that runs past `timeout`
+		// and rolls it back. The confirmation is written in that transaction,
+		// so the retry must import once rather than replay or duplicate.
+		prisma.$transaction.mockRejectedValueOnce(new Error("Transaction already closed"));
+
+		await expect(
+			confirmImport("farm-a", "biomass_logs", CSV, {
+				idempotencyKey: "timeout-key",
+				pondId: "pond-1",
+				transactionTimeoutMs: 100,
+			}),
+		).rejects.toThrow("Transaction already closed");
+		expect(store.size).toBe(0);
+		expect(prisma.$transaction).toHaveBeenLastCalledWith(expect.any(Function), { timeout: 100 });
+
+		const retried = await confirmImport("farm-a", "biomass_logs", CSV, {
+			idempotencyKey: "timeout-key",
+			pondId: "pond-1",
+			transactionTimeoutMs: 100,
+		});
+
+		expect(retried).toEqual({ importedCount: 2 });
+		expect(tx.biomassLog.createMany).toHaveBeenCalledTimes(1);
+		expect(tx.importConfirmation.create).toHaveBeenCalledTimes(1);
 	});
 
 	it("returns the winner's result when two confirms race the unique index", async () => {

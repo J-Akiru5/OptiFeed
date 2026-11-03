@@ -220,8 +220,10 @@ describe("admin users page", () => {
 
 		const html = renderToStaticMarkup(await AdminUsersPage({ searchParams: Promise.resolve({}) }));
 
-		// Membership authority wins over the legacy User.role column.
+		// Membership authority wins over the legacy User.role column, in both
+		// the desktop table and the mobile card (#754).
 		expect(html).toMatch(/>\s*Admin\s*</);
+		expect(html).not.toMatch(/>\s*Operator\s*</);
 		expect(html).not.toContain("/admin/settings/members/user-1/permissions");
 		expect(html).not.toContain("/admin/ponds/new");
 	});

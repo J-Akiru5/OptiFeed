@@ -31,7 +31,10 @@ interface StuckRequestBannerProps {
 	scheduleEnd: string;
 	feedsPerDay: number;
 	feedingRatePct: number;
-	canWrite?: boolean;
+	/** `control_feeder`: retry a stuck feed. */
+	canRetryFeed?: boolean;
+	/** `manage_schedule`: force a resync of the schedule command. */
+	canResyncSchedule?: boolean;
 }
 
 export function StuckRequestBanner({
@@ -45,7 +48,8 @@ export function StuckRequestBanner({
 	scheduleEnd,
 	feedsPerDay,
 	feedingRatePct,
-	canWrite = true,
+	canRetryFeed = true,
+	canResyncSchedule = true,
 }: StuckRequestBannerProps) {
 	const t = useTranslations("dashboard.schedule.stuckBanner");
 	const tDates = useTranslations("dates");
@@ -129,7 +133,7 @@ export function StuckRequestBanner({
 					</div>
 					<button
 						type="button"
-						disabled={isPendingFeed || !canWrite || !online}
+						disabled={isPendingFeed || !canRetryFeed || !online}
 						title={reason}
 						className="shrink-0 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:bg-red-900/40 dark:text-red-200 dark:hover:bg-red-900/60"
 						onClick={() => {
@@ -163,7 +167,7 @@ export function StuckRequestBanner({
 					</div>
 					<button
 						type="button"
-						disabled={isPendingFeed || !canWrite || !online}
+						disabled={isPendingFeed || !canRetryFeed || !online}
 						title={reason}
 						className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-50 disabled:opacity-50 dark:border-amber-800 dark:bg-amber-900/40 dark:text-amber-200 dark:hover:bg-amber-900/60"
 						onClick={() => {
@@ -199,7 +203,7 @@ export function StuckRequestBanner({
 					</div>
 					<button
 						type="button"
-						disabled={isPendingSchedule || !canWrite}
+						disabled={isPendingSchedule || !canResyncSchedule}
 						className="shrink-0 rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-50 disabled:opacity-50 dark:border-blue-800 dark:bg-blue-900/40 dark:text-blue-200 dark:hover:bg-blue-900/60"
 						onClick={() => {
 							startScheduleTransition(async () => {

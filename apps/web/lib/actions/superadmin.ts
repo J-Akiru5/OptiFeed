@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { passwordErrorMessage, validatePassword } from "@/lib/auth/password";
 import { issuePasswordResetProof } from "@/lib/auth/password-reset-proof";
 import { isPlatformAdminActive } from "@/lib/auth/platform-admin";
+import { buildRecoveryConfirmUrl } from "@/lib/auth/recovery-link";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { invalidateFarm } from "@/lib/auth/session-cache";
@@ -1013,23 +1014,29 @@ export async function sendPlatformUserResetLink(
 			// same reset page the self-service link uses. The proof is minted only
 			// after step-up succeeds so an unverified attempt leaves no usable row.
 			const proof = await issuePasswordResetProof(user.id);
-			const redirectTo = `${appBaseUrl}/en/reset-password?reset=${encodeURIComponent(proof.token)}`;
 			const { data, error } = await supabase.auth.admin.generateLink({
 				type: "recovery",
 				email: user.email,
-				options: { redirectTo },
 			});
-			const actionLink = data?.properties?.action_link;
-			if (error || !actionLink) {
+			// /auth/confirm redeems the hash server-side; the action_link's
+			// fragment tokens never reach a server-rendered page (#741).
+			const tokenHash = data?.properties?.hashed_token;
+			if (error || !tokenHash) {
 				throw new Error(
-					`could not mint a recovery link: ${error?.message ?? "no action_link returned"}`,
+					`could not mint a recovery link: ${error?.message ?? "no hashed_token returned"}`,
 				);
 			}
 
+			const resetUrl = buildRecoveryConfirmUrl({
+				appBaseUrl,
+				locale: "en",
+				tokenHash,
+				resetToken: proof.token,
+			});
 			const emailSent = await deliverPasswordResetEmail({
 				to: recipient,
 				farmId: user.farmId,
-				resetUrl: actionLink,
+				resetUrl,
 			});
 
 			// The attempt is audited even when delivery failed: the row records

@@ -1,6 +1,7 @@
 import {
 	hasSupabaseSessionCookie,
 	isProtectedPath,
+	loginRedirectPath,
 	shouldRedirectToLogin,
 } from "@/lib/auth/navigation-guard";
 import { describe, expect, it } from "vitest";
@@ -87,5 +88,27 @@ describe("isProtectedPath", () => {
 		expect(isProtectedPath("/en/superadmin")).toBe(true);
 		expect(isProtectedPath("/en/change-password")).toBe(true);
 		expect(isProtectedPath("/en/login")).toBe(false);
+	});
+});
+
+describe("loginRedirectPath (#760)", () => {
+	it("keeps the requested page and its query for the login action", () => {
+		expect(
+			loginRedirectPath({
+				pathname: "/en/dashboard/schedule",
+				locale: "en",
+				search: "?pond=1&tab=feeds",
+			}),
+		).toBe("/en/login?next=%2Fdashboard%2Fschedule%3Fpond%3D1%26tab%3Dfeeds");
+	});
+
+	it("uses the locale-prefixed login and strips the locale from next", () => {
+		expect(loginRedirectPath({ pathname: "/hil/admin/ponds", locale: "hil" })).toBe(
+			"/hil/login?next=%2Fadmin%2Fponds",
+		);
+	});
+
+	it("maps the locale root to the app root", () => {
+		expect(loginRedirectPath({ pathname: "/tl", locale: "tl" })).toBe("/tl/login?next=%2F");
 	});
 });

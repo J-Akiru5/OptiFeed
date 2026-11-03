@@ -139,9 +139,33 @@ describe("notification episodes (#534)", () => {
 				message: CRITICAL_MESSAGE,
 				linkTo: null,
 				read: false,
+				// #747: an acknowledgement of the WARNING must not silence the
+				// escalated CRITICAL alert.
+				acknowledgedAt: null,
+				acknowledgedBy: null,
 			},
 		});
 		expect(store.notification.create).not.toHaveBeenCalled();
+	});
+
+	it("keeps the acknowledgement when the message is reworded without escalating", async () => {
+		store.notification.findFirst.mockResolvedValue({
+			id: "notif-1",
+			tier: "WARNING",
+			message: WARNING_MESSAGE,
+		});
+
+		await openEpisode(store as never, {
+			pondId: "pond-1",
+			category: "pellet",
+			episodeKey: pelletEpisodeKey("dev-1"),
+			tier: "WARNING",
+			message: "Hopper low: about 8% left",
+		});
+
+		const data = store.notification.update.mock.calls[0][0].data;
+		expect(data).not.toHaveProperty("acknowledgedAt");
+		expect(data).not.toHaveProperty("acknowledgedBy");
 	});
 
 	it("only looks at rows that are still open", async () => {
@@ -197,6 +221,8 @@ describe("notification episodes (#534)", () => {
 				message: CRITICAL_MESSAGE,
 				linkTo: "/dashboard/settings",
 				read: false,
+				acknowledgedAt: null,
+				acknowledgedBy: null,
 			},
 		});
 	});

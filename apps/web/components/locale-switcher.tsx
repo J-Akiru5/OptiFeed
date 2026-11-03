@@ -1,6 +1,7 @@
 "use client";
 
 import { routing, usePathname, useRouter } from "@/i18n/routing";
+import { BETA_LOCALES, LOCALE_LABELS } from "@/lib/i18n/locales";
 import { cn } from "@/lib/utils";
 import { Check, ChevronDown, Globe } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
@@ -8,22 +9,6 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 
 type Locale = (typeof routing.locales)[number];
-
-/**
- * Language names are exonyms: they stay in their own language in every locale,
- * so they are not catalogue keys. Tagalog ships key-complete but most strings
- * are still machine drafts awaiting human review (`messages/tl.draft-keys.json`),
- * so it carries a visible "Beta" badge (#457). The badge comes off, and the
- * locale is treated as stable, once that review queue is empty.
- */
-const LOCALE_LABELS: Record<Locale, string> = {
-	en: "English",
-	hil: "Hiligaynon",
-	tl: "Tagalog",
-};
-
-/** Locales whose catalogue is not yet human-reviewed, shown as a Beta badge. */
-const BETA_LOCALES: ReadonlySet<Locale> = new Set<Locale>(["tl"]);
 
 type MenuPosition = {
 	top?: number;

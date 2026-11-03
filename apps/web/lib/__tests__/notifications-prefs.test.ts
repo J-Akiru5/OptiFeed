@@ -16,18 +16,25 @@ vi.mock("@/lib/prisma", () => ({ default: prisma }));
 vi.mock("@/lib/auth/session", () => ({
 	getCurrentPondOwnerId: vi.fn(),
 	requireWriteAccess: vi.fn(),
+	canManagePondAlertSettings: vi.fn(),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { updateNotificationPrefs } from "@/lib/actions/notifications";
-import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
+import {
+	canManagePondAlertSettings,
+	getCurrentPondOwnerId,
+	requireWriteAccess,
+} from "@/lib/auth/session";
 
 const mockWrite = vi.mocked(requireWriteAccess);
 const mockOwner = vi.mocked(getCurrentPondOwnerId);
+const mockCanManage = vi.mocked(canManagePondAlertSettings);
 
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockWrite.mockResolvedValue(undefined);
+	mockCanManage.mockResolvedValue(true);
 	mockOwner.mockResolvedValue("farm-1");
 	prisma.pond.findFirst.mockResolvedValue({ id: "pond-1", notificationPrefs: {} });
 	prisma.pond.update.mockResolvedValue({});
@@ -44,6 +51,17 @@ describe("updateNotificationPrefs", () => {
 		});
 		expect(prisma.pond.findFirst).not.toHaveBeenCalled();
 		spy.mockRestore();
+	});
+
+	it("refuses a write-access member who is not an owner or admin", async () => {
+		mockCanManage.mockResolvedValue(false);
+
+		await expect(updateNotificationPrefs("pond-1", { missedFeeding: false })).resolves.toEqual({
+			success: false,
+			error: "Only the pond owner or an admin can change pond alert settings.",
+		});
+		expect(prisma.pond.findFirst).not.toHaveBeenCalled();
+		expect(prisma.pond.update).not.toHaveBeenCalled();
 	});
 
 	it("rejects a non-boolean flag with the field message", async () => {

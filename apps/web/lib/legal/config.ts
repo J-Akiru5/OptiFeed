@@ -32,7 +32,7 @@ export const DPO_ADDRESS =
 	"PakaonAI Capstone Project, College of Information and Communication Technology, ISUFST Dingle Campus, Dingle, Iloilo, Philippines";
 
 export const NPC_ADDRESS =
-	"25thÃ¢â‚¬â€œ27th Floors, The Upper Class Tower, Quezon Avenue corner Scout Reyes Street, Quezon City, Philippines";
+	"25th–27th Floors, The Upper Class Tower, Quezon Avenue corner Scout Reyes Street, Quezon City, Philippines";
 export const NPC_PHONE = "(+63) 2 5322 1322";
 export const NPC_WEBSITE = "https://privacy.gov.ph";
 export const NPC_COMPLAINT_URL = "https://privacy.gov.ph/contactus/";

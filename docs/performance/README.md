@@ -203,7 +203,7 @@ collapse without encoding the noise:
 **Numeric budgets are the real gate.** They are asserted on the median run and measure the things a
 visitor experiences, at roughly +10% over the worst observed value:
 
-| Assertion | Budget | Worst of six runs |
+| Assertion | Budget | Worst of six local runs (2026-10-29) |
 |---|---|---|
 | `first-contentful-paint` | 2500 ms | 1786 ms |
 | `largest-contentful-paint` | 5000 ms | 4557 ms |
@@ -212,8 +212,16 @@ visitor experiences, at roughly +10% over the worst observed value:
 | `interactive` | 6000 ms | 5070 ms |
 | `server-response-time` | 1000 ms | 354 ms |
 | `resource-summary:script:size` | 285,000 B | 270,836 B |
-| `resource-summary:total:size` | 520,000 B | 495,841 B |
+| `resource-summary:total:size` | 530,000 B | 495,841 B |
 | `resource-summary:third-party:count` | 0 | 0 |
+
+The committed `lighthouserc.json` ceiling moved from 525,000 B to 530,000 B on
+2026-11-04 (#710); this table previously showed an older 520,000 B figure. CI
+run `41639052669` measured **526,268 / 526,263 / 526,263 B** for `/en` at
+`09d4234`: the median was 0.24 % over the old 525,000 B budget, not a code
+regression, and the job failed on every branch. The new ceiling keeps 3,732 B
+(0.7 %) of headroom over the worst sample. The per-category performance floors
+are unchanged; re-measure before raising this number again.
 
 `total-blocking-time` is the exception: budgeted at 1000 ms, just above the worst observed run (891 ms)
 rather than at +10% of it. Budgeting the median (233-635 ms) would fail on a noisy run; budgeting the

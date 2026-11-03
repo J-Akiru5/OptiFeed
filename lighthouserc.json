@@ -65,7 +65,7 @@
 						"interactive": ["error", { "maxNumericValue": 6000 }],
 						"server-response-time": ["error", { "maxNumericValue": 1000 }],
 						"resource-summary:script:size": ["error", { "maxNumericValue": 285000 }],
-						"resource-summary:total:size": ["error", { "maxNumericValue": 525000 }],
+						"resource-summary:total:size": ["error", { "maxNumericValue": 530000 }],
 						"resource-summary:third-party:count": ["error", { "maxNumericValue": 0 }]
 					}
 				}

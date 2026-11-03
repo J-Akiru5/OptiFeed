@@ -30,6 +30,10 @@ interface EnergyControllerCardProps {
 	lastSeenAt: Date | null;
 	isOffline: boolean;
 	canWrite?: boolean;
+	/** Effective `control_feeder` permission; `false` disables Feed Now. */
+	canControlFeeder?: boolean;
+	/** True while the pond is fallow after harvest; feeding is refused. */
+	isFallow?: boolean;
 	/** True when lastCalibratedAt + the device interval has passed. */
 	recalibrationDue?: boolean;
 	recalibrationDaysOverdue?: number;
@@ -60,6 +64,8 @@ export function EnergyControllerCard({
 	lastSeenAt,
 	isOffline,
 	canWrite = true,
+	canControlFeeder,
+	isFallow = false,
 	recalibrationDue = false,
 	recalibrationDaysOverdue = 0,
 	feedNowLimit = null,
@@ -72,9 +78,16 @@ export function EnergyControllerCard({
 	const [isPending, startTransition] = useTransition();
 	const [feedSent, setFeedSent] = useState(false);
 	const [alreadyQueued, setAlreadyQueued] = useState(false);
+	const [showConfirm, setShowConfirm] = useState(false);
 	const { online, reason, blockIfOffline } = useFeedCommandGuard();
+	const tBtn = useTranslations("button");
 	const tViewer = useTranslations("dashboard.feederViewer");
 	const tLimit = useTranslations("dashboard.feedNowModal");
+
+	// #750: the server rejects Feed Now without `control_feeder`, so the card
+	// mirrors that effective permission instead of advertising a dead button.
+	const permissionRevoked = canControlFeeder === false && canWrite;
+	const canFeed = canWrite && canControlFeeder !== false;
 
 	// The daily ceiling is the only gram cap: the input accepts whatever is
 	// left of today's allowance. Without a limit, only the sanity bound applies.
@@ -88,8 +101,17 @@ export function EnergyControllerCard({
 			? String(Number((feedGrams / gramsPerSecond).toFixed(1)))
 			: null;
 
+	// #749: the primary Feed Now button confirms before sending. This card is
+	// the same hardware action, so it uses the same two-step flow instead of
+	// firing on one click.
+	const requestConfirmation = () => {
+		if (!canFeed || isFallow || blockIfOffline() || overLimit || feedGrams < 1) return;
+		setShowConfirm(true);
+	};
+
 	const handleFeedNow = () => {
-		if (blockIfOffline() || overLimit || feedGrams < 1) return;
+		setShowConfirm(false);
+		if (!canFeed || isFallow || blockIfOffline() || overLimit || feedGrams < 1) return;
 		setFeedSent(false);
 		setAlreadyQueued(false);
 		startTransition(async () => {
@@ -167,9 +189,27 @@ export function EnergyControllerCard({
 				</div>
 			)}
 
+			{isFallow && (
+				<div className="mb-4 flex items-center gap-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3">
+					<AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+					<p className="text-xs text-amber-800 dark:text-amber-300 font-medium">
+						{tLimit("fallowWarning")}
+					</p>
+				</div>
+			)}
+
+			{permissionRevoked && (
+				<div className="mb-4 flex items-center gap-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3">
+					<AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+					<p className="text-xs text-amber-800 dark:text-amber-300 font-medium">
+						{tLimit("noPermissionWarning")}
+					</p>
+				</div>
+			)}
+
 			{/* #269: the two-column split follows the card's own width. At a 1280 px
-			    viewport the old `lg:` rule halved this card inside the 22 rem rail,
-			    which squeezed the mono MAC address past the card edge. */}
+		    viewport the old `lg:` rule halved this card inside the 22 rem rail,
+		    which squeezed the mono MAC address past the card edge. */}
 			<div className="grid gap-6 @xl:grid-cols-2">
 				<div className="space-y-4">
 					<div className="grid grid-cols-2 gap-3">
@@ -258,14 +298,15 @@ export function EnergyControllerCard({
 
 					<button
 						type="button"
-						onClick={handleFeedNow}
+						onClick={requestConfirmation}
 						disabled={
 							isPending ||
 							feederActive ||
 							feedGrams < 1 ||
 							overLimit ||
 							isOffline ||
-							!canWrite ||
+							isFallow ||
+							!canFeed ||
 							!online
 						}
 						title={reason}
@@ -311,6 +352,64 @@ export function EnergyControllerCard({
 					{tViewer("openViewer")}
 				</Link>
 			</div>
+
+			{showConfirm && (
+				<dialog
+					open
+					aria-modal="true"
+					aria-labelledby="energy-feed-confirm-title"
+					data-testid="energy-feed-confirm"
+					className="fixed inset-0 z-50 m-0 flex h-full max-h-none w-full max-w-none items-center justify-center border-0 bg-black/60 p-4 backdrop-blur-sm"
+				>
+					<div className="w-full max-w-md space-y-6 rounded-[32px] border border-gray-200 bg-white p-6 shadow-2xl md:p-8">
+						<div>
+							<h3
+								id="energy-feed-confirm-title"
+								className="mb-2 text-xl font-black uppercase tracking-tight text-[#C42B3A] md:text-2xl"
+							>
+								{tLimit("triggerTitle")}
+							</h3>
+							<p className="text-sm leading-relaxed text-[#3D5568]">
+								{tLimit.rich("triggerDesc", {
+									volume: `${formatFeedGrams(feedGrams)}g`,
+									bold: (chunks) => <strong className="font-black text-[#0A3D62]">{chunks}</strong>,
+								})}
+							</p>
+						</div>
+
+						{isOffline && (
+							<div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+								<AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
+								<p className="text-xs font-medium text-red-700">{tLimit("offlineWarning")}</p>
+							</div>
+						)}
+
+						{dispenseSeconds && (
+							<p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+								{tLimit("durationHint", { seconds: dispenseSeconds })}
+							</p>
+						)}
+
+						<div className="flex gap-4">
+							<button
+								type="button"
+								onClick={() => setShowConfirm(false)}
+								className="flex-1 rounded-xl bg-[#F4F7F6] py-3.5 text-sm font-bold text-[#3D5568] transition-all hover:bg-gray-100"
+							>
+								{tBtn("cancel")}
+							</button>
+							<button
+								type="button"
+								onClick={handleFeedNow}
+								disabled={!online || isFallow || !canFeed}
+								className="flex-1 rounded-xl bg-[#C2410C] py-3.5 text-sm font-extrabold text-white shadow-lg transition-all hover:bg-[#9A3412] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600 disabled:shadow-none dark:disabled:bg-gray-700 dark:disabled:text-gray-300"
+							>
+								{tBtn("yesDispenseNow")}
+							</button>
+						</div>
+					</div>
+				</dialog>
+			)}
 		</div>
 	);
 }

@@ -183,6 +183,9 @@ an additional gate placed before any write (and before the permission-management
 | `saveTemperatureCalibration` | `lib/actions/energy.ts` | `manage_schedule` | `requireWriteAccess()` |
 | `toggleDevicePause` | `lib/actions/schedule.ts` | `control_feeder` | `requireWriteAccess()` |
 | `updateScheduleCommand` | `lib/actions/schedule.ts` | `manage_schedule` | `requireWriteAccess()` |
+| `updateDeviceDailyCap` | `lib/actions/settings.ts` | `control_feeder` | `requireWriteAccess()` |
+| `updateDeviceButtonFeed` | `lib/actions/settings.ts` | `control_feeder` | `requireWriteAccess()` |
+| `saveHopperFilterSettings` | `lib/actions/energy.ts` | `manage_schedule` | `requireWriteAccess()` |
 
 For actions whose existing guard sits outside the `try`, the permission check also sits outside it,
 so a denial surfaces as `Forbidden` instead of being flattened into the action's generic failure
@@ -191,14 +194,21 @@ message.
 ### Not enforced yet
 
 - **Reads.** `getUsers`, `getPonds`, `getDevices`, `getAllFarmHierarchies`, `getAdminStats` and
-  `getAuditLog` still require `requireRole("ADMIN")` only. `view_dashboard` and `view_reports` are
-  defined but not yet enforced anywhere.
-- **Other write actions.** `settings.ts`, `farm.ts`, `biomass.ts`, `time.ts` and the rest keep
+  `getAuditLog` still require `requireRole("ADMIN")` only. `view_dashboard` is used as a
+  membership-presence gate by `updateNotificationPrefs`, but neither it nor `view_reports` gates a
+  route or a page read. A member with `view_dashboard` revoked can still open the dashboard URLs and
+  load their data; only the actions listed above refuse writes. Enforcing read permissions needs a
+  route-level decision (and a destination for a denied user), which is not part of this change.
+- **Other write actions.** `farm.ts`, `biomass.ts`, `time.ts` and the rest keep
   `requireWriteAccess()` only. `claim_feeder`, `record_dispatch` and `view_billing` have no
   enforcement point yet (claiming and dispatch arrive in M4 and M6).
-- **UI outside the permission dialog.** Apart from `/admin/users` → Permissions, no component hides
-  or disables a control based on a permission. A VIEWER sees the same controls as before and receives
-  a denial only from the server action.
+- **UI permission gating is partial.** The feeder controls on the dashboard and schedule pages now
+  receive the effective `control_feeder` / `manage_schedule` result and disable Feed Now,
+  pause/resume, schedule save/resync, time calibration and the hardware calibration forms when the
+  permission is revoked. `/admin/users` → Permissions remains the only surface for changing
+  permissions. Other screens that write pond or growth data still gate on role/write access only and
+  may therefore show an enabled control that the server refuses. Read-only views also remain
+  ungated, as described above.
 - **Platform console.** `/superadmin` is gated by `requirePlatformAdmin()`, a separate path that is
   intentionally not affected by tenant permissions.
 

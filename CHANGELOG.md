@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+### Fixed
+
+- **Feeder controls now match their permissions and confirmation rules (#749, #750, #751).** The controller card confirms before feeding and disables on fallow/offline/revoked permission, revoked schedule/feed permissions no longer leave enabled controls, and rejected biomass calculations no longer look applied while only transport failures are queued offline.
+- **The schedule editor rejects zero-length windows and warns on unsaved edits (#763).** The validator allows overnight windows, blocks an unusable multi-meal zero window, and the editor guards both browser unload and in-app navigation.
+
 ## [1.52.0] - 2026-11-04
 
 ### Fixed

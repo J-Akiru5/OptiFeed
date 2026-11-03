@@ -17,6 +17,8 @@ interface ScheduleControlsProps {
 	gramsPerFeeding?: number;
 	gramsPerSecond?: number;
 	canWrite?: boolean;
+	/** Effective `control_feeder` permission; `false` disables pause and Feed Now. */
+	canControlFeeder?: boolean;
 	/** Remaining daily ceiling for Feed Now (issue #387 / #398); omitted falls back to the dose. */
 	feedNowLimit?: FeedNowLimit | null;
 }
@@ -27,12 +29,19 @@ export function ScheduleControls({
 	gramsPerFeeding = 150,
 	gramsPerSecond,
 	canWrite = true,
+	canControlFeeder,
 	feedNowLimit = null,
 }: ScheduleControlsProps) {
 	const tBtn = useTranslations("button");
 	const tSch = useTranslations("dashboard.schedule");
 	const tModal = useTranslations("dashboard.feedNowModal");
 	const { online, reason, blockIfOffline } = useFeedCommandGuard();
+
+	// #750: the server checks `control_feeder` for both pause/resume and manual
+	// feed, so a revoked permission disables both controls instead of letting
+	// every click fail.
+	const permissionRevoked = canControlFeeder === false && canWrite;
+	const canControl = canWrite && canControlFeeder !== false;
 	const [isPaused, setIsPaused] = useState(initialIsPaused);
 	const [isPendingPause, startPauseTransition] = useTransition();
 
@@ -48,7 +57,7 @@ export function ScheduleControls({
 			: null;
 
 	const handleTogglePause = () => {
-		if (blockIfOffline()) return;
+		if (!canControl || blockIfOffline()) return;
 		const previous = isPaused;
 		const newStatus = !isPaused;
 		setIsPaused(newStatus); // Optimistic update
@@ -66,7 +75,7 @@ export function ScheduleControls({
 	};
 
 	const handleFeedNow = () => {
-		if (blockIfOffline()) return;
+		if (!canControl || blockIfOffline()) return;
 		startFeedTransition(async () => {
 			try {
 				const result = await requestFeedAction(deviceId, dispenseGrams);
@@ -118,7 +127,7 @@ export function ScheduleControls({
 				<button
 					type="button"
 					onClick={handleTogglePause}
-					disabled={isPendingPause || !canWrite || !online}
+					disabled={isPendingPause || !canControl || !online}
 					title={reason}
 					className={cn(
 						"ml-auto px-4 py-2 rounded-lg font-medium text-sm transition-all border @lg:ml-4",
@@ -156,7 +165,7 @@ export function ScheduleControls({
 							<button
 								type="button"
 								onClick={handleFeedNow}
-								disabled={isPendingFeed || !online || dispenseGrams < 1}
+								disabled={isPendingFeed || !canControl || !online || dispenseGrams < 1}
 								title={reason}
 								className="px-3 py-1.5 rounded-md text-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors flex items-center justify-center min-w-[80px]"
 							>
@@ -168,7 +177,7 @@ export function ScheduleControls({
 					<button
 						type="button"
 						onClick={() => setShowConfirm(true)}
-						disabled={!canWrite || !online || dispenseGrams < 1}
+						disabled={!canControl || !online || dispenseGrams < 1}
 						title={reason}
 						className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white bg-[var(--ofd-base)] hover:bg-[#1a4a6e] transition-all shadow-md hover:shadow-lg w-full @lg:w-auto justify-center disabled:opacity-50 dark:bg-[#1f66a0] dark:hover:bg-[#2a7ab8]"
 					>
@@ -198,6 +207,12 @@ export function ScheduleControls({
 					<p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
 						<AlertTriangle size={12} aria-hidden="true" />
 						{reason}
+					</p>
+				)}
+				{permissionRevoked && (
+					<p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+						<AlertTriangle size={12} aria-hidden="true" />
+						{tSch("noControlPermission")}
 					</p>
 				)}
 				{feedDurationSeconds && (

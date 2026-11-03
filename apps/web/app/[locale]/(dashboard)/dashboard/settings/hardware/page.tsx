@@ -26,6 +26,7 @@ import {
 } from "@/components/settings/device-settings-tabs";
 import { saveHopperFilterSettings } from "@/lib/actions/energy";
 import { updateDeviceButtonFeed, updateDeviceDailyCap } from "@/lib/actions/settings";
+import { hasPermission } from "@/lib/auth/permissions";
 import { canWrite } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
 import { loadCalibrationDriftWindow } from "@/lib/calibration/drift-data";
@@ -166,7 +167,15 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 		getTranslations("dashboard.common"),
 		getTranslations("dates"),
 	]);
-	const writeAccess = await canWrite();
+	// #750: the server checks `control_feeder` for the daily ceiling and button
+	// dose, and `manage_schedule` for every calibration form.
+	const [writeAccess, controlFeeder, manageSchedule] = await Promise.all([
+		canWrite(),
+		hasPermission("control_feeder"),
+		hasPermission("manage_schedule"),
+	]);
+	const canControlFeeder = writeAccess && controlFeeder;
+	const canManageSchedule = writeAccess && manageSchedule;
 	const rawParams = await searchParams;
 	let historyPage = parsePage(first(rawParams.page));
 	const activeTab = parseDeviceSettingsTab(first(rawParams.tab));
@@ -504,7 +513,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 		<div className="w-full space-y-6 pb-20">
 			<DashboardPageHeader title={t("title")} description={t("desc")} icon={Settings} />
 
-			{!writeAccess && (
+			{(!writeAccess || !canControlFeeder || !canManageSchedule) && (
 				<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
 			)}
 
@@ -660,7 +669,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 										deviceId={energyDevice.id}
 										currentCapG={energyDevice.dailyCapG}
 										saveAction={updateDeviceDailyCap}
-										canWrite={writeAccess}
+										canWrite={canControlFeeder}
 									/>
 								</DashboardSection>
 							)}
@@ -683,7 +692,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 											confirmation: buttonFeedState,
 										}}
 										saveAction={updateDeviceButtonFeed}
-										canWrite={writeAccess}
+										canWrite={canControlFeeder}
 									/>
 								</DashboardSection>
 							)}
@@ -724,7 +733,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 										feedLevelPercent={energyDevice.feedLevelPercent}
 										feedLevelUpdatedAt={energyDevice.feedLevelUpdatedAt}
 										readingIsStale={hopperOffline || hopperSensorOffline}
-										canWrite={writeAccess}
+										canWrite={canManageSchedule}
 									/>
 								</DashboardSection>
 							)}
@@ -745,7 +754,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 										usingDefaults={hopperFilterDefaultsInUse}
 										report={hopperFilterReport}
 										saveAction={saveHopperFilterSettings}
-										canWrite={writeAccess}
+										canWrite={canManageSchedule}
 									/>
 								</DashboardSection>
 							)}
@@ -762,7 +771,9 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 										deviceId={energyDevice.id}
 										currentGramsPerSecond={energyDevice.gramsPerSecond}
 										currentGramsPerFeeding={energyDevice.gramsPerFeeding}
-										canWrite={writeAccess}
+										// The guided test dose also needs `control_feeder`; requiring both
+										// here keeps every duration-calibration button truthful.
+										canWrite={canManageSchedule && canControlFeeder}
 										isOffline={isDeviceOffline}
 										isFallow={pondIsFallow}
 									/>
@@ -804,7 +815,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 									<RecalibrationIntervalForm
 										deviceId={energyDevice.id}
 										currentIntervalDays={energyDevice.recalibrationIntervalDays}
-										canWrite={writeAccess}
+										canWrite={canManageSchedule}
 									/>
 
 									{drift.status === "drift" && drift.diffPct !== null && (
@@ -861,7 +872,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 											// The firmware already applied the stored offset (#622);
 											// the form derives the raw value from this one.
 											currentTempC={energyDevice.waterTempC}
-											canWrite={writeAccess}
+											canWrite={canManageSchedule}
 										/>
 									</div>
 								</DashboardSection>

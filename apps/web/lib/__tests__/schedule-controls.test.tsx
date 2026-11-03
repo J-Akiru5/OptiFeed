@@ -131,6 +131,18 @@ describe("ScheduleControls", () => {
 		});
 	});
 
+	it("disables pause and Feed Now when control_feeder is revoked", () => {
+		render(
+			<ScheduleControls deviceId="device-1" initialIsPaused={false} canControlFeeder={false} />,
+		);
+
+		expect(screen.getByRole("button", { name: "Pause Schedule" })).toBeDisabled();
+		expect(screen.getByRole("button", { name: "Feed Now" })).toBeDisabled();
+		expect(
+			screen.getByText("You do not have permission to pause or feed this device."),
+		).toBeInTheDocument();
+	});
+
 	it("sends a dose above 1,000 g unchanged when the daily ceiling allows it", async () => {
 		actionMocks.requestFeed.mockResolvedValue({ success: true });
 

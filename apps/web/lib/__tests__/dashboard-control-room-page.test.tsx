@@ -84,6 +84,10 @@ vi.mock("@/lib/auth/session", () => ({
 	getCurrentPondOwnerId: vi.fn(async () => "farm-1"),
 }));
 
+vi.mock("@/lib/auth/permissions", () => ({
+	hasPermission: vi.fn(async () => true),
+}));
+
 vi.mock("@/lib/pond-selection", () => ({
 	getActivePond: vi.fn(async () => ({
 		id: "pond-1",

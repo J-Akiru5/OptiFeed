@@ -5,10 +5,11 @@ import { updateScheduleCommand } from "@/lib/actions/schedule";
 import type { UpdateScheduleResult } from "@/lib/actions/schedule";
 import { formatFarmDateTime } from "@/lib/date-local";
 import { scheduleSlotTimes } from "@/lib/schedule/slots";
+import { validateScheduleWindow } from "@/lib/schedule/window";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Clock, Loader2, RefreshCw, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 interface ScheduleCommandInfo {
 	id: string;
@@ -31,6 +32,8 @@ interface ScheduleEditorProps {
 	pendingCommand: ScheduleCommandInfo | null;
 	latestAppliedCommand: ScheduleCommandInfo | null;
 	canWrite?: boolean;
+	/** Effective `manage_schedule` permission; `false` disables save and resync. */
+	canManageSchedule?: boolean;
 }
 
 function fmtTimeDisplay(hhmm: string): string {
@@ -77,6 +80,7 @@ export function ScheduleEditor({
 	pendingCommand,
 	latestAppliedCommand,
 	canWrite = true,
+	canManageSchedule,
 }: ScheduleEditorProps) {
 	const t = useTranslations("dashboard.schedule");
 	const tDates = useTranslations("dates");
@@ -84,16 +88,82 @@ export function ScheduleEditor({
 	const [end, setEnd] = useState(initialEnd);
 	const [feedsPerDay, setFeedsPerDay] = useState(initialFeedsPerDay.toString());
 	const [feedingRate, setFeedingRate] = useState(initialFeedingRatePct.toString());
+	const [baseline, setBaseline] = useState({
+		start: initialStart,
+		end: initialEnd,
+		feedsPerDay: initialFeedsPerDay.toString(),
+		feedingRate: initialFeedingRatePct.toString(),
+	});
 	const [isPending, startTransition] = useTransition();
 	const [success, setSuccess] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+
+	// #750: `manage_schedule` is the server's gate for this form, so a revoked
+	// permission disables Save and Force Resync instead of letting them fail.
+	const permissionRevoked = canManageSchedule === false && canWrite;
+	const scheduleAllowed = canWrite && canManageSchedule !== false;
+
+	const feeds = Number.parseInt(feedsPerDay, 10);
+	const rate = Number.parseFloat(feedingRate);
+	const feedsInvalid = Number.isNaN(feeds) || feeds < 1 || feeds > 24;
+	const rateInvalid = Number.isNaN(rate) || rate < 0;
+	const windowIssue = validateScheduleWindow(start, end, Number.isFinite(feeds) ? feeds : 0);
+	const formInvalid = windowIssue !== null || feedsInvalid || rateInvalid;
+
+	// #763: compare against the last saved values so a navigation guard only
+	// fires for real unsaved edits, not after a successful save.
+	const isDirty =
+		start !== baseline.start ||
+		end !== baseline.end ||
+		feedsPerDay !== baseline.feedsPerDay ||
+		feedingRate !== baseline.feedingRate;
+
+	useEffect(() => {
+		if (!isDirty) return;
+		const onBeforeUnload = (event: BeforeUnloadEvent) => {
+			event.preventDefault();
+			event.returnValue = "";
+		};
+		// In-app links have no App Router event; a document-level capture handler
+		// runs before next/link's own onClick, so cancelling here stops the push.
+		const onClick = (event: MouseEvent) => {
+			if (
+				event.defaultPrevented ||
+				event.button !== 0 ||
+				event.metaKey ||
+				event.ctrlKey ||
+				event.shiftKey ||
+				event.altKey
+			) {
+				return;
+			}
+			const anchor = (event.target as HTMLElement | null)?.closest<HTMLAnchorElement>("a[href]");
+			if (!anchor || anchor.target === "_blank" || anchor.hasAttribute("download")) return;
+			const url = new URL(anchor.href, window.location.href);
+			if (url.origin !== window.location.origin) return;
+			if (url.pathname === window.location.pathname && url.search === window.location.search) {
+				return;
+			}
+			if (!window.confirm(t("unsavedConfirm"))) {
+				event.preventDefault();
+				event.stopPropagation();
+			}
+		};
+		window.addEventListener("beforeunload", onBeforeUnload);
+		document.addEventListener("click", onClick, true);
+		return () => {
+			window.removeEventListener("beforeunload", onBeforeUnload);
+			document.removeEventListener("click", onClick, true);
+		};
+	}, [isDirty, t]);
 
 	const hasPendingChanges = pendingCommand !== null;
 
 	// #431: the displayed times must follow the inputs, not the last command the
 	// device applied. Deriving them on every render means changing the frequency
 	// from 2 to 3 adds the third row immediately, before the device reconnects.
-	const previewSlots = scheduleSlotTimes(start, end, Number.parseInt(feedsPerDay, 10));
+	// A zero-length window must not render N identical preview slots (#763).
+	const previewSlots = windowIssue ? [] : scheduleSlotTimes(start, end, feeds);
 	const pendingSlots = pendingCommand
 		? scheduleSlotTimes(
 				pendingCommand.scheduleStart,
@@ -111,13 +181,15 @@ export function ScheduleEditor({
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
+		if (!scheduleAllowed) return;
 		setError(null);
 		setSuccess(false);
 
-		const feeds = Number.parseInt(feedsPerDay, 10);
-		const rate = Number.parseFloat(feedingRate);
-		if (Number.isNaN(feeds) || feeds < 1 || feeds > 24) return;
-		if (Number.isNaN(rate) || rate < 0) return;
+		if (windowIssue) {
+			setError(windowIssue === "zeroLength" ? t("windowZeroLength") : t("windowInvalid"));
+			return;
+		}
+		if (feedsInvalid || rateInvalid) return;
 
 		startTransition(async () => {
 			const result: UpdateScheduleResult = await updateScheduleCommand(pondId, deviceId, {
@@ -128,6 +200,7 @@ export function ScheduleEditor({
 			});
 
 			if (result.success) {
+				setBaseline({ start, end, feedsPerDay, feedingRate });
 				setSuccess(true);
 				setTimeout(() => setSuccess(false), 3000);
 			} else {
@@ -137,11 +210,9 @@ export function ScheduleEditor({
 	};
 
 	const handleForceResync = () => {
+		if (!scheduleAllowed || formInvalid) return;
 		setError(null);
 		setSuccess(false);
-
-		const feeds = Number.parseInt(feedsPerDay, 10);
-		const rate = Number.parseFloat(feedingRate);
 
 		startTransition(async () => {
 			const result: UpdateScheduleResult = await updateScheduleCommand(pondId, deviceId, {
@@ -152,6 +223,7 @@ export function ScheduleEditor({
 			});
 
 			if (result.success) {
+				setBaseline({ start, end, feedsPerDay, feedingRate });
 				setSuccess(true);
 				setTimeout(() => setSuccess(false), 3000);
 			} else {
@@ -248,7 +320,10 @@ export function ScheduleEditor({
 								type="time"
 								value={start}
 								onChange={(e) => setStart(e.target.value)}
-								aria-describedby="feeding-window-hint"
+								aria-describedby={
+									windowIssue ? "feeding-window-hint feeding-window-error" : "feeding-window-hint"
+								}
+								aria-invalid={windowIssue !== null}
 								className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-gray-900 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:[color-scheme:dark]"
 								required
 							/>
@@ -266,12 +341,26 @@ export function ScheduleEditor({
 								type="time"
 								value={end}
 								onChange={(e) => setEnd(e.target.value)}
-								aria-describedby="feeding-window-hint"
+								aria-describedby={
+									windowIssue ? "feeding-window-hint feeding-window-error" : "feeding-window-hint"
+								}
+								aria-invalid={windowIssue !== null}
 								className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-gray-900 outline-none focus:border-[var(--ofd-base)] focus:ring-1 focus:ring-[var(--ofd-base)] dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:[color-scheme:dark]"
 								required
 							/>
 						</div>
 					</div>
+
+					{windowIssue && (
+						<p
+							id="feeding-window-error"
+							role="alert"
+							data-testid="feeding-window-error"
+							className="mt-3 text-xs font-semibold text-red-600 dark:text-red-400"
+						>
+							{windowIssue === "zeroLength" ? t("windowZeroLength") : t("windowInvalid")}
+						</p>
+					)}
 
 					{previewSlots.length > 0 ? (
 						<div className="mt-4">
@@ -282,9 +371,11 @@ export function ScheduleEditor({
 							/>
 						</div>
 					) : (
-						<p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-							{t("feedingTimesInvalid")}
-						</p>
+						!windowIssue && (
+							<p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
+								{t("feedingTimesInvalid")}
+							</p>
+						)
 					)}
 				</div>
 
@@ -371,7 +462,8 @@ export function ScheduleEditor({
 					<button
 						type="button"
 						onClick={handleForceResync}
-						disabled={isPending || !canWrite}
+						disabled={isPending || !scheduleAllowed || formInvalid}
+						title={permissionRevoked ? t("noSchedulePermission") : undefined}
 						className="mt-3 flex items-center gap-1.5 rounded-lg border border-[#0A3D62]/20 bg-white px-3 py-1.5 text-xs font-bold text-[#0A3D62] transition-colors hover:bg-[#0A3D62]/5 disabled:opacity-50 dark:border-[#5b9bd5]/30 dark:bg-gray-900 dark:text-[#5b9bd5] dark:hover:bg-white/10"
 					>
 						{isPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
@@ -383,12 +475,20 @@ export function ScheduleEditor({
 				    scrollport and the row's bottom offset pulls it up over the
 				    sync card. This mobile-only spacer gives the row empty space
 				    to cover instead, keeping the sync card fully tappable. */}
+				{permissionRevoked && (
+					<output className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+						<XCircle size={14} aria-hidden="true" />
+						{t("noSchedulePermission")}
+					</output>
+				)}
+
 				<div aria-hidden="true" className="h-20 sm:hidden" />
 
 				<div className={cn("flex items-center gap-4", mobileStickyActions)}>
 					<button
 						type="submit"
-						disabled={isPending || !canWrite}
+						disabled={isPending || !scheduleAllowed || formInvalid}
+						title={permissionRevoked ? t("noSchedulePermission") : undefined}
 						data-help="schedule-save"
 						className="flex min-h-[44px] min-w-[120px] items-center justify-center rounded-lg bg-[var(--ofd-action)] px-6 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
 					>

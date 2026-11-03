@@ -7,7 +7,7 @@ import { checkApiRateLimit } from "@/lib/rate-limit";
 import { checkScheduleAgainstCap } from "@/lib/schedule/sheet";
 import { prepareImport } from "@/lib/xlsx/prepare";
 import { readUploadTable } from "@/lib/xlsx/read-upload";
-import { isSheetType } from "@/lib/xlsx/schema";
+import { isImportSheetType } from "@/lib/xlsx/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +48,7 @@ export const POST = withApi(
 		}
 
 		const type = form.get("type");
-		if (!isSheetType(type)) {
+		if (!isImportSheetType(type)) {
 			return Response.json({ error: "Invalid type" }, { status: 400 });
 		}
 		const file = form.get("file");

@@ -19,6 +19,7 @@ agents; the rules themselves live in [`CONTRIBUTING.md`](./CONTRIBUTING.md),
 - **Styling:** Tailwind CSS 4
 - **UI Components:** shadcn/ui
 - **Monorepo:** pnpm workspaces
+- **Node:** 22.12 or newer (`@commitlint/cli` 21 requires it; CI runs Node 22)
 - **Linting/Formatting:** Biome
 - **Git Hooks:** Husky + lint-staged + commitlint
 

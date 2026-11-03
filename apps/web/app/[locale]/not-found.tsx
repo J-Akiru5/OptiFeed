@@ -26,7 +26,7 @@ export default async function LocaleNotFound() {
 			</p>
 			<Link
 				href="/"
-				className="mt-8 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--ofd-cta)] px-6 text-sm font-bold text-white transition-colors hover:bg-[var(--ofd-cta-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D62] focus-visible:ring-offset-2 dark:focus-visible:ring-[#8fc0ea] dark:focus-visible:ring-offset-[#060C11]"
+				className="mt-8 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#C2410C] px-6 text-sm font-bold text-white transition-colors hover:bg-[#9A3412] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D62] focus-visible:ring-offset-2 dark:focus-visible:ring-[#8fc0ea] dark:focus-visible:ring-offset-[#060C11]"
 			>
 				<Home aria-hidden="true" className="size-4" />
 				{t("backToHome")}

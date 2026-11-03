@@ -5,24 +5,27 @@ import type { CropCycleDto } from "@/lib/crop-cycle/types";
  * Convert a Prisma crop-cycle row into the DTO the calendar client uses.
  * Shared by the operator Harvest page and the admin calendar overview.
  */
-export function serialiseCycle(cycle: {
-	id: string;
-	pondId: string;
-	label: string | null;
-	status: "ACTIVE" | "HARVESTED" | "CANCELLED";
-	stockingDate: Date;
-	stockingCount: number;
-	stockingAvgWeightG: number | null;
-	growOutDays: number;
-	targetHarvestDate: Date;
-	targetHarvestWeightG: number | null;
-	expectedSurvivalPct: number | null;
-	actualHarvestDate: Date | null;
-	actualHarvestWeightKg: number | null;
-	actualHarvestCount: number | null;
-	actualFcr: number | null;
-	notes: string | null;
-}): CropCycleDto {
+export function serialiseCycle(
+	cycle: {
+		id: string;
+		pondId: string;
+		label: string | null;
+		status: "ACTIVE" | "HARVESTED" | "CANCELLED";
+		stockingDate: Date;
+		stockingCount: number;
+		stockingAvgWeightG: number | null;
+		growOutDays: number;
+		targetHarvestDate: Date;
+		targetHarvestWeightG: number | null;
+		expectedSurvivalPct: number | null;
+		actualHarvestDate: Date | null;
+		actualHarvestWeightKg: number | null;
+		actualHarvestCount: number | null;
+		actualFcr: number | null;
+		notes: string | null;
+	},
+	deadCount = 0,
+): CropCycleDto {
 	return {
 		id: cycle.id,
 		pondId: cycle.pondId,
@@ -30,6 +33,7 @@ export function serialiseCycle(cycle: {
 		status: cycle.status,
 		stockingDate: utcDateToDateOnly(cycle.stockingDate),
 		stockingCount: cycle.stockingCount,
+		deadCount,
 		stockingAvgWeightG: cycle.stockingAvgWeightG,
 		growOutDays: cycle.growOutDays,
 		targetHarvestDate: utcDateToDateOnly(cycle.targetHarvestDate),

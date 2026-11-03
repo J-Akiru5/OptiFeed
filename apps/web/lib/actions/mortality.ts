@@ -78,6 +78,21 @@ export async function saveMortalityLog(formData: FormData): Promise<SaveMortalit
 				select: { id: true, stockingCount: true, stockingDate: true },
 			});
 
+			// #764: validate against the live count *before* inserting, so a log
+			// cannot record more dead fish than were stocked. The old order added
+			// the row first and clamped the derived count at zero afterwards.
+			const stocked = cycle ? cycle.stockingCount : (pond.population ?? null);
+			const priorDead = await tx.mortalityLog.aggregate({
+				where: cycle
+					? { pondId: pond.id, recordedAt: { gte: cycle.stockingDate } }
+					: { pondId: pond.id },
+				_sum: { count: true },
+			});
+			const deadBefore = deriveLiveCount(stocked, priorDead._sum.count ?? 0);
+			if (deadBefore.live !== null && count > deadBefore.live) {
+				throw new Error("COUNT_EXCEEDS_LIVE");
+			}
+
 			const log = await tx.mortalityLog.create({
 				data: {
 					pondId: pond.id,
@@ -96,15 +111,9 @@ export async function saveMortalityLog(formData: FormData): Promise<SaveMortalit
 			});
 
 			// Only mortality on/after the current stocking date belongs to this
-			// cycle; older logs belong to a previous cycle (#430).
-			const deadTotal = await tx.mortalityLog.aggregate({
-				where: cycle
-					? { pondId: pond.id, recordedAt: { gte: cycle.stockingDate } }
-					: { pondId: pond.id },
-				_sum: { count: true },
-			});
-			const stocked = cycle ? cycle.stockingCount : (pond.population ?? null);
-			const { dead, live } = deriveLiveCount(stocked, deadTotal._sum.count ?? 0);
+			// cycle; older logs belong to a previous cycle (#430). The new row is
+			// always in that window, so prior + count avoids a second aggregate.
+			const { dead, live } = deriveLiveCount(stocked, (priorDead._sum.count ?? 0) + count);
 
 			if (device) {
 				await tx.deviceStateEvent.create({
@@ -135,6 +144,9 @@ export async function saveMortalityLog(formData: FormData): Promise<SaveMortalit
 		const message = error instanceof Error ? error.message : "";
 		if (message === "Pond not found") {
 			return { success: false, error: "pond_not_found" };
+		}
+		if (message === "COUNT_EXCEEDS_LIVE") {
+			return { success: false, error: "count_exceeds_live" };
 		}
 		// Unknown failures are surfaced as a generic client error; the server
 		// side still records the failure in the logs through the action runner.

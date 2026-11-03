@@ -1,6 +1,6 @@
 {
 	"name": "@optifeed/web",
-	"version": "1.52.0",
+	"version": "1.53.0",
 	"private": true,
 	"type": "module",
 	"scripts": {
@@ -19,9 +19,13 @@
 		"test:e2e": "playwright test",
 		"complexity": "node scripts/check-complexity.mjs",
 		"i18n:tl-coverage": "node scripts/i18n-tagalog-coverage.mjs",
+		"i18n:hil-coverage": "node scripts/i18n-hiligaynon-coverage.mjs",
 		"test:e2e:smoke": "playwright test --config=playwright.smoke.config.ts",
 		"seed:dev": "tsx prisma/seed-dev.ts",
 		"seed:tenant-b": "tsx scripts/seed-tenant-b.ts",
+		"cron:apply": "node scripts/ops/apply-cron-schedules.mjs",
+		"cron:health": "node scripts/ops/check-cron-health.mjs",
+		"cron:smoke": "node scripts/ops/smoke-cron-endpoints.mjs",
 		"manage-user": "tsx prisma/manage-users.ts",
 		"platform-admin": "tsx scripts/platform-admin.ts"
 	},
@@ -50,6 +54,7 @@
 		"react-dom": "19.2.4",
 		"recharts": "^3.10.1",
 		"resend": "^6.35.0",
+		"server-only": "^0.0.1",
 		"sonner": "^2.0.8",
 		"tailwind-merge": "^3.6.0",
 		"temporal-polyfill": "^1.0.6",

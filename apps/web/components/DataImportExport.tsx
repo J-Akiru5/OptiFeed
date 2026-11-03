@@ -13,6 +13,7 @@ import type { ScheduleCapCheck } from "@/lib/schedule/sheet";
 import { cn } from "@/lib/utils";
 import type { PreparedImport } from "@/lib/xlsx/prepare";
 import {
+	IMPORT_SHEET_TYPES,
 	PDF_REPORTS,
 	type PdfReport,
 	SHEET_TYPES,
@@ -30,6 +31,12 @@ type PreparedResponse = PreparedImport & { fileName: string; capCheck: ScheduleC
 function useDataTypes() {
 	const t = useTranslations("dashboard.importExport");
 	return SHEET_TYPES.map((id) => ({ id, label: t(`types.${id}`) }));
+}
+
+/** Import drops audit_events: its provenance is system-generated (#744). */
+function useImportDataTypes() {
+	const t = useTranslations("dashboard.importExport");
+	return IMPORT_SHEET_TYPES.map((id) => ({ id, label: t(`types.${id}`) }));
 }
 
 function saveBlob(blob: Blob, filename: string) {
@@ -253,7 +260,7 @@ export function DataExportButton() {
 
 export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 	const t = useTranslations("dashboard.importExport");
-	const dataTypes = useDataTypes();
+	const dataTypes = useImportDataTypes();
 	const [open, setOpen] = useState(false);
 	const [type, setType] = useState<SheetType>("biomass_logs");
 	const [file, setFile] = useState<File | null>(null);

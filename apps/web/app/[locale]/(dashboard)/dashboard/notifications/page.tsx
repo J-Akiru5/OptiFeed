@@ -75,6 +75,7 @@ export default async function NotificationsPage({
 		tier: n.tier,
 		message: n.message,
 		category: n.category,
+		linkTo: n.linkTo,
 		read: n.read,
 		autoCleared: n.autoCleared,
 		acknowledgedAt: n.acknowledgedAt?.toISOString() ?? null,
@@ -94,6 +95,11 @@ export default async function NotificationsPage({
 		{ key: "connectivity", labelKey: "categoryConnectivity" },
 		{ key: "feeding", labelKey: "categoryFeeding" },
 		{ key: "schedule", labelKey: "categorySchedule" },
+		// Categories producers actually store but the filter used to omit (#746).
+		{ key: "harvest", labelKey: "categoryHarvest" },
+		{ key: "sampling", labelKey: "categorySampling" },
+		{ key: "event", labelKey: "categoryEvent" },
+		{ key: "security", labelKey: "categorySecurity" },
 		{ key: "system", labelKey: "categorySystem" },
 	];
 

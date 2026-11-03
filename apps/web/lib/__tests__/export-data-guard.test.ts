@@ -85,4 +85,19 @@ describe("export filenames", () => {
 
 		expect(artifact.filename).toBe("pakaonai_export_2026-10-28.zip");
 	});
+
+	it("emits a BOM, a limit note and a header row for an empty CSV (#755)", async () => {
+		const artifact = await buildCsvExport("farm-a", "biomass_logs");
+		const text = new TextDecoder().decode(artifact.body);
+		const bytes = new Uint8Array(artifact.body);
+
+		expect([bytes[0], bytes[1], bytes[2]]).toEqual([0xef, 0xbb, 0xbf]);
+		expect(text).toContain("# Exports are capped at 50000 rows; the newest rows are kept.");
+		const [header] = text
+			.replace(/^\uFEFF/, "")
+			.split("\n")
+			.slice(1);
+		expect(header).toContain("recordedAt");
+		expect(header.length).toBeGreaterThan(0);
+	});
 });

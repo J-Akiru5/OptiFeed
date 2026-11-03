@@ -1,5 +1,6 @@
 import { ok } from "@/lib/api/envelope";
 import { withApi } from "@/lib/api/instrumentation";
+import { resolveActivePond } from "@/lib/auth/pond-access";
 import { requireWriteAccess } from "@/lib/auth/session";
 import { withAuth } from "@/lib/auth/with-auth";
 import { LEGACY_API_SUNSET } from "@/lib/constants";
@@ -49,7 +50,14 @@ export const POST = withApi(
 		// A client retry should carry the same key; without one, confirmImport
 		// derives a stable payload hash so a double submit still imports once.
 		const idempotencyKey = request.headers.get("idempotency-key");
-		const result = await confirmImport(ownerId, type, csvData, { idempotencyKey });
+		// #743: capture the target now. The import must not follow a pond switch
+		// that happens while the request is in flight or the job waits to run.
+		const pond = await resolveActivePond(ownerId);
+		if (!pond) return Response.json({ error: "No pond found" }, { status: 404 });
+		const result = await confirmImport(ownerId, type, csvData, {
+			idempotencyKey,
+			pondId: pond.id,
+		});
 
 		revalidatePath("/[locale]/(dashboard)/dashboard", "page");
 		revalidatePath("/[locale]/(dashboard)/dashboard/growth", "page");

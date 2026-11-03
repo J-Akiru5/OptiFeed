@@ -5,6 +5,7 @@ import { getCurrentPondOwnerId, getCurrentUser, requireWriteAccess } from "@/lib
 import { isValidRecalibrationIntervalDays } from "@/lib/calibration/recalibration";
 import { isValidCalibrationSessionId } from "@/lib/calibration/session";
 import { STALE_DISPATCHED_MS } from "@/lib/constants";
+import { manilaDayRange } from "@/lib/date-local";
 import { isDeviceUnreachable } from "@/lib/device-status";
 import {
 	CALIBRATION_ACTUAL_GRAMS_MAX,
@@ -103,14 +104,8 @@ function round2(value: number): number {
 
 /**
  * Start and end of the current Asia/Manila calendar day, as UTC instants.
- * Mirrors the daily cap window used by requestFeed in lib/actions/energy.ts.
+ * Shared with the history filter so both agree on the farm day (#753).
  */
-function manilaDayRange(nowMs = Date.now()): { start: Date; end: Date } {
-	const HOUR_MS = 60 * 60 * 1000;
-	const DAY_MS = 24 * HOUR_MS;
-	const startOfLocalDay = Math.floor((nowMs + 8 * HOUR_MS) / DAY_MS) * DAY_MS - 8 * HOUR_MS;
-	return { start: new Date(startOfLocalDay), end: new Date(startOfLocalDay + DAY_MS) };
-}
 
 function isValidTestSeconds(testSeconds: number): boolean {
 	return (

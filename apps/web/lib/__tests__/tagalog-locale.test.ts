@@ -156,16 +156,19 @@ describe("Tagalog uses the Filipino (fil) CLDR locale", () => {
 	});
 });
 
-describe("Tagalog draft labelling (#327)", () => {
-	it("marks the language menu entry as Beta while drafts remain (#457)", () => {
-		const switcher = readFileSync(join(webRoot, "components/locale-switcher.tsx"), "utf8");
-		expect(switcher).toMatch(/tl: "Tagalog"/);
-		expect(switcher).toMatch(/BETA_LOCALES: ReadonlySet<Locale> = new Set<Locale>\(\["tl"\]\)/);
-		expect(switcher).toMatch(/Beta/);
+describe("Locale draft labelling (#327, #762)", () => {
+	it("marks the language menu entries as Beta while drafts and untranslated copy remain", () => {
+		const locales = readFileSync(join(webRoot, "lib/i18n/locales.ts"), "utf8");
+		expect(locales).toMatch(/tl: "Tagalog"/);
+		expect(locales).toMatch(/hil: "Hiligaynon"/);
+		// Tagalog has machine drafts (#457); Hiligaynon is largely English (#762).
+		expect(locales).toMatch(/new Set<AppLocale>\(\["hil", "tl"\]\)/);
+		expect(locales).toMatch(/Beta/);
 	});
 
-	it("offers Tagalog on the login page's compact locale toggle, labelled Beta", () => {
+	it("offers Tagalog and Hiligaynon on the login toggle, both labelled Beta", () => {
 		const login = readFileSync(join(webRoot, "app/[locale]/login/page.tsx"), "utf8");
 		expect(login).toMatch(/code: "tl", label: "TL", title: "Tagalog \(Beta\)"/);
+		expect(login).toMatch(/code: "hil", label: "HIL", title: "Hiligaynon \(Beta\)"/);
 	});
 });

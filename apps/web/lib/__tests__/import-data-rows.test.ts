@@ -20,8 +20,9 @@ const { resolveActivePond, prisma, tx } = vi.hoisted(() => {
 		importConfirmation: { create: vi.fn() },
 	};
 	const prisma = {
-		energyDevice: { findFirst: vi.fn() },
+		energyDevice: { findFirst: vi.fn(), findMany: vi.fn() },
 		biomassLog: { findMany: vi.fn() },
+		pond: { findFirst: vi.fn() },
 		importConfirmation: { findUnique: vi.fn() },
 		$transaction: vi.fn(),
 	};
@@ -31,7 +32,11 @@ const { resolveActivePond, prisma, tx } = vi.hoisted(() => {
 vi.mock("@/lib/auth/pond-access", () => ({ resolveActivePond }));
 vi.mock("@/lib/prisma", () => ({ default: prisma }));
 
-import { confirmImport } from "@/lib/jobs/import-data";
+import {
+	IMPORT_TRANSACTION_MAX_WAIT_MS,
+	IMPORT_TRANSACTION_TIMEOUT_MS,
+	confirmImport,
+} from "@/lib/jobs/import-data";
 
 const CSV: Record<string, string> = {
 	biomass_logs:
@@ -52,6 +57,8 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	resolveActivePond.mockResolvedValue({ id: "pond-1" });
 	prisma.energyDevice.findFirst.mockResolvedValue({ id: "dev-1" });
+	prisma.energyDevice.findMany.mockResolvedValue([{ id: "dev-1" }]);
+	prisma.pond.findFirst.mockResolvedValue({ id: "pond-1" });
 	prisma.biomassLog.findMany.mockResolvedValue([{ id: "log-1" }]);
 	prisma.importConfirmation.findUnique.mockResolvedValue(null);
 	prisma.$transaction.mockImplementation(async (fn: (client: typeof tx) => Promise<number>) =>
@@ -82,8 +89,71 @@ describe("import guards", () => {
 			message: "One or more biomassLogId values are not owned by this farm.",
 		});
 		expect(prisma.biomassLog.findMany).toHaveBeenCalledWith({
-			where: { id: { in: ["log-1"] }, pond: { ownerId: "farm-a" } },
+			where: { id: { in: ["log-1"] }, pondId: "pond-1", pond: { ownerId: "farm-a" } },
 			select: { id: true },
+		});
+		expect(prisma.$transaction).not.toHaveBeenCalled();
+	});
+});
+
+describe("target pond (#743)", () => {
+	it("uses the pond captured by the request, not the caller's later active pond", async () => {
+		resolveActivePond.mockResolvedValue({ id: "pond-b" });
+		prisma.pond.findFirst.mockResolvedValue({ id: "pond-a" });
+
+		await confirmImport("farm-a", "biomass_logs", CSV.biomass_logs, { pondId: "pond-a" });
+
+		expect(prisma.pond.findFirst).toHaveBeenCalledWith({
+			where: { id: "pond-a", ownerId: "farm-a" },
+			select: { id: true },
+		});
+		expect(resolveActivePond).not.toHaveBeenCalled();
+		expect(prisma.energyDevice.findFirst).toHaveBeenCalledWith(
+			expect.objectContaining({ where: { pondId: "pond-a" } }),
+		);
+		expect(tx.biomassLog.createMany.mock.calls[0][0].data[0]).toMatchObject({
+			pondId: "pond-a",
+		});
+	});
+
+	it("refuses a target pond owned by another farm", async () => {
+		prisma.pond.findFirst.mockResolvedValue(null);
+
+		await expect(
+			confirmImport("farm-a", "biomass_logs", CSV.biomass_logs, { pondId: "pond-foreign" }),
+		).rejects.toMatchObject({ status: 404 });
+		expect(prisma.$transaction).not.toHaveBeenCalled();
+	});
+
+	it("rejects a row whose pondId belongs to a different pond", async () => {
+		prisma.pond.findFirst.mockResolvedValue({ id: "pond-a" });
+		const csv = "pondId,sampleWeightKg,sampleCount\npond-a,10,5\npond-b,12,6";
+
+		await expect(
+			confirmImport("farm-a", "biomass_logs", csv, { pondId: "pond-a" }),
+		).rejects.toMatchObject({
+			status: 400,
+			message: "Row 2: pondId belongs to a different pond.",
+		});
+		expect(prisma.$transaction).not.toHaveBeenCalled();
+	});
+
+	it("rejects a deviceId that is not in the target pond", async () => {
+		prisma.pond.findFirst.mockResolvedValue({ id: "pond-a" });
+		prisma.energyDevice.findMany.mockResolvedValue([]);
+
+		await expect(
+			confirmImport(
+				"farm-a",
+				"feed_events",
+				"deviceId,eventType,timestamp\ndev-other,feed_dispensed,2026-03-02T04:00:00Z",
+				{
+					pondId: "pond-a",
+				},
+			),
+		).rejects.toMatchObject({
+			status: 400,
+			message: "Row 1: deviceId is not in the target pond.",
 		});
 		expect(prisma.$transaction).not.toHaveBeenCalled();
 	});
@@ -173,6 +243,7 @@ describe("per-type row mapping", () => {
 				rtcOk: null,
 				feederActive: null,
 				receivedAt: new Date("2026-03-02T04:00:05Z"),
+				dataSource: "import",
 			},
 		]);
 	});
@@ -210,6 +281,7 @@ describe("per-type row mapping", () => {
 				levelPercent: 62,
 				distanceCm: 18,
 				recordedAt: new Date("2026-03-02T04:00:00Z"),
+				dataSource: "import",
 			},
 		]);
 	});
@@ -270,32 +342,14 @@ describe("per-type row mapping", () => {
 		).rejects.toMatchObject({ status: 400, message: "Row 1: read must be TRUE or FALSE." });
 	});
 
-	it("parses audit metadata JSON", async () => {
-		await confirmImport("farm-a", "audit_events", CSV.audit_events);
-
-		expect(tx.deviceStateEvent.createMany.mock.calls[0][0].data).toEqual([
-			{
-				deviceId: "dev-1",
-				eventType: "feed_dispensed",
-				source: "device",
-				actorId: null,
-				metadata: { grams: 150 },
-				deviceTime: "2026-03-02T04:00:00Z",
-				createdAt: new Date("2026-03-02T04:00:00Z"),
-			},
-		]);
-	});
-
-	it("keeps unparseable audit metadata as a raw string instead of dropping it", async () => {
-		await confirmImport(
-			"farm-a",
-			"audit_events",
-			"eventType,source,metadata\nfeed_dispensed,device,not-json",
-		);
-
-		expect(tx.deviceStateEvent.createMany.mock.calls[0][0].data[0].metadata).toEqual({
-			raw: "not-json",
+	it("refuses audit-event imports so provenance cannot be forged (#744)", async () => {
+		await expect(confirmImport("farm-a", "audit_events", CSV.audit_events)).rejects.toMatchObject({
+			status: 400,
+			message: "Unknown import type.",
 		});
+
+		expect(prisma.$transaction).not.toHaveBeenCalled();
+		expect(tx.deviceStateEvent.createMany).not.toHaveBeenCalled();
 	});
 });
 
@@ -320,7 +374,10 @@ describe("import audit trail", () => {
 				metadata: { type: "biomass_logs", count: 3 },
 			},
 		});
-		expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { timeout: 30_000 });
+		expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+			timeout: IMPORT_TRANSACTION_TIMEOUT_MS,
+			maxWait: IMPORT_TRANSACTION_MAX_WAIT_MS,
+		});
 	});
 
 	it("skips the audit event when the pond has no device", async () => {

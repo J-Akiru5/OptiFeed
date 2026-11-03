@@ -1,3 +1,4 @@
+import { farmDateOnly } from "@/lib/date-local";
 import prisma from "@/lib/prisma";
 import { getRecalibrationStatus, recalibrationDedupeKey } from "./recalibration";
 
@@ -27,7 +28,9 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 function formatDate(date: Date): string {
-	return date.toISOString().slice(0, 10);
+	// #753: the reminder text is farm-facing; a 00:30 PHT calibration is stored
+	// on the previous UTC day.
+	return farmDateOnly(date);
 }
 
 export async function processRecalibrationReminders(

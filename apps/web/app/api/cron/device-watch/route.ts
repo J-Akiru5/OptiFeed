@@ -7,6 +7,7 @@ import { deleteExpiredErrorEvents } from "@/lib/error-capture";
 import { normalizeNotificationPrefs } from "@/lib/limits";
 import { offlineEpisodeKey, openEpisode } from "@/lib/notifications/episodes";
 import { reportError } from "@/lib/observability";
+import { recordCronHeartbeat } from "@/lib/ops/cron-heartbeat";
 import { rollupDeviceConnectivity } from "@/lib/platform/connectivity";
 import { syncPlatformIncidents } from "@/lib/platform/incident-sync";
 import prisma from "@/lib/prisma";
@@ -174,6 +175,10 @@ export const GET = withApi(
 			// a row for a pond with an open alert or a reconciliation in progress.
 			const deviceStateEventsDeleted = await deleteOldDeviceStateEvents();
 
+			// #725: the heartbeat is what /api/health/cron reads. Record only
+			// after every section finished, so a partial run is not reported ok.
+			await recordCronHeartbeat("device-watch", "ok");
+
 			return ok({
 				offlineAlerts,
 				recalibration,
@@ -187,6 +192,7 @@ export const GET = withApi(
 			});
 		} catch (error) {
 			reportError(error, { route: "cron/device-watch" });
+			await recordCronHeartbeat("device-watch", "error", error);
 			return Response.json({ error: "Internal Error" }, { status: 500 });
 		}
 	}),

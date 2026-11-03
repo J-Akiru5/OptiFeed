@@ -10,6 +10,7 @@ import {
 } from "@/components/dashboard/dashboard-ui";
 import { HealthNotice } from "@/components/feeder/health-notice";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
+import { getCurrentPermissions, writeCapabilities } from "@/lib/auth/permissions";
 import { canWrite } from "@/lib/auth/session";
 import { getDeviceHealthSafe } from "@/lib/device-health";
 import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
@@ -155,7 +156,11 @@ export default async function SchedulePage() {
 	// `pond.*` only reflects the current config when no EnergyDevice is paired;
 	// otherwise the newest pending/sent command wins, then the last applied one.
 	const currentCommand = serializeCommand(pendingCommand ?? latestAppliedCommand);
-	const writeAccess = await canWrite();
+	// Mirror the server gates: requireWriteAccess() and then requirePermission()
+	// on every control action. A revoked permission disables its controls here
+	// instead of letting the farmer tap a button the action will refuse (#750).
+	const [writeAccess, permissions] = await Promise.all([canWrite(), getCurrentPermissions()]);
+	const can = writeCapabilities(writeAccess, permissions);
 
 	const scheduleSnapshot: ScheduleSnapshotData = {
 		pondName: pond.name,
@@ -210,7 +215,7 @@ export default async function SchedulePage() {
 							initialFeedingRatePct={currentCommand?.feedingRatePct ?? pond.feedingRatePct}
 							pendingCommand={serializeCommand(pendingCommand)}
 							latestAppliedCommand={serializeCommand(latestAppliedCommand)}
-							canWrite={writeAccess}
+							canWrite={can.canManageSchedule}
 						/>
 					</div>
 				</div>
@@ -238,7 +243,8 @@ export default async function SchedulePage() {
 							scheduleEnd={currentCommand?.scheduleEnd ?? fmtTime(pond.scheduleEnd)}
 							feedsPerDay={currentCommand?.feedsPerDay ?? pond.feedsPerDay}
 							feedingRatePct={currentCommand?.feedingRatePct ?? pond.feedingRatePct}
-							canWrite={writeAccess}
+							canRetryFeed={can.canControlFeeder}
+							canResyncSchedule={can.canManageSchedule}
 						/>
 					</div>
 					<div className="order-3 xl:order-none">
@@ -247,7 +253,7 @@ export default async function SchedulePage() {
 							initialIsPaused={energyDevice.isPaused}
 							gramsPerFeeding={energyDevice.gramsPerFeeding}
 							gramsPerSecond={energyDevice.gramsPerSecond}
-							canWrite={writeAccess}
+							canWrite={can.canControlFeeder}
 							feedNowLimit={feedNowLimit}
 						/>
 					</div>

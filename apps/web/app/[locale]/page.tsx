@@ -82,7 +82,7 @@ const sectionBody = "mt-4 text-[15px] leading-7 text-slate-600 dark:text-slate-4
 const card =
 	"rounded-2xl border border-[#E3EAE7] bg-white shadow-[0_1px_2px_rgba(10,46,71,0.03)] dark:border-white/10 dark:bg-[#0C1319]";
 const primaryButton =
-	"inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#E85A2A] px-5 text-[14px] font-semibold text-white shadow-[0_10px_30px_-12px_rgba(232,90,42,0.7)] transition-colors hover:bg-[#D24E22]";
+	"inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[var(--ofd-cta)] px-5 text-[14px] font-semibold text-white shadow-[0_10px_30px_-12px_rgba(232,90,42,0.7)] transition-colors hover:bg-[var(--ofd-cta-hover)]";
 const secondaryOnDark =
 	"inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/[0.04] px-5 text-[14px] font-medium text-white transition-colors hover:border-white/30 hover:bg-white/10";
 
@@ -148,6 +148,7 @@ export default function LandingPage() {
 		optional: tReport("optional"),
 		submit: tReport("submit"),
 		sending: tReport("sending"),
+		retry: tReport("retry"),
 		success: tReport("success"),
 		error: tReport("error"),
 		rateLimited: tReport("rateLimited"),

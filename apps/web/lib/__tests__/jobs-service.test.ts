@@ -352,6 +352,7 @@ describe("runJob imports", () => {
 
 		expect(mocks.confirmImport).toHaveBeenCalledWith("farm-a", "feed_events", "a,b\n1,2\n", {
 			idempotencyKey: undefined,
+			pondId: undefined,
 		});
 		expect(mocks.updateMany).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -373,6 +374,20 @@ describe("runJob imports", () => {
 
 		expect(mocks.confirmImport).toHaveBeenCalledWith("farm-a", "feed_events", "a,b\n1,2\n", {
 			idempotencyKey: "job-key-1",
+			pondId: undefined,
+		});
+	});
+
+	it("passes the pond captured when the import was queued (#743)", async () => {
+		await runJob({
+			...JOB,
+			type: "import_confirm",
+			payload: { type: "feed_events", csvData: "a,b\n1,2\n", pondId: "pond-a" },
+		} as unknown as BackgroundJob);
+
+		expect(mocks.confirmImport).toHaveBeenCalledWith("farm-a", "feed_events", "a,b\n1,2\n", {
+			idempotencyKey: undefined,
+			pondId: "pond-a",
 		});
 	});
 });

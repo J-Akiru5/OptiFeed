@@ -19,7 +19,7 @@ vi.mock("@/lib/rate-limit", () => ({
 vi.mock("@/lib/prisma", () => ({
 	default: {
 		user: { findUnique: vi.fn() },
-		pond: { findMany: vi.fn() },
+		pond: { findMany: vi.fn(), findFirst: vi.fn() },
 		energyDevice: { findFirst: vi.fn() },
 		biomassLog: { findMany: vi.fn(), createMany: vi.fn() },
 		fishSample: { createMany: vi.fn() },
@@ -34,6 +34,10 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import { POST as confirmPost } from "@/app/api/import/confirm/route";
 import { requireWriteAccess } from "@/lib/auth/session";
 import { IMPORT_ROW_LIMIT } from "@/lib/constants";
+import {
+	IMPORT_TRANSACTION_MAX_WAIT_MS,
+	IMPORT_TRANSACTION_TIMEOUT_MS,
+} from "@/lib/jobs/import-data";
 import prisma from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 
@@ -89,6 +93,7 @@ describe("import/confirm atomicity (F-003)", () => {
 			role: "ADMIN",
 		} as never);
 		mockRequireWriteAccess.mockResolvedValue(undefined as never);
+		vi.mocked(prisma.pond.findFirst).mockResolvedValue({ id: "pond-1" } as never);
 		mockPondFindMany.mockResolvedValue([
 			{ id: "pond-1", ownerId: "demo-farmer-1", status: "ACTIVE" },
 		] as never);
@@ -99,11 +104,20 @@ describe("import/confirm atomicity (F-003)", () => {
 			fn(txClient)) as never);
 	});
 
+	it("keeps the import transaction deadline below the 12 s job limit (#758)", () => {
+		// The worker's Promise.race cannot cancel a running transaction, so the
+		// database must abort and roll back before the job is marked failed.
+		expect(IMPORT_TRANSACTION_TIMEOUT_MS + IMPORT_TRANSACTION_MAX_WAIT_MS).toBeLessThan(12_000);
+	});
+
 	it("issues the bulk insert and audit event on the transaction client", async () => {
 		const res = await confirmPost(confirmReq("biomass_logs", BIOMASS_CSV));
 
 		expect(res.status).toBe(200);
-		expect(mockTransaction).toHaveBeenCalledWith(expect.any(Function), { timeout: 30_000 });
+		expect(mockTransaction).toHaveBeenCalledWith(expect.any(Function), {
+			timeout: IMPORT_TRANSACTION_TIMEOUT_MS,
+			maxWait: IMPORT_TRANSACTION_MAX_WAIT_MS,
+		});
 		expect(txClient.biomassLog.createMany).toHaveBeenCalledTimes(1);
 		expect(txClient.deviceStateEvent.create).toHaveBeenCalledTimes(1);
 		expect(rootBiomassLogCreateMany).not.toHaveBeenCalled();

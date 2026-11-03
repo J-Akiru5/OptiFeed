@@ -40,6 +40,14 @@ vi.mock("@/lib/rate-limit", () => ({
 	checkDeviceTokenRevealRateLimit: vi.fn(async () => ({ success: true, remaining: 9 })),
 }));
 
+vi.mock("@/lib/auth/step-up", () => ({
+	withStepUp: async (action: () => Promise<unknown>) => action(),
+	isStepUpRequiredError: (error: unknown) =>
+		typeof error === "object" &&
+		error !== null &&
+		(error as { code?: unknown }).code === "step_up_required",
+}));
+
 import { revealDeviceToken } from "@/lib/actions/admin";
 import {
 	addTenantDevice,
@@ -51,6 +59,8 @@ import {
 	ADMIN_A_ID,
 	ADMIN_B_ID,
 	FARMER_A_ID,
+	FARM_A,
+	FARM_ROW_A,
 	MEMBERSHIP_ADMIN_A,
 	ORG_A_ID,
 	POND_A_1,
@@ -125,6 +135,10 @@ describe("addTenantDevice", () => {
 			(row) => row.eventType === "device_registered",
 		);
 		expect(event).toMatchObject({ actorId: ADMIN_A_ID, source: "user" });
+		// #709 (L1): the telemetry stamp is the immutable Farm.id, not the login
+		// slug in Pond.ownerId; the trigger trusts any non-null stamp.
+		expect(event?.farmId).toBe(FARM_ROW_A);
+		expect(event?.farmId).not.toBe(FARM_A);
 		// The credential never reaches the audit trail.
 		expect(JSON.stringify(event?.metadata)).not.toContain("esp32-tok-");
 	});

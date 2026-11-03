@@ -161,19 +161,26 @@ export const feedGramsSchema = z
 
 const hhmm = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-export const scheduleInputSchema = z.object({
-	scheduleStart: z.string().regex(hhmm, "Schedule start must be a time in HH:MM format"),
-	scheduleEnd: z.string().regex(hhmm, "Schedule end must be a time in HH:MM format"),
-	feedsPerDay: feedsPerDaySchema,
-	feedingRatePct: feedingRatePctSchema,
-	buttonFeedGrams: buttonFeedGramsSchema.optional(),
-	/**
-	 * The fish count the dose is derived from, when the caller already changed
-	 * it (#430). The command itself does not store it; it is here so the dose
-	 * that is checked is the dose the caller is about to write.
-	 */
-	population: populationSchema.nullish(),
-});
+export const scheduleInputSchema = z
+	.object({
+		scheduleStart: z.string().regex(hhmm, "Schedule start must be a time in HH:MM format"),
+		scheduleEnd: z.string().regex(hhmm, "Schedule end must be a time in HH:MM format"),
+		feedsPerDay: feedsPerDaySchema,
+		feedingRatePct: feedingRatePctSchema,
+		buttonFeedGrams: buttonFeedGramsSchema.optional(),
+		/**
+		 * The fish count the dose is derived from, when the caller already changed
+		 * it (#430). The command itself does not store it; it is here so the dose
+		 * that is checked is the dose the caller is about to write.
+		 */
+		population: populationSchema.nullish(),
+	})
+	// #763: start === end with more than one meal is a zero-length window; every
+	// slot collapses onto the same minute. A single meal at one time is valid.
+	.refine((value) => value.feedsPerDay === 1 || value.scheduleStart !== value.scheduleEnd, {
+		message: "A schedule with more than one feed needs a non-zero feeding window",
+		path: ["scheduleEnd"],
+	});
 
 export const pondSettingsSchema = z.object({
 	feedingRatePct: feedingRatePctSchema,

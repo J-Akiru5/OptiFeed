@@ -2,6 +2,7 @@
 
 import { validatePassword } from "@/lib/auth/password";
 import { issuePasswordResetProof, verifyPasswordResetProof } from "@/lib/auth/password-reset-proof";
+import { buildRecoveryConfirmUrl } from "@/lib/auth/recovery-link";
 import { parseClientIp } from "@/lib/client-ip";
 import { parseResetIdentifier } from "@/lib/contact-email";
 import { deliverPasswordResetEmail } from "@/lib/notify/reset-email";
@@ -131,26 +132,32 @@ export async function requestPasswordReset(
 		} else {
 			try {
 				const proof = await issuePasswordResetProof(user.id);
-				const redirectTo = `${appBaseUrl}/${locale}/reset-password?reset=${encodeURIComponent(proof.token)}`;
 
 				const admin = createAdminClient();
 				const { data, error } = await admin.auth.admin.generateLink({
 					type: "recovery",
 					email: user.email,
-					options: { redirectTo },
 				});
-				// supabase-js returns the link under `properties` (GenerateLinkResponse).
-				const actionLink = data?.properties?.action_link;
-				if (error || !actionLink) {
-					reportError(error ?? new Error("no action_link returned"), {
+				// `hashed_token` is redeemed by /auth/confirm. The action_link is
+				// not used: its redirect lands with tokens in the fragment, which a
+				// server-rendered reset page cannot consume (#741).
+				const tokenHash = data?.properties?.hashed_token;
+				if (error || !tokenHash) {
+					reportError(error ?? new Error("no hashed_token returned"), {
 						action: "requestPasswordReset.generateLink",
 						farmId: user.farmId,
 					});
 				} else {
+					const resetUrl = buildRecoveryConfirmUrl({
+						appBaseUrl,
+						locale,
+						tokenHash,
+						resetToken: proof.token,
+					});
 					emailSent = await deliverPasswordResetEmail({
 						to: user.contactEmail,
 						farmId: user.farmId,
-						resetUrl: actionLink,
+						resetUrl,
 					});
 				}
 			} catch (error) {

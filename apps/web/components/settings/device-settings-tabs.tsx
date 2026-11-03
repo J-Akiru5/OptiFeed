@@ -6,6 +6,7 @@ import {
 } from "@/components/dashboard/dashboard-classes";
 import { Modal } from "@/components/harvest/modal";
 import { useRouter } from "@/i18n/routing";
+import { useUnsavedChangesWarning } from "@/lib/a11y/use-unsaved-changes-warning";
 import { HELP_REVEAL_EVENT } from "@/lib/help/highlight";
 import {
 	DEFAULT_DEVICE_SETTINGS_TAB,
@@ -118,14 +119,7 @@ export function DeviceSettingsTabs({
 	}, []);
 
 	// Reload and closing the tab. In-app links have no App Router event to hook.
-	useEffect(() => {
-		if (!hasUnsaved) return;
-		const onBeforeUnload = (event: BeforeUnloadEvent) => {
-			event.preventDefault();
-		};
-		window.addEventListener("beforeunload", onBeforeUnload);
-		return () => window.removeEventListener("beforeunload", onBeforeUnload);
-	}, [hasUnsaved]);
+	useUnsavedChangesWarning(hasUnsaved);
 
 	const goToDevice = useCallback(
 		(id: string) => {

@@ -54,6 +54,13 @@ vi.mock("@/lib/auth/session", () => ({
 }));
 
 vi.mock("@/lib/auth/session-cache", () => ({ invalidateFarm: vi.fn() }));
+vi.mock("@/lib/auth/step-up", () => ({
+	withStepUp: async (action: () => Promise<unknown>) => action(),
+	isStepUpRequiredError: (error: unknown) =>
+		typeof error === "object" &&
+		error !== null &&
+		(error as { code?: unknown }).code === "step_up_required",
+}));
 vi.mock("@/lib/actions/admin-internal", () => ({ deleteUserSubtree: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({
 	createAdminClient: () => ({ auth: { admin: holder.auth } }),

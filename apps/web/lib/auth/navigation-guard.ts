@@ -41,6 +41,32 @@ export function hasSupabaseSessionCookie(cookies: RequestCookie[]): boolean {
 }
 
 /**
+ * Build the login redirect, preserving the originally requested page.
+ *
+ * `next` is the path *inside* the locale (`/dashboard/schedule?tab=1`), which
+ * is what `redirect({ href, locale })` expects after a successful login. The
+ * login action re-validates it before use (#760).
+ */
+export function loginRedirectPath({
+	pathname,
+	locale,
+	search = "",
+}: {
+	pathname: string;
+	locale: string;
+	search?: string;
+}): string {
+	const prefix = `/${locale}`;
+	const inner =
+		pathname === prefix
+			? "/"
+			: pathname.startsWith(`${prefix}/`)
+				? pathname.slice(prefix.length)
+				: pathname;
+	return `/${locale}/login?next=${encodeURIComponent(`${inner}${search}`)}`;
+}
+
+/**
  * Routes that require a session. `/superadmin` needs its own check because
  * `includes("/admin")` is false for it (no separator before "admin").
  */

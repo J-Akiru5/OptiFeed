@@ -107,7 +107,20 @@ export default async function AdminCalendarPage() {
 		);
 	}
 
-	const activeCycles = activeCycleRows.map(serialiseCycle);
+	// #764: the harvest form defaults to the live count, so active cycles need
+	// their mortality sum. Recent (harvested/cancelled) cycles keep 0.
+	const deadByCycle = new Map(
+		(
+			await prisma.mortalityLog.groupBy({
+				by: ["cropCycleId"],
+				where: { cropCycleId: { in: activeCycleRows.map((cycle) => cycle.id) } },
+				_sum: { count: true },
+			})
+		).map((row) => [row.cropCycleId, row._sum.count ?? 0]),
+	);
+	const activeCycles = activeCycleRows.map((cycle) =>
+		serialiseCycle(cycle, deadByCycle.get(cycle.id) ?? 0),
+	);
 	const activeCycleIdByPond = new Map(activeCycles.map((cycle) => [cycle.pondId, cycle.id]));
 	const pondOptions: PondOption[] = ponds.map((pond) => {
 		const profile = parsePondProfile(pond.notificationPrefs);

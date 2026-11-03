@@ -260,7 +260,7 @@ export function HelpSheet({
 											<span className="flex min-w-0 items-center gap-2">
 												<span className="truncate">{t(section.title)}</span>
 												{isCurrent && (
-													<span className="shrink-0 rounded-full bg-[#E85A2A] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
+													<span className="shrink-0 rounded-full bg-[var(--ofd-cta)] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
 														{t("onThisPage")}
 													</span>
 												)}

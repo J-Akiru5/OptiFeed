@@ -44,7 +44,11 @@ export function MortalityForm({
 			const result = await saveMortalityLog(formData as FormData);
 			if (!result.success) {
 				setError(
-					result.error === "validation" ? t("mortality.invalidCount") : t("mortality.saveFailed"),
+					result.error === "validation"
+						? t("mortality.invalidCount")
+						: result.error === "count_exceeds_live"
+							? t("mortality.exceedsLive")
+							: t("mortality.saveFailed"),
 				);
 				return;
 			}

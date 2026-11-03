@@ -26,11 +26,19 @@ describe("parseQueryFilters", () => {
 		expect(parseQueryFilters("unknown")).toEqual({});
 	});
 
-	it("parses date strings into recordedBetween filter", () => {
+	it("parses date strings into the Asia/Manila day window (#753)", () => {
 		const result = parseQueryFilters("2025-07-04");
 		expect(result.recordedBetween).toBeDefined();
-		expect(result.recordedBetween?.gte.toISOString()).toBe("2025-07-04T00:00:00.000Z");
-		expect(result.recordedBetween?.lt.toISOString()).toBe("2025-07-05T00:00:00.000Z");
+		// 2025-07-04 00:00-24:00 PHT == 2025-07-03T16:00Z .. 2025-07-04T16:00Z.
+		expect(result.recordedBetween?.gte.toISOString()).toBe("2025-07-03T16:00:00.000Z");
+		expect(result.recordedBetween?.lt.toISOString()).toBe("2025-07-04T16:00:00.000Z");
+	});
+
+	it("includes a 00:30 PHT record that the UTC day window used to miss", () => {
+		const result = parseQueryFilters("2025-07-04");
+		const earlyManila = new Date("2025-07-03T16:30:00.000Z"); // 00:30 on 07-04 PHT
+		expect(result.recordedBetween?.gte.getTime()).toBeLessThanOrEqual(earlyManila.getTime());
+		expect(result.recordedBetween?.lt.getTime()).toBeGreaterThan(earlyManila.getTime());
 	});
 
 	it("returns empty object for invalid date string", () => {

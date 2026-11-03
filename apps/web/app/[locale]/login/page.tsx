@@ -31,12 +31,13 @@ const FARM_ID_STORAGE_KEY = "optifeed:last-farm-id";
 
 /**
  * Compact locale toggle in the login footer. Language names are exonyms and
- * stay untranslated; Tagalog is marked Beta until the machine-draft review
- * queue in `messages/tl.draft-keys.json` is cleared (#457).
+ * stay untranslated. Tagalog is marked Beta until the machine-draft review
+ * queue in `messages/tl.draft-keys.json` is cleared (#457); Hiligaynon is Beta
+ * while its landing copy is still largely untranslated (#762).
  */
 const LOCALE_OPTIONS = [
 	{ code: "en", label: "EN", title: "English" },
-	{ code: "hil", label: "HIL", title: "Hiligaynon" },
+	{ code: "hil", label: "HIL", title: "Hiligaynon (Beta)" },
 	{ code: "tl", label: "TL", title: "Tagalog (Beta)" },
 ] as const;
 
@@ -132,7 +133,13 @@ export default function LoginPage() {
 		}
 
 		startTransition(async () => {
-			const result = await loginWithPassword(farmId, password);
+			// The proxy adds ?next= when it intercepts a protected page. Read it at
+			// submit time so the static render never depends on the query string.
+			const requestedNext =
+				typeof window === "undefined"
+					? null
+					: new URLSearchParams(window.location.search).get("next");
+			const result = await loginWithPassword(farmId, password, requestedNext ?? undefined);
 			if (result?.error === "locked") {
 				const minutes = result.secondsRemaining ? Math.ceil(result.secondsRemaining / 60) : 15;
 				setError(t("errorLocked", { minutes }));
@@ -417,7 +424,7 @@ export default function LoginPage() {
 							<button
 								type="submit"
 								disabled={isPending}
-								className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#E85A2A] px-4 text-[14.5px] font-semibold text-white shadow-[0_1px_2px_rgba(10,46,71,0.15)] transition-colors hover:bg-[#D24E22] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#E85A2A]/25 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-[#E85A2A] dark:hover:bg-[#F16B3D]"
+								className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[var(--ofd-cta)] px-4 text-[14.5px] font-semibold text-white shadow-[0_1px_2px_rgba(10,46,71,0.15)] transition-colors hover:bg-[var(--ofd-cta-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#E85A2A]/25 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-[var(--ofd-cta)] dark:hover:bg-[#F16B3D]"
 							>
 								{isPending ? (
 									<>

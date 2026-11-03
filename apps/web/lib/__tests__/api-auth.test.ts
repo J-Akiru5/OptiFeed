@@ -182,6 +182,8 @@ const DEVICE_TOKEN_ROUTES = new Set([
 // Unauthenticated by design: liveness probe, no tenant data.
 const ALLOWLIST = new Set([
 	"health/route.ts",
+	// Public cron health probe (#725): job names/timestamps only, no tenant data.
+	"health/cron/route.ts",
 	// Regulation 404 handler: owns no tenant data and touches no database.
 	"[...fallback]/route.ts",
 	// Public issue reports (#487): unauthenticated by design, rate-limited per

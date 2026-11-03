@@ -5,6 +5,8 @@ export interface CropCycleDto {
 	status: "ACTIVE" | "HARVESTED" | "CANCELLED";
 	stockingDate: string;
 	stockingCount: number;
+	/** Fish lost against this cycle so far (#764); absent on older payloads. */
+	deadCount?: number;
 	stockingAvgWeightG: number | null;
 	growOutDays: number;
 	targetHarvestDate: string;

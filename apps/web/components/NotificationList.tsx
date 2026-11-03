@@ -5,9 +5,18 @@ import { ItemCardGrid } from "@/components/ui/item-card";
 import { ViewToggle, useListViewPreference } from "@/components/ui/view-toggle";
 import { Link, useRouter } from "@/i18n/routing";
 import { acknowledgeNotification, markAllNotificationsRead } from "@/lib/actions/notifications";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
+import { safeNotificationLink } from "@/lib/notifications/links";
 import { showsPakoy } from "@/lib/pakoy-alerts";
-import { AlertTriangle, Check, CheckCircle2, FileText, Info, WifiOff } from "lucide-react";
+import {
+	AlertTriangle,
+	ArrowUpRight,
+	Check,
+	CheckCircle2,
+	FileText,
+	Info,
+	WifiOff,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
@@ -19,6 +28,8 @@ interface NotificationItem {
 	tier: string;
 	message: string;
 	category: string | null;
+	/** Producer-supplied in-app destination; allowlisted before rendering. */
+	linkTo?: string | null;
 	read: boolean;
 	autoCleared: boolean;
 	acknowledgedAt: string | null;
@@ -66,6 +77,13 @@ const categoryConfig: Record<string, { labelKey: string; className: string }> = 
 		labelKey: "categorySchedule",
 		className: "bg-teal-100 text-teal-700 border-teal-200",
 	},
+	harvest: { labelKey: "categoryHarvest", className: "bg-lime-100 text-lime-800 border-lime-200" },
+	sampling: {
+		labelKey: "categorySampling",
+		className: "bg-cyan-100 text-cyan-800 border-cyan-200",
+	},
+	event: { labelKey: "categoryEvent", className: "bg-slate-100 text-slate-700 border-slate-200" },
+	security: { labelKey: "categorySecurity", className: "bg-red-100 text-red-700 border-red-200" },
 	system: { labelKey: "categorySystem", className: "bg-gray-100 text-gray-700 border-gray-200" },
 };
 
@@ -109,7 +127,7 @@ export function NotificationList({ initialNotifications, canWrite = true }: Noti
 		notification.acknowledgedAt !== null || handledIds[notification.id] === true;
 
 	const formatDate = (dateStr: string) => {
-		const loc = formatDateTimeLocal(new Date(dateStr), tDates);
+		const loc = formatFarmDateTime(new Date(dateStr), tDates);
 		return `${loc.date}, ${loc.time}`;
 	};
 
@@ -161,29 +179,44 @@ export function NotificationList({ initialNotifications, canWrite = true }: Noti
 		});
 	};
 
-	/** Acknowledge (when still open) plus the link into the event log. */
-	const renderActions = (notification: NotificationItem) => (
-		<>
-			{!isHandled(notification) && (
-				<button
-					type="button"
-					onClick={() => handleAcknowledge(notification)}
-					disabled={isPendingAck || !canWrite}
-					className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200 dark:focus-visible:outline-[#8fc0ea]"
+	/**
+	 * Acknowledge (when still open), the notification's own destination when the
+	 * producer supplied a safe one, and the audit log as the generic fallback.
+	 */
+	const renderActions = (notification: NotificationItem) => {
+		const destination = safeNotificationLink(notification.linkTo);
+		return (
+			<>
+				{!isHandled(notification) && (
+					<button
+						type="button"
+						onClick={() => handleAcknowledge(notification)}
+						disabled={isPendingAck || !canWrite}
+						className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200 dark:focus-visible:outline-[#8fc0ea]"
+					>
+						<Check aria-hidden="true" size={14} />
+						{t("acknowledge")}
+					</button>
+				)}
+				{destination && (
+					<Link
+						href={destination}
+						className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-[#0A3D62]/20 bg-[#0A3D62]/5 px-3 py-1.5 text-xs font-bold text-[#0A3D62] transition-colors hover:bg-[#0A3D62]/10 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-[#8fc0ea]/30 dark:bg-[#8fc0ea]/10 dark:text-[#8fc0ea] dark:focus-visible:outline-[#8fc0ea]"
+					>
+						<ArrowUpRight aria-hidden="true" size={14} />
+						{t("openLink")}
+					</Link>
+				)}
+				<Link
+					href="/dashboard/audit"
+					className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-gray-700/50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus-visible:outline-[#8fc0ea]"
 				>
-					<Check aria-hidden="true" size={14} />
-					{t("acknowledge")}
-				</button>
-			)}
-			<Link
-				href="/dashboard/audit"
-				className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-gray-700/50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus-visible:outline-[#8fc0ea]"
-			>
-				<FileText aria-hidden="true" size={14} />
-				{t("auditLink")}
-			</Link>
-		</>
-	);
+					<FileText aria-hidden="true" size={14} />
+					{t("auditLink")}
+				</Link>
+			</>
+		);
+	};
 
 	/** Tier, category and state pills, shared by both views. */
 	const renderBadges = (notification: NotificationItem) => {
@@ -307,10 +340,7 @@ export function NotificationList({ initialNotifications, canWrite = true }: Noti
 													<div className="flex flex-wrap items-center gap-2">
 														{renderBadges(notification)}
 													</div>
-													<p className="mt-1 font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-														{notification.message.split("!")[0] || t("alert")}
-													</p>
-													<p className="text-xs text-[#3D5568] dark:text-gray-300">
+													<p className="mt-1 text-sm font-semibold leading-relaxed text-[#0A3D62] dark:text-[#5b9bd5]">
 														{notification.message}
 													</p>
 												</div>
@@ -363,10 +393,7 @@ export function NotificationList({ initialNotifications, canWrite = true }: Noti
 										{formatDate(notification.createdAt)}
 									</span>
 								</span>
-								<span className="mt-2 block text-base font-black text-[#0A3D62] dark:text-[#5b9bd5]">
-									{notification.message.split("!")[0] || t("alert")}
-								</span>
-								<span className="mt-1 block text-sm font-semibold leading-relaxed text-[#3D5568] dark:text-gray-300">
+								<span className="mt-2 block text-sm font-semibold leading-relaxed text-[#0A3D62] dark:text-[#5b9bd5]">
 									{notification.message}
 								</span>
 								<span className="mt-3 flex flex-wrap gap-2">{renderActions(notification)}</span>

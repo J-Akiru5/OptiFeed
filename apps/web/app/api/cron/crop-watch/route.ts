@@ -3,6 +3,7 @@ import { withApi } from "@/lib/api/instrumentation";
 import { withCronAuth } from "@/lib/auth/with-auth";
 import { processCropReminders } from "@/lib/crop-cycle/reminders";
 import { reportError } from "@/lib/observability";
+import { recordCronHeartbeat } from "@/lib/ops/cron-heartbeat";
 
 export const dynamic = "force-dynamic";
 
@@ -17,9 +18,11 @@ export const GET = withApi(
 	withCronAuth(async () => {
 		try {
 			const summary = await processCropReminders();
+			await recordCronHeartbeat("crop-watch", "ok");
 			return ok(summary);
 		} catch (error) {
 			reportError(error, { route: "cron/crop-watch" });
+			await recordCronHeartbeat("crop-watch", "error", error);
 			return Response.json({ error: "Internal Error" }, { status: 500 });
 		}
 	}),

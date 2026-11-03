@@ -5,10 +5,20 @@ import {
 	FIRMWARE_DEFAULTS,
 	FIRMWARE_FIELDS,
 	FIRMWARE_GATE_FIELDS,
+	FIRMWARE_HEARTBEAT_INTERVAL_S,
 	buildFirmwareConfig,
 	firmwareConfigRev,
 	normalizeFirmwareValues,
 } from "@/lib/firmware/config";
+import {
+	CALIBRATION_ACTUAL_GRAMS_MAX,
+	CALIBRATION_MAX_DISPENSE_MS,
+	CALIBRATION_MAX_GRAMS,
+	CALIBRATION_TEST_GRAMS_MAX,
+	CALIBRATION_TEST_SECONDS_MAX,
+	MAX_DISPENSE_MS,
+	MAX_FEED_GRAMS_PER_DAY_PER_DEVICE,
+} from "@/lib/limits";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -25,6 +35,24 @@ const header = readFileSync(join(repoRoot, "firmware/firmware-main/config.h"), "
 	/\\\r?\n/g,
 	" ",
 );
+
+/** The firmware's own field table, parsed from the authoritative header. */
+function firmwareFields() {
+	const block = header.slice(header.indexOf("#define FW_CONFIG_FIELDS"));
+	const entries = [
+		...block.matchAll(
+			/X\((\w+),\s*"([^"]+)",\s*(-?[\d.]+)f,\s*(-?[\d.]+)f,\s*(true|false),\s*(-?[\d.]+)f\)/g,
+		),
+	];
+	return entries.map((match) => ({
+		name: match[1],
+		key: match[2],
+		min: Number(match[3]),
+		max: Number(match[4]),
+		integer: match[5] === "true",
+		defaultValue: Number(match[6]),
+	}));
+}
 
 const DEVICE = {
 	gramsPerFeeding: 150,
@@ -207,23 +235,6 @@ describe("buildFirmwareConfig: organization hopper threshold (#456)", () => {
 });
 
 describe("contract with firmware/firmware-main/config.h", () => {
-	function firmwareFields() {
-		const block = header.slice(header.indexOf("#define FW_CONFIG_FIELDS"));
-		const entries = [
-			...block.matchAll(
-				/X\((\w+),\s*"([^"]+)",\s*(-?[\d.]+)f,\s*(-?[\d.]+)f,\s*(true|false),\s*(-?[\d.]+)f\)/g,
-			),
-		];
-		return entries.map((match) => ({
-			name: match[1],
-			key: match[2],
-			min: Number(match[3]),
-			max: Number(match[4]),
-			integer: match[5] === "true",
-			defaultValue: Number(match[6]),
-		}));
-	}
-
 	it("parses a field table with the same size", () => {
 		expect(firmwareFields()).toHaveLength(FIRMWARE_FIELDS.length);
 	});
@@ -240,5 +251,43 @@ describe("contract with firmware/firmware-main/config.h", () => {
 			expect(server.defaultValue).toBe(firmware.defaultValue);
 			expect(server.id).toBe(firmware.key);
 		}
+	});
+});
+
+/**
+ * #662: the calibration caps and the heartbeat cadence were copied into the
+ * app as independent literals, so a firmware change could leave them behind.
+ * These assertions read the header, not `config.ts`, so they fail on the drift
+ * the field-table test above cannot see.
+ */
+describe("app-side mirrors of the firmware tuning limits (#662)", () => {
+	function firmwareFieldByKey(key: string) {
+		const field = firmwareFields().find((entry) => entry.key === key);
+		if (!field) throw new Error(`config.h has no field "${key}"`);
+		return field;
+	}
+
+	it("takes every relay and calibration cap from the header's envelope", () => {
+		expect(MAX_FEED_GRAMS_PER_DAY_PER_DEVICE).toBe(firmwareFieldByKey("max_grams_per_day").max);
+		expect(MAX_DISPENSE_MS).toBe(firmwareFieldByKey("max_dispense_ms").max);
+		expect(CALIBRATION_MAX_GRAMS).toBe(firmwareFieldByKey("calibration_max_grams").max);
+		expect(CALIBRATION_MAX_DISPENSE_MS).toBe(firmwareFieldByKey("calibration_max_dispense_ms").max);
+	});
+
+	it("derives the calibration test window instead of restating it", () => {
+		// The 600 s test window is the relay ceiling, not a second opinion.
+		expect(CALIBRATION_TEST_SECONDS_MAX * 1000).toBe(CALIBRATION_MAX_DISPENSE_MS);
+		expect(CALIBRATION_TEST_GRAMS_MAX).toBe(CALIBRATION_MAX_GRAMS);
+		expect(CALIBRATION_ACTUAL_GRAMS_MAX).toBe(CALIBRATION_MAX_GRAMS);
+	});
+
+	it("sizes the connectivity gap from the header's heartbeat default", () => {
+		// `heartbeat_interval_s` is firmware-only; the app mirrors its default.
+		expect(FIRMWARE_HEARTBEAT_INTERVAL_S).toBe(
+			firmwareFieldByKey("heartbeat_interval_s").defaultValue,
+		);
+		expect(firmwareFieldByKey("heartbeat_interval_s").max).toBeGreaterThanOrEqual(
+			FIRMWARE_HEARTBEAT_INTERVAL_S,
+		);
 	});
 });

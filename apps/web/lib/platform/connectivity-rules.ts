@@ -1,6 +1,6 @@
 import { HEARTBEAT_ROW_INTERVAL_MS } from "@/lib/constants";
 import type { DeviceStatusPolicy } from "@/lib/device-status";
-import { FIRMWARE_DEFAULTS } from "@/lib/firmware/config";
+import { FIRMWARE_HEARTBEAT_INTERVAL_S } from "@/lib/firmware/config";
 
 /**
  * Registered-versus-active and connectivity-trend rules (#479, M3C.10).
@@ -112,7 +112,7 @@ export function connectivityThresholds(
 	const beatMs =
 		Number.isFinite(heartbeatIntervalSeconds) && heartbeatIntervalSeconds > 0
 			? heartbeatIntervalSeconds * 1000
-			: FIRMWARE_DEFAULTS.heartbeat_interval_s * 1000;
+			: FIRMWARE_HEARTBEAT_INTERVAL_S * 1000;
 	const rowCadenceMs = Math.max(beatMs, HEARTBEAT_ROW_INTERVAL_MS);
 	const reachableWindowMs = Math.max(policy.offlineAfterMs + policy.graceMs, rowCadenceMs);
 	return { rowCadenceMs, gapThresholdMs: reachableWindowMs + beatMs * 2 };

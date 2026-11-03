@@ -557,6 +557,18 @@ export const FIRMWARE_DEFAULTS: FirmwareValues = Object.fromEntries(
 	FIRMWARE_FIELDS.map((field) => [field.id, field.defaultValue]),
 );
 
+/**
+ * The expected device beat, in seconds (#662).
+ *
+ * `heartbeat_interval_s` is deliberately firmware-only (`editable: false`): the
+ * dashboard never sets it, and the device keeps whatever its config carries.
+ * The app needs one number only - the cadence a reachable unit is expected to
+ * beat at, used to size the connectivity gap threshold. Exported once so no
+ * module invents a second cadence; `firmware-config.test.ts` pins it to the
+ * header's default.
+ */
+export const FIRMWARE_HEARTBEAT_INTERVAL_S = FIRMWARE_DEFAULTS.heartbeat_interval_s;
+
 /** Editable gate fields, in display order. */
 export const FIRMWARE_GATE_FIELDS = FIRMWARE_FIELDS.filter((field) => field.editable);
 

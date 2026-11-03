@@ -1182,6 +1182,7 @@ them identical to the PEMs embedded in `firmware-main.ino`.
     "button_disabled": false,
     "relay_overruns": 0,
     "sensor_invalid_count": 0,
+    "rtc_drift_s": 0,
     "queue_drops": 0,
     "uptime_s": 3500,
     "min_dispense_gap_s": 10,
@@ -1216,6 +1217,13 @@ them identical to the PEMs embedded in `firmware-main.ino`.
 > a heartbeat without the field leaves the last stored reading untouched. The app uses it
 > for the "weak signal" state and the dBm text; units without it keep the timing-only rule.
 >
+> **RTC drift (#662).** `diag.rtc_drift_s` is the signed drift the last `applyIsoTime`
+> correction removed: positive means the RTC was behind the server, negative ahead, and
+> `0` means no correction has been needed this boot. The correction itself stays automatic
+> and unconfigurable - there is nothing for a technician to calibrate - but the number used
+> to exist only on the Serial line, so the app could not show it. It is advisory: nothing
+> reads it back into the clock.
+
 > **1.6.0 diagnostics.** `safe_mode`, `last_reset_reasons` and the nested `diag` object are
 > additive. The ingest schema stays strict for everything else, but since #454 the server
 > stores the latest sanitised `diag` object per device: `diag` is dropped if malformed or

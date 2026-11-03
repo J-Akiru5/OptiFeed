@@ -800,39 +800,18 @@ export const POST = withApi(
 						}
 					}
 
-					if (wasOffline && device.lastSeenAt) {
-						operations.push(
-							tx.deviceStateEvent.create({
-								data: {
-									deviceId: device.id,
-									eventType: "disconnected",
-									source: "system",
-									deviceTime: device.lastSeenAt.toISOString(),
-									metadata: { durationMs: Date.now() - device.lastSeenAt.getTime() },
-								},
-							}),
-						);
-					}
-
-					// Phase 3: close the offline episode and auto-clear any legacy
-					// disconnected rows on reconnect.
-					if (wasOffline && device.pondId) {
+					// #745: a reconnect is a `connected` event (written above), never a
+					// `disconnected` one. The old out-of-band `disconnected` row was
+					// created after `lastSeenAt` advanced, so the device-watch dedup
+					// (`disconnected` newer than `lastSeenAt`) treated the next real
+					// outage as already alerted and suppressed it.
+					//
+					// Closing the episode by key also keeps recovery scoped to this
+					// device. The previous pond-wide `notification.updateMany` cleared
+					// every open connectivity alert in the pond, so a second offline
+					// feeder was silently marked recovered when this one reconnected.
+					if (wasOffline) {
 						await closeEpisode(tx, offlineEpisodeKey(device.id));
-						operations.push(
-							tx.notification.updateMany({
-								where: {
-									pondId: device.pondId,
-									category: "connectivity",
-									autoCleared: false,
-									acknowledgedAt: null,
-								},
-								data: {
-									autoCleared: true,
-									read: true,
-									resolvedAt: new Date(),
-								},
-							}),
-						);
 					}
 
 					for (const operation of operations) {

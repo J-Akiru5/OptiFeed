@@ -211,6 +211,22 @@ describe("api/cron/device-watch", () => {
 		expect(mockNotification.create).not.toHaveBeenCalled();
 	});
 
+	it("alerts each offline device with its own episode key (#745)", async () => {
+		mockEnergyDevice.findMany.mockResolvedValue([
+			STALE_DEVICE,
+			{ ...STALE_DEVICE, id: "dev-2", label: "Feeder B" },
+		] as never);
+
+		const res = await GET(cronRequest("Bearer test-cron-secret"));
+		expect(res.status).toBe(200);
+		await expect(res.json()).resolves.toMatchObject({ data: { offlineAlerts: 2 } });
+
+		const keys = mockNotification.create.mock.calls.map(
+			([arg]) => (arg as { data: { episodeKey: string } }).data.episodeKey,
+		);
+		expect(keys).toEqual(["offline:dev-1", "offline:dev-2"]);
+	});
+
 	it("runs heartbeat retention and rate-limit cleanup each pass", async () => {
 		await GET(cronRequest("Bearer test-cron-secret"));
 		expect(deleteOldHeartbeatEvents).toHaveBeenCalledTimes(1);

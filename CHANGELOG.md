@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.53.0] - 2026-11-04
+
+### Fixed
+
+- **Recovery links work, and a login returns you where you were going (#741, #760).** A reset link now redeems the hashed token server-side and establishes the session before redirecting, and login honours the requested deep link after validating it as same-origin with loop and backslash guards.
+- **Revoked permissions actually disable the controls (#750).** Write capability is the AND of write authority and the held permission, so the schedule page, control room and hardware settings no longer offer actions the server would refuse.
+- **Farm-facing dates are Manila time, not UTC or the runtime's local time (#753).** Filters and labels derive from the existing Manila day helper instead of the browser clock.
+- **An empty growth dataset no longer renders 0.00 FCR and a downward trend (#752).** No data reads as no data.
+- **Notifications behave** — inbox rows keep their stored link and every category has a label (#746), episode escalations appear in realtime (#747), pond alert settings are presented as the owner/admin control they are (#748), a later outage is no longer suppressed after a reconnect (#767), and the reminder email no longer goes to the synthetic pond address (#742).
+- **Imports cannot write into the wrong pond, and a failed job cannot commit (#743, #758, #774, #781).** The target pond is pinned at request time, the transaction rolls back before the job is marked failed, and the audit events are export-only.
+- **Deleting or demoting a member no longer strands their farm's ponds (#765 follow-up).**
+- **The session cookie is Secure, SameSite=Lax and 30 days, not 400 (#717).**
+- **Revealing a device token requires step-up (#720).** The action returns a typed `step_up_required` and the UI opens the existing dialog.
+- **Public pages** — placeholder copy and mojibake corrected, a localized 404 added (#761), the report dialog can be cancelled while sending (#759), and white-on-brand CTAs moved onto the AA-safe orange (#756).
+- **A11y** — dialogs and notification surfaces announce via proper dialog and live-region semantics (#757).
+- **Jobs** — exports keep the newest rows and empty CSVs are usable (#755).
+- **Hiligaynon is declared a partial locale with a coverage gate (#762)** rather than silently rendering English.
+- **A zero-length feeding window is rejected and unsaved edits warn (#763).**
+- **The controller's Feed Now asks for confirmation and is disabled on a fallow pond (#749).**
+- **The demo seed no longer contradicts itself (#709, #779).**
+- **Cron schedules are provisioned as code with heartbeats (#725, #796).**
+
+### Changed
+
+- **The admin user badge reads the membership role, not the legacy column (#754).**
+- **`import` pins its target pond and the audit trail stops duplicating import events (#743, #744).**
+
 ### Security
 
 - **Device-token reveals now require a fresh step-up check (#720).** `revealDeviceToken` wraps the scoped read and its audit row in `withStepUp`, so a stolen tenant-admin session cannot drain every device credential without re-entering the password. The action returns the typed `step_up_required` code and the devices UI opens the shared `StepUpDialog` then retries the same call. `lib/supabase/admin.ts` now imports `server-only` (new `server-only` dependency) so a client import fails at build time instead of shipping a service-role path. Tokens are still stored in plaintext and only a hash is used for lookup; encryption-at-rest remains open on #720.

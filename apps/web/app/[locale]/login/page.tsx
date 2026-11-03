@@ -132,7 +132,13 @@ export default function LoginPage() {
 		}
 
 		startTransition(async () => {
-			const result = await loginWithPassword(farmId, password);
+			// The proxy adds ?next= when it intercepts a protected page. Read it at
+			// submit time so the static render never depends on the query string.
+			const requestedNext =
+				typeof window === "undefined"
+					? null
+					: new URLSearchParams(window.location.search).get("next");
+			const result = await loginWithPassword(farmId, password, requestedNext ?? undefined);
 			if (result?.error === "locked") {
 				const minutes = result.secondsRemaining ? Math.ceil(result.secondsRemaining / 60) : 15;
 				setError(t("errorLocked", { minutes }));

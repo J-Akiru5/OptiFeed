@@ -311,7 +311,7 @@ export function FcrCalculator({
 				type="button"
 				onClick={handleCalculate}
 				disabled={loading}
-				className="w-full bg-[#E85A2A] hover:bg-[#d14e22] text-white font-bold py-3 px-6 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:ring-offset-2"
+				className="w-full bg-[var(--ofd-cta)] hover:bg-[var(--ofd-cta-hover)] text-white font-bold py-3 px-6 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:ring-offset-2"
 			>
 				{loading ? t("calculating") : t("calculate")}
 			</button>

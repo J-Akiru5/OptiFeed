@@ -12,6 +12,10 @@ describe("toCsvString", () => {
 		expect(toCsvString([])).toBe("");
 	});
 
+	it("emits the supplied header row for an empty dataset (#755)", () => {
+		expect(toCsvString([], ["name", "age"]).trim()).toBe("name,age");
+	});
+
 	it("converts rows to CSV string", () => {
 		const csv = toCsvString([{ name: "Alice", age: 30 }]);
 		expect(csv).toContain("name,age");

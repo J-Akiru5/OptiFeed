@@ -46,7 +46,7 @@ const FIELD_INPUT =
 	"mt-1 w-full rounded-xl border border-[#C9D6E5] bg-[#F7FAFD] px-3 py-2 text-sm text-[#0A3D62] transition-colors focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:cursor-not-allowed disabled:opacity-60";
 const FIELD_HINT = "mt-1 block text-[11px] leading-snug text-[#3D5568]";
 const PRIMARY_BUTTON =
-	"inline-flex items-center justify-center gap-2 rounded-xl bg-[#E85A2A] px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-[#d04a1f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
+	"inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--ofd-cta)] px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-[var(--ofd-cta-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
 const SECONDARY_BUTTON =
 	"inline-flex items-center justify-center gap-2 rounded-xl border border-[#0A3D62]/20 bg-white px-3 py-2 text-xs font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
 const WARNING_BOX = "rounded-xl border border-[#F5B87A] bg-[#FFF4E8] p-4 text-sm text-[#0F1B2D]";

@@ -104,6 +104,20 @@ describe("formatFarmDateTime", () => {
 		expect(translator).toHaveBeenCalledWith("months.Oct");
 	});
 
+	it("renders 00:30 PHT on the farm day, not the previous UTC day (#753)", () => {
+		// 00:30 on Oct 28 in Manila is 16:30 UTC on Oct 27.
+		const result = formatFarmDateTime(new Date("2026-10-27T16:30:00.000Z"), mockTranslator);
+		expect(result.time).toBe("12:30 AM");
+		expect(result.fullDate).toBe("Wed, Oct 28");
+	});
+
+	it("renders 23:30 PHT on the same farm day (#753)", () => {
+		// 23:30 on Oct 27 in Manila is 15:30 UTC the same day.
+		const result = formatFarmDateTime(new Date("2026-10-27T15:30:00.000Z"), mockTranslator);
+		expect(result.time).toBe("11:30 PM");
+		expect(result.fullDate).toBe("Tue, Oct 27");
+	});
+
 	it("does not throw on an invalid date", () => {
 		// A corrupt timestamp from a device must degrade to a label, not crash
 		// the whole page render.

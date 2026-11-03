@@ -67,6 +67,21 @@ export function computeCropCycleMetrics(
 	};
 }
 
+/**
+ * Prefill for the harvest count: what is actually in the pond, not what was
+ * stocked. Mortality lowers the live count, so defaulting to `stockingCount`
+ * overstates the harvest and hides the loss (#764).
+ */
+export function defaultHarvestCount(cycle: {
+	stockingCount: number;
+	liveCount?: number | null;
+}): number {
+	const stocked = Math.max(0, Math.floor(cycle.stockingCount));
+	const live = cycle.liveCount;
+	if (typeof live !== "number" || !Number.isFinite(live) || live < 0) return stocked;
+	return Math.min(stocked, Math.floor(live));
+}
+
 export interface FinalFcrInput {
 	totalFeedKg: number;
 	harvestWeightKg: number;

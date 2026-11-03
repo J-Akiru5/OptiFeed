@@ -6,6 +6,7 @@ import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { serialiseCycle } from "@/lib/crop-cycle/serialise";
 import type { CropCycleDto, PondOption } from "@/lib/crop-cycle/types";
 import { evaluateDeviceStatus } from "@/lib/device-status";
+import { getLiveCountsForCycles } from "@/lib/growth/live-count";
 import { parsePondGrowthTarget, parsePondProfile } from "@/lib/pond-profile";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -102,7 +103,23 @@ export async function loadFarmerCalendarPageData(): Promise<FarmerCalendarPageDa
 	});
 	const serialised = cycles.map(serialiseCycle);
 	const activeCycles = serialised.filter((cycle) => cycle.status === "ACTIVE");
-	const activeCycleIdByPond = new Map(activeCycles.map((cycle) => [cycle.pondId, cycle.id]));
+
+	// The harvest form defaults to the live count, not the stocked count (#764).
+	const liveByCycle = await getLiveCountsForCycles(
+		activeCycles.map((cycle) => ({
+			cycleId: cycle.id,
+			pondId: cycle.pondId,
+			stockingCount: cycle.stockingCount,
+			stockingDate: cycle.stockingDate,
+		})),
+	);
+	const activeCyclesWithLive = activeCycles.map((cycle) => ({
+		...cycle,
+		liveCount: liveByCycle.get(cycle.id) ?? cycle.stockingCount,
+	}));
+	const activeCycleIdByPond = new Map(
+		activeCyclesWithLive.map((cycle) => [cycle.pondId, cycle.id]),
+	);
 	const pondOptions: PondOption[] = ponds.map((pond) => {
 		const profile = parsePondProfile(pond.notificationPrefs);
 		const savedTarget = parsePondGrowthTarget(pond.notificationPrefs);
@@ -150,8 +167,8 @@ export async function loadFarmerCalendarPageData(): Promise<FarmerCalendarPageDa
 		initialPondIsFallow: initialPond.isFallow,
 		ownerId,
 		ponds: pondOptions,
-		activeCycle: activeCycles.find((cycle) => cycle.pondId === initialPond.id) ?? null,
-		activeCycles,
+		activeCycle: activeCyclesWithLive.find((cycle) => cycle.pondId === initialPond.id) ?? null,
+		activeCycles: activeCyclesWithLive,
 		recentCycles: serialised.filter((cycle) => cycle.status !== "ACTIVE"),
 		writablePondIds,
 		canManage: canWriteNow && canManageEvents,

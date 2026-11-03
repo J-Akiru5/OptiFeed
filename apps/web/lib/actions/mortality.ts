@@ -1,7 +1,7 @@
 "use server";
 
 import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
-import { deriveLiveCount } from "@/lib/growth/live-count";
+import { type LiveCount, deriveLiveCount, mortalityFitsLive } from "@/lib/growth/live-count";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
@@ -25,16 +25,16 @@ const REASON_MAX = 200;
 
 export interface SaveMortalityResult {
 	success: boolean;
-	error?: string;
-	live?: {
-		stocked: number | null;
-		dead: number;
-		live: number | null;
-		source: "crop_cycle" | "legacy_population" | "none";
-	};
+	/**
+	 * `exceeds_live` means the count would leave the recorded population below
+	 * zero. The form asks the farmer to re-check the count or confirm that the
+	 * entry is a stock correction.
+	 */
+	error?: "validation" | "pond_not_found" | "exceeds_live";
+	live?: LiveCount;
 }
 
-type LiveSource = NonNullable<SaveMortalityResult["live"]>["source"];
+type LiveSource = LiveCount["source"];
 
 export async function saveMortalityLog(formData: FormData): Promise<SaveMortalityResult> {
 	await requireWriteAccess();
@@ -45,6 +45,9 @@ export async function saveMortalityLog(formData: FormData): Promise<SaveMortalit
 	const reasonRaw = formData.get("reason");
 	// Optional offline-catchup timestamp, same offline idiom as biomass saves.
 	const recordedAtRaw = formData.get("recordedAt");
+	// Explicit correction: the farmer confirmed the pond holds fewer fish than
+	// the derived live count, so the stock record itself is wrong (#764).
+	const confirmOverLive = formData.get("confirmOverLive") === "true";
 
 	if (typeof pondId !== "string" || pondId.trim() === "") {
 		return { success: false, error: "validation" };
@@ -77,6 +80,31 @@ export async function saveMortalityLog(formData: FormData): Promise<SaveMortalit
 				where: { pondId: pond.id, status: "ACTIVE" },
 				select: { id: true, stockingCount: true, stockingDate: true },
 			});
+			const mortalityWindow = cycle
+				? { pondId: pond.id, recordedAt: { gte: cycle.stockingDate } }
+				: { pondId: pond.id };
+			const stocked = cycle ? cycle.stockingCount : (pond.population ?? null);
+			const source: LiveSource =
+				stocked === null ? "none" : cycle ? "crop_cycle" : "legacy_population";
+
+			// Only mortality on/after the current stocking date belongs to this
+			// cycle; older logs belong to a previous cycle (#430).
+			const deadBeforeTotal = await tx.mortalityLog.aggregate({
+				where: mortalityWindow,
+				_sum: { count: true },
+			});
+			const deadBefore = deadBeforeTotal._sum.count ?? 0;
+
+			// Refuse to record more deaths than there are live fish. The farmer
+			// can resubmit with `confirmOverLive` when the entry is a deliberate
+			// correction of a wrong stock count, but an ordinary typo no longer
+			// becomes a permanent over-count (#764).
+			if (!confirmOverLive && !mortalityFitsLive(stocked, deadBefore, count)) {
+				return {
+					rejected: true as const,
+					live: deriveLiveCount(stocked, deadBefore, source),
+				};
+			}
 
 			const log = await tx.mortalityLog.create({
 				data: {
@@ -95,16 +123,11 @@ export async function saveMortalityLog(formData: FormData): Promise<SaveMortalit
 				select: { id: true },
 			});
 
-			// Only mortality on/after the current stocking date belongs to this
-			// cycle; older logs belong to a previous cycle (#430).
 			const deadTotal = await tx.mortalityLog.aggregate({
-				where: cycle
-					? { pondId: pond.id, recordedAt: { gte: cycle.stockingDate } }
-					: { pondId: pond.id },
+				where: mortalityWindow,
 				_sum: { count: true },
 			});
-			const stocked = cycle ? cycle.stockingCount : (pond.population ?? null);
-			const { dead, live } = deriveLiveCount(stocked, deadTotal._sum.count ?? 0);
+			const { dead, live } = deriveLiveCount(stocked, deadTotal._sum.count ?? 0, source);
 
 			if (device) {
 				await tx.deviceStateEvent.create({
@@ -123,14 +146,16 @@ export async function saveMortalityLog(formData: FormData): Promise<SaveMortalit
 				});
 			}
 
-			const source: LiveSource =
-				stocked === null ? "none" : cycle ? "crop_cycle" : "legacy_population";
-			return { stocked, dead, live, source };
+			return { rejected: false as const, live: { stocked, dead, live, source } };
 		});
+
+		if (result.rejected) {
+			return { success: false, error: "exceeds_live", live: result.live };
+		}
 
 		revalidatePath("/[locale]/dashboard", "layout");
 
-		return { success: true, live: result };
+		return { success: true, live: result.live };
 	} catch (error) {
 		const message = error instanceof Error ? error.message : "";
 		if (message === "Pond not found") {

@@ -13,6 +13,7 @@ import { calendarCapability } from "@/lib/calendar/capability";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { serialiseCycle } from "@/lib/crop-cycle/serialise";
 import type { PondOption } from "@/lib/crop-cycle/types";
+import { getLiveCountsForCycles } from "@/lib/growth/live-count";
 import { parsePondGrowthTarget, parsePondProfile } from "@/lib/pond-profile";
 import prisma from "@/lib/prisma";
 import { CalendarDays } from "lucide-react";
@@ -108,7 +109,23 @@ export default async function AdminCalendarPage() {
 	}
 
 	const activeCycles = activeCycleRows.map(serialiseCycle);
-	const activeCycleIdByPond = new Map(activeCycles.map((cycle) => [cycle.pondId, cycle.id]));
+	// The shared harvest form defaults to the live count, not the stocked count
+	// (#764); the admin calendar is another entry point to that form.
+	const liveByCycle = await getLiveCountsForCycles(
+		activeCycles.map((cycle) => ({
+			cycleId: cycle.id,
+			pondId: cycle.pondId,
+			stockingCount: cycle.stockingCount,
+			stockingDate: cycle.stockingDate,
+		})),
+	);
+	const activeCyclesWithLive = activeCycles.map((cycle) => ({
+		...cycle,
+		liveCount: liveByCycle.get(cycle.id) ?? cycle.stockingCount,
+	}));
+	const activeCycleIdByPond = new Map(
+		activeCyclesWithLive.map((cycle) => [cycle.pondId, cycle.id]),
+	);
 	const pondOptions: PondOption[] = ponds.map((pond) => {
 		const profile = parsePondProfile(pond.notificationPrefs);
 		const savedTarget = parsePondGrowthTarget(pond.notificationPrefs);
@@ -126,7 +143,7 @@ export default async function AdminCalendarPage() {
 					: null,
 		};
 	});
-	const activeCycle = activeCycles.find((cycle) => cycle.pondId === ponds[0].id) ?? null;
+	const activeCycle = activeCyclesWithLive.find((cycle) => cycle.pondId === ponds[0].id) ?? null;
 	const recentCycles = recentCycleRows.map(serialiseCycle);
 
 	return (
@@ -161,7 +178,7 @@ export default async function AdminCalendarPage() {
 				apiScope="org"
 				ponds={pondOptions}
 				activeCycle={activeCycle}
-				activeCycles={activeCycles}
+				activeCycles={activeCyclesWithLive}
 				recentCycles={recentCycles}
 				canManage={canManage}
 				canManageCycles={false}

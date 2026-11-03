@@ -3,6 +3,7 @@
 import { useRouter } from "@/i18n/routing";
 import { markCycleHarvested } from "@/lib/actions/crop-cycle";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
+import { defaultHarvestCount } from "@/lib/crop-cycle/metrics";
 import type { CropCycleDto } from "@/lib/crop-cycle/types";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -32,7 +33,7 @@ export function HarvestForm({ open, onClose, onSaved, cycle }: HarvestFormProps)
 		if (!open || !cycle) return;
 		setActualDate(todayDateOnly());
 		setWeightKg("");
-		setCount(String(cycle.stockingCount));
+		setCount(String(defaultHarvestCount(cycle)));
 		setFcr(cycle.actualFcr ? String(cycle.actualFcr) : "");
 		setNotes("");
 		setError(null);

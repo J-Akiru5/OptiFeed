@@ -176,6 +176,27 @@ describe("processRecalibrationReminders", () => {
 		expect(call?.data?.dedupeKey).toMatch(/^recal:dev-1:\d{4}-\d{2}-\d{2}$/);
 	});
 
+	it("formats the last calibration as the farm's calendar day (#753)", async () => {
+		mockEnergyDevice.findMany.mockResolvedValue([
+			{
+				id: "dev-1",
+				label: "Feeder A",
+				pondId: "pond-1",
+				// 00:30 on Sep 19 in Manila, still Sep 18 in UTC.
+				lastCalibratedAt: new Date("2026-09-18T16:30:00.000Z"),
+				recalibrationIntervalDays: 30,
+			},
+		] as never);
+
+		await processRecalibrationReminders(NOW);
+
+		expect(mockNotification.create).toHaveBeenCalledWith({
+			data: expect.objectContaining({
+				message: expect.stringContaining("last calibrated 2026-09-19"),
+			}),
+		});
+	});
+
 	it("skips a duplicate due-date reminder without a second notification", async () => {
 		mockEnergyDevice.findMany.mockResolvedValue([
 			{

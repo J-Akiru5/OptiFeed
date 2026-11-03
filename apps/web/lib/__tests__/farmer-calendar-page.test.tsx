@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 	energyDeviceFindMany: vi.fn(),
 	pondEventFindMany: vi.fn(),
 	biomassLogGroupBy: vi.fn(),
+	mortalityFindMany: vi.fn(),
 	deviceStateEventFindMany: vi.fn(),
 	resolveMemberOrgScope: vi.fn(),
 	canWrite: vi.fn(),
@@ -28,6 +29,7 @@ vi.mock("@/lib/prisma", () => ({
 		energyDevice: { findMany: mocks.energyDeviceFindMany },
 		pondEvent: { findMany: mocks.pondEventFindMany },
 		biomassLog: { groupBy: mocks.biomassLogGroupBy },
+		mortalityLog: { findMany: mocks.mortalityFindMany },
 		deviceStateEvent: { findMany: mocks.deviceStateEventFindMany },
 	},
 }));
@@ -61,8 +63,8 @@ vi.mock("@/components/harvest/harvest-calendar", () => ({
 		writablePondIds?: string[];
 		apiScope?: string;
 		heading?: string;
-		activeCycle?: { id: string } | null;
-		activeCycles?: Array<{ id: string }>;
+		activeCycle?: { id: string; liveCount?: number | null } | null;
+		activeCycles?: Array<{ id: string; liveCount?: number | null }>;
 		recentCycles?: Array<{ id: string }>;
 		hopperLevelPct?: number | null;
 		hopperIsOffline?: boolean;
@@ -76,6 +78,7 @@ vi.mock("@/components/harvest/harvest-calendar", () => ({
 			data-scope={props.apiScope}
 			data-heading={props.heading}
 			data-active-cycle={props.activeCycle?.id ?? ""}
+			data-live-count={props.activeCycle?.liveCount ?? ""}
 			data-active-cycles={props.activeCycles?.map((cycle) => cycle.id).join(",") ?? ""}
 			data-recent-cycles={props.recentCycles?.map((cycle) => cycle.id).join(",") ?? ""}
 			data-hopper={props.hopperLevelPct ?? ""}
@@ -130,6 +133,7 @@ beforeEach(() => {
 	mocks.energyDeviceFindMany.mockResolvedValue([]);
 	mocks.pondEventFindMany.mockResolvedValue([]);
 	mocks.biomassLogGroupBy.mockResolvedValue([]);
+	mocks.mortalityFindMany.mockResolvedValue([]);
 	mocks.deviceStateEventFindMany.mockResolvedValue([]);
 });
 
@@ -173,6 +177,9 @@ describe("/dashboard/calendar page", () => {
 			notes: null,
 		};
 		mocks.cropCycleFindMany.mockResolvedValue([cycle]);
+		mocks.mortalityFindMany.mockResolvedValue([
+			{ pondId: "pond-own", count: 100, recordedAt: new Date("2026-09-10T00:00:00.000Z") },
+		]);
 		mocks.energyDeviceFindMany.mockResolvedValue([
 			{
 				feedLevelPercent: 82,
@@ -187,6 +194,8 @@ describe("/dashboard/calendar page", () => {
 		// cycle the Harvest page used to load.
 		expect(html).toContain('data-active-cycle="cycle-1"');
 		expect(html).toContain('data-active-cycles="cycle-1"');
+		// Harvest prefill uses the live count after mortality (#764).
+		expect(html).toContain('data-live-count="900"');
 		// The hopper card is the one Harvest-only panel on the page rail.
 		expect(html).toContain('data-hopper="82"');
 		expect(html).toContain('data-hopper-offline="true"');

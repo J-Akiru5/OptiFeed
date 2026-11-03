@@ -1,8 +1,15 @@
 /**
  * Small, dependency-free helpers for URL-driven pagination and date filters.
  *
- * Kept pure so they can be unit tested without a database or a request.
+ * Kept pure so they can be unit tested without a database or a request. The
+ * farm-time boundary is computed here from the fixed offset instead of
+ * importing the Temporal-based crop-cycle helpers, because client pagination
+ * components also import this module.
  */
+
+/** Asia/Manila is a fixed UTC+08:00 with no daylight saving. */
+const FARM_UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface DateRange {
 	gte?: Date;
@@ -56,6 +63,39 @@ export function resolveDateRange(
 	}
 
 	return { ...(gte ? { gte } : {}), ...(lt ? { lt } : {}) };
+}
+
+/**
+ * Build a `from` / exclusive `to` range from two farm calendar dates.
+ *
+ * Farm-facing filters must use Asia/Manila midnight: a record at 00:30 PHT is
+ * stored on the previous UTC day, so a UTC-midnight window drops it. A
+ * reversed range is swapped so a mistaken order still returns data.
+ */
+export function resolveFarmDateRange(
+	from: string | null | undefined,
+	to: string | null | undefined,
+): DateRange | undefined {
+	const start = parseDateParam(from);
+	const end = parseDateParam(to);
+
+	if (!start && !end) return undefined;
+
+	let startValue = start && from ? from : null;
+	let endValue = end && to ? to : null;
+	if (startValue && endValue && startValue > endValue) {
+		[startValue, endValue] = [endValue, startValue];
+	}
+
+	// `parseDateParam` has already validated the value, so UTC-midnight parsing
+	// is safe; subtracting the farm offset moves it to Manila midnight.
+	const farmStart = (value: string) =>
+		new Date(Date.parse(`${value}T00:00:00.000Z`) - FARM_UTC_OFFSET_MS);
+
+	return {
+		...(startValue ? { gte: farmStart(startValue) } : {}),
+		...(endValue ? { lt: new Date(farmStart(endValue).getTime() + DAY_MS) } : {}),
+	};
 }
 
 /** Number of pages for a total row count. Always at least 1. */

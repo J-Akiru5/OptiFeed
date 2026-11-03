@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+### Fixed
+
+- **Growth no longer presents empty data as a real FCR trend (#752).** Missing FCR/ABW values render as an em dash with an explicit empty state, and the trend is hidden until two comparable points exist.
+- **Farm-facing dates and counts use the farm calendar (#753, #764).** Notification, feeder and history surfaces use Asia/Manila boundaries; mortality cannot exceed the recorded live stock without an explicit correction, and harvest defaults to the live count.
+
 ## [1.52.0] - 2026-11-04
 
 ### Fixed

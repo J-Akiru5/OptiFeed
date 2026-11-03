@@ -1,3 +1,4 @@
+import { dateToFarmDateOnly } from "@/lib/crop-cycle/dates";
 import prisma from "@/lib/prisma";
 import { getRecalibrationStatus, recalibrationDedupeKey } from "./recalibration";
 
@@ -27,7 +28,10 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 function formatDate(date: Date): string {
-	return date.toISOString().slice(0, 10);
+	// The message is read by the farmer, so the last-calibrated date is the
+	// farm's calendar day. A 00:30 PHT calibration is still that same day even
+	// though its UTC date is the previous one.
+	return dateToFarmDateOnly(date);
 }
 
 export async function processRecalibrationReminders(

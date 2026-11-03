@@ -15,6 +15,12 @@ export interface CropCycleDto {
 	actualHarvestCount: number | null;
 	actualFcr: number | null;
 	notes: string | null;
+	/**
+	 * Derived live count for an ACTIVE cycle, when the loader could compute it.
+	 * Optional so callers without mortality data (admin overview) keep the
+	 * previous stocking-count behaviour instead of inventing a number.
+	 */
+	liveCount?: number | null;
 }
 
 export interface PondOption {

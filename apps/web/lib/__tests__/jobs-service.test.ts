@@ -69,6 +69,7 @@ vi.mock("@/lib/jobs/report-pdf", () => ({ buildReportPdf: mocks.buildReportPdf }
 vi.mock("@/lib/jobs/import-data", () => ({ confirmImport: mocks.confirmImport }));
 
 import { ApiError } from "@/lib/api/errors";
+import { MAX_JOB_ARTIFACT_BYTES } from "@/lib/constants";
 import {
 	JOB_BACKOFF_MAX_MS,
 	JOB_MAX_ATTEMPTS,
@@ -266,6 +267,25 @@ describe("runJob exports", () => {
 			create: { jobId: "job_1", ...artifactData },
 			update: artifactData,
 		});
+	});
+
+	it("fails an oversized artifact before storing it, with a readable message", async () => {
+		mocks.buildCsvExport.mockResolvedValue({
+			...ARTIFACT,
+			body: { byteLength: MAX_JOB_ARTIFACT_BYTES + 1 } as ArrayBuffer,
+		});
+
+		await runJob(JOB);
+
+		expect(mocks.transaction).not.toHaveBeenCalled();
+		expect(mocks.upsert).not.toHaveBeenCalled();
+		const data = mocks.updateMany.mock.calls[0]?.[0].data as {
+			status: string;
+			error: string;
+		};
+		expect(data.status).toBe("failed");
+		expect(data.error).toContain("25 MB");
+		expect(data.error).toContain("exceeded");
 	});
 
 	it("passes the requested types to the ZIP builder", async () => {

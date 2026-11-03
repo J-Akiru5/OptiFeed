@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A sample queued while offline is replayed without waiting for an `online` event (#665).** The outbox is drained on mount/rehydration, whenever it changes, when the tab becomes visible and on a 30-second timer, in addition to the browser's `online` event. Each queued item is claimed before it is sent and removed only after the server accepts it, so overlapping drains (or a second tab) cannot submit the same sample twice, and a pond's samples keep their order. An item that uses all three automatic attempts is parked as `failed` and stays in the sync panel with a manual retry instead of being retried forever.
 - **The farmer dashboard's top bar no longer claims a sticky position it never had (#572).** The shell is a fixed-height frame and the content pane is its only scroller, so the bar is already pinned by sitting outside the scroller — `position: sticky` could never engage. The bar is now plain markup in the server layout with a constant inset hairline instead of a heavy shadow; no client JavaScript, height, border or padding changed, so nothing shifts. The mobile band keeps its `env(safe-area-inset-top)` padding, and the pane keeps reserving the bottom bar plus `env(safe-area-inset-bottom)`.
 
 ## [1.48.1] - 2026-11-03

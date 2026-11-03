@@ -1,7 +1,9 @@
 import { saveBiomassLog } from "@/lib/actions/biomass";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+	OUTBOX_CLAIM_TTL_MS,
 	OUTBOX_STORAGE_KEY,
+	claimOutboxItem,
 	enqueueBiomassSample,
 	enqueueFeedCommand,
 	listOutbox,
@@ -33,6 +35,26 @@ function sample(clientEventId = "offline-replay-0001", scope = "farm-1") {
 		batchLabel: null,
 		recordedAt: "2026-10-26T08:00:00.000Z",
 	};
+}
+
+/** Age every stored claim so it is past its TTL (simulates a crashed replay). */
+function expireClaims() {
+	const records = JSON.parse(window.localStorage.getItem(OUTBOX_STORAGE_KEY) ?? "[]");
+	for (const record of records) {
+		if (record.claimedAt) {
+			record.claimedAt = new Date(Date.now() - OUTBOX_CLAIM_TTL_MS - 1_000).toISOString();
+		}
+	}
+	window.localStorage.setItem(OUTBOX_STORAGE_KEY, JSON.stringify(records));
+}
+
+/** Pin queue order explicitly; enqueue timestamps can share a millisecond. */
+function setCreatedAt(id: string, createdAt: string) {
+	const records = JSON.parse(window.localStorage.getItem(OUTBOX_STORAGE_KEY) ?? "[]");
+	for (const record of records) {
+		if (record.id === id) record.createdAt = createdAt;
+	}
+	window.localStorage.setItem(OUTBOX_STORAGE_KEY, JSON.stringify(records));
 }
 
 beforeEach(() => {
@@ -83,6 +105,98 @@ describe("offline replay is exactly once", () => {
 	});
 });
 
+describe("offline replay is idempotent across overlapping drains", () => {
+	it("submits a sample once when two drains race", async () => {
+		await enqueueBiomassSample(sample());
+
+		const [first, second] = await Promise.all([
+			flushBiomassOutbox("farm-1"),
+			flushBiomassOutbox("farm-1"),
+		]);
+
+		expect(mockedSave).toHaveBeenCalledTimes(1);
+		expect(first.synced + second.synced).toBe(1);
+		expect([first, second].some((result) => result.busy)).toBe(true);
+		expect(await listOutbox()).toEqual([]);
+	});
+
+	it("skips an item another replay has already claimed", async () => {
+		await enqueueBiomassSample(sample());
+
+		const claimed = await claimOutboxItem("offline-replay-0001");
+		expect(claimed?.claimedAt).toBeTruthy();
+
+		const result = await flushBiomassOutbox("farm-1");
+
+		expect(result.synced).toBe(0);
+		expect(result.remaining).toBe(1);
+		expect(mockedSave).not.toHaveBeenCalled();
+		expect(await listOutbox()).toHaveLength(1);
+	});
+
+	it("reclaims an expired claim so a crashed replay cannot strand a sample", async () => {
+		await enqueueBiomassSample(sample());
+		await claimOutboxItem("offline-replay-0001");
+		expireClaims();
+
+		const result = await flushBiomassOutbox("farm-1");
+
+		expect(result.synced).toBe(1);
+		expect(mockedSave).toHaveBeenCalledTimes(1);
+		expect(await listOutbox()).toEqual([]);
+	});
+
+	it("keeps a pond in order and waits when its earlier sample is claimed", async () => {
+		await enqueueBiomassSample(sample("offline-order-1"));
+		await enqueueBiomassSample(sample("offline-order-2"));
+		setCreatedAt("offline-order-1", "2026-10-26T08:00:01.000Z");
+		setCreatedAt("offline-order-2", "2026-10-26T08:00:02.000Z");
+		await claimOutboxItem("offline-order-1");
+
+		const blocked = await flushBiomassOutbox("farm-1");
+		expect(mockedSave).not.toHaveBeenCalled();
+		expect(blocked.remaining).toBe(2);
+
+		expireClaims();
+		const result = await flushBiomassOutbox("farm-1");
+
+		expect(result.synced).toBe(2);
+		const sent = mockedSave.mock.calls.map((call) => (call[0] as FormData).get("clientEventId"));
+		expect(sent).toEqual(["offline-order-1", "offline-order-2"]);
+	});
+
+	it("releases the claim after a failed attempt so the next flush retries it", async () => {
+		await enqueueBiomassSample(sample());
+		mockedSave.mockResolvedValueOnce(rejected("Network unreachable"));
+
+		const first = await flushBiomassOutbox("farm-1");
+		expect(first.synced).toBe(0);
+		expect((await listOutbox())[0]).toMatchObject({ attempts: 1, status: "pending" });
+		expect((await listOutbox())[0].claimedAt).toBeUndefined();
+
+		mockedSave.mockResolvedValue(savedOk());
+		const second = await flushBiomassOutbox("farm-1");
+
+		expect(second.synced).toBe(1);
+		expect(mockedSave).toHaveBeenCalledTimes(2);
+	});
+
+	it("replays one pond's samples in the order they were queued", async () => {
+		await enqueueBiomassSample(sample("offline-order-a"));
+		await enqueueBiomassSample(sample("offline-order-b"));
+		await enqueueBiomassSample(sample("offline-order-c"));
+		// Not insertion order: the queue must follow `createdAt`.
+		setCreatedAt("offline-order-c", "2026-10-26T08:00:01.000Z");
+		setCreatedAt("offline-order-a", "2026-10-26T08:00:02.000Z");
+		setCreatedAt("offline-order-b", "2026-10-26T08:00:03.000Z");
+
+		await flushBiomassOutbox("farm-1");
+
+		const sent = mockedSave.mock.calls.map((call) => (call[0] as FormData).get("clientEventId"));
+		expect(sent).toEqual(["offline-order-c", "offline-order-a", "offline-order-b"]);
+	});
+});
+
 describe("offline replay surfaces failures", () => {
 	it("marks a permanent rejection as a conflict instead of dropping it", async () => {
 		await enqueueBiomassSample(sample());
@@ -123,6 +237,7 @@ describe("offline replay surfaces failures", () => {
 			status: "failed",
 			attempts: 3,
 		});
+		expect(third.exhausted).toBe(1);
 		expect(await listOutbox()).toHaveLength(1);
 	});
 });

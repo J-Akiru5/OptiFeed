@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.52.0] - 2026-11-04
+
+### Fixed
+
+- **A password reset no longer requires a farm-wide lockout, and recovery needs proof (#718, #721, #732).** The reset flow demanded a proof the user could not obtain and, when it failed, locked the whole farm rather than the account. The proof is now checked against the request that created it, and the lockout is scoped to the account that failed.
+- **A pending feed and a device event id are scoped correctly (#724, #727).** Pending feed requests were being dropped in a race, and event ids were compared across devices instead of per device, which could suppress a legitimate event.
+- **An import cannot commit after its job is marked failed (#723, #728).** The import writes and the job status now agree: a failed job leaves no committed rows, and artifact memory is bounded so a large import cannot exhaust the worker.
+
+### Changed
+
+- **CI pins its actions, moves pnpm overrides to where pnpm reads them, and verifies the Docker build (#710, #713, #714, #715, #722).** The workflow matrix was relying on resolution that pnpm 10 no longer applies; the Docker build is now exercised rather than assumed.
+
 ### Security
 
 - **A password reset now needs the proof carried by the recovery link (#718).** `completePasswordReset` previously accepted any authenticated session, so a stolen or shared session could set a permanent password without knowing the current one. The reset request now mints a 15-minute HMAC-SHA256 proof whose `jti` is stored in a new additive `PasswordResetToken` table, puts it in the Supabase recovery `redirectTo`, and the action verifies the signature, expiry and user binding before atomically consuming the proof. A missing, forged, expired, replayed or other-user proof returns `reset_link` and does not touch the password.

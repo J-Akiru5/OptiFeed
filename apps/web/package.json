@@ -25,6 +25,7 @@
 		"seed:tenant-b": "tsx scripts/seed-tenant-b.ts",
 		"cron:apply": "node scripts/ops/apply-cron-schedules.mjs",
 		"cron:health": "node scripts/ops/check-cron-health.mjs",
+		"cron:smoke": "node scripts/ops/smoke-cron-endpoints.mjs",
 		"manage-user": "tsx prisma/manage-users.ts",
 		"platform-admin": "tsx scripts/platform-admin.ts"
 	},

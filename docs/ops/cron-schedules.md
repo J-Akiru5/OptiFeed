@@ -35,7 +35,8 @@ pnpm --filter web cron:apply
 The `cron-schedules.yml` workflow exposes the same command via
 `workflow_dispatch`; it reads `APP_BASE_URL`, `CRON_SECRET` and
 `SUPABASE_DB_URL` from the protected `production` environment. It never runs on
-push.
+push. By default it also smoke-calls each endpoint with the secret
+(`pnpm --filter web cron:smoke`) and fails on a non-2xx response.
 
 ## Heartbeat / dead-man's switch
 

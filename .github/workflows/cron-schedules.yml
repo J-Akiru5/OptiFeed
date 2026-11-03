@@ -12,6 +12,10 @@ on:
         description: Print the generated schedule SQL without connecting
         type: boolean
         default: false
+      smoke:
+        description: Call each cron endpoint with the secret after applying
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -66,3 +70,10 @@ jobs:
           else
             pnpm --filter web cron:apply
           fi
+
+      - name: Smoke-call the endpoints
+        if: ${{ inputs.dry_run == false && inputs.smoke == true }}
+        env:
+          APP_BASE_URL: ${{ vars.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: pnpm --filter web cron:smoke

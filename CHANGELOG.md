@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The feed calculator accepts weights in kilograms or grams (#683).** A labelled **Weight unit** control re-expresses the current and target weights when it is switched (`1.5 kg` <-> `1500 g`), so a farmer weighing fingerlings can type grams instead of `0.015`. Every weight field and result on the card follows the selected unit; the per-meal dose stays in grams because the feeder firmware works in grams. The server contract is unchanged: values are converted to kilograms at the UI boundary before `calculateFcrFeed` receives `currentWeightKg` / `targetWeightKg`. Copy is in English, Hiligaynon and Tagalog; blank or malformed input is rejected rather than sent as `NaN`.
 
+### Fixed
+
+- **The farmer dashboard's top bar no longer claims a sticky position it never had (#572).** The shell is a fixed-height frame and the content pane is its only scroller, so the bar is already pinned by sitting outside the scroller — `position: sticky` could never engage. The bar is now plain markup in the server layout with a constant inset hairline instead of a heavy shadow; no client JavaScript, height, border or padding changed, so nothing shifts. The mobile band keeps its `env(safe-area-inset-top)` padding, and the pane keeps reserving the bottom bar plus `env(safe-area-inset-bottom)`.
+
 ## [1.48.1] - 2026-11-03
 
 ### Changed

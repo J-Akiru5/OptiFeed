@@ -1,0 +1,84 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+
+/**
+ * Issue #572: the dashboard bar claimed `position: sticky` and never stuck.
+ *
+ * The shell is a fixed-height app frame (`h-dvh` + `overflow-hidden`) and
+ * `#main-content` is its only scroller, so the bar is pinned by sitting outside
+ * the scroller — `sticky` never engaged. This is a CSS/layout fix: the header
+ * is plain markup in the server layout, with no client wrapper and no scroll
+ * listener, so the shared dashboard chunk does not grow. These checks lock
+ * that contract, the box-stable separator, the height the control room and
+ * calendar budgets subtract, and the phone safe-area/bottom-bar geometry.
+ */
+
+const webRoot = join(__dirname, "../..");
+const read = (relative: string) => readFileSync(join(webRoot, relative), "utf8");
+
+const layoutSource = read("app/[locale]/(dashboard)/layout.tsx");
+const mobileHeaderSource = read("components/mobile/mobile-header.tsx");
+const bottomNavSource = read("components/bottom-nav.tsx");
+const globalsCss = read("app/globals.css");
+
+/** The dashboard bar's opening tag, exactly as the server renders it. */
+const HEADER_OPEN =
+	'<header className="z-30 w-full shrink-0 bg-[#0A3D62] shadow-[inset_0_-1px_0_rgba(255,255,255,0.14)]">';
+
+/** Strip comments: explaining the old sticky claim is fine, making it is not. */
+const code = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, "");
+
+describe("the dashboard bar is pinned by the shell, not by sticky (#572)", () => {
+	it("stops claiming a sticky position", () => {
+		expect(code(layoutSource)).not.toContain("sticky");
+		expect(code(layoutSource)).not.toContain("<DashboardTopBar");
+		expect(layoutSource).toContain(HEADER_OPEN);
+	});
+
+	it("keeps the pane as the shell's only scroll container", () => {
+		expect(layoutSource).toContain("flex h-dvh flex-col overflow-hidden");
+		expect(layoutSource).toContain(
+			"ofd-main ofd-main-room relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto",
+		);
+	});
+
+	it("keeps the height the control room and calendar already budget for", () => {
+		// 64 px is load-bearing: the control-room height and the calendar shell
+		// both subtract it. Growing the bar is a shell change, not a sticky fix.
+		expect(layoutSource).toContain("h-16 w-full items-center justify-between");
+		expect(globalsCss).toContain("--ofd-topbar-h: 4rem;");
+	});
+});
+
+describe("the bar stays CSS-only so the shared dashboard chunk does not grow (#572)", () => {
+	it("renders the header in the server layout, not through a client wrapper", () => {
+		// The layout is a server component; a client wrapper here is what added
+		// ~0.6 kB to every dashboard route and tripped the shared chunk budget.
+		expect(layoutSource).not.toContain('"use client"');
+		expect(layoutSource).not.toMatch(/<header className=\{/);
+	});
+
+	it("separates with an inset shadow instead of a border that changes height", () => {
+		const header = layoutSource.match(/<header className="([^"]+)"/)?.[1] ?? "";
+		expect(header).toContain("shadow-[inset_0_-1px_0_rgba(255,255,255,0.14)]");
+		expect(header).not.toContain("shadow-md");
+		expect(header).not.toMatch(/(^|\s)border(-\S+)?(\s|$)/);
+	});
+});
+
+describe("phone geometry keeps the notch inset and clears the bottom bar (#572)", () => {
+	it("pads the mobile band for the device inset", () => {
+		expect(mobileHeaderSource).toContain("pt-[env(safe-area-inset-top)]");
+	});
+
+	it("leaves the fixed bottom layer to the bottom bar", () => {
+		expect(code(layoutSource)).not.toContain("bottom-0");
+		expect(bottomNavSource).toContain("fixed right-0 bottom-0 left-0 z-40");
+		expect(bottomNavSource).toContain("lg:hidden");
+	});
+
+	it("reserves the bottom bar plus its inset in the content pane", () => {
+		expect(globalsCss).toContain("calc(var(--ofd-bottom-nav-h) + env(safe-area-inset-bottom)");
+	});
+});

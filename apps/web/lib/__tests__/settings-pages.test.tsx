@@ -64,6 +64,15 @@ vi.mock("@/lib/auth/session", () => ({
 vi.mock("@/lib/auth/permissions", () => ({
 	hasPermission: vi.fn(async () => true),
 	requirePermission: vi.fn(async () => undefined),
+	getCurrentPermissions: vi.fn(async () => new Set()),
+	writeCapabilities: (writeAccess: boolean) => ({
+		canControlFeeder: writeAccess,
+		canManageSchedule: writeAccess,
+		canManageCropCycle: writeAccess,
+		canClaimFeeder: writeAccess,
+		canManageFarmsPonds: writeAccess,
+		canManageMembers: writeAccess,
+	}),
 }));
 
 vi.mock("@/lib/pond-selection", () => ({

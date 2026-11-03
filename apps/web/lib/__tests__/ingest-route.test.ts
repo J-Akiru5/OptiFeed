@@ -57,11 +57,11 @@ const mockFeedRequest = vi.mocked(prisma.feedRequest);
 const mockDeviceStateEvent = vi.mocked(prisma.deviceStateEvent);
 const mockNotification = vi.mocked(prisma.notification);
 
-function p2002(): Prisma.PrismaClientKnownRequestError {
+function p2002(target: string[] = ["feedRequestId"]): Prisma.PrismaClientKnownRequestError {
 	return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
 		code: "P2002",
 		clientVersion: "6.19.3",
-		meta: { target: ["feedRequestId"] },
+		meta: { target },
 	});
 }
 
@@ -148,6 +148,50 @@ describe("POST /api/ingest — feed_dispensed dedupe (Gap #2)", () => {
 		const retry = await POST(ingestRequest(feedDispensedBody("evt-0003", "req-3")));
 		expect(retry.status).toBe(204);
 		expect(mockFeedEvent.create).toHaveBeenCalledTimes(1);
+	});
+
+	it("#727: a same-device replay of (deviceId, eventId) is still answered 204", async () => {
+		// The compound unique index is the replay guard: the second insert for a
+		// device that already stored this event id raises P2002 and the firmware
+		// must read it as delivered, not as a server failure to retry forever.
+		mockFeedEvent.create.mockRejectedValueOnce(p2002(["deviceId", "eventId"]) as never);
+
+		const res = await POST(ingestRequest(feedDispensedBody("evt-replay-727", "req-727")));
+
+		expect(res.status).toBe(204);
+		expect(mockFeedEvent.create).toHaveBeenCalledTimes(1);
+	});
+
+	it("#727: two devices may store the same event id as two rows", async () => {
+		// event ids are minted per unit. The route must not pre-filter on
+		// eventId alone, and the schema's unique key includes deviceId, so the
+		// second device's real dispense is accepted rather than deduped away.
+		const deviceB = {
+			...DEVICE,
+			id: "dev-2",
+			mac: "11:22:33:44:55:66",
+		};
+		mockEnergyDevice.findUnique
+			.mockResolvedValueOnce({ ...DEVICE } as never)
+			.mockResolvedValueOnce(deviceB as never);
+
+		const first = await POST(ingestRequest(feedDispensedBody("evt-shared-727", "req-a")));
+		const second = await POST(
+			ingestRequest({
+				...feedDispensedBody("evt-shared-727", "req-b"),
+				device_id: deviceB.mac,
+			}),
+		);
+
+		expect([first.status, second.status]).toEqual([204, 204]);
+		expect(mockFeedEvent.create).toHaveBeenCalledTimes(2);
+		const rows = mockFeedEvent.create.mock.calls.map(
+			([arg]) => (arg as { data: { deviceId: string; eventId: string } }).data,
+		);
+		expect(rows).toEqual([
+			expect.objectContaining({ deviceId: DEVICE.id, eventId: "evt-shared-727" }),
+			expect.objectContaining({ deviceId: deviceB.id, eventId: "evt-shared-727" }),
+		]);
 	});
 
 	it("still reconciles orphaned requests when no feed_request_id is present", async () => {

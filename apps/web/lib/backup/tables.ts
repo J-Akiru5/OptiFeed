@@ -822,6 +822,8 @@ export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
 		"Transient brute-force counter. Restoring an old lockout would unexpectedly slow a farm's next login.",
 	LoginLockout:
 		"Transient per-(farm, IP) lockout. Restoring it would lock out an address that may no longer be at fault.",
+	PasswordResetToken:
+		"Short-lived, single-use recovery proofs. Restoring a consumed or expired jti could make an old reset link usable again, and the rows carry no farm data.",
 	RateLimitBucket: "Short-lived limiter windows, regenerated on demand; no farm data.",
 	ImpersonationSession:
 		"Session data. The brief forbids session data in any export, and an ended view-as session has no restore value.",
@@ -829,6 +831,8 @@ export const EXCLUDED_TABLES: Readonly<Record<string, string>> = {
 		"Operational queue state for long-running exports/imports; the work is not reproducible from a restored row.",
 	JobArtifact:
 		"Generated file bytes, including previous tenant exports. Re-exporting is safer than restoring or copying them.",
+	ImportConfirmation:
+		"Transient idempotency record for an import that already committed. Restoring it could suppress a legitimate re-import and it carries no farm data beyond the owner key.",
 	IssueReport:
 		"Platform triage inbox for free-text public reports (#487). Not tenant data, and the text is personal data that an export would spread beyond the reporter's consent.",
 };

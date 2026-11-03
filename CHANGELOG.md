@@ -9,6 +9,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.52.0] - 2026-11-04
+
+### Fixed
+
+- **A password reset no longer requires a farm-wide lockout, and recovery needs proof (#718, #721, #732).** The reset flow demanded a proof the user could not obtain and, when it failed, locked the whole farm rather than the account. The proof is now checked against the request that created it, and the lockout is scoped to the account that failed.
+- **A pending feed and a device event id are scoped correctly (#724, #727).** Pending feed requests were being dropped in a race, and event ids were compared across devices instead of per device, which could suppress a legitimate event.
+- **An import cannot commit after its job is marked failed (#723, #728).** The import writes and the job status now agree: a failed job leaves no committed rows, and artifact memory is bounded so a large import cannot exhaust the worker.
+
+### Changed
+
+- **CI pins its actions, moves pnpm overrides to where pnpm reads them, and verifies the Docker build (#710, #713, #714, #715, #722).** The workflow matrix was relying on resolution that pnpm 10 no longer applies; the Docker build is now exercised rather than assumed.
+
+### Security
+
+- **A password reset now needs the proof carried by the recovery link (#718).** `completePasswordReset` previously accepted any authenticated session, so a stolen or shared session could set a permanent password without knowing the current one. The reset request now mints a 15-minute HMAC-SHA256 proof whose `jti` is stored in a new additive `PasswordResetToken` table, puts it in the Supabase recovery `redirectTo`, and the action verifies the signature, expiry and user binding before atomically consuming the proof. A missing, forged, expired, replayed or other-user proof returns `reset_link` and does not touch the password.
+- **A farm-wide failure burst no longer locks every farmer out (#721).** The per-(farm, IP) five-attempt hard lock is unchanged. The farm-wide counter still raises one security notification at ten failures in fifteen minutes, but it no longer writes or reads a farm-wide lock, so two source IPs cannot hold a farm offline. The accepted tradeoff is that distributed guessing below the per-pair lock is not stopped by a farm-wide gate.
+- **Client-IP trust and reset-link origins now fail closed (#732).** `TRUSTED_PROXY_HOPS` (default 1, clamped to 1..10) selects the address that many entries from the right; a shorter chain or invalid selected entry returns `null` instead of trusting a client-written value. Password-reset audit rows now use that parser, and a non-production deployment with neither `NEXT_PUBLIC_BASE_URL` nor `NEXT_PUBLIC_SITE_URL` mints no link and sends no email instead of pointing at production. The reset request still returns the same anti-enumeration answer and records the configuration failure.
+
+### Changed
+
+- **The shared fallback password is retired in the manual-testing documentation (#712).** `docs/password-auth-plan.md` now records that `password123` must not be used for any account, that `superadmin`, `independent-farmer` and `test` still need owner action in Supabase Auth, and that per-account random temporary passwords are required. The accounts are not claimed as fixed.
+
+### Added
+
+- **CI builds the container image (#714).** `.github/workflows/docker.yml` runs `docker build` with the Dockerfile's default arguments when the Dockerfile, compose file, lockfile, manifests or the workflow change. It never pushes or deploys, and the first run is pending; the runtime container path remains unverified.
+- **The security overrides are checked on every install (#713).** `scripts/security/check-overrides.mjs` (run as `pnpm security:overrides` in CI) fails when package.json regains the ignored `pnpm` field, when the workspace or lockfile override set drifts, or when a resolved dompurify/minimatch/uuid/browserslist/proxy-addr/source-map-js/baseline-browser-mapping version falls below its floor.
+
+### Changed
+
+- **pnpm security overrides moved to `pnpm-workspace.yaml` (#713).** pnpm 10 ignores `pnpm.overrides` in package.json and warned on every command; the same pins now live in the settings file pnpm actually reads, and the dead field is gone. The lockfile already records the same overrides, so `--frozen-lockfile` remains valid.
+- **`pnpm install` generates the Prisma client when the schema is present (#715).** The guarded root `postinstall` skips cleanly in the Docker deps stage, where only manifests are copied, so a fresh clone or a pull that changes the schema no longer fails `typecheck` until someone runs the generator by hand. `DEMO_SUPABASE_ID` is now documented in `apps/web/.env.example` for the demo seed.
+- **GitHub Actions are pinned to commit SHAs (#722).** Every `uses:` in `.github/workflows/*.yml` now names a 40-character commit with the version tag in a trailing comment, so a moved tag cannot change what CI executes. The `pnpm dlx @lhci/cli` invocation is unchanged and recorded as a follow-up; workflow permissions are unchanged.
+- **The Lighthouse transfer budget is 535,000 B (#710).** The old 525,000 B ceiling failed on samples of 526,268 / 526,263 / 526,263 B at `09d4234` and 526,595 / 527,664 / 527,654 B on develop at `d7ff4518` (0.24–0.51 % over) on every branch. The new ceiling keeps 1.4 % headroom over the worst measured sample; the performance score floors are unchanged, and `docs/ci-required-checks.md` records the decision plus the owner action for making the security, SBOM, E2E and Lighthouse checks required.
+
+### Fixed
+
+- **A repeated import confirm no longer imports the dataset twice (#723).** The synchronous route accepts an `Idempotency-Key` header and the queued `import_confirm` job carries it; without one, a stable sha256 of `type + csvData` is used so existing clients are protected too. A replay returns the first result, a failed import leaves the key unconsumed for a retry, and two concurrent confirms resolve to one winner. Adds the additive migration `20261104110000_import_idempotency` (one new table, no data change).
+- **Export artifacts are capped at 25 MB and downloads no longer make a second copy (#728).** A job whose generated file exceeds the cap now fails with a readable message instead of risking an out-of-memory kill, and the download route returns 413 for an oversized stored artifact before loading it. The route serves the stored bytes directly and reports `Content-Length` from those bytes.
+- **A failed device poll now returns 503 instead of a fake 200 idle (#724).** `GET /api/feed-command` and `GET /api/schedule-sync` answered 200 with `feed_requested: false` / a default schedule whenever the database or a handler threw. The ESP32 read that as a successful poll and stopped retrying, so a pending feed expired undelivered while monitoring reported a healthy device. Both catches now return `503` with `Retry-After: 5`, which the firmware already retries on its 5 s loop; a genuinely empty queue still returns 200. The feed-command route also builds its firmware config before claiming the request, so a failure cannot mark a real feed `dispatched` and lose it.
+- **Feed event ids are unique per device, not globally (#727).** `FeedEvent.eventId` was globally unique, but the firmware mints ids per unit, so a second device (or a reflashed unit restarting its counter) could collide and have a real dispense answered `204` and dropped. The Prisma model is now `@@unique([deviceId, eventId])` and migration `20261104100000_feed_event_device_unique` replaces the old global index with the compound one. The 204 replay guard remains for the same device + event id; the same id from two devices now stores two rows. **This migration drops an existing index, so it is a schema relaxation - no rows are deleted, but it needs the owner's approval and a verified backup before it reaches production.**
+
 ## [1.51.0] - 2026-11-03
 
 ### Added

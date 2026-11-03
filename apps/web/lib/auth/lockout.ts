@@ -6,17 +6,15 @@ import prisma from "@/lib/prisma";
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
 
-// Farm-wide cap (F-031): >= 10 failed attempts across ALL IPs within a
-// 15-minute window locks every IP for the farm for 15 minutes. A single
-// IP can contribute at most MAX_ATTEMPTS before its own pair lock stops
-// the counting, so this needs 2+ real source IPs to trigger — and with
-// F-014 fixed, XFF rotation can no longer manufacture new ones. A stranger
-// can therefore hold the farm lock for up to 15 minutes; that tradeoff is
-// accepted (the old never-lock design let attackers brute-force forever).
-// Stored in UserLockout.lockedUntil, which previously existed unused.
+// Farm-wide signal (F-031, revised for #721): >= 10 failed attempts across ALL
+// IPs within a 15-minute window raises one security notification. It is an
+// alert, not a lock: the previous hard farm-wide lock let an attacker with two
+// source IPs hold every farmer offline for 15 minutes at a time (CWE-400).
+// The accepted tradeoff is that distributed guessing below the per-pair lock
+// is not stopped by a farm-wide gate; the per-(farm, IP) lock, the rate limiter
+// and the notification remain, and a legitimate farmer can always sign in.
 const FARM_MAX_ATTEMPTS = 10;
 const FARM_WINDOW_MS = 15 * 60 * 1000;
-const FARM_LOCK_MINUTES = 15;
 
 export interface LockoutResult {
 	locked: boolean;
@@ -43,21 +41,9 @@ export async function checkLockout(farmId: string, ip: string): Promise<LockoutR
 		}
 	}
 
-	// Farm-wide lock (F-031) — applies to every IP, checked even when this
-	// pair has no record of its own.
-	const farm = await prisma.userLockout.findUnique({ where: { farmId } });
-	if (farm?.lockedUntil) {
-		if (farm.lockedUntil.getTime() > now) {
-			const secondsRemaining = Math.ceil((farm.lockedUntil.getTime() - now) / 1000);
-			return { locked: true, secondsRemaining };
-		}
-		// Expired farm lock — clear it and start the counter fresh.
-		await prisma.userLockout.update({
-			where: { farmId },
-			data: { failedAttempts: 0, lockedUntil: null },
-		});
-	}
-
+	// The farm-wide counter is an alert signal only (#721). Checking
+	// UserLockout here would let two source IPs hold every farmer offline, so
+	// login is blocked solely by this pair's own hard lock.
 	return { locked: false };
 }
 
@@ -88,7 +74,10 @@ export async function recordFailedAttempt(farmId: string, ip: string): Promise<v
 		});
 	}
 
-	// Farm-wide counter (F-031) — 15-minute window, hard cap at 10.
+	// Farm-wide counter (F-031) — 15-minute window, alert at 10. It never
+	// writes a future lock: #721 removed the farm-wide denial-of-service. Any
+	// legacy `lockedUntil` is cleared so the row cannot be mistaken for an
+	// active block.
 	const global = await prisma.userLockout.findUnique({ where: { farmId } });
 	if (
 		!global ||
@@ -105,16 +94,9 @@ export async function recordFailedAttempt(farmId: string, ip: string): Promise<v
 	}
 
 	const newGlobal = global.failedAttempts + 1;
-	const crossedCap = newGlobal >= FARM_MAX_ATTEMPTS;
 	await prisma.userLockout.update({
 		where: { farmId },
-		data: {
-			failedAttempts: newGlobal,
-			lastFailedAt: now,
-			lockedUntil: crossedCap
-				? new Date(now.getTime() + FARM_LOCK_MINUTES * 60 * 1000)
-				: global.lockedUntil,
-		},
+		data: { failedAttempts: newGlobal, lastFailedAt: now, lockedUntil: null },
 	});
 
 	if (newGlobal === FARM_MAX_ATTEMPTS) {
@@ -128,8 +110,8 @@ export async function resetLockout(farmId: string, ip: string): Promise<void> {
 		create: { farmId, ip, failedAttempts: 0 },
 		update: { failedAttempts: 0, lockedUntil: null },
 	});
-	// A successful login clears the farm-wide counter too, so a run of
-	// failures from other IPs doesn't keep the farmer one typo from a lock.
+	// A successful login clears the farm-wide signal too, so the next alert
+	// window starts clean instead of inheriting failures from other IPs.
 	await prisma.userLockout.upsert({
 		where: { farmId },
 		create: { farmId, failedAttempts: 0 },

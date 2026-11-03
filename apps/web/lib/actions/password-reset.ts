@@ -1,6 +1,8 @@
 "use server";
 
 import { validatePassword } from "@/lib/auth/password";
+import { issuePasswordResetProof, verifyPasswordResetProof } from "@/lib/auth/password-reset-proof";
+import { parseClientIp } from "@/lib/client-ip";
 import { parseResetIdentifier } from "@/lib/contact-email";
 import { deliverPasswordResetEmail } from "@/lib/notify/reset-email";
 import { reportError } from "@/lib/observability";
@@ -43,14 +45,23 @@ import { headers } from "next/headers";
  * rate limiter plus the anti-enumeration contract, not RLS.
  */
 
-// Mirrors the canonical site URL in app/[locale]/layout.tsx, overridable so a
-// preview deployment can point the recovery link at itself. NEXT_PUBLIC_BASE_URL
-// is the same base the reminder/invite emails use.
-const BASE_URL = (
-	process.env.NEXT_PUBLIC_BASE_URL ??
-	process.env.NEXT_PUBLIC_SITE_URL ??
-	"https://pakaonai.syntaxure.dev"
-).replace(/\/+$/, "");
+/** Canonical production origin, used only when production has no override. */
+const PRODUCTION_BASE_URL = "https://pakaonai.syntaxure.dev";
+
+/**
+ * Where the recovery link should send the visitor. `NEXT_PUBLIC_BASE_URL` wins
+ * (the reminder/invite emails use the same override), then
+ * `NEXT_PUBLIC_SITE_URL`. With neither set, only a production deployment may
+ * fall back to the canonical origin; a preview or local build returns null so
+ * the caller fails closed instead of mailing a production link from a
+ * non-production surface (#732).
+ */
+export async function resolveAppBaseUrl(): Promise<string | null> {
+	const configured =
+		process.env.NEXT_PUBLIC_BASE_URL?.trim() || process.env.NEXT_PUBLIC_SITE_URL?.trim();
+	if (configured) return configured.replace(/\/+$/, "");
+	return process.env.VERCEL_ENV === "production" ? PRODUCTION_BASE_URL : null;
+}
 
 /** Audit actor for requests that come from the public login page. */
 const SELF_SERVICE_ACTOR = "self-service";
@@ -60,9 +71,8 @@ const REQUEST_REASON = "Self-service password reset requested from the login pag
 async function requestOrigin(): Promise<{ ip: string | null; userAgent: string | null }> {
 	try {
 		const h = await headers();
-		const forwarded = h.get("x-forwarded-for")?.split(",")[0]?.trim();
 		return {
-			ip: forwarded || h.get("x-real-ip") || null,
+			ip: parseClientIp(h.get("x-forwarded-for")) ?? h.get("x-real-ip") ?? null,
 			userAgent: h.get("user-agent")?.slice(0, 512) ?? null,
 		};
 	} catch {
@@ -98,37 +108,65 @@ export async function requestPasswordReset(
 		if (!user) return { success: true };
 
 		const locale = await getLocale();
-		const redirectTo = `${BASE_URL}/${locale}/reset-password`;
+		const appBaseUrl = user.contactEmail ? await resolveAppBaseUrl() : null;
 
 		// Mint the recovery link in code, then hand delivery to Resend. An account
-		// with no contact email has nowhere to send it, so nothing is minted.
+		// with no contact email has nowhere to send it, so nothing is minted. A
+		// non-production deployment without a base URL also fails closed: no
+		// proof, no link and no email, but the caller still gets the same answer.
 		let emailSent = false;
-		if (user.contactEmail) {
-			const admin = createAdminClient();
-			const { data, error } = await admin.auth.admin.generateLink({
-				type: "recovery",
-				email: user.email,
-				options: { redirectTo },
-			});
-			// supabase-js returns the link under `properties` (GenerateLinkResponse).
-			const actionLink = data?.properties?.action_link;
-			if (error || !actionLink) {
-				reportError(error ?? new Error("no action_link returned"), {
-					action: "requestPasswordReset.generateLink",
-					farmId: user.farmId,
+		let notSentReason:
+			| "no_contact_email"
+			| "base_url_unconfigured"
+			| "proof_unavailable"
+			| undefined;
+		if (!user.contactEmail) {
+			notSentReason = "no_contact_email";
+		} else if (!appBaseUrl) {
+			notSentReason = "base_url_unconfigured";
+			reportError(
+				new Error("Password-reset base URL is not configured; no recovery link was minted."),
+				{ action: "requestPasswordReset.baseUrl", farmId: user.farmId },
+			);
+		} else {
+			try {
+				const proof = await issuePasswordResetProof(user.id);
+				const redirectTo = `${appBaseUrl}/${locale}/reset-password?reset=${encodeURIComponent(proof.token)}`;
+
+				const admin = createAdminClient();
+				const { data, error } = await admin.auth.admin.generateLink({
+					type: "recovery",
+					email: user.email,
+					options: { redirectTo },
 				});
-			} else {
-				emailSent = await deliverPasswordResetEmail({
-					to: user.contactEmail,
+				// supabase-js returns the link under `properties` (GenerateLinkResponse).
+				const actionLink = data?.properties?.action_link;
+				if (error || !actionLink) {
+					reportError(error ?? new Error("no action_link returned"), {
+						action: "requestPasswordReset.generateLink",
+						farmId: user.farmId,
+					});
+				} else {
+					emailSent = await deliverPasswordResetEmail({
+						to: user.contactEmail,
+						farmId: user.farmId,
+						resetUrl: actionLink,
+					});
+				}
+			} catch (error) {
+				// Keep the anti-enumeration answer even when signing or persistence
+				// fails: the caller must not learn that the account exists.
+				notSentReason = "proof_unavailable";
+				reportError(error, {
+					action: "requestPasswordReset.proof",
 					farmId: user.farmId,
-					resetUrl: actionLink,
 				});
 			}
 		}
 
 		// The superadmin audit log records the request itself — actor, target,
-		// time, origin and whether the email went out. The link is a credential
-		// and is deliberately absent from every column.
+		// time, origin and whether the email went out. The link and the recovery
+		// proof are credentials and are deliberately absent from every column.
 		const origin = await requestOrigin();
 		const auditRow: Prisma.PlatformAuditLogUncheckedCreateInput = {
 			actorUserId: SELF_SERVICE_ACTOR,
@@ -142,7 +180,7 @@ export async function requestPasswordReset(
 				farmId: user.farmId,
 				via: parsed.kind,
 				emailSent,
-				...(user.contactEmail ? {} : { reason: "no_contact_email" }),
+				...(notSentReason ? { reason: notSentReason } : {}),
 			},
 		};
 		await prisma.platformAuditLog
@@ -161,19 +199,28 @@ export async function requestPasswordReset(
 
 export type CompletePasswordResetResult =
 	| { success: true }
-	| { error: "session" | "mismatch" | "weak_password" | "service" };
+	| { error: "session" | "reset_link" | "mismatch" | "weak_password" | "service" };
 
 /**
  * Set the new password from the recovery link's session.
  *
- * The caller arrives at /reset-password with a Supabase recovery session
- * (the email link established it), so the current password is neither known
- * nor asked for. The flag is cleared so the next sign-in lands on the normal
- * console instead of bouncing to /change-password.
+ * The caller arrives at /reset-password with a Supabase recovery session (the
+ * email link established it), so the current password is neither known nor
+ * asked for. That session alone is not authorization: the redirect also carries
+ * the signed, single-use proof minted by `requestPasswordReset`, and this
+ * action consumes it atomically before calling `updateUser`. A normal
+ * authenticated session, a forged token and a replay all return `reset_link`
+ * without touching the password (#718). The flag is cleared so the next
+ * sign-in lands on the normal console instead of bouncing to /change-password.
+ *
+ * If Supabase fails after the proof was consumed, the proof stays burned and a
+ * new link is required. That is deliberate: restoring it on failure would make
+ * the "single-use" guarantee depend on a downstream error.
  */
 export async function completePasswordReset(input: {
 	newPassword: string;
 	confirmPassword: string;
+	resetToken?: string;
 }): Promise<CompletePasswordResetResult> {
 	try {
 		const supabase = await createClient();
@@ -182,10 +229,42 @@ export async function completePasswordReset(input: {
 		} = await supabase.auth.getUser();
 		if (!authUser) return { error: "session" };
 
+		// A missing proof is the ordinary authenticated-session case: reject
+		// before validating or updating anything.
+		if (typeof input.resetToken !== "string" || input.resetToken.length === 0) {
+			return { error: "reset_link" };
+		}
+
 		if (input.newPassword !== input.confirmPassword) return { error: "mismatch" };
 
 		const validation = validatePassword(input.newPassword, "permanent");
 		if (!validation.ok) return { error: "weak_password" };
+
+		// Bind the proof to the application user behind this session, not just
+		// to "some session". The proof carries User.id, never a password.
+		const localUser = await prisma.user.findUnique({
+			where: { supabaseId: authUser.id },
+			select: { id: true },
+		});
+		if (!localUser) return { error: "reset_link" };
+
+		const proof = verifyPasswordResetProof(input.resetToken, localUser.id);
+		if (!proof.valid) return { error: "reset_link" };
+
+		// Atomic single-use claim: only one caller can flip consumedAt from null.
+		// The expiry is re-checked here so a clock skew between token and row
+		// cannot extend the proof's life.
+		const now = new Date();
+		const consumed = await prisma.passwordResetToken.updateMany({
+			where: {
+				jti: proof.jti,
+				userId: localUser.id,
+				consumedAt: null,
+				expiresAt: { gt: now },
+			},
+			data: { consumedAt: now },
+		});
+		if (consumed.count !== 1) return { error: "reset_link" };
 
 		const { error: updateError } = await supabase.auth.updateUser({
 			password: input.newPassword,

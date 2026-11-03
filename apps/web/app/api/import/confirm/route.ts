@@ -46,7 +46,10 @@ export const POST = withApi(
 			return Response.json({ error: "CSV payload exceeds 5 MB" }, { status: 413 });
 		}
 
-		const result = await confirmImport(ownerId, type, csvData);
+		// A client retry should carry the same key; without one, confirmImport
+		// derives a stable payload hash so a double submit still imports once.
+		const idempotencyKey = request.headers.get("idempotency-key");
+		const result = await confirmImport(ownerId, type, csvData, { idempotencyKey });
 
 		revalidatePath("/[locale]/(dashboard)/dashboard", "page");
 		revalidatePath("/[locale]/(dashboard)/dashboard/growth", "page");

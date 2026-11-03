@@ -37,7 +37,9 @@ agents; the rules themselves live in [`CONTRIBUTING.md`](./CONTRIBUTING.md),
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
 
-3. Generate the Prisma client:
+3. Generate the Prisma client. `pnpm install` runs this through the guarded
+   root `postinstall` when `apps/web/prisma/schema.prisma` exists; rerun it
+   after pulling a schema change:
    ```bash
    pnpm prisma:generate
    ```
@@ -63,6 +65,7 @@ agents; the rules themselves live in [`CONTRIBUTING.md`](./CONTRIBUTING.md),
 | `pnpm format` | Format files with Biome |
 | `pnpm prisma:generate` | Generate the Prisma client |
 | `pnpm prisma:migrate` | Run Prisma migrations |
+| `pnpm security:overrides` | Verify the pnpm security pins resolve as intended |
 | `pnpm typecheck` | Run TypeScript checks across the workspace |
 
 ## API contract

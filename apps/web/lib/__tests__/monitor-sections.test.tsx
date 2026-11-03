@@ -133,7 +133,19 @@ describe("CommandCenterLayout", () => {
 		expect(markup).toContain("extra charts");
 		expect(markup).not.toContain("Needs attention");
 		expect(markup).not.toContain("Recent activity");
-		// The trend spans the row when there is no mix panel.
+		// The trend spans the row when there is no mix panel: two columns from
+		// `lg` (the laptop shape, #628) and all three from `xl`.
+		expect(markup).toContain("lg:col-span-2");
 		expect(markup).toContain("xl:col-span-3");
+	});
+
+	it("splits the trend row in two on a laptop when a mix panel is supplied", () => {
+		const markup = renderToStaticMarkup(<CommandCenterLayout {...full} />);
+
+		// Laptop 1024–1279: two equal columns (chart + mix) instead of one wide
+		// chart above an orphaned donut. Desktop keeps the 2:1 split.
+		expect(markup).toContain("lg:grid-cols-2 xl:grid-cols-3");
+		expect(markup).toContain("xl:col-span-2");
+		expect(markup).not.toContain("xl:col-span-3");
 	});
 });

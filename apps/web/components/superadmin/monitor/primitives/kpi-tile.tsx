@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { ArrowDown, ArrowRight, ArrowUp, type LucideIcon } from "lucide-react";
 
 /**
- * One number on the Command Center (issue #479, M3C.8).
+ * One number on the Command Center (issue #479, M3C.8; tokens #628).
  *
  * The label, the formatted value and the delta text all arrive from the page;
  * nothing here formats a locale, fetches a figure or invents a threshold. The
@@ -12,14 +12,18 @@ import { ArrowDown, ArrowRight, ArrowUp, type LucideIcon } from "lucide-react";
  * greyscale print or a colour-vision difference. `series` is optional: when a
  * caller has no trend yet the card ends at the hint rather than drawing a
  * misleading flat line.
+ *
+ * The value keeps `text-3xl` at every width on purpose: a KPI is the one thing
+ * on this surface that must stay legible at 390 px, and the tile is one column
+ * there, so it has the room.
  */
 
 type DeltaDirection = "up" | "down" | "flat";
 
 const DELTA_TONES: Record<DeltaDirection, string> = {
-	up: "bg-[#E8F5EC] text-[#1E7B34] dark:bg-emerald-950/50 dark:text-[#4ADE80]",
-	down: "bg-[#FDE8EA] text-[#C42B3A] dark:bg-red-950/50 dark:text-[#F87171]",
-	flat: "bg-[#F4F7F6] text-[#3D5568] dark:bg-[#162238] dark:text-[#94A3B8]",
+	up: "bg-console-ok-surface text-console-ok-content",
+	down: "bg-console-critical-surface text-console-critical-content",
+	flat: "bg-console-surface-sunken text-console-content-muted",
 };
 
 const DELTA_ICONS: Record<DeltaDirection, LucideIcon> = {
@@ -50,23 +54,18 @@ export function KpiTile({
 	const DeltaIcon = delta ? DELTA_ICONS[delta.direction] : null;
 
 	return (
-		<div className={cn(CARD, "flex flex-col gap-3 p-5", className)}>
+		<div className={cn(CARD, "flex min-w-0 flex-col gap-3 p-5", className)}>
 			<div className="flex items-start justify-between gap-2">
-				<p className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
+				<p className="text-[10px] font-extrabold uppercase tracking-wider text-console-content-muted">
 					{label}
 				</p>
 				{Icon && (
-					<Icon
-						className="h-4 w-4 shrink-0 text-[#0A3D62]/70 dark:text-slate-400"
-						aria-hidden="true"
-					/>
+					<Icon className="h-4 w-4 shrink-0 text-console-content-muted" aria-hidden="true" />
 				)}
 			</div>
 
 			<div className="flex flex-wrap items-baseline gap-2">
-				<p className="text-3xl font-black tabular-nums text-[#0A3D62] dark:text-slate-100">
-					{value}
-				</p>
+				<p className="text-3xl font-black tabular-nums text-console-content">{value}</p>
 				{delta?.label && <span className="sr-only">{delta.label}</span>}
 				{delta && DeltaIcon && (
 					<p
@@ -82,9 +81,7 @@ export function KpiTile({
 				)}
 			</div>
 
-			{hint && (
-				<p className="text-[11px] leading-snug text-[#3D5568] dark:text-slate-400">{hint}</p>
-			)}
+			{hint && <p className="text-[11px] leading-snug text-console-content-muted">{hint}</p>}
 
 			{series && series.length > 0 && (
 				<Sparkline points={series} label={sparklineLabel ?? label} tone="accent" className="mt-1" />

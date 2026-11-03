@@ -3,13 +3,15 @@ import { type LucideIcon, X } from "lucide-react";
 import type { ReactNode } from "react";
 
 /**
- * Shared presentation for the platform console (T-09c).
+ * Shared presentation for the platform console (T-09c, #628).
  *
- * These are the console's own primitives, built only from the design tokens and
- * Tailwind classes the console already used (navy #0A3D62, action #E85A2A,
- * page background #F4F7F6). They exist so the pages built by different tasks
- * (device registry, step-up, view-as, remote feeder control, org members) share
- * one card, table, badge, form and empty-state look instead of drifting.
+ * These are the console's own primitives. Since #628 they name colours only
+ * through the `console-*` tokens declared once in `app/globals.css`
+ * (`bg-console-surface`, `border-console-border`, `text-console-ok-content`,
+ * ...). No class in this file carries a hex literal or a raw Tailwind colour,
+ * because every one of them has a light and a dark value behind the same name:
+ * a surface that is paper in light mode is the slate panel in dark mode through
+ * the same class, so a component cannot be half-themed by accident.
  *
  * Nothing here fetches data, checks permissions or renders a link, so the file
  * stays usable from both server and client components.
@@ -17,57 +19,57 @@ import type { ReactNode } from "react";
 
 /** Visible keyboard focus for every console control (WCAG 2.4.7). */
 export const FOCUS_RING =
-	"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0B1220]";
+	"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-focus focus-visible:ring-offset-2 focus-visible:ring-offset-console-surface";
 
 /** Same ring, for the navy header, sidebar and bottom nav. */
 export const FOCUS_RING_ON_DARK =
-	"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A3D62] dark:focus-visible:ring-offset-[#08111D]";
+	"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-header-ink focus-visible:ring-offset-2 focus-visible:ring-offset-console-header";
 
 /**
- * Console surfaces (#477). Every card, field and table header paints from these
- * three pairs so a page never mixes a light card into a dark console.
+ * Console surfaces (#477, #628). Every card, field and table header paints from
+ * these pairs so a page never mixes a light card into a dark console.
  *
- * Dark palette: page #0B1220, surface #111A2C, raised #162238, border #24304A.
- * Status colours stay reserved for status (T25); the accent is brand orange.
+ * The palette is slate-navy in dark mode and the brand-neutral paper in light
+ * mode (both live in `app/globals.css`). Status colours stay reserved for
+ * status (T25); the accent is the AA-safe action orange.
  */
-export const CARD =
-	"rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[#24304A] dark:bg-[#111A2C] dark:shadow-black/30";
+export const CARD = "rounded-2xl border border-console-border bg-console-surface shadow-sm";
 
 export const FIELD_LABEL =
-	"block text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-slate-400 dark:text-slate-300";
+	"block text-[10px] font-extrabold uppercase tracking-wider text-console-content-muted";
 
 export const FIELD_INPUT =
-	"w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-2 text-sm text-[#0A3D62] transition-all placeholder:text-[#3D5568]/70 focus:outline-none focus:ring-2 focus:ring-[#E85A2A] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#24304A] dark:bg-[#0B1220] dark:text-slate-100 dark:placeholder:text-slate-500";
+	"w-full rounded-xl border border-console-control-border bg-console-surface-sunken px-3 py-2 text-sm text-console-content transition-all placeholder:text-console-content-muted focus:outline-none focus:ring-2 focus:ring-console-focus disabled:cursor-not-allowed disabled:opacity-60";
 
-export const FIELD_HINT = "text-[11px] leading-snug text-[#3D5568] dark:text-slate-400";
+export const FIELD_HINT = "text-[11px] leading-snug text-console-content-muted";
 
 export const PRIMARY_BUTTON = cn(
-	// #C2410C is the AA-safe console action orange (5.2:1 against white); the
-	// brighter #E85A2A stays the brand accent for decoration and badges only.
-	"inline-flex items-center justify-center gap-2 rounded-xl bg-[#C2410C] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#9A3412] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#FF8A5C] dark:text-[#0B1220] dark:hover:bg-[#ff9d75]",
+	// `--console-accent` is the AA-safe action orange (5.2:1 against white in
+	// light, 8.1:1 against the dark page); the brighter brand orange stays the
+	// decorative accent and the focus ring.
+	"inline-flex items-center justify-center gap-2 rounded-xl bg-console-accent px-4 py-2.5 text-sm font-bold text-console-accent-foreground shadow-sm transition-colors hover:bg-console-accent-strong disabled:cursor-not-allowed disabled:opacity-60",
 	FOCUS_RING,
 );
 
 export const SECONDARY_BUTTON = cn(
-	"inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#0A3D62]/20 bg-white px-3 py-2 text-xs font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#24304A] dark:bg-[#162238] dark:text-slate-100 dark:hover:bg-[#1B2740]",
+	"inline-flex items-center justify-center gap-1.5 rounded-xl border border-console-control-border bg-console-surface-raised px-3 py-2 text-xs font-black text-console-content transition-colors hover:bg-console-surface-sunken disabled:cursor-not-allowed disabled:opacity-60",
 	FOCUS_RING,
 );
 
 export const DANGER_BUTTON = cn(
-	"inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#C42B3A] px-3 py-2 text-xs font-black text-white transition-colors hover:bg-[#a92333] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#F87171] dark:text-[#0B1220] dark:hover:bg-[#fca5a5]",
+	"inline-flex items-center justify-center gap-1.5 rounded-xl bg-console-critical-strong px-3 py-2 text-xs font-black text-console-accent-foreground transition-colors hover:bg-console-critical-hover disabled:cursor-not-allowed disabled:opacity-60",
 	FOCUS_RING,
 );
 
 export type BadgeTone = "brand" | "accent" | "neutral" | "success" | "danger" | "warning";
 
 const BADGE_TONES: Record<BadgeTone, string> = {
-	brand: "bg-[#0A3D62] text-white dark:bg-[#1B3A57] dark:text-slate-100",
-	accent: "bg-[#C2410C] text-white dark:bg-[#FF8A5C] dark:text-[#0B1220]",
-	neutral:
-		"border border-gray-200 bg-[#F4F7F6] text-[#3D5568] dark:border-[#24304A] dark:bg-[#162238] dark:text-slate-300",
-	success: "bg-[#E8F5EC] text-[#1E7B34] dark:bg-emerald-950/50 dark:text-emerald-300",
-	danger: "bg-[#FDE8EA] text-[#C42B3A] dark:bg-red-950/50 dark:text-red-300",
-	warning: "bg-[#FFF3E8] text-[#B45309] dark:bg-amber-950/50 dark:text-amber-300",
+	brand: "bg-console-header text-console-header-ink",
+	accent: "bg-console-accent text-console-accent-foreground",
+	neutral: "border border-console-border bg-console-surface-sunken text-console-content-muted",
+	success: "bg-console-ok-surface text-console-ok-content",
+	danger: "bg-console-critical-surface text-console-critical-content",
+	warning: "bg-console-warn-surface text-console-warn-content",
 };
 
 /** One status/role pill. The icon is decorative; the text carries the meaning. */
@@ -114,11 +116,9 @@ export function PageHeader({
 		>
 			<div className="min-w-0">
 				{/* The mobile band shows the title; the h1 stays for assistive tech. */}
-				<h1 className="sr-only text-2xl font-black text-[#0A3D62] lg:not-sr-only dark:text-slate-100">
-					{title}
-				</h1>
+				<h1 className="sr-only text-2xl font-black text-console-content lg:not-sr-only">{title}</h1>
 				{description && (
-					<p className="mt-1 max-w-2xl text-sm text-[#3D5568] dark:text-slate-400">{description}</p>
+					<p className="mt-1 max-w-2xl text-sm text-console-content-muted">{description}</p>
 				)}
 			</div>
 			{actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
@@ -133,51 +133,144 @@ export function Card({ children, className }: { children: ReactNode; className?:
 export interface ConsoleContrastPair {
 	/** What the pair paints, e.g. "console page text". */
 	label: string;
-	light: { background: string; foreground: string };
-	dark: { background: string; foreground: string };
+	/**
+	 * CSS custom property name without its leading `--`. The value is read from
+	 * `app/globals.css` by `superadmin-theme.test.tsx`, so the palette lives in
+	 * exactly one place instead of being restated here.
+	 */
+	background: string;
+	foreground: string;
 }
 
 /**
- * The rendered pairs the console palette depends on (#477). Values mirror the
- * classes above; `superadmin-theme.test.tsx` asserts every pair is at least
- * 4.5:1 (WCAG AA normal text) in both themes, the same contract the console
- * dialog already carries.
+ * Every text pair the console renders (#477, #628). `superadmin-theme.test.tsx`
+ * reads the matching `--<name>` values out of the light `:root` block and the
+ * `.dark` block in `app/globals.css` and asserts each one is at least 4.5:1
+ * (WCAG AA normal text) in both themes.
  */
 export const CONSOLE_CONTRAST: readonly ConsoleContrastPair[] = [
+	{ label: "page text", background: "console-page", foreground: "console-content" },
+	{ label: "page muted text", background: "console-page", foreground: "console-content-muted" },
+	{ label: "card text", background: "console-surface", foreground: "console-content" },
+	{ label: "card muted text", background: "console-surface", foreground: "console-content-muted" },
 	{
-		label: "page text",
-		light: { background: "#F4F7F6", foreground: "#0A3D62" },
-		dark: { background: "#0B1220", foreground: "#E2E8F0" },
+		label: "raised surface text",
+		background: "console-surface-raised",
+		foreground: "console-content",
 	},
 	{
-		label: "card text",
-		light: { background: "#FFFFFF", foreground: "#0A3D62" },
-		dark: { background: "#111A2C", foreground: "#E2E8F0" },
+		label: "raised surface muted text",
+		background: "console-surface-raised",
+		foreground: "console-content-muted",
+	},
+	// Table headers and form fields sit on the sunken surface.
+	{
+		label: "sunken surface text",
+		background: "console-surface-sunken",
+		foreground: "console-content",
 	},
 	{
-		label: "muted text",
-		light: { background: "#FFFFFF", foreground: "#3D5568" },
-		dark: { background: "#111A2C", foreground: "#94A3B8" },
+		label: "sunken surface muted text",
+		background: "console-surface-sunken",
+		foreground: "console-content-muted",
 	},
 	{
 		label: "primary action label",
-		light: { background: "#C2410C", foreground: "#FFFFFF" },
-		dark: { background: "#FF8A5C", foreground: "#0B1220" },
+		background: "console-accent",
+		foreground: "console-accent-foreground",
 	},
 	{
-		label: "status success",
-		light: { background: "#E8F5EC", foreground: "#1E7B34" },
-		dark: { background: "#111A2C", foreground: "#4ADE80" },
+		label: "primary action label on hover",
+		background: "console-accent-strong",
+		foreground: "console-accent-foreground",
 	},
+	{
+		label: "destructive action label",
+		background: "console-critical-strong",
+		foreground: "console-accent-foreground",
+	},
+	{
+		label: "destructive action label on hover",
+		background: "console-critical-hover",
+		foreground: "console-accent-foreground",
+	},
+	{ label: "status success", background: "console-ok-surface", foreground: "console-ok-content" },
 	{
 		label: "status warning",
-		light: { background: "#FFF3E8", foreground: "#B45309" },
-		dark: { background: "#111A2C", foreground: "#FBBF24" },
+		background: "console-warn-surface",
+		foreground: "console-warn-content",
 	},
 	{
-		label: "status danger",
-		light: { background: "#FDE8EA", foreground: "#C42B3A" },
-		dark: { background: "#111A2C", foreground: "#F87171" },
+		label: "status critical",
+		background: "console-critical-surface",
+		foreground: "console-critical-content",
+	},
+	// Status text also appears directly on a card, without its tinted pill.
+	{
+		label: "status success on a card",
+		background: "console-surface",
+		foreground: "console-ok-content",
+	},
+	{
+		label: "status warning on a card",
+		background: "console-surface",
+		foreground: "console-warn-content",
+	},
+	{
+		label: "status critical on a card",
+		background: "console-surface",
+		foreground: "console-critical-content",
+	},
+	// The header band and the sidebar share `--console-header`.
+	{ label: "header band label", background: "console-header", foreground: "console-header-ink" },
+	{
+		label: "header band muted label",
+		background: "console-header",
+		foreground: "console-header-ink-muted",
+	},
+	{
+		label: "active nav label",
+		background: "console-accent",
+		foreground: "console-accent-foreground",
+	},
+] as const;
+
+export interface ConsoleContrastRule extends ConsoleContrastPair {
+	/** 3 for non-text UI (WCAG 1.4.11), 4.5 for normal text. */
+	minimum: number;
+}
+
+/**
+ * The non-text pairs: a control's outline and the focus ring are "visual
+ * information required to identify a user interface component", so they are held
+ * to 3:1 (WCAG 1.4.11) rather than 4.5:1. The brand orange fails as text on
+ * white but passes comfortably as a 3:1 ring, which is exactly why it is only
+ * used for the ring.
+ */
+export const CONSOLE_NON_TEXT_CONTRAST: readonly ConsoleContrastRule[] = [
+	{
+		label: "focus ring on a card",
+		background: "console-surface",
+		foreground: "console-focus",
+		minimum: 3,
+	},
+	{
+		label: "focus ring on the page",
+		background: "console-page",
+		foreground: "console-focus",
+		minimum: 3,
+	},
+	{
+		label: "focus ring in the header band",
+		background: "console-header",
+		foreground: "console-header-ink",
+		minimum: 3,
+	},
+	{
+		label: "field outline",
+		background: "console-surface-sunken",
+		foreground: "console-control-border",
+		minimum: 3,
 	},
 ] as const;
 
@@ -195,15 +288,13 @@ export function SectionTitle({
 	return (
 		<div
 			className={cn(
-				"flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 px-5 py-4 dark:border-[#24304A]",
+				"flex flex-wrap items-start justify-between gap-3 border-b border-console-border px-5 py-4",
 				className,
 			)}
 		>
 			<div className="min-w-0">
-				<h2 className="font-black text-[#0A3D62] dark:text-slate-100">{title}</h2>
-				{description && (
-					<p className="mt-1 text-xs text-[#3D5568] dark:text-slate-400">{description}</p>
-				)}
+				<h2 className="font-black text-console-content">{title}</h2>
+				{description && <p className="mt-1 text-xs text-console-content-muted">{description}</p>}
 			</div>
 			{actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
 		</div>
@@ -224,20 +315,17 @@ export function StatCard({
 	return (
 		<div className={cn(CARD, "flex flex-col gap-1 p-5")}>
 			<div className="flex items-center justify-between gap-2">
-				<span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
+				<span className="text-[10px] font-extrabold uppercase tracking-wider text-console-content-muted">
 					{label}
 				</span>
 				{Icon && (
-					<Icon
-						className="h-4 w-4 shrink-0 text-[#0A3D62]/70 dark:text-slate-400"
-						aria-hidden="true"
-					/>
+					<Icon className="h-4 w-4 shrink-0 text-console-content-muted" aria-hidden="true" />
 				)}
 			</div>
-			<span className="text-2xl font-black tabular-nums text-[#0A3D62] sm:text-3xl dark:text-slate-100">
+			<span className="text-2xl font-black tabular-nums text-console-content sm:text-3xl">
 				{value}
 			</span>
-			{hint && <span className="text-[11px] text-[#3D5568] dark:text-slate-400">{hint}</span>}
+			{hint && <span className="text-[11px] text-console-content-muted">{hint}</span>}
 		</div>
 	);
 }
@@ -266,13 +354,13 @@ export function TableFrame({
 				<table className={cn("w-full text-sm", minWidth)}>
 					<caption className="sr-only">{label}</caption>
 					<thead>
-						<tr className="border-b border-gray-100 bg-[#F4F7F6] dark:border-[#24304A] dark:bg-[#0B1220]">
+						<tr className="border-b border-console-border bg-console-surface-sunken">
 							{columns.map((column) => (
 								<th
 									key={column.key}
 									scope="col"
 									className={cn(
-										"px-6 py-3 text-left text-[10px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400",
+										"px-6 py-3 text-left text-[10px] font-black uppercase tracking-wider text-console-content-muted",
 										column.className,
 									)}
 								>
@@ -303,12 +391,10 @@ export function MobileCard({
 export function MetaPair({ label, children }: { label: string; children: ReactNode }) {
 	return (
 		<div className="min-w-0">
-			<dt className="text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-slate-400">
+			<dt className="text-[9px] font-black uppercase tracking-wider text-console-content-muted">
 				{label}
 			</dt>
-			<dd className="mt-0.5 truncate text-xs font-bold text-[#0A3D62] dark:text-slate-100">
-				{children}
-			</dd>
+			<dd className="mt-0.5 truncate text-xs font-bold text-console-content">{children}</dd>
 		</div>
 	);
 }
@@ -326,11 +412,9 @@ export function EmptyState({
 }) {
 	return (
 		<div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
-			{Icon && <Icon className="h-10 w-10 text-gray-300 dark:text-slate-600" aria-hidden="true" />}
-			<p className="font-bold text-[#0A3D62] dark:text-slate-100">{title}</p>
-			{description && (
-				<p className="max-w-md text-sm text-[#3D5568] dark:text-slate-400">{description}</p>
-			)}
+			{Icon && <Icon className="h-10 w-10 text-console-border-strong" aria-hidden="true" />}
+			<p className="font-bold text-console-content">{title}</p>
+			{description && <p className="max-w-md text-sm text-console-content-muted">{description}</p>}
 			{action && <div className="mt-2">{action}</div>}
 		</div>
 	);
@@ -349,11 +433,9 @@ export function Alert({
 }) {
 	const tones = {
 		error:
-			"border-[#C42B3A]/30 bg-[#FDE8EA] text-[#C42B3A] dark:border-red-500/40 dark:bg-red-950/50 dark:text-red-300",
-		success:
-			"border-[#1E7B34]/30 bg-[#E8F5EC] text-[#1E7B34] dark:border-emerald-500/40 dark:bg-emerald-950/50 dark:text-emerald-300",
-		warning:
-			"border-[#E85A2A]/30 bg-[#FFF3E8] text-[#B45309] dark:border-amber-500/40 dark:bg-amber-950/50 dark:text-amber-300",
+			"border-console-critical-content/30 bg-console-critical-surface text-console-critical-content",
+		success: "border-console-ok-content/30 bg-console-ok-surface text-console-ok-content",
+		warning: "border-console-warn-content/30 bg-console-warn-surface text-console-warn-content",
 	} as const;
 
 	return (
@@ -370,7 +452,10 @@ export function Alert({
 					type="button"
 					onClick={onDismiss}
 					aria-label={dismissLabel}
-					className={cn("shrink-0 rounded p-0.5 transition-colors hover:bg-white/60", FOCUS_RING)}
+					className={cn(
+						"shrink-0 rounded p-0.5 transition-colors hover:bg-console-surface/60",
+						FOCUS_RING,
+					)}
 				>
 					<X className="h-3.5 w-3.5" aria-hidden="true" />
 				</button>

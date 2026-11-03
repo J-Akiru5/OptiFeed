@@ -55,6 +55,43 @@
 	--color-ofd-critical: var(--ofd-critical);
 	--color-ofd-warning: var(--ofd-warning);
 	--spacing-ofd-touch-min: var(--ofd-touch-min);
+
+	/*
+	 * Platform console (superadmin) palette (#628).
+	 *
+	 * The console has its own tuned palette: it is a dense analytics surface and
+	 * its dark theme is a slate blue-black, not the app's neutral grey. These
+	 * utility names (`bg-console-surface`, `border-console-border`,
+	 * `text-console-ok-content`, ...) are the only way a console component may
+	 * name a colour. The values live once, in the `:root` block below and its
+	 * `.dark` counterpart; `superadmin-theme.test.tsx` reads both blocks and
+	 * checks every pair.
+	 */
+	--color-console-page: var(--console-page);
+	--color-console-surface: var(--console-surface);
+	--color-console-surface-raised: var(--console-surface-raised);
+	--color-console-surface-sunken: var(--console-surface-sunken);
+	--color-console-border: var(--console-border);
+	--color-console-border-strong: var(--console-border-strong);
+	--color-console-control-border: var(--console-control-border);
+	--color-console-content: var(--console-content);
+	--color-console-content-muted: var(--console-content-muted);
+	--color-console-accent: var(--console-accent);
+	--color-console-accent-strong: var(--console-accent-strong);
+	--color-console-accent-foreground: var(--console-accent-foreground);
+	--color-console-ok-surface: var(--console-ok-surface);
+	--color-console-ok-content: var(--console-ok-content);
+	--color-console-warn-surface: var(--console-warn-surface);
+	--color-console-warn-content: var(--console-warn-content);
+	--color-console-critical-surface: var(--console-critical-surface);
+	--color-console-critical-content: var(--console-critical-content);
+	--color-console-critical-strong: var(--console-critical-strong);
+	--color-console-critical-hover: var(--console-critical-hover);
+	--color-console-header: var(--console-header);
+	--color-console-header-ink: var(--console-header-ink);
+	--color-console-header-ink-muted: var(--console-header-ink-muted);
+	--color-console-focus: var(--console-focus);
+	--color-console-scrim: var(--console-scrim);
 }
 
 :root {
@@ -119,6 +156,50 @@
 
 	/* Typography: Inter, sans-serif, heavy weights for data */
 	--font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+	/*
+	 * Platform console (superadmin) palette (#628) — declared once.
+	 *
+	 * Every console surface, border and status colour resolves from here, so a
+	 * component can no longer invent a slightly different white card or a
+	 * one-off grey border. Light and dark are defined side by side and the dark
+	 * block redefines every one of these keys (the theme test enforces that), so
+	 * a token can never be light-only.
+	 *
+	 * Values are 6-digit sRGB hex on purpose: `superadmin-theme.test.tsx` reads
+	 * this file and computes the WCAG ratio for each pair the console renders.
+	 * Changing a value here is a contrast decision, not a cosmetic one.
+	 */
+	--console-page: #f4f7f6;
+	--console-surface: #ffffff;
+	--console-surface-raised: #f8fafc;
+	--console-surface-sunken: #f1f5f8;
+	--console-border: #e2e8ed;
+	--console-border-strong: #c8d5de;
+	/* Control outlines are held to 3:1 (WCAG 1.4.11), unlike decorative borders. */
+	--console-control-border: #7e8fa0;
+	--console-content: #0a3d62;
+	--console-content-muted: #3d5568;
+	/* AA-safe action orange. The brand #e85a2a only reaches 3.54:1 on white, so
+	   it stays a decorative accent (--console-focus) and never a text background. */
+	--console-accent: #c2410c;
+	--console-accent-strong: #9a3412;
+	--console-accent-foreground: #ffffff;
+	--console-ok-surface: #e8f5ec;
+	--console-ok-content: #1e7b34;
+	--console-warn-surface: #fff3e8;
+	--console-warn-content: #a34a08;
+	--console-critical-surface: #fde8ea;
+	--console-critical-content: #c42b3a;
+	--console-critical-strong: #b02a36;
+	--console-critical-hover: #96232e;
+	--console-header: #0a3d62;
+	--console-header-ink: #ffffff;
+	--console-header-ink-muted: #c9d6df;
+	--console-focus: #e85a2a;
+	/* Backdrop behind a modal. Navy in light, true black in dark, so the scrim
+	   reads as "the page receded" in both themes instead of a blue wash. */
+	--console-scrim: #0a3d62;
 }
 
 /* Aligns with the Tailwind lg breakpoint (64rem), where BottomNav hides and the
@@ -180,6 +261,35 @@
 	--ofd-band-to: #06263f;
 	--ofd-band-ink: #ffffff;
 	--ofd-band-ink-muted: rgba(255, 255, 255, 0.7);
+
+	/* Platform console palette, dark (#628). Every key from the light block is
+	   redefined here; the theme test fails if one is missing, which is how a
+	   light panel stranded in dark mode would show up. */
+	--console-page: #0b1220;
+	--console-surface: #111a2c;
+	--console-surface-raised: #162238;
+	--console-surface-sunken: #0b1220;
+	--console-border: #24304a;
+	--console-border-strong: #33415e;
+	--console-control-border: #5a6e95;
+	--console-content: #e2e8f0;
+	--console-content-muted: #94a3b8;
+	--console-accent: #ff8a5c;
+	--console-accent-strong: #ffa57f;
+	--console-accent-foreground: #0b1220;
+	--console-ok-surface: #052e1f;
+	--console-ok-content: #4ade80;
+	--console-warn-surface: #3a2405;
+	--console-warn-content: #fbbf24;
+	--console-critical-surface: #3b0a0f;
+	--console-critical-content: #f87171;
+	--console-critical-strong: #f87171;
+	--console-critical-hover: #fca5a5;
+	--console-header: #08111d;
+	--console-header-ink: #ffffff;
+	--console-header-ink-muted: #c3cedb;
+	--console-focus: #ff8a5c;
+	--console-scrim: #000000;
 }
 
 @layer base {
@@ -301,6 +411,67 @@
 		 */
 		padding-top: var(--ofd-main-pad-y);
 		padding-bottom: var(--ofd-main-pad-y);
+	}
+}
+
+/*
+ * Platform console content pane (#628).
+ *
+ * The console's pane owns one padding value, `--console-pane-pad`, stepped at
+ * the two widths where the shell changes shape:
+ *
+ *   < 48rem     1rem   phone — bottom nav visible, so the pane also clears it
+ *   48–63.99rem 1.5rem tablet — bottom nav visible
+ *   ≥ 64rem     2rem   laptop/desktop — sidebar visible, bottom nav gone
+ *
+ * Everything that has to agree with that padding reads the token instead of
+ * repeating a number: the scope banner below bleeds to the pane's edges with
+ * `calc(-1 * var(--console-pane-pad))`, so its negative margins can no longer
+ * drift away from the pane's own padding. `.ofd-main` is deliberately not
+ * reused here: the console has a three-step scale and its own dark palette,
+ * and it must not inherit the farmer dashboard's short-viewport tiers.
+ */
+.ofd-console-pane {
+	--console-pane-pad: 1rem;
+	padding: var(--console-pane-pad);
+	/* Clear the fixed bottom bar plus the device safe area below `lg`. */
+	padding-bottom: calc(
+		var(--console-pane-pad) +
+		var(--ofd-bottom-nav-h) +
+		env(safe-area-inset-bottom) +
+		1.5rem
+	);
+}
+
+@media (min-width: 48rem) {
+	.ofd-console-pane {
+		--console-pane-pad: 1.5rem;
+	}
+}
+
+@media (min-width: 64rem) {
+	.ofd-console-pane {
+		--console-pane-pad: 2rem;
+		/* The bottom bar is hidden from here up, so the clearance goes away. */
+		padding-bottom: var(--console-pane-pad);
+	}
+}
+
+/*
+ * Scope banner (breadcrumbs). It is the first child of the pane and pins to the
+ * top of the scrollport, so it cancels the pane's padding on the top and both
+ * sides and pays it back as its own inline padding. Both margins come from the
+ * pane's token, so a change to the padding scale moves the banner with it.
+ */
+.ofd-console-scope {
+	margin: calc(-1 * var(--console-pane-pad, 1rem)) calc(-1 * var(--console-pane-pad, 1rem)) 1rem;
+	padding-block: 0.5rem;
+	padding-inline: var(--console-pane-pad, 1rem);
+}
+
+@media (min-width: 48rem) {
+	.ofd-console-scope {
+		margin-bottom: 1.5rem;
 	}
 }
 

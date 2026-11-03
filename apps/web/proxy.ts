@@ -1,4 +1,4 @@
-import { shouldRedirectToLogin } from "@/lib/auth/navigation-guard";
+import { loginRedirectPath, shouldRedirectToLogin } from "@/lib/auth/navigation-guard";
 import createMiddleware from "next-intl/middleware";
 import { type NextRequest, NextResponse } from "next/server";
 import { routing } from "./i18n/routing";
@@ -28,7 +28,9 @@ export default function proxy(request: NextRequest) {
 			cookies: request.cookies.getAll(),
 		})
 	) {
-		return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
+		return NextResponse.redirect(
+			new URL(loginRedirectPath({ pathname, locale, search: request.nextUrl.search }), request.url),
+		);
 	}
 
 	return response;

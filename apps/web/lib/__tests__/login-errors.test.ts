@@ -135,4 +135,32 @@ describe("loginWithPassword error handling", () => {
 			locale: "en",
 		});
 	});
+
+	it("returns to the requested page after a successful login (#760)", async () => {
+		await stubSupabaseSignIn({ error: null, data: { user: { id: "sb-1" } } });
+
+		await loginWithPassword("demo-farmer-1", "password123", "/dashboard/schedule?pond=1");
+
+		expect(redirectMock).toHaveBeenCalledWith({
+			href: "/dashboard/schedule?pond=1",
+			locale: "en",
+		});
+	});
+
+	it("ignores an external next value and lands on the dashboard (#760)", async () => {
+		await stubSupabaseSignIn({ error: null, data: { user: { id: "sb-1" } } });
+
+		await loginWithPassword("demo-farmer-1", "password123", "https://evil.example/dashboard");
+
+		expect(redirectMock).toHaveBeenCalledWith({ href: "/dashboard", locale: "en" });
+	});
+
+	it("keeps a forced password change above the requested page (#760)", async () => {
+		user.findUnique.mockResolvedValue({ ...USER_ROW, mustChangePassword: true } as never);
+		await stubSupabaseSignIn({ error: null, data: { user: { id: "sb-1" } } });
+
+		await loginWithPassword("demo-farmer-1", "password123", "/dashboard/schedule");
+
+		expect(redirectMock).toHaveBeenCalledWith({ href: "/change-password", locale: "en" });
+	});
 });

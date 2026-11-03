@@ -2441,11 +2441,13 @@
 		"fcrCalculator": {
 			"title": "Feed Requirement Calculator",
 			"desc": "Calculate the feed needed to reach your target weight.",
-			"currentWeight": "Current average weight (kg)",
+			"currentWeight": "Current average weight ({unit})",
 			"population": "Fish count",
 			"fish": "fish",
 			"kg": "kg",
-			"targetWeight": "Target Weight (kg)",
+			"g": "g",
+			"unitLabel": "Weight unit",
+			"targetWeight": "Target Weight ({unit})",
 			"daysToTarget": "Days to Target",
 			"days": "days",
 			"calculate": "Calculate Feed Requirement",
@@ -4097,6 +4099,93 @@
 				"invalidField": "{field} must be between {min} and {max}.",
 				"failed": "The firmware safety gates could not be saved.",
 				"note": "Devices apply a change on their next poll (about every 5 s). The absolute envelope — relay on-time, the 5,000 g daily hard guard, the relay overrun trip and the pins — is compiled into the firmware and can never be raised from here."
+			},
+			"otaPolicy": {
+				"title": "OTA rollout policy",
+				"description": "When and how a unit may take a firmware update: the check interval, the uptime and signal floors, the feed guard, the quiet window, the heap floor and the download and health-check timeouts. Every value stays inside the envelope compiled into the firmware.",
+				"fields": {
+					"ota_check_interval_s": {
+						"label": "How often a unit checks for an update (s)",
+						"hint": "Whole seconds from {min} to {max}. The firmware reads the signed channel at this interval."
+					},
+					"ota_min_uptime_s": {
+						"label": "Minimum uptime before an update (s)",
+						"hint": "Whole seconds from {min} to {max}. A unit that just booted waits this long before it installs."
+					},
+					"ota_min_rssi_dbm": {
+						"label": "Minimum signal before an update (dBm)",
+						"hint": "Whole dBm from {min} to {max}. A weaker link defers the download instead of failing halfway."
+					},
+					"ota_feed_guard_min": {
+						"label": "Feed guard around an update (min)",
+						"hint": "Whole minutes from {min} to {max}. No dose is scheduled this close to an update."
+					},
+					"ota_window_start_min": {
+						"label": "Quiet window start (minute of day)",
+						"hint": "Whole minutes from {min} to {max}, counted from midnight. Must be before the window end."
+					},
+					"ota_window_end_min": {
+						"label": "Quiet window end (minute of day)",
+						"hint": "Whole minutes from {min} to {max}, counted from midnight. Must be after the window start."
+					},
+					"ota_min_free_heap_bytes": {
+						"label": "Minimum free heap before an update (bytes)",
+						"hint": "Whole bytes from {min} to {max}. The download is deferred while free heap is below this."
+					},
+					"ota_no_data_timeout_ms": {
+						"label": "Download stall timeout (ms)",
+						"hint": "Whole milliseconds from {min} to {max}. A silent connection longer than this aborts the download."
+					},
+					"ota_download_timeout_ms": {
+						"label": "Whole download timeout (ms)",
+						"hint": "Whole milliseconds from {min} to {max}. The image must finish downloading inside this window."
+					},
+					"ota_health_check_timeout_ms": {
+						"label": "Health check after an update (ms)",
+						"hint": "Whole milliseconds from {min} to {max}. A new image must prove itself for this long before it is kept."
+					}
+				},
+				"reasonLabel": "Reason",
+				"reasonPlaceholder": "e.g. Confine the rollout to the night window during the harvest peak",
+				"reasonHint": "Recorded in the platform audit log. At least 10 characters.",
+				"save": "Save OTA policy",
+				"saving": "Saving...",
+				"saved": "OTA rollout policy saved. Units apply it on their next poll.",
+				"failed": "The OTA rollout policy could not be saved.",
+				"invalidField": "{field} must be between {min} and {max}.",
+				"windowOrder": "The quiet window must start before it ends.",
+				"note": "Devices read the policy on their next poll (about every 5 s). The firmware refuses the whole config when the quiet window start is not before the end, so this form refuses it first.",
+				"statusTitle": "What the units report back",
+				"statusDescription": "Each unit echoes one config revision for everything it applied, plus whether it is running the server config, its own saved copy or the compiled defaults.",
+				"statusChangedAt": "Last change {when}",
+				"statusSummary": "{applied} of {total} units have echoed a config since the last policy change.",
+				"statusNoChange": "No policy change is recorded yet, so there is nothing to compare against. The values above are the compile-time defaults unless a write predates this screen.",
+				"counts": {
+					"applied": "Applied: {count}",
+					"pending": "Pending: {count}",
+					"reported": "Reported: {count}",
+					"never_reported": "Never reported: {count}"
+				},
+				"state": {
+					"applied": "Applied",
+					"pending": "Pending",
+					"reported": "Reported",
+					"never_reported": "Never reported"
+				},
+				"revValue": "rev {rev}",
+				"revNone": "no revision reported",
+				"sourceServer": "running the server config",
+				"sourceNvs": "running its saved copy",
+				"sourceDefault": "running the compiled defaults",
+				"sourceUnknown": "config source unknown",
+				"confirmedAt": "last echo {when}",
+				"neverConfirmed": "no config echo yet",
+				"rowMeta": "{rev} · {source} · {confirmed}",
+				"statusEmpty": "No unit has reported a config yet.",
+				"statusUnavailable": "The device reports could not be read, so this is not evidence that nothing changed.",
+				"statusAttention": "Units that have not confirmed the current policy are listed first.",
+				"statusTruncated": "Only the 500 most recently seen units are counted.",
+				"statusNote": "The firmware reports one revision for the whole config, never per-key values. A unit marked applied took this policy together with every other setting; a unit marked never reported has not sent a config echo at all (firmware older than 1.7.0, or it never polled)."
 			}
 		},
 		"backup": {
@@ -4764,6 +4853,7 @@
 				"setFeedingSafetyCaps": "Change feeding safety caps",
 				"setFeatureFlag": "Toggle a feature flag",
 				"setFirmwareGates": "Change firmware gates",
+				"setFirmwareOtaPolicy": "Change the OTA rollout policy",
 				"setOrgDefaults": "Change tenant defaults",
 				"setDeviceStatusThresholds": "Change device status thresholds",
 				"publishAnnouncement": "Publish an announcement",
@@ -4776,6 +4866,7 @@
 				"feedingCaps": "Dispense time and daily feed volume can only be lowered below the hard maximum. Reversible, reason required, audited.",
 				"featureFlag": "Enables or disables a platform feature. Reversible, reason required, audited.",
 				"firmwareGates": "Sets the minimum firmware a device may run. Reversible, reason required, audited.",
+				"otaPolicy": "Moves the OTA check, signal, window and timeout limits inside the firmware envelope. Reversible, reason required, audited.",
 				"orgDefaults": "New-tenant defaults only; existing tenants keep their own settings. Reversible, reason required, audited.",
 				"deviceStatus": "Bounds for online and offline detection. Reversible, reason required, audited.",
 				"announcement": "Changes the platform banner. Reversible, reason required, audited.",

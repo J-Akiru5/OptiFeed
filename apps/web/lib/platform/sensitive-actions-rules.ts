@@ -217,6 +217,15 @@ export const SENSITIVE_ACTIONS: readonly SensitiveAction[] = [
 		note: "firmwareGates",
 	},
 	{
+		id: "setFirmwareOtaPolicy",
+		surface: "settings",
+		action: "setFirmwareOtaPolicy",
+		module: "lib/actions/platform/settings.ts",
+		auditActions: ["platform.settings.firmware_ota_policy"],
+		requirement: "reason-and-audit",
+		note: "otaPolicy",
+	},
+	{
 		id: "setOrgDefaults",
 		surface: "settings",
 		action: "setOrgDefaults",

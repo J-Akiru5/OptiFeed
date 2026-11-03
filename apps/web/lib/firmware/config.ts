@@ -44,6 +44,15 @@ export interface FirmwareFieldSpec {
 	group: FirmwareFieldGroup;
 	/** True when the superadmin config centre exposes an input for it. */
 	editable: boolean;
+	/**
+	 * Which superadmin form owns the input (issue #660).
+	 *
+	 * `editable` stays the gate-form flag; `surface: "ota"` marks the ten
+	 * rollout-policy keys instead, so the feed-safety form does not grow ten
+	 * unrelated inputs and the OTA writer can enforce its own cross-field
+	 * window rule rather than the gate writer's envelope-only check.
+	 */
+	surface?: "ota";
 }
 
 /**
@@ -422,6 +431,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 	},
 
 	// OTA pre-flight and timeouts (guards stay mandatory; only their values move).
+	// Editable through the OTA rollout-policy form (issue #660) - `surface: "ota"`.
 	{
 		id: "ota_check_interval_s",
 		key: "ota_check_interval_s",
@@ -431,6 +441,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		defaultValue: 1800,
 		group: "runtime",
 		editable: false,
+		surface: "ota",
 	},
 	{
 		id: "ota_min_uptime_s",
@@ -441,6 +452,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		defaultValue: 600,
 		group: "runtime",
 		editable: false,
+		surface: "ota",
 	},
 	{
 		id: "ota_min_rssi_dbm",
@@ -451,6 +463,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		defaultValue: -75,
 		group: "runtime",
 		editable: false,
+		surface: "ota",
 	},
 	{
 		id: "ota_feed_guard_min",
@@ -461,6 +474,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		defaultValue: 20,
 		group: "runtime",
 		editable: false,
+		surface: "ota",
 	},
 	{
 		id: "ota_window_start_min",
@@ -471,6 +485,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		defaultValue: 600,
 		group: "runtime",
 		editable: false,
+		surface: "ota",
 	},
 	{
 		id: "ota_window_end_min",
@@ -481,6 +496,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		defaultValue: 900,
 		group: "runtime",
 		editable: false,
+		surface: "ota",
 	},
 	{
 		id: "ota_min_free_heap_bytes",
@@ -491,6 +507,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		defaultValue: 60000,
 		group: "runtime",
 		editable: false,
+		surface: "ota",
 	},
 	{
 		id: "ota_no_data_timeout_ms",
@@ -501,6 +518,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		defaultValue: 60000,
 		group: "runtime",
 		editable: false,
+		surface: "ota",
 	},
 	{
 		id: "ota_download_timeout_ms",
@@ -511,6 +529,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		defaultValue: 900000,
 		group: "runtime",
 		editable: false,
+		surface: "ota",
 	},
 	{
 		id: "ota_health_check_timeout_ms",
@@ -521,6 +540,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		defaultValue: 300000,
 		group: "runtime",
 		editable: false,
+		surface: "ota",
 	},
 ] as const;
 
@@ -539,6 +559,47 @@ export const FIRMWARE_DEFAULTS: FirmwareValues = Object.fromEntries(
 
 /** Editable gate fields, in display order. */
 export const FIRMWARE_GATE_FIELDS = FIRMWARE_FIELDS.filter((field) => field.editable);
+
+/**
+ * OTA rollout-policy fields (issue #660), in display order.
+ *
+ * These ten keys were settable on the device but had no dashboard surface, so
+ * every unit stayed on the compile-time values. They share the same
+ * `firmware.gates` row and the same envelope as the gates; only the form and
+ * the writer differ (`setFirmwareOtaPolicy`).
+ */
+export const FIRMWARE_OTA_FIELDS = FIRMWARE_FIELDS.filter((field) => field.surface === "ota");
+
+/** The OTA policy ids, for callers that only need the names. */
+export const FIRMWARE_OTA_POLICY_IDS: readonly string[] = FIRMWARE_OTA_FIELDS.map(
+	(field) => field.id,
+);
+
+/**
+ * PlatformAuditLog action recorded when the OTA rollout policy changes.
+ *
+ * The reader (`lib/settings/ota-policy.ts`) compares the newest row with this
+ * action to each device's config echo. The writer passes the same string
+ * literally, because a `"use server"` module may only export async functions;
+ * `ota-policy.test.ts` fails if either side drifts.
+ */
+export const FIRMWARE_OTA_POLICY_AUDIT_ACTION = "platform.settings.firmware_ota_policy";
+
+/** The ten policy values out of a normalized firmware value map. */
+export function otaPolicyValues(values: FirmwareValues): FirmwareValues {
+	return Object.fromEntries(FIRMWARE_OTA_FIELDS.map((field) => [field.id, values[field.id]]));
+}
+
+/**
+ * True when the rollout window has a positive length.
+ *
+ * The firmware refuses the whole config when `start >= end`, so the writer must
+ * refuse it too. `normalizeFirmwareValues` repairs an inverted stored pair to
+ * the defaults, which would make a saved-but-refused window look applied.
+ */
+export function isOtaWindowValid(startMinute: number, endMinute: number): boolean {
+	return startMinute < endMinute;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);

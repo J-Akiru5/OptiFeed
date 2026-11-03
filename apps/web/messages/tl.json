@@ -727,11 +727,13 @@
 			"targetNeedsCycle": "Magsimula muna ng grow-out cycle bago mag-set ng growth target.",
 			"title": "Calculator ng Pangangailangang Pakain",
 			"desc": "Kalkulahin ang pakain na kailangan para maabot ang target na timbang.",
-			"currentWeight": "Kasalukuyang karaniwang timbang (kg)",
+			"currentWeight": "Kasalukuyang karaniwang timbang ({unit})",
 			"population": "Bilang ng isda",
 			"fish": "isda",
 			"kg": "kg",
-			"targetWeight": "Target na Timbang (kg)",
+			"g": "g",
+			"unitLabel": "Yunit ng timbang",
+			"targetWeight": "Target na Timbang ({unit})",
 			"daysToTarget": "Mga Araw Hanggang Target",
 			"days": "araw",
 			"calculate": "Kalkulahin ang Pangangailangang Pakain",
@@ -3961,6 +3963,93 @@
 				"invalidField": "Dapat nasa pagitan ng {min} at {max} ang {field}.",
 				"failed": "Hindi ma-save ang mga safety gate ng firmware.",
 				"note": "Ipapataw ng mga device ang pagbabago sa susunod nilang poll (mga kada 5 s). Ang absolute envelope — relay on-time, ang 5,000 g daily hard guard, ang relay overrun trip at ang mga pin — ay naka-compile sa firmware at hindi kailanman maaaring itaas mula rito."
+			},
+			"otaPolicy": {
+				"title": "Patakaran sa OTA rollout",
+				"description": "Kailan at paano makakakuha ng firmware update ang isang unit: ang check interval, ang uptime at signal floor, ang feed guard, ang quiet window, ang heap floor at ang download at health-check timeouts. Nananatili ang bawat value sa loob ng envelope na naka-compile sa firmware.",
+				"fields": {
+					"ota_check_interval_s": {
+						"label": "Gaano kadalas nagche-check ng update ang unit (s)",
+						"hint": "Buong segundo mula {min} hanggang {max}. Binabasa ng firmware ang signed channel sa interval na ito."
+					},
+					"ota_min_uptime_s": {
+						"label": "Pinakamababang uptime bago mag-update (s)",
+						"hint": "Buong segundo mula {min} hanggang {max}. Ang unit na bagong boot ay naghihintay ng ganito katagal bago mag-install."
+					},
+					"ota_min_rssi_dbm": {
+						"label": "Pinakamababang signal bago mag-update (dBm)",
+						"hint": "Buong dBm mula {min} hanggang {max}. Kapag mahina ang link, ipinagpapaliban ang download sa halip na mabigo sa gitna."
+					},
+					"ota_feed_guard_min": {
+						"label": "Feed guard sa paligid ng update (min)",
+						"hint": "Buong minuto mula {min} hanggang {max}. Walang dose na naka-iskedyul nang ganito kalapit sa update."
+					},
+					"ota_window_start_min": {
+						"label": "Simula ng quiet window (minuto ng araw)",
+						"hint": "Buong minuto mula {min} hanggang {max}, binibilang mula hatinggabi. Dapat bago ang katapusan ng window."
+					},
+					"ota_window_end_min": {
+						"label": "Katapusan ng quiet window (minuto ng araw)",
+						"hint": "Buong minuto mula {min} hanggang {max}, binibilang mula hatinggabi. Dapat pagkatapos ng simula ng window."
+					},
+					"ota_min_free_heap_bytes": {
+						"label": "Pinakamababang libreng heap bago mag-update (bytes)",
+						"hint": "Buong bytes mula {min} hanggang {max}. Ipinagpapaliban ang download habang mas mababa ang libreng heap."
+					},
+					"ota_no_data_timeout_ms": {
+						"label": "Timeout ng natigil na download (ms)",
+						"hint": "Buong millisecond mula {min} hanggang {max}. Ang koneksyong walang data nang mas matagal dito ay pinuputol ang download."
+					},
+					"ota_download_timeout_ms": {
+						"label": "Timeout ng buong download (ms)",
+						"hint": "Buong millisecond mula {min} hanggang {max}. Dapat matapos ang pag-download ng image sa loob ng window na ito."
+					},
+					"ota_health_check_timeout_ms": {
+						"label": "Health check pagkatapos ng update (ms)",
+						"hint": "Buong millisecond mula {min} hanggang {max}. Dapat patunayan ng bagong image ang sarili nito nang ganito katagal bago ito itago."
+					}
+				},
+				"reasonLabel": "Dahilan",
+				"reasonPlaceholder": "hal. Ilagay ang rollout sa quiet window ng gabi habang peak harvest",
+				"reasonHint": "Nakatala sa platform audit log. Hindi bababa sa 10 karakter.",
+				"save": "I-save ang OTA policy",
+				"saving": "Nagse-save...",
+				"saved": "Na-save ang OTA rollout policy. Ipapataw ito ng mga unit sa susunod nilang poll.",
+				"failed": "Hindi ma-save ang OTA rollout policy.",
+				"invalidField": "Ang {field} ay dapat nasa pagitan ng {min} at {max}.",
+				"windowOrder": "Dapat magsimula ang quiet window bago ito matapos.",
+				"note": "Binabasa ng mga device ang policy sa susunod nilang poll (mga kada 5 s). Tinatanggihan ng firmware ang buong config kapag ang simula ng quiet window ay hindi bago ang katapusan, kaya tinatanggihan ito ng form muna.",
+				"statusTitle": "Ang iniuulat pabalik ng mga unit",
+				"statusDescription": "Nagbabalik ang bawat unit ng isang config revision para sa lahat ng inilapat nito, at kung server config, sariling naka-save na kopya o naka-compile na defaults ang ginagamit nito.",
+				"statusChangedAt": "Huling pagbabago {when}",
+				"statusSummary": "{applied} sa {total} unit ang nagbalik ng config mula sa huling pagbabago ng policy.",
+				"statusNoChange": "Wala pang nakatalang pagbabago ng policy, kaya wala pang maihahambing. Ang mga value sa itaas ay ang naka-compile na defaults maliban kung may naunang write bago ang screen na ito.",
+				"counts": {
+					"applied": "Nailapat: {count}",
+					"pending": "Naghihintay: {count}",
+					"reported": "Nag-ulat: {count}",
+					"never_reported": "Hindi nag-ulat: {count}"
+				},
+				"state": {
+					"applied": "Nailapat",
+					"pending": "Naghihintay",
+					"reported": "Nag-ulat",
+					"never_reported": "Hindi nag-ulat"
+				},
+				"revValue": "rev {rev}",
+				"revNone": "walang naulang revision",
+				"sourceServer": "ginagamit ang server config",
+				"sourceNvs": "ginagamit ang naka-save na kopya",
+				"sourceDefault": "ginagamit ang naka-compile na defaults",
+				"sourceUnknown": "hindi alam ang config source",
+				"confirmedAt": "huling balik {when}",
+				"neverConfirmed": "wala pang config echo",
+				"rowMeta": "{rev} · {source} · {confirmed}",
+				"statusEmpty": "Wala pang unit na nag-ulat ng config.",
+				"statusUnavailable": "Hindi mabasa ang mga ulat ng device, kaya hindi ito ebidensya na walang nagbago.",
+				"statusAttention": "Nauna sa listahan ang mga unit na hindi pa nakumpirma ang kasalukuyang policy.",
+				"statusTruncated": "Ang 500 pinakabagong nakita na unit lang ang binibilang.",
+				"statusNote": "Nagbabalik ang firmware ng isang revision para sa buong config, hindi per-key na value. Ang unit na may markang nailapat ay kinuha ang policy na ito kasama ng lahat ng setting; ang unit na hindi nag-ulat ay hindi nagpadala ng config echo (firmware na mas luma sa 1.7.0, o hindi kailanman nagpoll)."
 			}
 		},
 		"feedPct": "Pakain %",
@@ -4338,6 +4427,7 @@
 				"setFeedingSafetyCaps": "Palitan ang feeding safety caps",
 				"setFeatureFlag": "I-toggle ang feature flag",
 				"setFirmwareGates": "Palitan ang firmware gates",
+				"setFirmwareOtaPolicy": "Palitan ang OTA rollout policy",
 				"setOrgDefaults": "Palitan ang default ng tenant",
 				"setDeviceStatusThresholds": "Palitan ang threshold ng device",
 				"publishAnnouncement": "I-publish ang announcement",
@@ -4350,6 +4440,7 @@
 				"feedingCaps": "Ang oras ng dispense at arawang dami ng pagkain ay maaari lamang ibaba sa ilalim ng hard maximum. Naibabalik, kailangan ang dahilan, may audit.",
 				"featureFlag": "Binubuksan o pinapatay ang feature ng platform. Naibabalik, kailangan ang dahilan, may audit.",
 				"firmwareGates": "Nagtatakda ng pinakamababang firmware na maaaring patakbuhin ng device. Naibabalik, kailangan ang dahilan, may audit.",
+				"otaPolicy": "Ginagalaw ang OTA check, signal, window at timeout limits sa loob ng envelope ng firmware. Nabe-revert, kailangan ang dahilan, may audit.",
 				"orgDefaults": "Default para sa bagong tenant lamang; pinapanatili ng existing na tenant ang sariling setting. Naibabalik, kailangan ang dahilan, may audit.",
 				"deviceStatus": "Hangganan para sa online at offline detection. Naibabalik, kailangan ang dahilan, may audit.",
 				"announcement": "Binabago ang banner ng platform. Naibabalik, kailangan ang dahilan, may audit.",

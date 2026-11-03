@@ -8,6 +8,7 @@ import {
 	ChevronDown,
 	Cpu,
 	DatabaseBackup,
+	Download,
 	Gauge,
 	ListChecks,
 	Mail,
@@ -36,6 +37,7 @@ export type ConfigSectionIcon =
 	| "ai"
 	| "email"
 	| "safety"
+	| "ota"
 	| "defaults"
 	| "firmware"
 	| "flags"
@@ -48,6 +50,7 @@ const ICONS = {
 	ai: Bot,
 	email: Mail,
 	safety: Gauge,
+	ota: Download,
 	defaults: Building2,
 	firmware: Cpu,
 	flags: ToggleLeft,

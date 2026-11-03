@@ -3,7 +3,7 @@
 import { FeederIllustration } from "@/components/feeder/feeder-illustration";
 import { HealthNotice } from "@/components/feeder/health-notice";
 import { Link } from "@/i18n/routing";
-import { formatDateTimeLocal, formatWallClockTime } from "@/lib/date-local";
+import { formatFarmDateTime, formatWallClockTime } from "@/lib/date-local";
 import { formatFeedAmountLabel } from "@/lib/feed-figures";
 import { isHopperLowDisplay, resolveFeedLevelDisplay } from "@/lib/feed-level-display";
 import {
@@ -244,10 +244,10 @@ export function FeederHero({ pondName, className, ...data }: FeederHeroProps) {
 		isOffline,
 	});
 	const hopperReading =
-		hopper.readingAt !== null ? formatDateTimeLocal(hopper.readingAt, tDates) : null;
+		hopper.readingAt !== null ? formatFarmDateTime(hopper.readingAt, tDates) : null;
 	const hopperLow = hopper.state === "live" && isHopperLowDisplay(hopperLevelPercent);
 
-	const lastSeenParts = lastSeenAt ? formatDateTimeLocal(lastSeenAt, tDates) : null;
+	const lastSeenParts = lastSeenAt ? formatFarmDateTime(lastSeenAt, tDates) : null;
 	const lastSeenLabel = lastSeenParts
 		? t("lastSeen", { date: lastSeenParts.date, time: lastSeenParts.time })
 		: t("neverConnected");
@@ -258,7 +258,7 @@ export function FeederHero({ pondName, className, ...data }: FeederHeroProps) {
 	const connectionDetail = [lastSeenLabel, signalLabel].filter(Boolean).join(" · ");
 
 	const waterReading =
-		waterTempUpdatedAt !== null ? formatDateTimeLocal(waterTempUpdatedAt, tDates) : null;
+		waterTempUpdatedAt !== null ? formatFarmDateTime(waterTempUpdatedAt, tDates) : null;
 
 	const callouts: CalloutProps[] = [
 		{

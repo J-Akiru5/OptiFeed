@@ -76,9 +76,9 @@ export const chatSendButton =
 export const chatActionAccept =
 	"inline-flex items-center gap-1.5 rounded-lg bg-[#C2410C] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#9A3412] disabled:opacity-50";
 
-/** Floating toggle: brand orange stays for the decorative icon (3.54:1 ≥ 3:1). */
+/** Floating toggle: AA-safe CTA fill so its white icon clears 3:1 comfortably. */
 export const chatToggleButton =
-	"flex h-[var(--ofd-fab-size)] w-[var(--ofd-fab-size)] items-center justify-center rounded-full bg-[#E85A2A] text-white shadow-lg transition-transform hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:ring-offset-2 dark:focus-visible:ring-[#ff8a5c] dark:focus-visible:ring-offset-gray-950";
+	"flex h-[var(--ofd-fab-size)] w-[var(--ofd-fab-size)] items-center justify-center rounded-full bg-[var(--ofd-cta)] text-white shadow-lg transition-transform hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:ring-offset-2 dark:focus-visible:ring-[#ff8a5c] dark:focus-visible:ring-offset-gray-950";
 
 /**
  * Selector for the floating control that opens the chat, so Escape on the panel

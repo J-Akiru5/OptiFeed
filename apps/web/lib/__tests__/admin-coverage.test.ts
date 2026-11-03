@@ -527,27 +527,33 @@ describe("updateUser error branches", () => {
 });
 
 describe("deleteUser error branches", () => {
-	it("aborts before deleting the app rows when the login cannot be removed", async () => {
+	it("deletes the rows and logs when the login cleanup fails after the commit", async () => {
 		const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
 		holder.auth.deleteUser.mockResolvedValue({ error: { message: "auth down" } });
 
 		const result = await deleteUser(FARMER_A_ID);
 
-		expect(result).toEqual({
-			error: "Failed to remove the account's login. Nothing was deleted.",
-		});
-		expect(tenancy().tables.users.some((row) => row.id === FARMER_A_ID)).toBe(true);
+		// #669: the rows are gone before the auth call, so a failed cleanup is a
+		// follow-up, not a failed deletion - the account cannot reach the app.
+		expect(result).toEqual({ success: true });
+		expect(consoleError).toHaveBeenCalledWith(
+			"[admin] deleteUser orphaned an auth login:",
+			FARMER_A_ID,
+			"auth down",
+		);
 		consoleError.mockRestore();
 	});
 
-	it("returns a generic error when the subtree cleanup fails", async () => {
+	it("returns a generic error and leaves the login alone when the subtree cleanup fails", async () => {
 		const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
 		vi.spyOn(client().platformAdmin, "deleteMany").mockRejectedValueOnce(new Error("db down"));
 
 		const result = await deleteUser(FARMER_A_ID);
 
 		expect(result).toEqual({ error: "Failed to delete user." });
-		expect(holder.auth.deleteUser).toHaveBeenCalledWith("sb-farmer-a");
+		// #669: nothing committed, so the login must still be there - revoking it
+		// before the transaction would leave a user who cannot sign in.
+		expect(holder.auth.deleteUser).not.toHaveBeenCalled();
 		consoleError.mockRestore();
 	});
 });

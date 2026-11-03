@@ -1296,6 +1296,7 @@
 				"saving": "Ginaseber…",
 				"saved": "Naimbak na. Derived live count: {live}.",
 				"invalidCount": "Ibuwat bilog nga numero ka tili (sagunso 1).",
+				"exceedsLive": "Sobra ini sa buhi nga numero. Repasuhon ang numero ukon ang cycle.",
 				"saveFailed": "Wala mahimo mortali rekord. Pakisubong liwat.",
 				"pondNotFound": "Wala nakita ang pisu.",
 				"currentPopulation": "Lista isda: {population} tili (daan count; mortality ginabentes batou).",

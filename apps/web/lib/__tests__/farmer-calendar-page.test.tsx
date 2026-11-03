@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 	energyDeviceFindMany: vi.fn(),
 	pondEventFindMany: vi.fn(),
 	biomassLogGroupBy: vi.fn(),
+	mortalityLogGroupBy: vi.fn(),
 	deviceStateEventFindMany: vi.fn(),
 	resolveMemberOrgScope: vi.fn(),
 	canWrite: vi.fn(),
@@ -28,6 +29,7 @@ vi.mock("@/lib/prisma", () => ({
 		energyDevice: { findMany: mocks.energyDeviceFindMany },
 		pondEvent: { findMany: mocks.pondEventFindMany },
 		biomassLog: { groupBy: mocks.biomassLogGroupBy },
+		mortalityLog: { groupBy: mocks.mortalityLogGroupBy },
 		deviceStateEvent: { findMany: mocks.deviceStateEventFindMany },
 	},
 }));
@@ -130,6 +132,7 @@ beforeEach(() => {
 	mocks.energyDeviceFindMany.mockResolvedValue([]);
 	mocks.pondEventFindMany.mockResolvedValue([]);
 	mocks.biomassLogGroupBy.mockResolvedValue([]);
+	mocks.mortalityLogGroupBy.mockResolvedValue([]);
 	mocks.deviceStateEventFindMany.mockResolvedValue([]);
 });
 

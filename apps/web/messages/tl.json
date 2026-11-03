@@ -1337,6 +1337,7 @@
 				"saving": "Ibinabago…",
 				"saved": "Na-save. Sinalimbang kabutihang bilang: {live}.",
 				"invalidCount": "Maglagay ng buong bilang ng isdang namatay (bababa sa 1).",
+				"exceedsLive": "Mas marami ito kaysa sa buhay na bilang. Suriin ang numero o ang cycle.",
 				"saveFailed": "Hindi na-save ang mortality record. Subukan muli.",
 				"pondNotFound": "Hindi nahanap ang pond.",
 				"currentPopulation": "Listahan: {population} isda (lumang bilang; kabawasan sa mortality ang naipapakita sa itaas).",

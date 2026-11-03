@@ -100,7 +100,18 @@ export async function loadFarmerCalendarPageData(): Promise<FarmerCalendarPageDa
 		take: 100,
 		select: CYCLE_SELECT,
 	});
-	const serialised = cycles.map(serialiseCycle);
+	// #764: the harvest form defaults to the live count, so the DTO needs the
+	// mortality recorded against each cycle.
+	const deadByCycle = new Map(
+		(
+			await prisma.mortalityLog.groupBy({
+				by: ["cropCycleId"],
+				where: { cropCycleId: { in: cycles.map((cycle) => cycle.id) } },
+				_sum: { count: true },
+			})
+		).map((row) => [row.cropCycleId, row._sum.count ?? 0]),
+	);
+	const serialised = cycles.map((cycle) => serialiseCycle(cycle, deadByCycle.get(cycle.id) ?? 0));
 	const activeCycles = serialised.filter((cycle) => cycle.status === "ACTIVE");
 	const activeCycleIdByPond = new Map(activeCycles.map((cycle) => [cycle.pondId, cycle.id]));
 	const pondOptions: PondOption[] = ponds.map((pond) => {

@@ -32,7 +32,9 @@ export function HarvestForm({ open, onClose, onSaved, cycle }: HarvestFormProps)
 		if (!open || !cycle) return;
 		setActualDate(todayDateOnly());
 		setWeightKg("");
-		setCount(String(cycle.stockingCount));
+		// #764: harvest defaults to the live count after mortality, not the
+		// original stocking count.
+		setCount(String(Math.max(0, cycle.stockingCount - (cycle.deadCount ?? 0))));
 		setFcr(cycle.actualFcr ? String(cycle.actualFcr) : "");
 		setNotes("");
 		setError(null);

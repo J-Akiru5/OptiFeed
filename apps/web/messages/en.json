@@ -1296,6 +1296,7 @@
 				"saving": "Saving…",
 				"saved": "Saved. Derived live count: {live}.",
 				"invalidCount": "Enter a whole number of fish lost (at least 1).",
+				"exceedsLive": "That is more fish than the live count. Check the number or the cycle.",
 				"saveFailed": "Could not save the mortality record. Try again.",
 				"pondNotFound": "Pond not found.",
 				"currentPopulation": "Stock list: {population} fish (legacy count; mortality is subtracted on top).",

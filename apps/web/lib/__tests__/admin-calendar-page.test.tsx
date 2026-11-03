@@ -50,6 +50,7 @@ vi.mock("@/lib/prisma", () => ({
 	default: {
 		pond: { findMany: vi.fn() },
 		cropCycle: { findMany: vi.fn() },
+		mortalityLog: { groupBy: vi.fn() },
 	},
 }));
 
@@ -90,6 +91,7 @@ const cycle = (id: string, pondId: string, status: "ACTIVE" | "HARVESTED") => ({
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	vi.mocked(prisma.mortalityLog.groupBy).mockResolvedValue([] as never);
 	mockPond.findMany.mockResolvedValue([
 		{ id: "pond-1", name: "Pond One", isFallow: false, population: 1000, notificationPrefs: {} },
 		{ id: "pond-2", name: "Pond Two", isFallow: false, population: 800, notificationPrefs: {} },

@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Session cookies are Secure and expire after 30 days instead of 400 (#717).** `sessionCookieOptions()` now drives both the server and browser Supabase clients, so a refresh by either one writes the same flags: `Secure` in production, `SameSite=Lax`, `path=/` and a 30-day `maxAge`. `HttpOnly` is deliberately still absent because `createBrowserClient` reads `document.cookie` for Realtime and client sign-out; setting it now would silently break those flows. The CSP still allows inline scripts. Both remaining halves need the staged work described on #717.
 ### Fixed
 
+- Mortality is validated against the live count before insert, and harvest defaults to the live count (#764).
 - Exports keep the newest rows, empty CSVs have headers and a BOM, and the PDF shows the newest FCR reports (#755).
 
 - **Login returns to the page that asked for it (#760).** The proxy now appends the intercepted page as `/login?next=…`, the login form forwards it to `loginWithPassword`, and the action redirects there after authentication. `sanitizePostLoginPath` accepts only a same-origin absolute path (rejecting absolute/protocol-relative URLs, backslashes and the login page itself), and a forced password change still wins over the requested page. Locale prefixes are stripped before `redirect()` re-adds them.

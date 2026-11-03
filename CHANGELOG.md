@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.53.1] - 2026-11-04
+
+### Fixed
+
+- **A job artifact no longer has to fit in memory, and a timed-out job actually stops (#728).** Downloads stream in 1 MiB chunks instead of buffering the whole blob, and a job that exceeds its budget receives a cancellation signal rather than being left to run while the worker reports it failed. The previous behaviour could exhaust the worker on a large export and then continue writing after the failure was recorded.
+
 ## [1.53.0] - 2026-11-04
 
 ### Fixed

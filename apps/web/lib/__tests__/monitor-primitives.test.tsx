@@ -55,21 +55,22 @@ describe("MonitorPanel", () => {
 		expect(html).toContain("<p>Panel body</p>");
 	});
 
-	it("marks the accent tone with the brand border in both themes", () => {
+	it("marks the accent tone with the accent border token in both themes", () => {
 		const html = renderToStaticMarkup(
 			<MonitorPanel title="Accent" tone="accent">
 				Body
 			</MonitorPanel>,
 		);
 
-		expect(html).toContain("border-[#C2410C]/35");
-		expect(html).toContain("dark:border-[#FF8A5C]/45");
+		// One class, two values: `--console-accent` is the deep orange in light
+		// mode and the bright one in dark mode.
+		expect(html).toContain("border-console-accent/40");
 	});
 
-	it("keeps the dark surface classes on the card", () => {
+	it("paints the card from the surface and border tokens", () => {
 		const html = renderToStaticMarkup(<MonitorPanel title="Panel">Body</MonitorPanel>);
-		expect(html).toContain("dark:bg-[#111A2C]");
-		expect(html).toContain("dark:border-[#24304A]");
+		expect(html).toContain("bg-console-surface");
+		expect(html).toContain("border-console-border");
 	});
 });
 
@@ -141,7 +142,7 @@ describe("KpiTile", () => {
 		expect(html).toContain("Against last week");
 		expect(html).toContain('aria-label="Active devices over four readings"');
 		expect(html).toContain("tabular-nums");
-		expect(html).toContain("dark:bg-[#111A2C]");
+		expect(html).toContain("bg-console-surface");
 	});
 
 	it("renders each delta direction with its own state", () => {
@@ -193,10 +194,8 @@ describe("StatusMix", () => {
 		expect(html).toContain('class="sr-only"');
 		expect(html).toContain("Online: 30 (75%)");
 		expect(html).toContain("Offline: 10 (25%)");
-		expect(html).toContain("stroke-[#1E7B34]");
-		expect(html).toContain("dark:stroke-[#4ADE80]");
-		expect(html).toContain("stroke-[#C42B3A]");
-		expect(html).toContain("dark:stroke-[#F87171]");
+		expect(html).toContain("stroke-console-ok-content");
+		expect(html).toContain("stroke-console-critical-content");
 	});
 
 	it("renders an empty ring and a zero centre when the total is zero", () => {
@@ -257,7 +256,7 @@ describe("ActivityFeed", () => {
 		);
 
 		expect(html).toContain("<svg");
-		expect(html).not.toContain("bg-[#3D5568]");
+		expect(html).not.toContain("bg-console-content-muted");
 	});
 });
 
@@ -302,8 +301,8 @@ describe("AttentionList", () => {
 		expect(html).toContain('data-severity="unknown"');
 		// One icon per row, never only a coloured dot.
 		expect(html.split("<svg").length - 1).toBe(2);
-		expect(html).toContain("dark:text-[#FBBF24]");
-		expect(html).toContain("dark:text-[#94A3B8]");
+		expect(html).toContain("text-console-warn-content");
+		expect(html).toContain("text-console-content-muted");
 	});
 
 	it("renders the empty prop when there are no rows", () => {
@@ -317,13 +316,17 @@ describe("AttentionList", () => {
 });
 
 describe("theme guard", () => {
-	it("keeps a dark counterpart in every primitive source", () => {
+	it("paints every primitive from the console tokens, not a raw colour", () => {
 		for (const file of PRIMITIVES) {
 			const source = readFileSync(
 				join(__dirname, "../../components/superadmin/monitor/primitives", file),
 				"utf8",
 			);
-			expect(source, `${file} has no dark: utility`).toContain("dark:");
+			// Since #628 a primitive names no colour of its own: the light and dark
+			// values live behind one `console-*` token, so there is no `dark:`
+			// variant to forget. `superadmin-theme.test.tsx` owns the literal ban;
+			// this guard keeps the primitives from quietly leaving the token layer.
+			expect(source, `${file} names no console token`).toContain("console-");
 		}
 
 		// #629: the KPI sparkline moved to the shared chart layer; the guard

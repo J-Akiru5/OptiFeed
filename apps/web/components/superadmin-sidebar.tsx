@@ -51,7 +51,7 @@ export function SuperadminSidebar({ showFarmDashboard = false }: { showFarmDashb
 		<aside
 			data-collapsed={collapsed ? "true" : undefined}
 			className={cn(
-				"z-20 hidden h-full shrink-0 flex-col overflow-y-auto bg-[#0A3D62] text-white scrollbar-none lg:flex",
+				"z-20 hidden h-full shrink-0 flex-col overflow-y-auto bg-console-header text-console-header-ink scrollbar-none lg:flex",
 				collapsed ? "w-[76px] p-3" : "w-64 p-6",
 				animate && "transition-[width,padding] duration-200 ease-out motion-reduce:transition-none",
 			)}
@@ -63,12 +63,12 @@ export function SuperadminSidebar({ showFarmDashboard = false }: { showFarmDashb
 					return (
 						<div
 							key={group.key}
-							className={cn(collapsed && index > 0 && "border-t border-white/10 pt-4")}
+							className={cn(collapsed && index > 0 && "border-t border-console-header-ink/10 pt-4")}
 						>
 							<p
 								id={headingId}
 								className={cn(
-									"mb-2 px-3 text-[10px] font-extrabold uppercase tracking-widest text-white/80",
+									"mb-2 px-3 text-[10px] font-extrabold uppercase tracking-widest text-console-header-ink-muted",
 									collapsed && "sr-only",
 								)}
 							>
@@ -90,8 +90,8 @@ export function SuperadminSidebar({ showFarmDashboard = false }: { showFarmDashb
 													collapsed ? "justify-center p-3" : "gap-3 p-3.5",
 													FOCUS_RING_ON_DARK,
 													isActive
-														? "bg-[#E85A2A] text-white shadow-md ring-1 ring-white/20"
-														: "text-white/80 hover:bg-white/10 hover:text-white",
+														? "bg-console-accent text-console-accent-foreground shadow-md ring-1 ring-console-header-ink/20"
+														: "text-console-header-ink-muted hover:bg-console-header-ink/10 hover:text-console-header-ink",
 												)}
 											>
 												<item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
@@ -106,14 +106,14 @@ export function SuperadminSidebar({ showFarmDashboard = false }: { showFarmDashb
 				})}
 			</nav>
 
-			<div className="mt-auto space-y-1 border-t border-white/10 pt-6">
+			<div className="mt-auto space-y-1 border-t border-console-header-ink/10 pt-6">
 				{showFarmDashboard && (
 					<Link
 						href="/dashboard"
 						aria-label={collapsed ? t("openFarmDashboard") : undefined}
 						title={collapsed ? t("openFarmDashboard") : undefined}
 						className={cn(
-							"flex min-h-11 items-center rounded-2xl text-sm font-bold text-white/80 transition-colors hover:bg-white/10 hover:text-white",
+							"flex min-h-11 items-center rounded-2xl text-sm font-bold text-console-header-ink-muted transition-colors hover:bg-console-header-ink/10 hover:text-console-header-ink",
 							collapsed ? "justify-center p-3" : "gap-3 p-3.5",
 							FOCUS_RING_ON_DARK,
 						)}
@@ -129,7 +129,7 @@ export function SuperadminSidebar({ showFarmDashboard = false }: { showFarmDashb
 					aria-label={collapsed ? t("signOut") : undefined}
 					title={collapsed ? t("signOut") : undefined}
 					className={cn(
-						"flex min-h-11 w-full items-center rounded-2xl text-sm font-bold text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50",
+						"flex min-h-11 w-full items-center rounded-2xl text-sm font-bold text-console-header-ink-muted transition-colors hover:bg-console-header-ink/10 hover:text-console-header-ink disabled:opacity-50",
 						collapsed ? "justify-center p-3" : "gap-3 p-3.5",
 						FOCUS_RING_ON_DARK,
 					)}

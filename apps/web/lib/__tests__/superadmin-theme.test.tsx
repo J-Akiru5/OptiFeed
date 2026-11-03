@@ -1,15 +1,23 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { CONSOLE_CONTRAST } from "@/components/superadmin/ui";
+import { CONSOLE_CONTRAST, CONSOLE_NON_TEXT_CONTRAST } from "@/components/superadmin/ui";
 import { describe, expect, it } from "vitest";
+import { contrast, readConsolePalette, resolvePair } from "./helpers/console-palette";
 
 /**
- * Issue #477: the platform console has a light and a dark variant.
+ * Issue #477 built the console's light/dark pair; #628 made it a token layer.
  *
- * The toggle lives in the console header; these tests keep the palette honest:
- * every pair the console renders meets WCAG AA in both themes, the shell mounts
- * the toggle on desktop and mobile, and no console surface drifts back to a
- * light-only utility without its `dark:` counterpart.
+ * The palette now lives once, in `--console-*` custom properties in
+ * `app/globals.css`, with a light value in `:root` and a dark value in `.dark`.
+ * These tests keep it honest:
+ *
+ *   1. every pair the console renders meets WCAG AA in both themes — read from
+ *      the stylesheet itself, not from a second copy of the hex values;
+ *   2. the focus ring and the field outline meet the 3:1 non-text threshold;
+ *   3. every token has a dark counterpart, so no surface can be light-only;
+ *   4. no shell component names a colour literal, so no surface can bypass the
+ *      tokens and be half-themed;
+ *   5. the shell mounts the theme toggle on desktop and mobile.
  */
 
 const webRoot = join(__dirname, "../..");
@@ -23,42 +31,89 @@ function walk(dir: string, out: string[] = []): string[] {
 	return out;
 }
 
-/** WCAG 2.1 relative luminance and contrast ratio. */
-function luminance(hex: string): number {
-	const channels = hex
-		.replace("#", "")
-		.match(/../g)
-		?.map((part) => Number.parseInt(part, 16) / 255);
-	if (!channels || channels.length !== 3) throw new Error(`bad hex ${hex}`);
-	const linear = channels.map((value) =>
-		value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4,
-	);
-	return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
-}
-
-function contrast(background: string, foreground: string): number {
-	const a = luminance(background);
-	const b = luminance(foreground);
-	return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
-}
-
 const consoleFiles = [
 	...walk(join(webRoot, "components/superadmin")),
 	...walk(join(webRoot, "app/[locale]/(superadmin)")),
 ];
 
+/**
+ * The files #628 redesigned: the shell chrome, the console primitives, the
+ * dialogs and the command-center composition. These must carry no colour of
+ * their own at all — every colour is a `console-*` token.
+ *
+ * Page bodies inside the console are deliberately not in this list yet: they
+ * still pair a brand literal with its `dark:` counterpart, which the
+ * "light-only utility" walk below keeps honest. Converting them is the follow-up
+ * recorded on the epic, not something this shell change can do without
+ * rewriting the dashboards it is not allowed to touch.
+ */
+const tokenOnlyFiles = [
+	"app/[locale]/(superadmin)/superadmin/layout.tsx",
+	"components/superadmin-bottom-nav.tsx",
+	"components/superadmin-sidebar.tsx",
+	"components/superadmin/dialog-shell.tsx",
+	"components/superadmin/dialog-theme.ts",
+	"components/superadmin/scope-banner.tsx",
+	"components/superadmin/step-up-dialog.tsx",
+	"components/superadmin/ui.tsx",
+	"components/superadmin/monitor/sections/command-center-layout.tsx",
+].map((path) => join(webRoot, path));
+
+tokenOnlyFiles.push(...walk(join(webRoot, "components/superadmin/monitor/primitives")));
+
+/** A raw colour: a Tailwind palette keyword, an arbitrary colour value, a hex. */
+const COLOUR_LITERALS: { pattern: RegExp; what: string }[] = [
+	{
+		pattern: /\b(?:bg|text|border|divide|ring|from|to|via)-white(?![/\w-])/,
+		what: "white keyword",
+	},
+	{
+		pattern: /\b(?:bg|text|border|divide|ring|from|to|via)-black(?![/\w-])/,
+		what: "black keyword",
+	},
+	{
+		pattern:
+			/\b(?:bg|text|border|divide|ring|stroke|fill|from|to|via)-(?:gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d/,
+		what: "Tailwind palette colour",
+	},
+	{ pattern: /\[#[0-9a-fA-F]{3,8}\]/, what: "arbitrary hex colour" },
+	// Issue references are three digits (#628); a six-digit run is a colour.
+	{ pattern: /#[0-9a-fA-F]{6}\b/, what: "hex colour" },
+];
+
 describe("console theme palette", () => {
+	const palette = readConsolePalette();
+
 	it("meets WCAG AA for every console text pair in both themes", () => {
 		for (const pair of CONSOLE_CONTRAST) {
-			expect(
-				contrast(pair.light.background, pair.light.foreground),
-				pair.label,
-			).toBeGreaterThanOrEqual(4.5);
-			expect(
-				contrast(pair.dark.background, pair.dark.foreground),
-				pair.label,
-			).toBeGreaterThanOrEqual(4.5);
+			for (const theme of ["light", "dark"] as const) {
+				const { background, foreground } = resolvePair(palette, theme, pair);
+				expect(
+					contrast(background, foreground),
+					`${pair.label} (${theme}): ${foreground} on ${background}`,
+				).toBeGreaterThanOrEqual(4.5);
+			}
 		}
+	});
+
+	it("meets the 3:1 non-text threshold for rings and control outlines", () => {
+		for (const pair of CONSOLE_NON_TEXT_CONTRAST) {
+			for (const theme of ["light", "dark"] as const) {
+				const { background, foreground } = resolvePair(palette, theme, pair);
+				expect(
+					contrast(background, foreground),
+					`${pair.label} (${theme}): ${foreground} on ${background}`,
+				).toBeGreaterThanOrEqual(pair.minimum);
+			}
+		}
+	});
+
+	it("declares a dark counterpart for every console token", () => {
+		const light = Object.keys(palette.light).sort();
+		const dark = Object.keys(palette.dark).sort();
+
+		expect(light.length).toBeGreaterThanOrEqual(CONSOLE_CONTRAST.length);
+		expect(dark, "a console token exists in light mode but not in dark mode").toEqual(light);
 	});
 
 	it("mounts the theme toggle in the console header on desktop and mobile", () => {
@@ -79,12 +134,9 @@ describe("console theme palette", () => {
 			/\btext-\[#3D5568\](?![/\w-])/,
 			/\bborder-gray-200(?![/\w-])/,
 		];
-		const exempt = new Set(["ui.tsx", "dialog-theme.ts"]);
 		const offenders: string[] = [];
 
 		for (const file of consoleFiles) {
-			const name = file.split(/[\\/]/).pop() ?? "";
-			if (exempt.has(name)) continue;
 			const lines = readFileSync(file, "utf8").split("\n");
 			lines.forEach((line, index) => {
 				if (!lightOnly.some((pattern) => pattern.test(line))) return;
@@ -97,5 +149,43 @@ describe("console theme palette", () => {
 			offenders,
 			`light-only utilities without a dark variant: ${offenders.join(", ")}`,
 		).toEqual([]);
+	});
+});
+
+describe("console shell tokens (#628)", () => {
+	it("names no colour literal in the redesigned shell components", () => {
+		const offenders: string[] = [];
+
+		for (const path of tokenOnlyFiles) {
+			const lines = readFileSync(path, "utf8").split("\n");
+			const shown = path.replace(webRoot, "");
+			lines.forEach((line, index) => {
+				for (const { pattern, what } of COLOUR_LITERALS) {
+					if (pattern.test(line)) {
+						offenders.push(`${shown}:${index + 1} ${what}: ${line.trim()}`);
+					}
+				}
+			});
+		}
+
+		expect(offenders, `hardcoded colours in the console shell:\n${offenders.join("\n")}`).toEqual(
+			[],
+		);
+	});
+
+	it("derives every console utility from the token layer", () => {
+		// A `console-*` utility is only real if `@theme inline` maps it to the
+		// custom property, so a typo in a component would otherwise just render
+		// the inherited colour and pass every other check.
+		const css = readFileSync(join(webRoot, "app/globals.css"), "utf8");
+		const mapped = new Set(
+			[...css.matchAll(/--color-(console-[a-z-]+):\s*var\(--console-[a-z-]+\);/g)].map(
+				(match) => match[1],
+			),
+		);
+
+		const declared = new Set(Object.keys(readConsolePalette().light).map((name) => name.slice(2)));
+
+		expect([...declared].sort()).toEqual([...mapped].sort());
 	});
 });

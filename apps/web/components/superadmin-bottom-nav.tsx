@@ -34,7 +34,7 @@ export function SuperadminBottomNav() {
 	return (
 		<nav
 			aria-label={t("bottomNavLabel")}
-			className="ofd-band fixed right-0 bottom-0 left-0 z-40 border-t border-white/10 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.15)] lg:hidden"
+			className="ofd-band fixed right-0 bottom-0 left-0 z-40 border-t border-console-header-ink/10 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.15)] lg:hidden"
 		>
 			<ul className="flex items-stretch px-1">
 				{primary.map((item) => {
@@ -49,13 +49,15 @@ export function SuperadminBottomNav() {
 								className={cn(
 									"relative flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 transition-colors",
 									FOCUS_RING_ON_DARK,
-									isActive ? "text-white" : "text-white/80 hover:text-white",
+									isActive
+										? "text-[var(--ofd-band-ink)]"
+										: "text-[var(--ofd-band-ink-muted)] hover:text-[var(--ofd-band-ink)]",
 								)}
 							>
 								<span
 									aria-hidden="true"
 									className={cn(
-										"absolute top-0 h-0.5 w-5 rounded-full bg-[#FF6B35] transition-opacity dark:bg-[#ff8a5c]",
+										"absolute top-0 h-0.5 w-5 rounded-full bg-console-accent transition-opacity",
 										isActive ? "opacity-100" : "opacity-0",
 									)}
 								/>

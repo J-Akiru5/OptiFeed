@@ -110,7 +110,7 @@ export function StepUpDialog({
 						data-autofocus
 						aria-invalid={error ? true : undefined}
 						aria-describedby={error ? "stepup-error" : undefined}
-						className={cn(DIALOG_FIELD, error && "border-[#C42B3A] dark:border-red-400")}
+						className={cn(DIALOG_FIELD, error && "border-console-critical-content")}
 					/>
 				</div>
 

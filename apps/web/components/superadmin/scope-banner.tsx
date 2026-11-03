@@ -21,16 +21,18 @@ const ICONS: Partial<Record<ScopeLevel, LucideIcon>> = {
  * Where the operator is, as a path: `GLOBAL SUPERADMIN → ORGANIZATION ALPHA`.
  *
  * It pins to the top of the console's scrolling pane and bleeds to the pane's
- * edges (negative margins cancel the pane's own padding in the layout), so the
- * scope stays in view on a long member list.
+ * edges. Both the bleed and the payback are `.ofd-console-scope`
+ * (`app/globals.css`), which reads `--console-pane-pad` — the same token the
+ * pane pads itself with — so the banner cannot drift away from the pane
+ * padding at any of the three breakpoint steps (#628).
  */
 export function ScopeBanner({ crumbs, label }: { crumbs: ScopeCrumb[]; label: string }) {
 	return (
 		<nav
 			aria-label={label}
-			className="sticky top-0 z-20 -mx-4 -mt-4 mb-4 border-b border-[#0A3D62]/15 bg-white dark:border-[#24304A] dark:bg-[#111A2C] px-4 py-2 md:-mx-8 md:-mt-8 md:mb-6 md:px-8"
+			className="ofd-console-scope sticky top-0 z-20 border-b border-console-border bg-console-surface"
 		>
-			<ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-wider text-[#0A3D62] dark:text-slate-100 dark:text-slate-200">
+			<ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-black uppercase tracking-wider text-console-content">
 				{crumbs.map((crumb, index) => {
 					const Icon = ICONS[crumb.level];
 					const isLast = index === crumbs.length - 1;
@@ -38,14 +40,13 @@ export function ScopeBanner({ crumbs, label }: { crumbs: ScopeCrumb[]; label: st
 					return (
 						<li key={`${crumb.level}:${crumb.label}`} className="flex min-w-0 items-center gap-2">
 							{index > 0 && (
-								<span
-									className="shrink-0 text-[#3D5568] dark:text-slate-400 dark:text-slate-500"
-									aria-hidden="true"
-								>
+								<span className="shrink-0 text-console-content-muted" aria-hidden="true">
 									→
 								</span>
 							)}
-							{Icon && <Icon className="h-3.5 w-3.5 shrink-0 text-[#E85A2A]" aria-hidden="true" />}
+							{Icon && (
+								<Icon className="h-3.5 w-3.5 shrink-0 text-console-focus" aria-hidden="true" />
+							)}
 							<span
 								data-scope-level={crumb.level}
 								aria-current={isLast ? "location" : undefined}

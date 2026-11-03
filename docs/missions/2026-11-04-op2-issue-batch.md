@@ -25,10 +25,10 @@ Open issues #710–#732 (22 issues; #716 is a pull request, not an issue).
 
 | Branch | Issues | PR | State |
 | --- | --- | --- | --- |
-| `fix/auth-reset-lockout-718-721-732` | #718, #721, #732 (parts 2–3), #712 docs | #739 | open, **all checks green** |
-| `fix/ingest-724-727` | #724, #727 | #736 | open, **all checks green** |
-| `fix/jobs-723-728` | #723, #728 | #737 | open, **all checks green** |
-| `chore/ci-deps-dx-710-713-714-715-722` | #710, #713, #714, #715, #722 | #738 | **merged** into `develop` @ `77a7b362` |
+| `fix/auth-reset-lockout-718-721-732` | #718, #721, #732 (parts 2–3), #712 docs | #739 | **merged**; #718/#721/#732 close on merge |
+| `fix/ingest-724-727` | #724, #727 | #736 | **merged**; #724/#727 close on merge |
+| `fix/jobs-723-728` | #723, #728 | #737 | open, **all checks green**; #723 closes on merge, #728 remains partial |
+| `chore/ci-deps-dx-710-713-714-715-722` | #710, #713, #714, #715, #722 | #738 | **merged** into `develop` @ `77a7b362`; #713/#714/#715/#722 closed |
 
 The four branches were merged into `chore/op2-verification` for the combined gate. Two
 integration-only defects were found and fixed there:
@@ -51,10 +51,10 @@ Local gate on the combined verification tree:
 - Full `pnpm test` + coverage — **pass**: 456 files / 5,468 tests; coverage 92.23 % lines,
   90.21 % statements, 92.4 % functions, 82.59 % branches (floors 90/89/91.5/81.5).
 
-CI on the PRs: #738 is merged and was fully green, including `docker build (no push)` and
-`lighthouse budgets`. #736, #737 and #739 were merged with `origin/develop` after #738 landed and
-are now fully green, including `quality`, `e2e`, `lighthouse budgets`, `bundle budget + latency`
-and the public smoke. The three migrations are ordered `20261104100000` (events),
+CI on the PRs: #738, #736 and #739 are merged and were fully green, including `docker build (no
+push)`, `quality`, `e2e`, `lighthouse budgets`, `bundle budget + latency` and the public smoke.
+#737 was merged with `origin/develop` after those landings and is rerunning; its checks were green
+before the base moved. The three migrations are ordered `20261104100000` (events),
 `20261104110000` (imports) and `20261104120000` (reset proofs) so a normal merge order applies
 them in sequence. No deployment was triggered by these branches.
 

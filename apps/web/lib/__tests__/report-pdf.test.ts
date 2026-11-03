@@ -67,6 +67,16 @@ beforeEach(() => {
 });
 
 describe("buildReportPdf", () => {
+	it("embeds the PakaonAI brand mark in the header (#625)", async () => {
+		db.biomassLog.findMany.mockResolvedValue([sampling(1, 0.1), sampling(15, 0.2)] as never);
+
+		const artifact = await buildReportPdf("farm-1", "growth");
+		const bytes = new Uint8Array(artifact.body);
+		const pdf = new TextDecoder("latin1").decode(bytes);
+
+		expect(pdf).toContain("/Subtype /Image");
+	});
+
 	it("builds a growth report from the samplings, oldest first", async () => {
 		db.biomassLog.findMany.mockResolvedValue([
 			sampling(15, 0.2),

@@ -1,5 +1,6 @@
 import type { Permission } from "@/lib/auth/permissions";
 import type { z } from "zod";
+import type { AssistantCaller } from "./caller";
 
 /**
  * The assistant's action vocabulary (issue #194).
@@ -31,6 +32,7 @@ export const ASSISTANT_TOOL_IDS = [
 	"ponds.delete",
 	"ponds.move_device",
 	"ponds.unassign_device",
+	"settings.propose",
 	"admin.invite_member",
 	"admin.change_role",
 	"admin.set_permission",
@@ -68,6 +70,10 @@ export interface AssistantProposalContext {
 	currentGrams: number | null;
 	currentFeedsPerDay: number | null;
 	currentRatePct: number | null;
+	/** The active feeder's saved daily ceiling, if any (#RBAC settings plan). */
+	currentDailyCapG: number | null;
+	/** Whether the active feeder is reporting; used for a one-line heads-up. */
+	deviceOnline: boolean | null;
 }
 
 export interface AssistantExecuteResult {
@@ -89,10 +95,25 @@ export interface AssistantActionDefinition {
 	permission?: Permission;
 	/** Platform admins only (superadmin kinds). */
 	platformAdminOnly?: boolean;
+	/** Tenant OWNER membership required (role and permission changes). */
+	ownerOnly?: boolean;
 	/** Tenant OWNER/ADMIN membership required (admin kinds). */
 	tenantAdminOnly?: boolean;
 	/**
-	 * Whether the caller must hold write access. Defaults to `true`; a support
+	 * A permission that depends on the payload (a setting key, for example).
+	 * Checked in addition to the static `permission` above.
+	 */
+	resolvePermission?(payload: Record<string, unknown>): Permission | null;
+	/** Owner-only for this payload (defaults to `ownerOnly`). */
+	resolveOwnerOnly?(payload: Record<string, unknown>): boolean;
+	/**
+	 * Extra payload rule that needs the caller's identity, e.g. "an ADMIN may
+	 * not invite an ADMIN". Returns a refusal sentence or null.
+	 */
+	validateProposal?(payload: Record<string, unknown>, caller: AssistantCaller): string | null;
+	/** Whether this tool can be offered at all, when availability needs more than the static fields. */
+	availableTo?(caller: AssistantCaller): boolean;
+	/** Whether the caller must hold write access. Defaults to `true`; a support
 	 * tool that only files the caller's own report is safe for a read-only
 	 * account too (issue #487).
 	 */

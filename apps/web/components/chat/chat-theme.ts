@@ -24,6 +24,13 @@
 /** Panel/sheet shell: the desktop side panel and the mobile bottom sheet. */
 export const chatSurface = "bg-white dark:bg-gray-900";
 
+/**
+ * Panel header. Brand orange, not the system header's navy (#602): the chat
+ * opens directly under the app chrome, and the two navy bars read as one
+ * surface, so the panel looked like it had no header at all.
+ */
+export const chatHeader = "bg-[#C2410C] text-white dark:bg-[#9A3412]";
+
 /** Desktop panel's left edge against the dashboard page. */
 export const chatPanelBorder = "border-l border-gray-200 dark:border-gray-700";
 
@@ -94,6 +101,12 @@ export interface ChatContrastPair {
  * one is at least 4.5:1 (WCAG AA normal text) in both themes.
  */
 export const CHAT_CONTRAST: readonly ChatContrastPair[] = [
+	{
+		label: "panel header",
+		// bg-[#C2410C] / text-white  ·  dark:bg-[#9A3412] / text-white
+		light: { background: "#C2410C", foreground: "#FFFFFF" },
+		dark: { background: "#9A3412", foreground: "#FFFFFF" },
+	},
 	{
 		label: "assistant message text",
 		// bg-white / text-gray-800  ·  dark:bg-gray-800 / dark:text-gray-100

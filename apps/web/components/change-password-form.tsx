@@ -85,6 +85,10 @@ export function ChangePasswordForm({ forced = false }: { forced?: boolean }) {
 					autoComplete="current-password"
 					disabled={isPending}
 					required
+					// A password manager can autofill this field, so it must stay
+					// masked: revealing it would show the account's real password
+					// on screen, including on a shared farm device (#607).
+					revealable={false}
 				/>
 			</div>
 

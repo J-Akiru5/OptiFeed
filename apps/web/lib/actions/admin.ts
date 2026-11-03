@@ -10,6 +10,7 @@ import {
 import {
 	inviteRoleError,
 	isMemberRole,
+	permissionChangeError,
 	revokeMemberError,
 	roleChangeError,
 } from "@/lib/auth/member-rules";
@@ -159,56 +160,119 @@ export async function updateUser(
 
 export type DeleteUserResult = { success: true } | { error: string };
 
+/**
+ * Marks the one `deleteUser` failure that must reach the caller with its own
+ * message: the Supabase login deletion failed inside the transaction. Any other
+ * throw is flattened into the generic failure so internals are not leaked.
+ */
+class DeleteUserAuthError extends Error {}
+
 export async function deleteUser(userId: string): Promise<DeleteUserResult> {
 	await requireTenantAdmin();
 	await requirePermission("manage_members");
-	const [scope, actor] = await Promise.all([resolveOrgScope(), getCurrentUser()]);
+
 	// Self-deletion would strand the org with no one able to manage it, and
 	// cross-tenant deletion is the leak this scoping exists to prevent.
+	const actor = await getCurrentUser();
 	if (actor?.id === userId) return { error: "You cannot delete your own account." };
-	if (!scope.memberUserIds.includes(userId)) {
-		return { error: "That user is outside your organization." };
-	}
-	// A platform admin's account (and its grant) is the superadmin's to remove.
-	if (await hasPlatformAdminGrant(userId)) {
-		return { error: PLATFORM_ADMIN_MANAGED_ELSEWHERE };
-	}
+
+	// One resolver for every membership mutation: scope, an active membership in
+	// an organization the caller administers, and "a platform admin's account
+	// belongs to /superadmin". It also returns the caller's role there, which the
+	// hierarchy rule below needs.
+	const resolved = await resolveManagedMember(userId);
+	if (!resolved.success) return { error: resolved.error };
+	const { membership, actorRole } = resolved.target;
+
+	// #584: an ADMIN may not remove an OWNER, and nobody may remove the last
+	// OWNER. Deleting the account is a revocation that also removes the login, so
+	// the same pure rule that guards `revokeMember` applies here.
+	const refusal = revokeMemberError({
+		actorRole,
+		targetRole: membership.role,
+		isSelf: false,
+		activeOwnerCount: membership.role === "OWNER" ? await countActiveOwners(membership.orgId) : 0,
+	});
+	if (refusal) return { error: refusal };
+
+	const user = await prisma.user.findUnique({ where: { id: userId } });
+	if (!user) return { error: "User not found." };
 
 	try {
-		// Get the user to also delete from Supabase
-		const user = await prisma.user.findUnique({ where: { id: userId } });
-		if (!user) return { error: "User not found." };
+		// The guard runs again under a row lock, in the same transaction as the
+		// deletions, so a concurrent promotion to OWNER cannot slip between the
+		// check and the write. `FOR UPDATE` makes the promotion wait for this
+		// transaction instead of committing underneath it.
+		//
+		// The Supabase deletion happens inside the transaction, matching
+		// disablePlatformAdmin (#334): a failure rolls the whole transaction back
+		// before any row is removed, and no live login is left pointing at an
+		// account that no longer exists.
+		const deleted = await prisma.$transaction(
+			async (tx) => {
+				await tx.$queryRaw<Array<{ id: string }>>`
+					SELECT "id" FROM "Membership"
+					WHERE "userId" = ${userId}
+					FOR UPDATE
+				`;
 
-		// Delete from Supabase Auth first: auth.admin.deleteUser returns an error
-		// object rather than throwing, so it must be checked. Aborting here leaves
-		// both stores intact; the reverse order would strand a live login with no
-		// app row to attach it to.
-		const supabase = createAdminClient();
-		const { error: authError } = await supabase.auth.admin.deleteUser(user.supabaseId);
-		if (authError) {
-			console.error("[admin] deleteUser auth error:", authError.message);
-			return { error: "Failed to remove the account's login. Nothing was deleted." };
-		}
-
-		// Delete from DB: the farmer's whole subtree (ponds → devices → events → farm)
-		await prisma.$transaction(async (tx) => {
-			// Safety net: the guard above refuses active grants, but a revoked
-			// row must not outlive its user (PlatformAdmin has no FK to User).
-			await tx.platformAdmin.deleteMany({ where: { userId } });
-			// Membership is relation-free by design, so it does not cascade from
-			// the User row. Leaving it behind would keep a ghost member in the
-			// org counts and silently re-grant a recycled farm id its old role.
-			const membershipIds = (
-				await tx.membership.findMany({ where: { userId }, select: { id: true } })
-			).map((membership) => membership.id);
-			if (membershipIds.length > 0) {
-				await tx.membershipPermission.deleteMany({
-					where: { membershipId: { in: membershipIds } },
+				const live = await tx.membership.findUnique({
+					where: { id: membership.id },
+					select: { role: true, revokedAt: true },
 				});
-				await tx.membership.deleteMany({ where: { userId } });
-			}
-			await deleteUserSubtree(tx, userId, user.farmId);
-		});
+				if (!live || live.revokedAt) {
+					return {
+						ok: false as const,
+						error: "That user has no active membership in your organization.",
+					};
+				}
+
+				const remaining = await countActiveOwners(membership.orgId, tx);
+				const denied = revokeMemberError({
+					actorRole,
+					targetRole: live.role,
+					isSelf: false,
+					activeOwnerCount: remaining,
+				});
+				if (denied) return { ok: false as const, error: denied };
+
+				// Delete from Supabase Auth: auth.admin.deleteUser returns an error
+				// object rather than throwing, so it must be checked. Aborting here
+				// leaves both stores intact.
+				const supabase = createAdminClient();
+				const { error: authError } = await supabase.auth.admin.deleteUser(user.supabaseId);
+				if (authError) {
+					console.error("[admin] deleteUser auth error:", authError.message);
+					throw new DeleteUserAuthError(
+						"Failed to remove the account's login. Nothing was deleted.",
+					);
+				}
+
+				// Delete from DB: the farmer's whole subtree (ponds → devices → events → farm)
+				// Safety net: the guard above refuses active grants, but a revoked
+				// row must not outlive its user (PlatformAdmin has no FK to User).
+				await tx.platformAdmin.deleteMany({ where: { userId } });
+				// Membership is relation-free by design, so it does not cascade from
+				// the User row. Leaving it behind would keep a ghost member in the
+				// org counts and silently re-grant a recycled farm id its old role.
+				const membershipIds = (
+					await tx.membership.findMany({ where: { userId }, select: { id: true } })
+				).map((row) => row.id);
+				if (membershipIds.length > 0) {
+					await tx.membershipPermission.deleteMany({
+						where: { membershipId: { in: membershipIds } },
+					});
+					await tx.membership.deleteMany({ where: { userId } });
+				}
+				await deleteUserSubtree(tx, userId, user.farmId);
+				return { ok: true as const };
+			},
+			// The Supabase call runs inside the transaction, so the default 5 s
+			// interactive-transaction budget is too tight for a slow auth delete.
+			{ timeout: 15_000 },
+		);
+
+		if (!deleted.ok) return { error: deleted.error };
 
 		// Drop any cached farm binding immediately; otherwise a valid JWT could
 		// keep passing withAuth for the cache TTL after the account is gone.
@@ -216,6 +280,7 @@ export async function deleteUser(userId: string): Promise<DeleteUserResult> {
 
 		return { success: true };
 	} catch (e) {
+		if (e instanceof DeleteUserAuthError) return { error: e.message };
 		console.error("[admin] deleteUser error:", e);
 		return { error: "Failed to delete user." };
 	}
@@ -358,7 +423,7 @@ export type UserPermissionResult = UserPermissionState | { success: false; error
 type ManagedMembership = { id: string; role: MemberRole };
 
 type ManagedMembershipResult =
-	| { success: true; membership: ManagedMembership }
+	| { success: true; membership: ManagedMembership; actorRole: MemberRole }
 	| { success: false; error: string };
 
 /**
@@ -366,29 +431,22 @@ type ManagedMembershipResult =
  * error. Scope resolution fails closed, so an account with no OWNER/ADMIN
  * membership never matches any target.
  *
+ * Delegates to `resolveManagedMember` (declared below; function declarations
+ * hoist) because a permission edit needs the caller's role in the target's
+ * organization too — the same hierarchy rule that guards role changes (#584).
+ *
  * A user can have a membership in more than one org in scope; the earliest
  * membership wins. The product still assumes one active org per user, so this
  * is a deterministic choice rather than a per-org switcher.
  */
 async function resolveManagedMembership(userId: string): Promise<ManagedMembershipResult> {
-	const scope = await resolveOrgScope();
-	if (!scope.memberUserIds.includes(userId)) {
-		return { success: false, error: "That user is outside your organization." };
-	}
-	if (await hasPlatformAdminGrant(userId)) {
-		return { success: false, error: PLATFORM_ADMIN_MANAGED_ELSEWHERE };
-	}
-
-	const membership = await prisma.membership.findFirst({
-		where: { userId, revokedAt: null, orgId: { in: scope.orgIds } },
-		orderBy: { createdAt: "asc" },
-		select: { id: true, role: true },
-	});
-	if (!membership) {
-		return { success: false, error: "That user has no active membership in your organization." };
-	}
-
-	return { success: true, membership };
+	const resolved = await resolveManagedMember(userId);
+	if (!resolved.success) return resolved;
+	return {
+		success: true,
+		membership: { id: resolved.target.membership.id, role: resolved.target.membership.role },
+		actorRole: resolved.target.actorRole,
+	};
 }
 
 /**
@@ -461,11 +519,16 @@ export async function setUserPermission(
 		return { success: false, error: "Unknown permission." };
 	}
 
-	const [target, actor] = await Promise.all([resolveManagedMembership(userId), getCurrentUser()]);
-	if (!target.success) return target;
-	if (!actor) return { success: false, error: "Not authenticated." };
+	const resolved = await resolveManagedMember(userId);
+	if (!resolved.success) return { success: false, error: resolved.error };
+	const target = resolved.target;
 
-	if (actor.id === userId && permission === "manage_members" && !granted) {
+	// Role and permission changes are owner-only. An ADMIN can still invite and
+	// revoke a non-owner, but it cannot edit this membership's permissions.
+	const ruleError = permissionChangeError(target.actorRole);
+	if (ruleError) return { success: false, error: ruleError };
+
+	if (target.actorUserId === userId && permission === "manage_members" && !granted) {
 		return {
 			success: false,
 			error: "You cannot remove your own permission to manage members.",
@@ -473,16 +536,44 @@ export async function setUserPermission(
 	}
 
 	try {
-		await prisma.membershipPermission.upsert({
-			where: { membershipId_permission: { membershipId: target.membership.id, permission } },
-			update: { revokedAt: granted ? null : new Date() },
-			create: {
-				membershipId: target.membership.id,
-				permission,
-				revokedAt: granted ? null : new Date(),
-			},
-		});
+		const updated = await prisma.$transaction(
+			async (tx) => {
+				// Lock and re-read the membership, so a concurrent promotion to OWNER
+				// cannot land between the hierarchy check and the write (#584).
+				await tx.$queryRaw<Array<{ id: string }>>`
+					SELECT "id" FROM "Membership"
+					WHERE "id" = ${target.membership.id}
+					FOR UPDATE
+				`;
+				const live = await tx.membership.findUnique({
+					where: { id: target.membership.id },
+					select: { role: true, revokedAt: true },
+				});
+				if (!live || live.revokedAt) {
+					return {
+						success: false as const,
+						error: "That user has no active membership in your organization.",
+					};
+				}
 
+				await tx.membershipPermission.upsert({
+					where: {
+						membershipId_permission: { membershipId: target.membership.id, permission },
+					},
+					update: { revokedAt: granted ? null : new Date() },
+					create: {
+						membershipId: target.membership.id,
+						permission,
+						revokedAt: granted ? null : new Date(),
+					},
+				});
+
+				return { success: true as const };
+			},
+			{ timeout: 15_000 },
+		);
+
+		if (!updated.success) return updated;
 		return await permissionStateFor(target.membership);
 	} catch (e) {
 		console.error("[admin] setUserPermission error:", e);
@@ -1502,6 +1593,7 @@ export async function adminUpdateDeviceDailyCap(
 ): Promise<{ success: boolean; error?: string; dailyCapG?: number; code?: ActionDenialReason }> {
 	try {
 		await requireTenantAdmin({ onDenied: "throw" });
+		await requirePermission("control_feeder");
 		const parsed = dailyCapSchema.safeParse(dailyCapG);
 		if (!parsed.success) {
 			return { success: false, error: formatZodError(parsed.error) };

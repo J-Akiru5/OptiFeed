@@ -5,6 +5,7 @@ import { TemperatureCalibrationForm } from "@/components/TemperatureCalibrationF
 import {
 	CalibrationHistory,
 	type CalibrationHistoryRow,
+	type TemperatureCalibrationRow,
 } from "@/components/calibration/CalibrationHistory";
 import { RecalibrationIntervalForm } from "@/components/calibration/RecalibrationIntervalForm";
 import {
@@ -26,6 +27,7 @@ import { canWrite } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
 import { loadCalibrationDriftWindow } from "@/lib/calibration/drift-data";
 import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
+import { readTemperatureCalibration } from "@/lib/calibration/temperature-history";
 import { DEVICE_COMMAND_IN_FLIGHT_MS } from "@/lib/constants";
 import { formatFarmDateTime } from "@/lib/date-local";
 import { toHopperSnapshot } from "@/lib/device-hopper";
@@ -272,7 +274,6 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 		rssiDbm,
 		inFlight: commandInFlight,
 	});
-	const hopper = energyDevice ? toHopperSnapshot(energyDevice, now, statusPolicy) : null;
 
 	// The hero reads its own bounded slice (daily grams, effective schedule,
 	// reported firmware, the deterministic advisor) for the device the page has
@@ -282,9 +283,21 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 			? await loadFeederHero({ pond: heroPond, deviceId: energyDevice.id, now })
 			: null;
 
+	// #574: the health view already arrives with the hero, so the hopper card can
+	// mark the sensor offline without another query.
+	const hopper = energyDevice
+		? toHopperSnapshot(
+				energyDevice,
+				now,
+				statusPolicy,
+				feederHero?.health.faults.includes("hopper_sensor") ?? false,
+			)
+		: null;
+
 	// Calibration history, session summaries and the rule-based drift check.
 	// Every query is scoped to the active pond's device.
 	let historyRows: CalibrationHistoryRow[] = [];
+	let temperatureHistory: TemperatureCalibrationRow[] = [];
 	let historyTotal = 0;
 	let historySessions: Awaited<ReturnType<typeof loadCalibrationSessions>> = [];
 	let drift = computeCalibrationDrift({
@@ -300,7 +313,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 		const pagesForDevice = getPageCount(historyTotal, CALIBRATION_HISTORY_PAGE_SIZE);
 		if (historyPage > pagesForDevice) historyPage = pagesForDevice;
 
-		const [runs, sessions, driftWindow] = await Promise.all([
+		const [runs, sessions, driftWindow, temperatureEvents] = await Promise.all([
 			prisma.calibrationRun.findMany({
 				where: { deviceId: energyDevice.id },
 				orderBy: { createdAt: "desc" },
@@ -324,6 +337,14 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 			// One loader for every drift surface (#6): the hardware page used to
 			// compare imported hand_fed daily totals with the hopper drop.
 			loadCalibrationDriftWindow(energyDevice.id, now),
+			// #613: the temperature save appends a device event; the calibration
+			// history used to read CalibrationRun only, so it never appeared.
+			prisma.deviceStateEvent.findMany({
+				where: { deviceId: energyDevice.id, eventType: "temperature_calibrated" },
+				orderBy: { createdAt: "desc" },
+				take: 10,
+				select: { id: true, createdAt: true, metadata: true },
+			}),
 		]);
 
 		historySessions = sessions;
@@ -360,6 +381,12 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 			levels: driftWindow.levels,
 			hopperCapacityG: energyDevice.hopperCapacityG,
 		});
+
+		temperatureHistory = temperatureEvents.map((event) => ({
+			id: event.id,
+			createdAt: event.createdAt,
+			...readTemperatureCalibration(event.metadata),
+		}));
 	}
 
 	const recalibration = getRecalibrationStatus(
@@ -374,6 +401,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 
 	const isDeviceOffline = connection.isOffline;
 	const hopperOffline = hopper?.isOffline ?? isDeviceOffline;
+	const hopperSensorOffline = hopper?.sensorOffline ?? false;
 	const isWifiConfigured =
 		!!energyDevice?.lastSeenAt &&
 		now.getTime() - energyDevice.lastSeenAt.getTime() <= WIFI_ONLINE_WINDOW_MS;
@@ -439,7 +467,10 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 									initialWaterTempOk={
 										energyDevice.waterTempUpdatedAt ? energyDevice.waterTempOk : null
 									}
+									initialWaterTempC={energyDevice.waterTempC}
+									initialWaterTempUpdatedAt={energyDevice.waterTempUpdatedAt?.toISOString() ?? null}
 									initialRtcOk={energyDevice.rtcOk}
+									initialLastSeenAt={energyDevice.lastSeenAt?.toISOString() ?? null}
 								/>
 							)}
 
@@ -486,6 +517,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 													levelPercent={hopper?.levelPercent ?? null}
 													updatedAt={hopper?.levelUpdatedAt ?? null}
 													isOffline={hopperOffline}
+													sensorOffline={hopperSensorOffline}
 													showBar={false}
 												/>
 											</dd>
@@ -586,6 +618,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 											levelPercent={hopper?.levelPercent ?? null}
 											updatedAt={hopper?.levelUpdatedAt ?? null}
 											isOffline={hopperOffline}
+											sensorOffline={hopperSensorOffline}
 											showBar={false}
 										/>
 									</div>
@@ -710,11 +743,9 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 											deviceId={energyDevice.id}
 											currentTempOffsetC={energyDevice.tempOffsetC}
 											currentMinFeedTempC={energyDevice.minFeedTempC}
-											currentTempC={
-												energyDevice.waterTempC === null
-													? null
-													: energyDevice.waterTempC + (energyDevice.tempOffsetC ?? 0)
-											}
+											// The firmware already applied the stored offset (#622);
+											// the form derives the raw value from this one.
+											currentTempC={energyDevice.waterTempC}
 											canWrite={writeAccess}
 										/>
 									</div>
@@ -736,6 +767,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 										page={historyPage}
 										pageCount={historyPageCount}
 										pageSize={CALIBRATION_HISTORY_PAGE_SIZE}
+										temperatureRows={temperatureHistory}
 										paginationParams={deviceSettingsQuery({
 											deviceId: energyDevice.id,
 											tab: "calibration",

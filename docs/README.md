@@ -15,6 +15,7 @@ there is a single place to change each rule and nothing here can drift from it.
 | picking up a task | [`docs/missions/`](./missions/) — the dated record, newest first |
 | changing an API route | [`docs/api-regulation-backlog.md`](./api-regulation-backlog.md) and `pnpm api:check` |
 | touching the firmware contract | [`docs/firmware-dashboard-config.md`](./firmware-dashboard-config.md) and [`docs/hardware/`](./hardware/) |
+| calibrating a device, or asking what a technician can adjust | [`docs/audits/2026-11-03-calibration-coverage.md`](./audits/2026-11-03-calibration-coverage.md) |
 | adding copy or a locale | [`docs/i18n.md`](./i18n.md) |
 
 ## The plan and the record
@@ -39,10 +40,10 @@ there is a single place to change each rule and nothing here can drift from it.
 | Performance | [`docs/performance/`](./performance/) |
 | Testing | [`docs/e2e.md`](./e2e.md), [`docs/e2e-on-production.md`](./e2e-on-production.md) |
 | Internationalisation | [`docs/i18n.md`](./i18n.md), [`docs/i18n/tagalog-glossary.md`](./i18n/tagalog-glossary.md) |
-| Data and tenancy | [`docs/rbac-permissions.md`](./rbac-permissions.md), [`docs/superadmin-multitenancy-plan.md`](./SUPERADMIN-MULTITENANCY-PLAN.md) |
+| Data and tenancy | [`docs/rbac-permissions.md`](./rbac-permissions.md), [`docs/superadmin-multitenancy-plan.md`](./SUPERADMIN-MULTITENANCY-PLAN.md), [`docs/superadmin-data-contracts.md`](./superadmin-data-contracts.md) |
 | Offline and PWA | [`docs/pwa-offline.md`](./pwa-offline.md) |
 | Legal and privacy | [`docs/legal/`](./legal/) |
-| Audits | [`docs/audits/`](./audits/) |
+| Audits | [`docs/audits/`](./audits/) — calculation ledgers, calibration coverage (#617) and the production-readiness register (#618) |
 
 ## Quality gates
 

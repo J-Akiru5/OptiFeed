@@ -25,6 +25,8 @@ describe("looksLikeAssistantRequest", () => {
 		expect(looksLikeAssistantRequest("Suspend the CICT organization")).toBe(true);
 		expect(looksLikeAssistantRequest("Mark the net cleaning task done")).toBe(true);
 		expect(looksLikeAssistantRequest("Take me to the pond settings")).toBe(true);
+		expect(looksLikeAssistantRequest("Change the daily feed ceiling to 4500")).toBe(true);
+		expect(looksLikeAssistantRequest("Set the hopper capacity to 25 kg")).toBe(true);
 	});
 
 	it("recognises the write surface added for #344", () => {

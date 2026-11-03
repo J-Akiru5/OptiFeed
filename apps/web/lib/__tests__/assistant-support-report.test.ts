@@ -29,6 +29,8 @@ const ctx = { userId: "user-readonly" };
 const readOnlyFarmer: AssistantCaller = {
 	userId: "user-readonly",
 	role: "farmer",
+	membershipRole: "VIEWER",
+	isOwner: false,
 	permissions: new Set(),
 	canWrite: false,
 	isPlatformAdmin: false,
@@ -116,6 +118,8 @@ describe("support.file_report", () => {
 				currentGrams: null,
 				currentFeedsPerDay: null,
 				currentRatePct: null,
+				currentDailyCapG: null,
+				deviceOnline: null,
 			},
 		);
 

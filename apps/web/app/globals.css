@@ -542,3 +542,12 @@
 		animation: none;
 	}
 }
+
+/* Edge draws its own reveal control inside password inputs. The app omits its
+   toggle for the current password, so the browser control must be hidden too:
+   a password manager can autofill that field with the account's real
+   credential (#607). */
+input[type="password"][data-revealable="false"]::-ms-reveal,
+input[type="password"][data-revealable="false"]::-ms-clear {
+	display: none;
+}

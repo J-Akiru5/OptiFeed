@@ -82,6 +82,8 @@ const EMPTY_CONTEXT: AssistantProposalContext = {
 	currentGrams: null,
 	currentFeedsPerDay: null,
 	currentRatePct: null,
+	currentDailyCapG: null,
+	deviceOnline: null,
 };
 
 const FULL_CONTEXT: AssistantProposalContext = {
@@ -91,6 +93,8 @@ const FULL_CONTEXT: AssistantProposalContext = {
 	currentGrams: 120,
 	currentFeedsPerDay: 3,
 	currentRatePct: 2.5,
+	currentDailyCapG: 4000,
+	deviceOnline: true,
 };
 
 /** Every server action the catalogue can reach. */

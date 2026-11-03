@@ -2,10 +2,10 @@ import {
 	DEVICE_HEALTH_EVENT,
 	type DeviceHealthKey,
 	type DeviceHealthView,
-	HEALTHY_VIEW,
 	REFUSAL_LOOKBACK_MS,
 	buildHealthView,
 	healthFromMetadata,
+	unavailableHealthView,
 } from "@/lib/device-health-model";
 import prisma from "@/lib/prisma";
 
@@ -53,21 +53,34 @@ export async function getDeviceHealth(
 
 /**
  * Health is advisory on pages that are about something else (the dashboard, the
- * schedule). A failed read must not take such a page down, so it reads as
- * healthy and the failure is logged. Surfaces whose whole point is device health
- * use `getDeviceHealth` and let the error surface.
+ * schedule). A failed read must not take such a page down, and it must not
+ * pretend the feeder is healthy (#624): it returns an explicit "cannot verify"
+ * view carrying the attempt time and, when this process has seen one, the last
+ * successful read. Surfaces whose whole point is device health use
+ * `getDeviceHealth` and let the error surface.
  */
+
+/** Last successful read per device, for the "unknown since" line. */
+const lastSuccessByDevice = new Map<string, Date>();
+
+/** Test hook: the cache is process-wide by design. */
+export function resetDeviceHealthCacheForTests(): void {
+	lastSuccessByDevice.clear();
+}
+
 export async function getDeviceHealthSafe(
 	deviceId: string,
 	now = new Date(),
 ): Promise<DeviceHealthView> {
 	try {
-		return await getDeviceHealth(deviceId, now);
+		const view = await getDeviceHealth(deviceId, now);
+		lastSuccessByDevice.set(deviceId, now);
+		return view;
 	} catch (error) {
 		console.warn(
 			"[device-health] read failed",
 			error instanceof Error ? error.message : String(error),
 		);
-		return HEALTHY_VIEW;
+		return unavailableHealthView(now, lastSuccessByDevice.get(deviceId) ?? null);
 	}
 }

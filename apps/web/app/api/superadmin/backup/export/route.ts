@@ -11,19 +11,14 @@ import {
 	createBackupExportResponse,
 	prepareBackupExport,
 } from "@/lib/backup/export";
+import {
+	MAX_BACKUP_REASON_LENGTH,
+	MIN_BACKUP_REASON_LENGTH,
+	readRequiredBackupReason,
+} from "@/lib/backup/reason";
 import { checkBackupExportRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
-
-const MIN_REASON_LENGTH = 10;
-const MAX_REASON_LENGTH = 500;
-
-function readReason(value: unknown): string | null {
-	if (typeof value !== "string") return null;
-	const trimmed = value.trim();
-	if (trimmed.length < MIN_REASON_LENGTH || trimmed.length > MAX_REASON_LENGTH) return null;
-	return trimmed;
-}
 
 /**
  * Full-database SQL export (issue #353, brief I-106).
@@ -74,11 +69,11 @@ export const POST = withApi(
 		}
 
 		const body = (await request.json().catch(() => ({}))) as { reason?: unknown };
-		const reason = readReason(body.reason);
+		const reason = readRequiredBackupReason(body.reason);
 		if (!reason) {
 			return fail(
 				badRequest(
-					`A reason of ${MIN_REASON_LENGTH}–${MAX_REASON_LENGTH} characters is required for a full database export.`,
+					`A reason of ${MIN_BACKUP_REASON_LENGTH}–${MAX_BACKUP_REASON_LENGTH} characters is required for a full database export.`,
 				),
 			);
 		}

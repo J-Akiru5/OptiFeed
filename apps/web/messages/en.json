@@ -572,6 +572,7 @@
 			"title": "Feed Level",
 			"lastKnown": "Last known {percent}%",
 			"offline": "Offline",
+			"sensorOffline": "Ultrasonic offline",
 			"noReadingYet": "No reading yet",
 			"readingTime": "{date}, {time}",
 			"unknownTime": "Reading time unavailable",
@@ -583,6 +584,20 @@
 			"lowRefill": "Low: refill soon",
 			"ok": "OK",
 			"noData": "No data"
+		},
+		"monitoring": {
+			"title": "Monitoring",
+			"statusOnline": "Online",
+			"statusWeak": "Weak signal",
+			"statusOffline": "Offline",
+			"statusSafeMode": "Safe mode",
+			"statusFault": "{count, plural, one {# fault} other {# faults}}",
+			"statusNoDevice": "No feeder paired",
+			"healthSafeMode": "Safe mode: doses are refused",
+			"healthFaults": "{count, plural, one {# active fault} other {# active faults}}",
+			"healthClear": "No faults reported",
+			"lastKnownShort": "Last known",
+			"summaryLabel": "{status}. Hopper level {percent}."
 		},
 		"feederHero": {
 			"eyebrow": "Live monitoring",
@@ -638,7 +653,11 @@
 			"refusalReasonTooSoon": "too soon after the last dose",
 			"refusalReasonHourlyLimit": "hourly limit reached",
 			"refusalReasonRelayOverrun": "relay ran too long",
-			"refusalReasonOther": "{code}"
+			"refusalReasonOther": "{code}",
+			"healthUnknownTitle": "Cannot verify feeder health",
+			"healthUnknownBody": "The health read failed, so this page cannot say whether the feeder is safe. It is not being reported as healthy.",
+			"healthUnknownLast": "Last verified {date}, {time}",
+			"healthUnknownChecked": "Read failed {date}, {time}"
 		},
 		"home": {
 			"noData": "No pond is assigned yet. Ask your administrator to set one up.",
@@ -1816,7 +1835,7 @@
 			"healthFault": "Fault",
 			"healthUnknown": "Not reported",
 			"viewerLabel": "Feeder 3D",
-			"canvasLabel": "Interactive 3D model of {label}. Drag to orbit and use the preset buttons to change the view.",
+			"canvasLabel": "Interactive 3D model of {label}. Drag to orbit, right-drag to pan, scroll to zoom, and use the preset buttons to change the view.",
 			"statusIdle": "Idle",
 			"statusDispensing": "Dispensing",
 			"statusPaused": "Paused",
@@ -1832,9 +1851,12 @@
 			"presetRear": "Rear",
 			"presetTop": "Top",
 			"simpleView": "Simple view",
+			"resetView": "Reset view",
+			"lockCamera": "Lock camera",
+			"unlockCamera": "Unlock camera",
 			"modelVersion": "Model",
 			"statusAnnouncement": "Feeder status: {status}",
-			"isoLabelsTip": "Component labels appear only when the model is in the Isometric view. Iso is locked; choose another view to orbit.",
+			"isoLabelsTip": "Component labels appear only when the model is in the Isometric view.",
 			"back": "Back to dashboard",
 			"desc": "Live 3D view of the feeder on {pond}.",
 			"detailsLabel": "Device details",
@@ -1860,7 +1882,12 @@
 			"componentsTitle": "Components",
 			"statusWeak": "Weak signal",
 			"diagTitle": "Firmware diagnostics",
-			"diagEmpty": "No diagnostics reported yet (first heartbeat with a diag object fills this in)."
+			"diagEmpty": "No diagnostics reported yet (first heartbeat with a diag object fills this in).",
+			"backTo3d": "Back to 3D view",
+			"signal": "Signal",
+			"firmware": "Firmware",
+			"openLargeScreen": "Open large screen",
+			"largeScreenDesc": "Full-screen live view for a wall display."
 		},
 		"adminDevices": {
 			"view3d": "3D view",
@@ -2243,7 +2270,14 @@
 					"showing": "Showing {from}–{to} of {total}",
 					"previous": "Previous",
 					"next": "Next",
-					"label": "Calibration history pagination"
+					"label": "Calibration history pagination",
+					"temperature": {
+						"title": "Temperature calibration",
+						"empty": "No temperature calibration saved yet.",
+						"date": "Date",
+						"offset": "Offset",
+						"minimum": "Feeding minimum"
+					}
 				},
 				"recalibration": {
 					"title": "Recalibration schedule",
@@ -3874,7 +3908,8 @@
 				"low": "low",
 				"medium": "medium",
 				"high": "high"
-			}
+			},
+			"removeDone": "Provider removed."
 		},
 		"settings": {
 			"title": "Platform Settings",
@@ -4121,7 +4156,8 @@
 				"audit": "Audit log",
 				"announcements": "Announcements",
 				"reports": "Reports",
-				"security": "Security and oversight"
+				"security": "Security and oversight",
+				"jobs": "Background jobs"
 			},
 			"errors": {
 				"title": "Error events",
@@ -4173,7 +4209,10 @@
 				"columnFinished": "Finished",
 				"columnType": "Type",
 				"columnAttempts": "Attempts",
-				"columnError": "Error"
+				"columnError": "Error",
+				"description": "Queue health and the dead-letter list. A job stops retrying at the attempt cap and stays here with its last error.",
+				"summary": "{queued} queued · {running} running · {failed} failed in the last 24 hours.",
+				"columnOwner": "Farm"
 			},
 			"charts": {
 				"period": "Day",

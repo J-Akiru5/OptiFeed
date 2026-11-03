@@ -42,6 +42,7 @@ export async function buildAssistantTurnData(
 	let currentGrams: number | null = null;
 	let currentFeedsPerDay: number | null = null;
 	let currentRatePct: number | null = null;
+	let currentDailyCapG: number | null = null;
 	let pondList: Array<{ id: string; name: string; status: string }> = [];
 
 	if (ownerId) {
@@ -72,6 +73,7 @@ export async function buildAssistantTurnData(
 					feedLevelPercent: true,
 					lastSeenAt: true,
 					gramsPerFeeding: true,
+					dailyCapG: true,
 				},
 			});
 			if (device) {
@@ -80,6 +82,7 @@ export async function buildAssistantTurnData(
 				devicePaused = device.isPaused;
 				hopperLevelPct = device.feedLevelPercent;
 				currentGrams = device.gramsPerFeeding;
+				currentDailyCapG = device.dailyCapG;
 				deviceOnline = !evaluateDeviceStatus({
 					lastSeenAt: device.lastSeenAt,
 					now: new Date(),
@@ -282,6 +285,7 @@ export async function buildAssistantTurnData(
 			currentGrams,
 			currentFeedsPerDay,
 			currentRatePct,
+			currentDailyCapG,
 			deviceLabel,
 			deviceOnline,
 			devicePaused,
@@ -304,6 +308,8 @@ export async function buildAssistantTurnData(
 			currentGrams,
 			currentFeedsPerDay,
 			currentRatePct,
+			currentDailyCapG,
+			deviceOnline,
 		},
 		pondId,
 		orgId,

@@ -2,6 +2,7 @@ import type { Permission } from "@/lib/auth/permissions";
 import { formatZodError } from "@/lib/limits";
 import { getAssistantActionDefinition } from "./catalog";
 import {
+	ownerRefusal,
 	permissionRefusal,
 	platformAdminRefusal,
 	stepUpRefusal,
@@ -51,6 +52,8 @@ export interface AcceptDependencies {
 	canWrite(): Promise<boolean>;
 	isPlatformAdmin(): Promise<boolean>;
 	isTenantAdmin(): Promise<boolean>;
+	/** True when the caller owns at least one active organization. */
+	isOwner(): Promise<boolean>;
 	requireStepUp(): Promise<void>;
 	execute(
 		toolId: string,
@@ -101,6 +104,13 @@ export async function acceptAssistantActionWith(
 		};
 	}
 
+	const ownerOnly =
+		definition.resolveOwnerOnly?.(parsed.data as Record<string, unknown>) ??
+		definition.ownerOnly === true;
+	if (ownerOnly && !(await deps.isOwner())) {
+		await deps.markFailed(row.id, "Organization owner required.");
+		return { success: false, error: ownerRefusal(definition) };
+	}
 	if (definition.platformAdminOnly && !(await deps.isPlatformAdmin())) {
 		await deps.markFailed(row.id, "Platform admin required.");
 		return { success: false, error: platformAdminRefusal(definition) };
@@ -109,17 +119,20 @@ export async function acceptAssistantActionWith(
 		await deps.markFailed(row.id, "Tenant admin required.");
 		return { success: false, error: tenantAdminRefusal(definition) };
 	}
-	if (definition.permission && !(await deps.hasPermission(definition.permission))) {
+	const resolvedPermission =
+		definition.resolvePermission?.(parsed.data as Record<string, unknown>) ?? null;
+	const permission = resolvedPermission ?? definition.permission ?? null;
+	if (permission && !(await deps.hasPermission(permission))) {
 		await deps.markFailed(row.id, "Permission denied.");
 		return {
 			success: false,
-			error: permissionRefusal(definition),
+			error: permissionRefusal({ ...definition, permission }),
 		};
 	}
 	// Kinds with no named permission (logging a sample) still require a writer;
 	// the underlying action re-checks this, but failing early keeps the card
 	// honest and avoids a pointless write attempt.
-	if (!definition.permission && !definition.platformAdminOnly && !(await deps.canWrite())) {
+	if (!permission && !definition.platformAdminOnly && !(await deps.canWrite())) {
 		if (definition.requiresWrite !== false) {
 			await deps.markFailed(row.id, "Write access required.");
 			return { success: false, error: writeRefusal(definition) };

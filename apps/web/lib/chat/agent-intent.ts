@@ -8,7 +8,7 @@ export function looksLikeAction(message: string): boolean {
 	const verb =
 		/\b(set|create|start|update|change|apply|move|reschedule|adjust|edit|make|add|log|delete|remove|drop|rotate|revoke|cancel|harvest|archive|restore|assign|unassign|approve|reject|disable|enable|pause|resume)\b/i;
 	const subject =
-		/\b(cycle|grow[\s-]?out|target|harvest|feeding|feed|plan|schedule|calendar|event|task|sample|biomass|token|device|feeder|member|role|permission|pond|access|organization|account|user)\b/i;
+		/\b(cycle|grow[\s-]?out|target|harvest|feeding|feed|plan|schedule|calendar|event|task|sample|biomass|token|device|feeder|member|role|permission|pond|access|organization|account|user|ceiling|capacity|calibration|threshold|setting|preference)\b/i;
 	return verb.test(text) && subject.test(text);
 }
 

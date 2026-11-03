@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
@@ -36,9 +37,9 @@ vi.mock("@/lib/prisma", () => ({
 			update: vi.fn(),
 			updateMany: vi.fn(),
 		},
-		$transaction: vi.fn(async (input: unknown) => {
+		$transaction: vi.fn(async function (this: unknown, input: unknown) {
 			if (Array.isArray(input)) return Promise.all(input);
-			return (input as () => Promise<unknown>)();
+			return (input as (tx: unknown) => Promise<unknown>)(this);
 		}),
 	},
 }));
@@ -55,6 +56,14 @@ const mockPond = vi.mocked(prisma.pond);
 const mockFeedRequest = vi.mocked(prisma.feedRequest);
 const mockDeviceStateEvent = vi.mocked(prisma.deviceStateEvent);
 const mockNotification = vi.mocked(prisma.notification);
+
+function p2002(): Prisma.PrismaClientKnownRequestError {
+	return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+		code: "P2002",
+		clientVersion: "6.19.3",
+		meta: { target: ["feedRequestId"] },
+	});
+}
 
 const DEVICE = {
 	id: "dev-1",
@@ -158,6 +167,27 @@ describe("POST /api/ingest — feed_dispensed dedupe (Gap #2)", () => {
 		expect(res.status).toBe(403);
 		expect(mockFeedEvent.create).not.toHaveBeenCalled();
 		expect(mockFeedRequest.updateMany).not.toHaveBeenCalled();
+	});
+
+	it("converges two concurrent feed_dispensed posts with the same request id on one row", async () => {
+		// Both requests pass the pre-check (findFirst returns null), then the
+		// partial unique index decides the winner: the second insert gets P2002
+		// and the route answers 204 instead of 500. This is the race the index
+		// closes; the old check-then-insert could not.
+		mockFeedEvent.findFirst.mockResolvedValue(null as never);
+		mockFeedEvent.create
+			.mockResolvedValueOnce({ id: "fe-race-winner" } as never)
+			.mockRejectedValueOnce(p2002() as never);
+
+		const [first, second] = await Promise.all([
+			POST(ingestRequest(feedDispensedBody("evt-race-a", "req-race"))),
+			POST(ingestRequest(feedDispensedBody("evt-race-b", "req-race"))),
+		]);
+
+		expect([first.status, second.status]).toEqual([204, 204]);
+		expect(mockFeedEvent.create).toHaveBeenCalledTimes(2);
+		const losingInsert = mockFeedEvent.create.mock.results[1]?.value as Promise<unknown>;
+		await expect(losingInsert).rejects.toMatchObject({ code: "P2002" });
 	});
 });
 
@@ -681,6 +711,7 @@ describe("POST /api/ingest — hopper alerts are episodes (#534, supersedes #412
 					episodeKey: "pellet:dev-1",
 					resolvedAt: null,
 					autoCleared: false,
+					supersededById: null,
 				},
 			}),
 		);
@@ -724,6 +755,34 @@ describe("POST /api/ingest — hopper alerts are episodes (#534, supersedes #412
 			),
 		);
 		expect(closed.length).toBeGreaterThan(0);
+	});
+
+	it("keeps the episode write inside the heartbeat transaction on a rolled-back 204 (concurrency-safe)", async () => {
+		const txNotification = {
+			findFirst: vi.fn().mockResolvedValue(null),
+			create: vi.fn().mockResolvedValue({ id: "tx-notif" }),
+			update: vi.fn(),
+			updateMany: vi.fn(),
+		};
+		const tx = { ...prisma, notification: txNotification };
+		vi.mocked(prisma.$transaction).mockImplementationOnce((async (input: unknown) =>
+			(input as (client: unknown) => Promise<unknown>)(tx)) as never);
+		// A later write in the same transaction fails with P2002, so the route
+		// returns 204 and a real transaction would roll the episode insert back.
+		mockFeedLevelLog.create.mockRejectedValueOnce(p2002());
+
+		const res = await POST(
+			ingestRequest(heartbeatBody("hb-ep-tx-rollback", { feedLevelPercent: 10 })),
+		);
+
+		expect(res.status).toBe(204);
+		// The episode write went through the transaction client, not the
+		// top-level client that used to survive the rollback (#588).
+		expect(mockNotification.create).not.toHaveBeenCalled();
+		expect(txNotification.create).toHaveBeenCalledTimes(1);
+		expect(txNotification.create.mock.calls[0][0]).toMatchObject({
+			data: { category: "pellet", episodeKey: "pellet:dev-1" },
+		});
 	});
 });
 describe("POST /api/ingest — water temperature history (I-06)", () => {

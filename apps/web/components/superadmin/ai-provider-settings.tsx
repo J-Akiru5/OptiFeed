@@ -36,6 +36,7 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useId, useState, useTransition } from "react";
+import { toast } from "sonner";
 
 const EFFORT_OPTIONS = ["none", "low", "medium", "high"] as const;
 const MIN_REASON = 10;
@@ -83,6 +84,7 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 					return;
 				}
 				setError(result.error);
+				toast.error(result.error);
 				return;
 			}
 			setError(null);
@@ -98,6 +100,7 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 
 		if (reason.trim().length < MIN_REASON) {
 			setError(tCommon("reasonMinLength", { count: MIN_REASON }));
+			toast.error(tCommon("reasonMinLength", { count: MIN_REASON }));
 			return;
 		}
 
@@ -115,10 +118,12 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 			});
 			if (result.error) {
 				setError(result.error);
+				toast.error(result.error);
 				return;
 			}
 			setReason("");
 			setSaved(true);
+			toast.success(t("saved"));
 			router.refresh();
 			setTimeout(() => setSaved(false), 2500);
 		});
@@ -131,10 +136,12 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 
 		if (reason.trim().length < MIN_REASON) {
 			setError(tCommon("reasonMinLength", { count: MIN_REASON }));
+			toast.error(tCommon("reasonMinLength", { count: MIN_REASON }));
 			return;
 		}
 		if (apiKey.trim().length < 8) {
 			setError(t("keyTooShort"));
+			toast.error(t("keyTooShort"));
 			return;
 		}
 
@@ -146,7 +153,9 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 			});
 			if (result.success) {
 				setApiKey("");
-				setKeyNotice(t("keySavedTested", { ms: result.latencyMs ?? 0 }));
+				const notice = t("keySavedTested", { ms: result.latencyMs ?? 0 });
+				setKeyNotice(notice);
+				toast.success(notice);
 			}
 			return result;
 		});
@@ -157,11 +166,16 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 		setKeyNotice(null);
 		if (reason.trim().length < MIN_REASON) {
 			setError(tCommon("reasonMinLength", { count: MIN_REASON }));
+			toast.error(tCommon("reasonMinLength", { count: MIN_REASON }));
 			return;
 		}
 		handleStepUpAware(t("clearKeyLabel", { label: provider.label }), async () => {
 			const result = await clearAiProviderKey(provider.provider, reason.trim());
-			if (result.success) setKeyNotice(t("keyCleared"));
+			if (result.success) {
+				const notice = t("keyCleared");
+				setKeyNotice(notice);
+				toast.success(notice);
+			}
 			return result;
 		});
 	};
@@ -171,10 +185,12 @@ function ProviderCard({ provider }: { provider: AiProviderView }) {
 		setKeyNotice(null);
 		if (reason.trim().length < MIN_REASON) {
 			setError(tCommon("reasonMinLength", { count: MIN_REASON }));
+			toast.error(tCommon("reasonMinLength", { count: MIN_REASON }));
 			return;
 		}
 		handleStepUpAware(t("removeLabel", { label: provider.label }), async () => {
 			const result = await removeAiProvider(provider.provider, reason.trim());
+			if (result.success) toast.success(t("removeDone"));
 			return result;
 		});
 	};
@@ -499,6 +515,7 @@ function AddProviderForm() {
 			});
 			if (result.error) {
 				setError(result.error);
+				toast.error(result.error);
 				return;
 			}
 			setSlug("");
@@ -508,6 +525,7 @@ function AddProviderForm() {
 			setPriority("100");
 			setReason("");
 			setCreated(true);
+			toast.success(t("addDone"));
 			router.refresh();
 			setTimeout(() => setCreated(false), 2500);
 		});
@@ -664,10 +682,12 @@ export function AiProviderSettings({ providers }: { providers: AiProviderView[] 
 					return;
 				}
 				setError(result.error);
+				toast.error(result.error);
 				return;
 			}
 			setReason("");
 			setReset(true);
+			toast.success(t("resetDone"));
 			router.refresh();
 			setTimeout(() => setReset(false), 2500);
 		});
@@ -678,6 +698,7 @@ export function AiProviderSettings({ providers }: { providers: AiProviderView[] 
 		setError(null);
 		if (reason.trim().length < MIN_REASON) {
 			setError(tCommon("reasonMinLength", { count: MIN_REASON }));
+			toast.error(tCommon("reasonMinLength", { count: MIN_REASON }));
 			return;
 		}
 		runReset(reason.trim());

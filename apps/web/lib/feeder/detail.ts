@@ -1,5 +1,6 @@
 import { resolveOrgScope } from "@/lib/auth/org-scope";
 import { getCurrentPondOwnerIdSafe, getCurrentUser } from "@/lib/auth/session";
+import { resolveRssiDbm } from "@/lib/device-status";
 import { MACHINE_FEED_SOURCES } from "@/lib/feed-figures";
 import { type FeederStatus, feederStatus } from "@/lib/feeder/feeder-parts";
 import prisma from "@/lib/prisma";
@@ -22,12 +23,22 @@ export interface FeederDeviceDetail {
 	rtcOk: boolean;
 	/** Water-temperature probe health as last reported. */
 	waterTempOk: boolean;
+	/** Last calibrated temperature the probe reported; null when it never did. */
+	waterTempC: number | null;
 	/** Last time the probe reported; null when the firmware never sent one. */
 	waterTempUpdatedAt: Date | null;
+	/** Freshness window for a reported reading, from the device status policy. */
+	staleAfterMs: number;
 	/** Latest sanitised firmware diagnostics object (issue #454); null until a heartbeat carries one. */
 	diag: Record<string, unknown> | null;
+	/** Firmware version reported in `diag`, when present. */
+	firmwareVersion: string | null;
+	/** Fresh Wi-Fi signal in dBm, or null when the last reading is old/absent. */
+	signalDbm: number | null;
 	isPaused: boolean;
 	feedLevelPercent: number | null;
+	/** When the hopper level was measured; the freshness basis for that reading. */
+	feedLevelUpdatedAt: Date | null;
 	hopperCapacityG: number | null;
 	gramsPerFeeding: number;
 	pond: { id: string; name: string };
@@ -68,10 +79,14 @@ export async function getDeviceDetail(
 			lastSeenAt: true,
 			rtcOk: true,
 			waterTempOk: true,
+			waterTempC: true,
 			waterTempUpdatedAt: true,
 			diag: true,
 			isPaused: true,
 			feedLevelPercent: true,
+			feedLevelUpdatedAt: true,
+			wifiRssiDbm: true,
+			wifiRssiUpdatedAt: true,
 			hopperCapacityG: true,
 			gramsPerFeeding: true,
 			pond: { select: { id: true, name: true } },
@@ -90,13 +105,24 @@ export async function getDeviceDetail(
 	});
 
 	const policy = await getDeviceStatusPolicy();
+	const diag = (device.diag as Record<string, unknown> | null) ?? null;
 
 	return {
 		...device,
 		// Prisma types the Json column as a loose JsonValue; the sanitizer at
 		// ingest guarantees the object shape, so this cast stays safe.
-		diag: (device.diag as Record<string, unknown> | null) ?? null,
+		diag,
+		firmwareVersion: typeof diag?.version === "string" ? diag.version : null,
+		// A stale RSSI is not a current signal, so the resolver drops it rather
+		// than letting a wall display show a bar from an hour ago.
+		signalDbm: resolveRssiDbm({
+			rssiDbm: device.wifiRssiDbm,
+			updatedAt: device.wifiRssiUpdatedAt,
+			now,
+			policy,
+		}),
 		pond: device.pond,
+		staleAfterMs: policy.offlineAfterMs,
 		lastFedAt: latestFeed?.receivedAt ?? null,
 		lastFedGrams: latestFeed?.grams ?? null,
 		status: feederStatus({

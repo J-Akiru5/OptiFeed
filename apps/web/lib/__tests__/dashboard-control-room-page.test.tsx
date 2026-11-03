@@ -149,6 +149,7 @@ vi.mock("@/lib/prisma", () => ({
 					hopperCapacityG: 25000,
 					lastCalibratedAt: new Date(),
 					recalibrationIntervalDays: 30,
+					tempOffsetC: -0.6,
 					waterTempC: 28.4,
 					waterTempOk: true,
 					waterTempUpdatedAt: new Date(),
@@ -267,6 +268,17 @@ describe("dashboard control room page", () => {
 
 		expect(html).toContain("Safe mode: doses are refused");
 		expect(html).toContain('role="alert"');
+	});
+
+	it("shows the stored water temperature once, not the offset twice (#622)", async () => {
+		// The mock device stores 28.4 °C with a -0.6 offset; the firmware already
+		// sent 29.0 - 0.6. Adding it again would render 29.0.
+		const html = renderToStaticMarkup(
+			await DashboardHomePage({ searchParams: Promise.resolve({}) }),
+		);
+
+		expect(html).toContain("28.4°C");
+		expect(html).not.toContain("29.0°C");
 	});
 
 	it("reads every device on the pond so the canvas can pin each feeder", async () => {

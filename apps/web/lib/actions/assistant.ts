@@ -6,7 +6,7 @@ import { getCurrentPermissions } from "@/lib/auth/permissions";
 import { isCurrentPlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { assertPasswordChanged, canWrite, getCurrentUser } from "@/lib/auth/session";
 import { requireStepUp } from "@/lib/auth/step-up";
-import { isCurrentTenantAdmin } from "@/lib/auth/tenant-admin";
+import { getTenantAdminState, isCurrentTenantAdmin } from "@/lib/auth/tenant-admin";
 import { assertNotViewingAs } from "@/lib/auth/view-as";
 import prisma from "@/lib/prisma";
 
@@ -92,6 +92,7 @@ export async function acceptAssistantAction(
 		canWrite,
 		isPlatformAdmin: isCurrentPlatformAdmin,
 		isTenantAdmin: isCurrentTenantAdmin,
+		isOwner: async () => (await getTenantAdminState()).isOwner,
 		requireStepUp: async () => {
 			await requireStepUp();
 		},

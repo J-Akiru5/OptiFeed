@@ -14,6 +14,7 @@ export const GET = withApi(
 			workerId: `cron-${randomUUID()}`,
 			max,
 			budgetMs: 8_000,
+			deadlineMs: 13_000,
 		});
 		return ok(result);
 	}),

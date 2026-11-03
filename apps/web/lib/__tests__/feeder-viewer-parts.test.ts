@@ -88,8 +88,8 @@ describe("feeder viewer geometry", () => {
 	});
 
 	it("loads the model version that carries the water-temperature probe", () => {
-		expect(FEEDER_MODEL_VERSION).toBe("1.2.0");
-		expect(FEEDER_MODEL_FILE).toBe("/models/feeder-v1.2.0.glb");
+		expect(FEEDER_MODEL_VERSION).toBe("1.3.0");
+		expect(FEEDER_MODEL_FILE).toBe("/models/feeder-v1.3.0.glb");
 	});
 });
 

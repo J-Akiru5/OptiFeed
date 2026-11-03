@@ -195,7 +195,6 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	const energyDevice = energyDevices[0] ?? null;
 	const deviceIds = energyDevices.map((row) => row.id);
 	const now = new Date();
-	const hopper = energyDevice ? toHopperSnapshot(energyDevice, now, statusPolicy) : null;
 	const connection = evaluateDeviceStatus({
 		lastSeenAt: energyDevice?.lastSeenAt ?? null,
 		now,
@@ -248,6 +247,17 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		// minus mortality, so the dashboard cannot disagree with growth.
 		getLiveCountForPond(pond.id, { population: pond.population }),
 	]);
+
+	// #574: the hopper reading is only current while its sensor answers, so the
+	// snapshot is built after the unit's health arrives.
+	const hopper = energyDevice
+		? toHopperSnapshot(
+				energyDevice,
+				now,
+				statusPolicy,
+				deviceHealth.faults.includes("hopper_sensor"),
+			)
+		: null;
 
 	// Display the live count, not the stocked count (#430): the pond card and
 	// the growth page must agree. The dose path still reads Pond.population.
@@ -753,6 +763,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 								gramsPerFeeding={energyDevice.gramsPerFeeding}
 								feedsPerDay={feedsPerDay}
 								isDeviceOffline={hopper?.isOffline ?? esp32Offline}
+								isSensorOffline={hopper?.sensorOffline ?? false}
 							/>
 						</div>
 					)}
@@ -764,10 +775,9 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 								// server, and a static render has no Suspense boundary to catch a
 								// suspended async component.
 								await WaterTempCard({
-									tempC:
-										energyDevice.waterTempC === null
-											? null
-											: energyDevice.waterTempC + (energyDevice.tempOffsetC ?? 0),
+									// #622: ingest stores the firmware's already-offset
+									// reading; adding the offset here showed it twice.
+									tempC: energyDevice.waterTempC,
 									tempOk: energyDevice.waterTempOk,
 									updatedAt: energyDevice.waterTempUpdatedAt,
 									isDeviceOffline: esp32Offline,

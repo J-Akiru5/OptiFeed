@@ -1,14 +1,21 @@
 import prisma from "@/lib/prisma";
 
 // Heartbeat FeedEvent retention: 7 days. Deletes in batches so the 3.1 cron
-// endpoint can call this every run without long locks. Never touches
-// historical "connected" DeviceStateEvent rows (human-approved cleanup only).
+// endpoint can call this every run without long locks. DeviceStateEvent
+// retention is defined separately below (180 days) with open-alert and
+// in-progress reconciliation guards.
 export const HEARTBEAT_RETENTION_DAYS = 7;
 
 // An unsaved pond-settings draft is useful for days, not months (I-99). Rows
 // the reader never came back to are pruned after 30 days, in the same bounded
 // batch as the other housekeeping jobs.
 export const POND_SETTINGS_DRAFT_RETENTION_DAYS = 30;
+
+// DeviceStateEvent is the device audit trail. 180 days is the documented
+// window; the sweep never removes a row for a device with an open alert or a
+// row tied to a FeedRequest that is still pending/dispatched (a reconciliation
+// in progress).
+export const DEVICE_STATE_RETENTION_DAYS = 180;
 
 const DEFAULT_BATCH_SIZE = 5000;
 
@@ -30,6 +37,68 @@ export async function deleteOldHeartbeatEvents(batchSize = DEFAULT_BATCH_SIZE): 
 		where: { id: { in: stale.map((row) => row.id) } },
 	});
 
+	return result.count;
+}
+
+/**
+ * Prune the device audit trail older than `DEVICE_STATE_RETENTION_DAYS`.
+ *
+ * Bounded like the heartbeat sweep: one batch per cron run, oldest first. Two
+ * safety rules keep evidence that is still needed:
+ *  - an event whose device's pond has an open `Notification` is kept;
+ *  - an event whose metadata references a `FeedRequest` in `pending` or
+ *    `dispatched` (`feedRequestId` or `expiredRequestId`) is kept, so a
+ *    reconciliation in progress can still read it.
+ *
+ * If a whole batch is protected it returns 0 and the next run retries; it never
+ * deletes a protected row to make progress.
+ */
+export async function deleteOldDeviceStateEvents(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
+	const cutoff = new Date(Date.now() - DEVICE_STATE_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+
+	// Bounded candidate window, oldest first. Nothing stale is the common case,
+	// so the two guard queries below only run when there is work to consider.
+	const stale = await prisma.deviceStateEvent.findMany({
+		where: { createdAt: { lt: cutoff } },
+		orderBy: { createdAt: "asc" },
+		select: {
+			id: true,
+			metadata: true,
+			device: { select: { pondId: true } },
+		},
+		take: batchSize,
+	});
+	if (stale.length === 0) return 0;
+
+	const [openAlerts, inProgressRequests] = await Promise.all([
+		prisma.notification.findMany({
+			where: { resolvedAt: null, autoCleared: false, supersededById: null },
+			select: { pondId: true },
+			distinct: ["pondId"],
+			take: DEFAULT_BATCH_SIZE,
+		}),
+		prisma.feedRequest.findMany({
+			where: { status: { in: ["pending", "dispatched"] } },
+			select: { id: true },
+			take: DEFAULT_BATCH_SIZE,
+		}),
+	]);
+	const openPonds = new Set(openAlerts.map((row) => row.pondId));
+	const inProgress = new Set(inProgressRequests.map((row) => row.id));
+
+	const deletable = stale.filter((event) => {
+		if (event.device?.pondId && openPonds.has(event.device.pondId)) return false;
+		if (typeof event.metadata !== "object" || event.metadata === null) return true;
+		const metadata = event.metadata as Record<string, unknown>;
+		return ![metadata.feedRequestId, metadata.expiredRequestId].some(
+			(id) => typeof id === "string" && inProgress.has(id),
+		);
+	});
+	if (deletable.length === 0) return 0;
+
+	const result = await prisma.deviceStateEvent.deleteMany({
+		where: { id: { in: deletable.map((event) => event.id) } },
+	});
 	return result.count;
 }
 

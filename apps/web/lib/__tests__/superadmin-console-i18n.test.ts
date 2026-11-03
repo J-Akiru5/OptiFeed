@@ -172,7 +172,6 @@ const PROPS_ONLY = new Set([
 	// prop from the page's translator.
 	"monitor-panel.tsx",
 	"connectivity-panel.tsx",
-	"sparkline.tsx",
 	"kpi-tile.tsx",
 	"status-mix.tsx",
 	"activity-feed.tsx",

@@ -16,6 +16,9 @@ vi.mock("@/lib/prisma", () => ({
 	default: {
 		user: { findUnique: vi.fn() },
 		pond: { findMany: vi.fn(), findFirst: vi.fn() },
+		// #583: requireWriteAccess resolves the membership before the legacy role.
+		membership: { findMany: vi.fn(), count: vi.fn() },
+		organization: { findMany: vi.fn() },
 	},
 }));
 
@@ -113,6 +116,10 @@ describe("API routes reject lookalike-domain sessions (F-002)", () => {
 describe("API routes accept a valid pond-email session (F-002/F-005)", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		// Pre-membership account shape: no membership rows, so the write gate
+		// uses the legacy ADMIN role the fixture row carries.
+		vi.mocked(prisma.membership.findMany).mockResolvedValue([]);
+		vi.mocked(prisma.membership.count).mockResolvedValue(0);
 		pondFindMany.mockResolvedValue([
 			{ id: "p1", ownerId: "demo-farmer-1", status: "ACTIVE" },
 		] as never);

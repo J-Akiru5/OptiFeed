@@ -80,7 +80,7 @@ export function MembersSettings({
 	// more than one; otherwise the action falls back to the first org.
 	const [inviteOrgId, setInviteOrgId] = useState(orgOptions[0]?.id ?? "");
 	const selectedCallerRole = orgOptions.find((org) => org.id === inviteOrgId)?.callerRole;
-	const canInviteOwner = selectedCallerRole === "OWNER";
+	const isOwnerInviter = selectedCallerRole === "OWNER";
 
 	async function handleInvite(formData: FormData) {
 		setInviteError(null);
@@ -209,13 +209,16 @@ export function MembersSettings({
 
 	function memberAccess(member: TenantMemberRow) {
 		const isOwnerTarget = member.role === "OWNER";
-		const ownerLocked = isOwnerTarget && member.callerRole !== "OWNER";
+		const isOwnerCaller = member.callerRole === "OWNER";
+		const ownerLocked = isOwnerTarget && !isOwnerCaller;
 		return {
 			ownerLocked,
-			canEditRole: canManage && !member.isSelf && !member.isPlatformAdmin && !ownerLocked,
-			canEditPermissions: canManage && !member.isPlatformAdmin && !ownerLocked,
-			// Same lock as the role: an ADMIN may not touch an OWNER, and the
-			// platform console owns platform admins. The server enforces both.
+			// Role and permission changes are owner-only. `canManage` still governs
+			// inviting and revoking a non-owner, which an ADMIN may do.
+			canEditRole: isOwnerCaller && !member.isSelf && !member.isPlatformAdmin && !ownerLocked,
+			canEditPermissions: isOwnerCaller && !member.isPlatformAdmin && !ownerLocked,
+			// Changing the contact email decides where password resets go, so it
+			// keeps the tenant-admin rule: an ADMIN may not touch an OWNER.
 			canEditEmail: canManage && !member.isPlatformAdmin && !ownerLocked,
 			canRevoke:
 				canManage &&
@@ -568,7 +571,11 @@ export function MembersSettings({
 							{t("roleLabel")}
 							<select name="role" defaultValue="OPERATOR" className={fieldClass}>
 								{MEMBER_ROLES.map((role) => (
-									<option key={role} value={role} disabled={role === "OWNER" && !canInviteOwner}>
+									<option
+										key={role}
+										value={role}
+										disabled={(role === "OWNER" || role === "ADMIN") && !isOwnerInviter}
+									>
 										{t(`role.${role}`)}
 									</option>
 								))}

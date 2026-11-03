@@ -66,7 +66,7 @@ jobs:
         id: green
         if: github.event_name == 'push' || github.event_name == 'pull_request'
         continue-on-error: true
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: .ci-green
           key: ci-green-${{ steps.tree.outputs.tree }}
@@ -149,7 +149,7 @@ jobs:
       - name: Persist the green-tree marker
         if: success() && github.event_name == 'push' && github.ref == 'refs/heads/staging' && steps.green.outputs.cache-hit != 'true'
         continue-on-error: true
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: .ci-green
           key: ci-green-${{ steps.tree.outputs.tree }}

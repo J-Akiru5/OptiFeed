@@ -23,6 +23,7 @@ const context: AssistantTurnContext = {
 	currentGrams: 80,
 	currentFeedsPerDay: 3,
 	currentRatePct: 3,
+	currentDailyCapG: 4000,
 	deviceLabel: "Feeder A",
 	deviceOnline: true,
 	devicePaused: false,
@@ -43,6 +44,8 @@ function caller(overrides: Partial<AssistantCaller> = {}): AssistantCaller {
 	return {
 		userId: "u1",
 		role: "owner",
+		membershipRole: "OWNER",
+		isOwner: true,
 		permissions: new Set(PERMISSIONS),
 		canWrite: true,
 		isPlatformAdmin: false,
@@ -160,7 +163,7 @@ describe("validateToolCall", () => {
 		);
 		expect(permission).toEqual({
 			ok: false,
-			text: 'You need the "manage_members" permission to invite a member. Ask an organization admin to grant it.',
+			text: 'You need the "manage_members" permission (normally an organization owner) to invite a member. Ask an organization admin to grant it.',
 		});
 
 		const readOnly = validateToolCall(

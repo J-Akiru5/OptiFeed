@@ -24,18 +24,20 @@ function isTenantAdminRole(role: MemberRole): boolean {
 
 export const SELF_ROLE_CHANGE_MESSAGE = "You cannot change your own role.";
 export const SELF_REVOKE_MESSAGE = "You cannot revoke your own membership.";
-export const ADMIN_PROMOTE_OWNER_MESSAGE = "Only an owner can promote a member to owner.";
-export const ADMIN_EDIT_OWNER_MESSAGE = "Only an owner can change another owner's role.";
+export const OWNER_REQUIRED_MESSAGE = "Only an organization owner can change roles or permissions.";
+export const ADMIN_INVITE_ADMIN_MESSAGE = "Only an owner can invite another admin or owner.";
 export const ADMIN_REMOVE_OWNER_MESSAGE = "Only an owner can remove another owner.";
 export const LAST_OWNER_MESSAGE =
 	"The last owner cannot be demoted or removed. Promote another owner first.";
-export const OWNER_INVITE_MESSAGE = "Only an owner can invite another owner.";
 export const ADMIN_EDIT_OWNER_EMAIL_MESSAGE = "Only an owner can change another owner's email.";
 export const MEMBER_OTHER_ORG_EMAIL_MESSAGE =
 	"This account also belongs to an organization you do not administer, so its email can only be changed from the platform console.";
 
 /**
  * Why a tenant role change is not allowed, or null when it is.
+ *
+ * Role changes are owner-only. An ADMIN may still invite members and revoke a
+ * non-owner membership, but it cannot promote, demote or edit a role.
  *
  * `activeOwnerCount` is only consulted when the target is currently the OWNER
  * and the change would take that away; callers may pass 0 for every other
@@ -51,16 +53,18 @@ export function roleChangeError(input: {
 	if (input.isSelf) return SELF_ROLE_CHANGE_MESSAGE;
 	if (input.nextRole === input.targetRole) return null;
 
-	if (input.actorRole === "ADMIN") {
-		if (input.nextRole === "OWNER") return ADMIN_PROMOTE_OWNER_MESSAGE;
-		if (input.targetRole === "OWNER") return ADMIN_EDIT_OWNER_MESSAGE;
-	}
+	if (input.actorRole !== "OWNER") return OWNER_REQUIRED_MESSAGE;
 
 	if (input.targetRole === "OWNER" && input.nextRole !== "OWNER" && input.activeOwnerCount <= 1) {
 		return LAST_OWNER_MESSAGE;
 	}
 
 	return null;
+}
+
+/** Why a tenant permission change is not allowed, or null when it is. */
+export function permissionChangeError(actorRole: MemberRole): string | null {
+	return actorRole === "OWNER" ? null : OWNER_REQUIRED_MESSAGE;
 }
 
 /** Why a tenant membership revocation is not allowed, or null when it is. */
@@ -82,7 +86,8 @@ export function revokeMemberError(input: {
 
 /** Why the tenant caller may not invite at `role`, or null when they may. */
 export function inviteRoleError(actorRole: MemberRole, role: MemberRole): string | null {
-	if (role === "OWNER" && actorRole !== "OWNER") return OWNER_INVITE_MESSAGE;
+	if (actorRole === "OWNER") return null;
+	if (role === "OWNER" || role === "ADMIN") return ADMIN_INVITE_ADMIN_MESSAGE;
 	return null;
 }
 

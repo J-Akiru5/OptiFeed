@@ -17,8 +17,14 @@ test("saving a sample shows the feed calculation result and a sampling batch car
 
 	await page.getByRole("button", { name: "Save Sample" }).click();
 
-	// Result panel with the calculated feed amount.
-	await expect(page.getByText("Feed to dispense per feeding")).toBeVisible({ timeout: 20_000 });
+	// Result panel with the calculated feed amount. The headline is status
+	// specific (#751): green/applied, kept by a safety guard, unchanged, or
+	// skipped. Any of them is a valid outcome for this fixture.
+	await expect(
+		page.getByText(
+			/Feed to dispense per feeding|Calculated dose|Current schedule|No schedule update/,
+		),
+	).toBeVisible({ timeout: 20_000 });
 	await expect(page.getByText(/\d+\.\d{2} g/)).toBeVisible();
 	await expect(page.getByText("Saved to")).toBeVisible();
 	// Schedule status: applied, kept by safety guard, or skipped — any is valid here.

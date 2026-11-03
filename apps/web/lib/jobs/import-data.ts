@@ -20,6 +20,20 @@ export interface ConfirmImportOptions {
 export const MAX_CSV_IMPORT_BYTES = 5 * 1024 * 1024;
 
 /**
+ * The import's own transaction deadline (#758). The `import_confirm` job is
+ * bounded at 12 s by `service.ts`, but `Promise.race` does not cancel work: a
+ * transaction still running at 12 s could commit after the job was marked
+ * failed. Prisma's timeout must abort the write first, with room for the
+ * rollback to finish inside the job limit.
+ *
+ * 8 s + 2 s maxWait < 12 s job limit. The import idempotency key (#723) makes
+ * a retry after either deadline return the first result instead of inserting
+ * again.
+ */
+export const IMPORT_TRANSACTION_TIMEOUT_MS = 8_000;
+export const IMPORT_TRANSACTION_MAX_WAIT_MS = 2_000;
+
+/**
  * Resolve the key that makes one confirm retry-safe (#723).
  *
  * An explicit client key wins. Without one — the legacy synchronous route, a
@@ -177,6 +191,9 @@ export async function confirmImport(
 		}
 	}
 
+	// The deadline is below the job's 12 s wall clock (#758): Prisma aborts and
+	// rolls back the write before the job can be marked failed, so a late commit
+	// cannot leave the user with a "failed" import whose rows are in the table.
 	const pending = prisma.$transaction(
 		async (tx) => {
 			let count = 0;
@@ -325,7 +342,7 @@ export async function confirmImport(
 
 			return count;
 		},
-		{ timeout: 30_000 },
+		{ timeout: IMPORT_TRANSACTION_TIMEOUT_MS, maxWait: IMPORT_TRANSACTION_MAX_WAIT_MS },
 	);
 
 	let importedCount: number;

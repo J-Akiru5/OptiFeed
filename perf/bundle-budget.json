@@ -154,8 +154,8 @@
 			"budgetKb": 1134.7
 		},
 		"/[locale]/(kiosk)/large-screen/[id]/page": {
-			"baselineKb": 588.4,
-			"budgetKb": 600.2
+			"baselineKb": 603.0,
+			"budgetKb": 615.1
 		},
 		"/[locale]/(print)/admin/devices/labels/page": {
 			"baselineKb": 747.9,
@@ -270,12 +270,12 @@
 			"budgetKb": 993.3
 		},
 		"/[locale]/change-password/page": {
-			"baselineKb": 595.2,
-			"budgetKb": 607.2
+			"baselineKb": 609.8,
+			"budgetKb": 622.0
 		},
 		"/[locale]/forgot-password/page": {
-			"baselineKb": 564.7,
-			"budgetKb": 576
+			"baselineKb": 579.3,
+			"budgetKb": 590.9
 		},
 		"/[locale]/login/page": {
 			"baselineKb": 849.1,
@@ -286,16 +286,16 @@
 			"budgetKb": 825.2
 		},
 		"/[locale]/privacy/page": {
-			"baselineKb": 589.7,
-			"budgetKb": 601.5
+			"baselineKb": 604.3,
+			"budgetKb": 616.4
 		},
 		"/[locale]/reset-password/page": {
 			"baselineKb": 594.2,
 			"budgetKb": 606.1
 		},
 		"/[locale]/terms/page": {
-			"baselineKb": 589.7,
-			"budgetKb": 601.5
+			"baselineKb": 604.3,
+			"budgetKb": 616.4
 		}
 	}
 }

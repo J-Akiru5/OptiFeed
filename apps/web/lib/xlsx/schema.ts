@@ -35,10 +35,6 @@ export const IMPORT_SHEET_TYPES: ImportSheetType[] = SHEET_TYPES.filter(
 	(type): type is ImportSheetType => isImportableType(type) || type === "feeding_schedule",
 );
 
-export function isSheetType(value: unknown): value is SheetType {
-	return typeof value === "string" && (SHEET_TYPES as string[]).includes(value);
-}
-
 export function isImportSheetType(value: unknown): value is ImportSheetType {
 	return isImportableType(value) || value === "feeding_schedule";
 }

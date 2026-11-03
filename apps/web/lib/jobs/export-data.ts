@@ -266,13 +266,6 @@ export async function buildSheetRowsWithMeta(
 		: buildExportRowsWithMeta(context, type);
 }
 
-export async function buildSheetRows(
-	context: ExportContext,
-	type: SheetType,
-): Promise<ExportRow[]> {
-	return (await buildSheetRowsWithMeta(context, type)).rows;
-}
-
 /** Header-only CSV for an empty dataset: a 0-byte download is not a usable file. */
 function csvHeader(type: SheetType): string {
 	return TYPE_FIELDS[type].map((field) => field.name).join(",");

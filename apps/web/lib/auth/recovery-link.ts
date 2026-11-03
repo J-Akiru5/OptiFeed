@@ -1,4 +1,4 @@
-import { routing } from "@/i18n/routing";
+import { defaultLocale, isAppLocale } from "@/i18n/locales";
 
 /**
  * App-owned recovery confirmation (#741).
@@ -18,17 +18,11 @@ import { routing } from "@/i18n/routing";
 
 export const RECOVERY_CONFIRM_PATH = "/auth/confirm";
 
-type AppLocale = (typeof routing.locales)[number];
-
 /** URL-safe token hashes and auth codes; anything else is rejected early. */
 const TOKEN_HASH = /^[A-Za-z0-9_-]{8,512}$/;
 const AUTH_CODE = /^[A-Za-z0-9_-]{8,512}$/;
 /** The shape `mintPasswordResetProof` produces: base64url payload + 43-char HMAC. */
 const RESET_PROOF = /^[A-Za-z0-9_-]{1,2048}\.[A-Za-z0-9_-]{43}$/;
-
-export function isAppLocale(value: string | null | undefined): value is AppLocale {
-	return typeof value === "string" && routing.locales.includes(value as AppLocale);
-}
 
 export function isRecoveryProof(value: string | null | undefined): value is string {
 	return typeof value === "string" && RESET_PROOF.test(value);
@@ -82,7 +76,7 @@ export function buildRecoveryConfirmUrl(input: {
 	tokenHash?: string;
 	resetToken?: string;
 }): string {
-	const locale = isAppLocale(input.locale) ? input.locale : routing.defaultLocale;
+	const locale = isAppLocale(input.locale) ? input.locale : defaultLocale;
 	const url = new URL(`${input.baseUrl.replace(/\/+$/, "")}/${locale}${RECOVERY_CONFIRM_PATH}`);
 
 	if (input.tokenHash) {
@@ -103,7 +97,7 @@ export function recoveryRedirectPath(
 	locale: string,
 	resetToken: string | null | undefined,
 ): string {
-	const safeLocale = isAppLocale(locale) ? locale : routing.defaultLocale;
+	const safeLocale = isAppLocale(locale) ? locale : defaultLocale;
 	const base = `/${safeLocale}/reset-password`;
 	return isRecoveryProof(resetToken) ? `${base}?reset=${encodeURIComponent(resetToken)}` : base;
 }

@@ -17,9 +17,15 @@ test("saving a sample shows the feed calculation result and a sampling batch car
 
 	await page.getByRole("button", { name: "Save Sample" }).click();
 
-	// Result panel with the calculated feed amount.
-	await expect(page.getByText("Feed to dispense per feeding")).toBeVisible({ timeout: 20_000 });
-	await expect(page.getByText(/\d+\.\d{2} g/)).toBeVisible();
+	// Result panel: applied shows the ration; a rejected/skipped recommendation
+	// says the device schedule was not changed (#751).
+	const appliedResult = page.getByText("Feed to dispense per feeding");
+	await expect(
+		page.getByText(/Feed to dispense per feeding|Device schedule not changed/),
+	).toBeVisible({ timeout: 20_000 });
+	if (await appliedResult.isVisible().catch(() => false)) {
+		await expect(page.getByText(/\d+\.\d{2} g/)).toBeVisible();
+	}
 	await expect(page.getByText("Saved to")).toBeVisible();
 	// Schedule status: applied, kept by safety guard, or skipped — any is valid here.
 	await expect(

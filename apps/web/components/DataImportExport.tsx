@@ -121,7 +121,11 @@ export function DataExportButton() {
 			// >50k rows cannot fit in one artifact; the job keeps the newest
 			// rows and says so instead of silently dropping them (#755).
 			if (result?.truncated) {
-				toast.warning(t("exportTruncated", { limit: EXPORT_ROW_LIMIT.toLocaleString() }));
+				toast.warning(
+					t("exportTruncated", {
+						limit: new Intl.NumberFormat("en-US").format(EXPORT_ROW_LIMIT),
+					}),
+				);
 			}
 			setOpen(false);
 			setSelectedTypes(new Set());

@@ -349,18 +349,43 @@ describe("GET /api/feed-command", () => {
 		expect(mockFeedRequest.updateMany).not.toHaveBeenCalled();
 	});
 
-	it("#724: a failure while claiming leaves the pending request unmutated", async () => {
-		// Verification and config succeed; the claim read then fails. No row may
-		// be marked dispatched, so the next poll can still deliver the feed.
-		mockFeedRequest.findFirst.mockRejectedValue(new Error("db down") as never);
+	it("#724: a failed claim leaves the request pending for the next poll", async () => {
+		const pending = {
+			id: "req-retry-724",
+			deviceId: DEVICE.id,
+			grams: 120,
+			kind: "feed",
+			status: "pending",
+			createdAt: new Date(),
+		};
+		let dbDown = true;
+		mockFeedRequest.findFirst.mockImplementation((async () => {
+			if (dbDown) throw new Error("db down");
+			return pending as never;
+		}) as never);
+		mockFeedRequest.updateMany.mockImplementation((async (args: {
+			where?: { id?: string };
+			data?: { status?: string };
+		}) => {
+			if (args.where?.id && args.data?.status === "dispatched") {
+				pending.status = "dispatched";
+				return { count: 1 };
+			}
+			return { count: 0 };
+		}) as never);
 
-		const res = await GET(pollRequest("test-token"));
+		// Verification and config succeed; the claim read then fails.
+		const failed = await GET(pollRequest("test-token"));
+		expect(failed.status).toBe(503);
+		expect(pending.status).toBe("pending");
 
-		expect(res.status).toBe(503);
-		const dispatchedWrites = mockFeedRequest.updateMany.mock.calls.filter(
-			([arg]) => (arg as { data?: { status?: string } }).data?.status === "dispatched",
-		);
-		expect(dispatchedWrites).toHaveLength(0);
+		// The same row is claimable once the database is back.
+		dbDown = false;
+		const retry = await GET(pollRequest("test-token"));
+		expect(retry.status).toBe(200);
+		const body = await retry.json();
+		expect(body.feed_requested).toBe(true);
+		expect(body.feed_request_id).toBe("req-retry-724");
 	});
 
 	it("#724: an empty queue still returns 200 idle", async () => {

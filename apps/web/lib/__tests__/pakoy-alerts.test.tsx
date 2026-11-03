@@ -32,10 +32,10 @@ vi.mock("@/i18n/routing", () => ({
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 vi.mock("@/lib/supabase/client", () => ({
-	createClient: () => ({
-		channel: () => ({ on: () => ({ subscribe: () => undefined }) }),
-		removeChannel: () => undefined,
-	}),
+	createClient: () => {
+		const builder = { on: () => builder, subscribe: () => undefined };
+		return { channel: () => builder, removeChannel: () => undefined };
+	},
 }));
 
 vi.mock("@/lib/actions/notifications", () => ({

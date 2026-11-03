@@ -72,4 +72,47 @@ describe("StuckRequestBanner", () => {
 		const link = screen.getByRole("link", { name: "Check Device" });
 		expect(link.getAttribute("href")).toBe("/dashboard/settings/hardware");
 	});
+
+	it("disables feed retry when control_feeder is revoked", () => {
+		render(
+			<StuckRequestBanner
+				{...baseProps}
+				stuckFeedRequests={[{ id: "feed-1", grams: 100, createdAt: "2026-10-27T10:00:00.000Z" }]}
+				canRetryFeed={false}
+			/>,
+		);
+
+		expect(
+			(screen.getByRole("button", { name: "Retry Feed Now" }) as HTMLButtonElement).disabled,
+		).toBe(true);
+	});
+
+	it("keeps schedule resync available when only manage_schedule is held", () => {
+		render(
+			<StuckRequestBanner
+				{...baseProps}
+				stuckScheduleCommands={[{ id: "cmd-1", createdAt: "2026-10-27T10:00:00.000Z" }]}
+				canRetryFeed={false}
+				canResyncSchedule
+			/>,
+		);
+
+		expect(
+			(screen.getByRole("button", { name: "Force Resync" }) as HTMLButtonElement).disabled,
+		).toBe(false);
+	});
+
+	it("disables schedule resync when manage_schedule is revoked", () => {
+		render(
+			<StuckRequestBanner
+				{...baseProps}
+				stuckScheduleCommands={[{ id: "cmd-1", createdAt: "2026-10-27T10:00:00.000Z" }]}
+				canResyncSchedule={false}
+			/>,
+		);
+
+		expect(
+			(screen.getByRole("button", { name: "Force Resync" }) as HTMLButtonElement).disabled,
+		).toBe(true);
+	});
 });

@@ -13,6 +13,12 @@ export interface ImportResult {
 export interface ConfirmImportOptions {
 	/** Client-supplied `Idempotency-Key`; when absent the payload is hashed. */
 	idempotencyKey?: string | null;
+	/**
+	 * Target pond captured when the import was requested (#743). Without it the
+	 * worker would resolve the caller's *current* active pond at execution
+	 * time, so switching ponds between preview and confirm retargeted the rows.
+	 */
+	pondId?: string | null;
 }
 
 /** Requests above this size are refused before parsing (5 MB). */
@@ -45,10 +51,17 @@ function resolveImportIdempotencyKey(
 	type: ExportableType,
 	csvData: string,
 	supplied?: string | null,
+	pondId?: string | null,
 ): string {
 	const explicit = supplied?.trim();
 	if (explicit) return explicit;
-	const digest = createHash("sha256").update(type).update("\0").update(csvData).digest("hex");
+	const digest = createHash("sha256")
+		.update(type)
+		.update("\0")
+		.update(pondId ?? "active")
+		.update("\0")
+		.update(csvData)
+		.digest("hex");
 	return `payload-sha256:${digest}`;
 }
 
@@ -150,7 +163,12 @@ export async function confirmImport(
 		throw badRequest("Unknown import type.");
 	}
 
-	const idempotencyKey = resolveImportIdempotencyKey(type, csvData, options.idempotencyKey);
+	const idempotencyKey = resolveImportIdempotencyKey(
+		type,
+		csvData,
+		options.idempotencyKey,
+		options.pondId,
+	);
 	const idempotencyWhere = { ownerId_idempotencyKey: { ownerId, idempotencyKey } };
 
 	// A replay needs no pond, parse or transaction: the winning result is the
@@ -161,7 +179,15 @@ export async function confirmImport(
 	});
 	if (existing) return storedImportResult(existing.result);
 
-	const pond = await resolveActivePond(ownerId);
+	// #743: use the pond captured at request time, not whichever pond is active
+	// when the worker runs. The id is re-scoped to `ownerId` here, so a forged
+	// payload cannot target another farm's pond.
+	const pond = options.pondId
+		? await prisma.pond.findFirst({
+				where: { id: options.pondId, ownerId },
+				select: { id: true },
+			})
+		: await resolveActivePond(ownerId);
 	if (!pond) throw notFound("No pond found.");
 
 	const { data } = parseCsvString(csvData);
@@ -174,13 +200,50 @@ export async function confirmImport(
 		orderBy: { createdAt: "asc" },
 	});
 
+	// #743: an exported file carries the source pond/device ids. They must match
+	// the explicit target; otherwise a Pond A export silently recreates A's rows
+	// under Pond B. Blank cells are allowed (older files and hand-written CSVs)
+	// and resolve to the target pond's pond/device.
+	if (type === "biomass_logs" || type === "fcr_reports" || type === "notifications") {
+		for (const [index, row] of data.entries()) {
+			const sourcePondId = row.pondId == null ? "" : String(row.pondId).trim();
+			if (sourcePondId !== "" && sourcePondId !== pond.id) {
+				throw badRequest(`Row ${index + 1}: pondId belongs to a different pond.`);
+			}
+		}
+	}
+
+	if (type === "feed_events" || type === "feed_level_logs") {
+		const referencedIds = [
+			...new Set(
+				data
+					.map((row) => (row.deviceId == null ? "" : String(row.deviceId).trim()))
+					.filter((id) => id !== ""),
+			),
+		];
+		if (referencedIds.length > 0) {
+			const ownedDevices = await prisma.energyDevice.findMany({
+				where: { id: { in: referencedIds }, pondId: pond.id },
+				select: { id: true },
+			});
+			const ownedIds = new Set(ownedDevices.map((owned) => owned.id));
+			const foreignIndex = data.findIndex((row) => {
+				const sourceDeviceId = row.deviceId == null ? "" : String(row.deviceId).trim();
+				return sourceDeviceId !== "" && !ownedIds.has(sourceDeviceId);
+			});
+			if (foreignIndex >= 0) {
+				throw badRequest(`Row ${foreignIndex + 1}: deviceId is not in the target pond.`);
+			}
+		}
+	}
+
 	// F-004 ownership check runs before the transaction so a foreign id can
 	// still return a 400 directly (a return inside the tx callback would be
 	// swallowed by the transaction wrapper).
 	if (type === "fish_samples") {
 		const referencedIds = [...new Set(data.map((row) => String(row.biomassLogId)))];
 		const ownedLogs = await prisma.biomassLog.findMany({
-			where: { id: { in: referencedIds }, pond: { ownerId } },
+			where: { id: { in: referencedIds }, pondId: pond.id, pond: { ownerId } },
 			select: { id: true },
 		});
 		const ownedIds = new Set(ownedLogs.map((log) => log.id));

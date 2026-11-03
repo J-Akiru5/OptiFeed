@@ -19,7 +19,7 @@ vi.mock("@/lib/rate-limit", () => ({
 vi.mock("@/lib/prisma", () => ({
 	default: {
 		user: { findUnique: vi.fn() },
-		pond: { findMany: vi.fn() },
+		pond: { findMany: vi.fn(), findFirst: vi.fn() },
 		energyDevice: { findFirst: vi.fn() },
 		biomassLog: { findMany: vi.fn(), createMany: vi.fn() },
 		fishSample: { createMany: vi.fn() },
@@ -93,6 +93,7 @@ describe("import/confirm atomicity (F-003)", () => {
 			role: "ADMIN",
 		} as never);
 		mockRequireWriteAccess.mockResolvedValue(undefined as never);
+		vi.mocked(prisma.pond.findFirst).mockResolvedValue({ id: "pond-1" } as never);
 		mockPondFindMany.mockResolvedValue([
 			{ id: "pond-1", ownerId: "demo-farmer-1", status: "ACTIVE" },
 		] as never);

@@ -1,3 +1,4 @@
+import { dateOnlyToUtcDate } from "@/lib/crop-cycle/dates";
 import prisma from "@/lib/prisma";
 
 /**
@@ -14,7 +15,8 @@ import prisma from "@/lib/prisma";
  *
  * Live = stock − Σ mortality logs recorded on/after the stocking date (one
  * row when no active cycle exists, so legacy ponds still subtract their log).
- * Never negative: excess logs clamp to zero.
+ * New writes are bounded by `mortalityFitsLive` (#764); the clamp at zero stays
+ * as a read-time safety net for rows written before that guard existed.
  */
 
 export interface LiveCount {
@@ -47,6 +49,28 @@ export function deriveLiveCount(
 }
 
 /**
+ * Whether one more mortality entry fits inside the stock that is still alive.
+ *
+ * The write path refuses a count that would exceed the live population (#764).
+ * `deriveLiveCount` still clamps at zero for legacy/corrupt rows, but that clamp
+ * must not be the only guard: silently accepting 500 dead out of 300 stocked
+ * turns a data-entry mistake into a permanent record.
+ *
+ * A pond with no stock source cannot be bounded; the caller keeps the legacy
+ * behaviour and records what the farmer saw.
+ */
+export function mortalityFitsLive(
+	stocked: number | null,
+	alreadyDead: number,
+	requested: number,
+): boolean {
+	if (stocked === null) return true;
+	const dead = Math.max(0, Math.floor(alreadyDead));
+	const count = Math.max(0, Math.floor(requested));
+	return dead + count <= Math.max(0, stocked);
+}
+
+/**
  * Mortality as a percentage of the stocked count, clamped to 0–100. Null when
  * there is no stock source, so the UI can say "not set" instead of inventing a
  * rate.
@@ -55,6 +79,49 @@ export function mortalityRatePct(dead: number, stocked: number | null): number |
 	if (stocked === null || stocked <= 0) return null;
 	const pct = (Math.max(0, dead) / stocked) * 100;
 	return Math.min(100, Math.max(0, pct));
+}
+
+export interface CycleLiveWindow {
+	cycleId: string;
+	pondId: string;
+	stockingCount: number;
+	/** Farm calendar date (`YYYY-MM-DD`) the cycle was stocked. */
+	stockingDate: string;
+}
+
+/**
+ * Live counts for a set of ACTIVE cycles, keyed by cycle id.
+ *
+ * The harvest form needs the live count for whichever pond the farmer selects
+ * (#764). One read supplies every active cycle; per-cycle windows still use the
+ * stocking date, so an older cycle's deaths never reduce a newer cycle.
+ */
+export async function getLiveCountsForCycles(
+	cycles: readonly CycleLiveWindow[],
+): Promise<Map<string, number>> {
+	const liveByCycle = new Map<string, number>();
+	if (cycles.length === 0) return liveByCycle;
+
+	const earliestStocking = cycles.reduce(
+		(min, cycle) => (cycle.stockingDate < min ? cycle.stockingDate : min),
+		cycles[0].stockingDate,
+	);
+	const rows = await prisma.mortalityLog.findMany({
+		where: {
+			pondId: { in: [...new Set(cycles.map((cycle) => cycle.pondId))] },
+			recordedAt: { gte: dateOnlyToUtcDate(earliestStocking) },
+		},
+		select: { pondId: true, count: true, recordedAt: true },
+	});
+
+	for (const cycle of cycles) {
+		const stockedFrom = dateOnlyToUtcDate(cycle.stockingDate);
+		const dead = rows
+			.filter((row) => row.pondId === cycle.pondId && row.recordedAt >= stockedFrom)
+			.reduce((sum, row) => sum + row.count, 0);
+		liveByCycle.set(cycle.cycleId, Math.max(0, cycle.stockingCount - dead));
+	}
+	return liveByCycle;
 }
 
 /**

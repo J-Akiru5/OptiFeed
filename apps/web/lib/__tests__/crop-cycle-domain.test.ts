@@ -17,6 +17,7 @@ import {
 	dateOnlyEventStart,
 	dateOnlyToUtcDate,
 	dateRangeUtc,
+	dateToFarmDateOnly,
 	daysBetween,
 	formatDateOnly,
 	isValidDateOnly,
@@ -24,7 +25,11 @@ import {
 	todayDateOnly,
 	utcDateToDateOnly,
 } from "../crop-cycle/dates";
-import { computeCropCycleMetrics, computeFinalFcr } from "../crop-cycle/metrics";
+import {
+	computeCropCycleMetrics,
+	computeFinalFcr,
+	defaultHarvestCount,
+} from "../crop-cycle/metrics";
 import {
 	type CycleForPrediction,
 	toPredictionCycleContext,
@@ -101,6 +106,13 @@ describe("date-only helpers", () => {
 		expect(formatDateOnly("2026-10-24")).toBe("2026-10-24");
 		expect(formatDateOnly("2026-10-24T15:30:00.000Z")).toBe("2026-10-24");
 		expect(dateOnlyEventStart(new Date("2026-10-24T00:00:00.000Z"))).toBe("2026-10-24");
+	});
+
+	it("keeps a 00:30 PHT timestamp on the farm's calendar day (#753)", () => {
+		// 16:30 UTC is 00:30 the next day in Manila.
+		expect(dateToFarmDateOnly(new Date("2026-10-27T16:30:00.000Z"))).toBe("2026-10-28");
+		// 15:30 UTC is 23:30 the same day in Manila.
+		expect(dateToFarmDateOnly(new Date("2026-10-27T15:30:00.000Z"))).toBe("2026-10-27");
 	});
 
 	it("builds half-open UTC bounds for a date-only range", () => {
@@ -318,6 +330,22 @@ describe("computeFinalFcr", () => {
 				stockingAvgWeightG: 50,
 			}),
 		).toBeNull();
+	});
+});
+
+describe("defaultHarvestCount", () => {
+	it("defaults to the live count after mortality, not the stocked count (#764)", () => {
+		expect(defaultHarvestCount({ stockingCount: 1000, liveCount: 812 })).toBe(812);
+	});
+
+	it("falls back to the stocked count when live data is unavailable", () => {
+		expect(defaultHarvestCount({ stockingCount: 1000 })).toBe(1000);
+		expect(defaultHarvestCount({ stockingCount: 1000, liveCount: null })).toBe(1000);
+	});
+
+	it("never proposes more fish than were stocked", () => {
+		expect(defaultHarvestCount({ stockingCount: 1000, liveCount: 1200 })).toBe(1000);
+		expect(defaultHarvestCount({ stockingCount: 1000, liveCount: 0 })).toBe(0);
 	});
 });
 

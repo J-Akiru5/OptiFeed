@@ -158,6 +158,31 @@ describe("saveMortalityLog", () => {
 		expect(data.cropCycleId).toBeUndefined();
 	});
 
+	it("refuses a count that exceeds the recorded live stock (#764)", async () => {
+		setup({ deadSoFar: 290 });
+
+		const result = await saveMortalityLog(form({ count: "15" }));
+
+		expect(result).toEqual({
+			success: false,
+			error: "exceeds_live",
+			live: { stocked: 300, dead: 290, live: 10, source: "crop_cycle" },
+		});
+		expect(mocks.tx.mortalityLog.create).not.toHaveBeenCalled();
+		expect(mocks.tx.deviceStateEvent.create).not.toHaveBeenCalled();
+	});
+
+	it("accepts the same count when the farmer confirms a stock correction (#764)", async () => {
+		setup({ deadSoFar: 290 });
+
+		const result = await saveMortalityLog(form({ count: "15", confirmOverLive: "true" }));
+
+		expect(result.success).toBe(true);
+		expect(mocks.tx.mortalityLog.create).toHaveBeenCalledWith(
+			expect.objectContaining({ data: expect.objectContaining({ count: 15 }) }),
+		);
+	});
+
 	it("rejects an oversized reason string instead of writing it", async () => {
 		setup();
 		const result = await saveMortalityLog(form({ reason: "x".repeat(201) }));

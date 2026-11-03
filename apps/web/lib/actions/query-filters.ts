@@ -1,4 +1,6 @@
+import { dateToFarmDateOnly } from "@/lib/crop-cycle/dates";
 import { FEED_EVENT_SOURCES } from "@/lib/feed-sources";
+import { resolveFarmDateRange } from "@/lib/pagination";
 
 const FEED_SOURCES = FEED_EVENT_SOURCES;
 
@@ -14,7 +16,8 @@ export interface QueryFilters {
  *
  * - An exact source token ("scheduled" | "dashboard" | "button") filters by
  *   that feed source.
- * - Any parseable date filters the UTC calendar day (from 00:00 to 24:00).
+ * - Any parseable date filters that farm calendar day (Asia/Manila midnight
+ *   to the next midnight), so a record at 00:30 PHT is not missed.
  * - Anything else yields no filter.
  */
 export function parseQueryFilters(query: string): QueryFilters {
@@ -27,10 +30,11 @@ export function parseQueryFilters(query: string): QueryFilters {
 	const parsed = new Date(q);
 	if (Number.isNaN(parsed.getTime())) return {};
 
-	const gte = new Date(parsed);
-	gte.setUTCHours(0, 0, 0, 0);
-	const lt = new Date(gte);
-	lt.setUTCDate(lt.getUTCDate() + 1);
+	const farmDate = dateToFarmDateOnly(parsed);
+	const range = resolveFarmDateRange(farmDate, farmDate);
+	const gte = range?.gte;
+	const lt = range?.lt;
+	if (!gte || !lt) return {};
 
 	return { recordedBetween: { gte, lt } };
 }

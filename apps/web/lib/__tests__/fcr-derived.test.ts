@@ -1,4 +1,4 @@
-import { computeFcr } from "@/lib/analytics/fcr";
+import { computeFcr, fcrTrendDirection } from "@/lib/analytics/fcr";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -51,5 +51,19 @@ describe("computeFcr (fixed data set)", () => {
 		const result = computeFcr(-5, FIRST, LAST);
 		expect(result.feedGivenKg).toBe(0);
 		expect(result.fcr).toBeCloseTo(0, 10);
+	});
+});
+
+describe("fcrTrendDirection (#752)", () => {
+	it("stays silent until two comparable samples exist", () => {
+		expect(fcrTrendDirection([])).toBeNull();
+		expect(fcrTrendDirection([1.8])).toBeNull();
+		expect(fcrTrendDirection([Number.NaN, 1.6])).toBeNull();
+	});
+
+	it("derives the direction from the last two samples", () => {
+		expect(fcrTrendDirection([1.9, 1.7])).toBe("down");
+		expect(fcrTrendDirection([1.4, 1.6])).toBe("up");
+		expect(fcrTrendDirection([1.6, 1.6])).toBe("flat");
 	});
 });

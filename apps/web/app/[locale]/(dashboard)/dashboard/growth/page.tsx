@@ -29,6 +29,7 @@ import {
 	activeWindowForPond,
 	biomassSamplesInWindow,
 	computeFcr,
+	fcrTrendDirection,
 	feedGivenKgInWindow,
 } from "@/lib/analytics/fcr";
 import { canWrite } from "@/lib/auth/session";
@@ -249,15 +250,29 @@ export default async function GrowthPage() {
 	// Computed in-app from feed + biomass (issue #453); stored reports remain
 	// the fallback when the cycle inputs are missing, and the history chart
 	// below still renders the stored report rows.
-	const latestFcr =
-		derivedFcr.fcr ?? (fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0);
+	// Zero is not a real FCR; it is the old empty-data default (#752). Only a
+	// positive ratio is shown as a result.
+	const computedFcr = derivedFcr.fcr !== null && derivedFcr.fcr > 0 ? derivedFcr.fcr : null;
+	const storedFcr =
+		fcrReports.length > 0 && fcrReports[fcrReports.length - 1].fcrValue > 0
+			? fcrReports[fcrReports.length - 1].fcrValue
+			: null;
+	const latestFcr = computedFcr ?? storedFcr;
 	const latestBiomass =
-		biomassLogs.length > 0 ? biomassLogs[biomassLogs.length - 1].avgWeightKg : 0;
+		biomassLogs.length > 0 ? biomassLogs[biomassLogs.length - 1].avgWeightKg : null;
 	const previousBiomass =
-		biomassLogs.length > 1 ? biomassLogs[biomassLogs.length - 2].avgWeightKg : 0;
+		biomassLogs.length > 1 ? biomassLogs[biomassLogs.length - 2].avgWeightKg : null;
 
 	const biomassGrowthPct =
-		previousBiomass > 0 ? ((latestBiomass - previousBiomass) / previousBiomass) * 100 : 0;
+		latestBiomass !== null && previousBiomass !== null && previousBiomass > 0
+			? ((latestBiomass - previousBiomass) / previousBiomass) * 100
+			: null;
+
+	// Trend needs two comparable FCR points. Stored reports are oldest-first;
+	// the derived current-cycle value, when present, is the newest point.
+	const fcrTrendSeries = fcrReports.map((report) => report.fcrValue).filter((value) => value > 0);
+	if (computedFcr !== null) fcrTrendSeries.push(computedFcr);
+	const fcrTrend = latestFcr === null ? null : fcrTrendDirection(fcrTrendSeries);
 
 	const formatDate = (d: Date) => formatFarmDateTime(d, tDates).date;
 
@@ -297,7 +312,7 @@ export default async function GrowthPage() {
 	const growthSnapshot: GrowthSnapshotData = {
 		pondName: pond.name,
 		latestAbwG: latestSample ? latestSample.avgWeightKg * 1000 : null,
-		latestFcr: latestFcr > 0 ? latestFcr : null,
+		latestFcr,
 		latestSampleAt: latestSample?.recordedAt.toISOString() ?? null,
 		cycleLabel: activeCycle?.label ?? null,
 		targetWeightG: loadedPlan?.plan.targetWeightG ?? activeCycle?.targetHarvestWeightG ?? null,
@@ -369,15 +384,19 @@ export default async function GrowthPage() {
 							{t("fcrEyebrow")}
 						</span>
 						<div className="text-5xl md:text-6xl font-black mt-2 tracking-tight">
-							{latestFcr.toFixed(2)}
+							{latestFcr !== null ? latestFcr.toFixed(2) : "—"}
 						</div>
-						<p className="text-xs text-blue-100 mt-2 max-w-md">
-							{t.rich("fcrExplain", {
-								value: latestFcr.toFixed(2),
-								bold: (chunks) => <strong>{chunks}</strong>,
-							})}
-						</p>
-						{derivedFcr.fcr !== null && (
+						{latestFcr !== null ? (
+							<p className="text-xs text-blue-100 mt-2 max-w-md">
+								{t.rich("fcrExplain", {
+									value: latestFcr.toFixed(2),
+									bold: (chunks) => <strong>{chunks}</strong>,
+								})}
+							</p>
+						) : (
+							<p className="text-xs text-blue-100 mt-2 max-w-md">{t("fcrNoData")}</p>
+						)}
+						{computedFcr !== null && (
 							<p className="text-[11px] text-blue-200/80 mt-1.5 max-w-md">
 								{t("fcrInputs", {
 									feed: derivedFcr.feedGivenKg.toFixed(2),
@@ -387,14 +406,16 @@ export default async function GrowthPage() {
 							</p>
 						)}
 					</div>
-					<div className="bg-white/10 px-4 py-3 rounded-2xl border border-white/10 shrink-0">
-						<p className="text-[10px] text-gray-300 uppercase tracking-widest font-mono">
-							{t("stockHealth")}
-						</p>
-						<p className="text-base font-extrabold text-green-400 flex items-center gap-1.5">
-							<TrendingUp className="w-4 h-4" /> {t("stockHealthValue")}
-						</p>
-					</div>
+					{latestFcr !== null && (
+						<div className="bg-white/10 px-4 py-3 rounded-2xl border border-white/10 shrink-0">
+							<p className="text-[10px] text-gray-300 uppercase tracking-widest font-mono">
+								{t("stockHealth")}
+							</p>
+							<p className="text-base font-extrabold text-green-400 flex items-center gap-1.5">
+								<TrendingUp className="w-4 h-4" /> {t("stockHealthValue")}
+							</p>
+						</div>
+					)}
 				</div>
 			</div>
 
@@ -506,10 +527,16 @@ export default async function GrowthPage() {
 								/>
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
-								{(latestBiomass * 1000).toFixed(1)}{" "}
-								<span className="text-lg text-gray-500 font-medium">g</span>
+								{latestBiomass !== null ? (
+									<>
+										{(latestBiomass * 1000).toFixed(1)}{" "}
+										<span className="text-lg text-gray-500 font-medium">g</span>
+									</>
+								) : (
+									"—"
+								)}
 							</p>
-							{biomassGrowthPct > 0 && (
+							{biomassGrowthPct !== null && biomassGrowthPct > 0 && (
 								<p className="text-sm text-green-700 font-medium mt-1 flex items-center gap-1 dark:text-green-400">
 									<TrendingUp aria-hidden="true" className="h-4 w-4" />{" "}
 									{t("vsLastSample", { pct: biomassGrowthPct.toFixed(1) })}
@@ -567,8 +594,8 @@ export default async function GrowthPage() {
 						<span className="sr-only">
 							{t("chartSummary", {
 								count: biomassLogs.length,
-								latest: (latestBiomass * 1000).toFixed(1),
-								fcr: latestFcr.toFixed(2),
+								latest: latestBiomass !== null ? (latestBiomass * 1000).toFixed(1) : "—",
+								fcr: latestFcr !== null ? latestFcr.toFixed(2) : "—",
 							})}
 						</span>
 					</div>
@@ -586,11 +613,31 @@ export default async function GrowthPage() {
 								/>
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
-								{latestFcr.toFixed(2)}
+								{latestFcr !== null ? latestFcr.toFixed(2) : "—"}
 							</p>
-							<p className="text-sm text-green-700 font-medium mt-1 flex items-center gap-1 dark:text-green-400">
-								{t("trendingDown")} <Activity aria-hidden="true" className="h-4 w-4" />
-							</p>
+							{latestFcr === null && (
+								<p className="text-sm text-gray-500 font-medium mt-1 dark:text-gray-400">
+									{t("fcrNoData")}
+								</p>
+							)}
+							{fcrTrend !== null && (
+								<p
+									className={`text-sm font-medium mt-1 flex items-center gap-1 ${
+										fcrTrend === "down"
+											? "text-green-700 dark:text-green-400"
+											: fcrTrend === "up"
+												? "text-rose-700 dark:text-rose-400"
+												: "text-gray-600 dark:text-gray-300"
+									}`}
+								>
+									{fcrTrend === "down"
+										? t("trendingDown")
+										: fcrTrend === "up"
+											? t("trendingUp")
+											: t("trendingStable")}{" "}
+									<Activity aria-hidden="true" className="h-4 w-4" />
+								</p>
+							)}
 						</div>
 						<div className="h-14 w-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center dark:bg-blue-500/15 dark:text-blue-300">
 							<Scale aria-hidden="true" className="h-7 w-7" />
@@ -629,8 +676,8 @@ export default async function GrowthPage() {
 					<span className="sr-only">
 						{t("chartSummary", {
 							count: fcrReports.length,
-							latest: (latestBiomass * 1000).toFixed(1),
-							fcr: latestFcr.toFixed(2),
+							latest: latestBiomass !== null ? (latestBiomass * 1000).toFixed(1) : "—",
+							fcr: latestFcr !== null ? latestFcr.toFixed(2) : "—",
 						})}
 					</span>
 				</div>

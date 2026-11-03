@@ -50,14 +50,19 @@ vi.mock("@/lib/prisma", () => ({
 	default: {
 		pond: { findMany: vi.fn() },
 		cropCycle: { findMany: vi.fn() },
+		mortalityLog: { findMany: vi.fn(async () => []) },
 	},
 }));
 
 vi.mock("@/components/harvest/harvest-calendar", () => ({
-	HarvestCalendar: (props: { activeCycles: { id: string }[]; recentCycles: { id: string }[] }) => (
+	HarvestCalendar: (props: {
+		activeCycles: { id: string; liveCount?: number | null }[];
+		recentCycles: { id: string }[];
+	}) => (
 		<div
 			data-testid="calendar"
 			data-active={props.activeCycles.map((cycle) => cycle.id).join(",")}
+			data-live={props.activeCycles.map((cycle) => cycle.liveCount).join(",")}
 			data-recent={props.recentCycles.map((cycle) => cycle.id).join(",")}
 		/>
 	),
@@ -105,6 +110,7 @@ describe("admin calendar all-ponds data", () => {
 		const html = renderToStaticMarkup(await AdminCalendarPage());
 
 		expect(html).toContain('data-active="active-old"');
+		expect(html).toContain('data-live="1000"');
 		expect(html).toContain('data-recent="harvested-new"');
 		// The two reads are separated by status, not by a shared mixed cap.
 		expect(mockCycle.findMany).toHaveBeenNthCalledWith(

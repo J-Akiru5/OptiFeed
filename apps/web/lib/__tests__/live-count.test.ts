@@ -25,6 +25,7 @@ const db = vi.hoisted(() => {
 			},
 			mortalityLog: {
 				aggregate: vi.fn(),
+				findMany: vi.fn(),
 			},
 		},
 	};
@@ -32,7 +33,13 @@ const db = vi.hoisted(() => {
 
 vi.mock("@/lib/prisma", () => ({ default: db.prisma }));
 
-import { deriveLiveCount, getLiveCountForPond, mortalityRatePct } from "@/lib/growth/live-count";
+import {
+	deriveLiveCount,
+	getLiveCountForPond,
+	getLiveCountsForCycles,
+	mortalityFitsLive,
+	mortalityRatePct,
+} from "@/lib/growth/live-count";
 
 const POND = "pond-1";
 const STOCKED_AT = new Date("2026-10-01T00:00:00.000Z");
@@ -98,6 +105,18 @@ describe("deriveLiveCount", () => {
 	});
 });
 
+describe("mortalityFitsLive", () => {
+	it("accepts a count up to the live population and rejects one above it (#764)", () => {
+		expect(mortalityFitsLive(300, 285, 15)).toBe(true);
+		expect(mortalityFitsLive(300, 286, 15)).toBe(false);
+		expect(mortalityFitsLive(300, 0, 301)).toBe(false);
+	});
+
+	it("cannot bound a pond with no stock source", () => {
+		expect(mortalityFitsLive(null, 999, 1)).toBe(true);
+	});
+});
+
 describe("mortalityRatePct", () => {
 	it("reports the dead share of the stocked count", () => {
 		expect(mortalityRatePct(75, 600)).toBeCloseTo(12.5);
@@ -155,5 +174,42 @@ describe("getLiveCountForPond", () => {
 		await getLiveCountForPond(POND, { population: 525 });
 
 		expect(db.prisma.pond.findUnique).not.toHaveBeenCalled();
+	});
+});
+
+describe("getLiveCountsForCycles", () => {
+	it("supplies the live count for every active cycle in one read (#764)", async () => {
+		db.prisma.mortalityLog.findMany.mockResolvedValue([
+			{ pondId: "pond-1", count: 100, recordedAt: new Date("2026-10-05T00:00:00.000Z") },
+			{ pondId: "pond-2", count: 40, recordedAt: new Date("2026-10-06T00:00:00.000Z") },
+			// Before pond-2's stocking date, so it belongs to the previous cycle.
+			{ pondId: "pond-2", count: 25, recordedAt: new Date("2026-09-15T00:00:00.000Z") },
+		]);
+
+		const live = await getLiveCountsForCycles([
+			{
+				cycleId: "cycle-1",
+				pondId: "pond-1",
+				stockingCount: 1000,
+				stockingDate: "2026-10-01",
+			},
+			{
+				cycleId: "cycle-2",
+				pondId: "pond-2",
+				stockingCount: 800,
+				stockingDate: "2026-10-01",
+			},
+		]);
+
+		expect(live.get("cycle-1")).toBe(900);
+		expect(live.get("cycle-2")).toBe(760);
+		expect(db.prisma.mortalityLog.findMany).toHaveBeenCalledTimes(1);
+	});
+
+	it("returns no entries without active cycles", async () => {
+		const live = await getLiveCountsForCycles([]);
+
+		expect(live.size).toBe(0);
+		expect(db.prisma.mortalityLog.findMany).not.toHaveBeenCalled();
 	});
 });

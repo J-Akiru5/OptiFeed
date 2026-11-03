@@ -33,6 +33,10 @@ export function MortalityForm({
 	const [pending, startTransition] = useTransition();
 	const [error, setError] = useState<string | null>(null);
 	const [liveAfter, setLiveAfter] = useState<number | null>(null);
+	// Set only when the server refused an over-live count. Showing the
+	// correction checkbox after that refusal makes the override deliberate
+	// instead of a hidden way past the guard (#764).
+	const [overLiveAt, setOverLiveAt] = useState<number | null>(null);
 	const formRef = useRef<HTMLFormElement>(null);
 
 	if (!canWrite) return null;
@@ -43,11 +47,19 @@ export function MortalityForm({
 			formData.set("pondId", pondId);
 			const result = await saveMortalityLog(formData as FormData);
 			if (!result.success) {
-				setError(
-					result.error === "validation" ? t("mortality.invalidCount") : t("mortality.saveFailed"),
-				);
+				if (result.error === "exceeds_live") {
+					const live = result.live?.live ?? 0;
+					setOverLiveAt(live);
+					setError(t("mortality.exceedsLive", { live }));
+				} else {
+					setOverLiveAt(null);
+					setError(
+						result.error === "validation" ? t("mortality.invalidCount") : t("mortality.saveFailed"),
+					);
+				}
 				return;
 			}
+			setOverLiveAt(null);
 			setLiveAfter(result.live?.live ?? null);
 			formRef.current?.reset();
 			router.refresh();
@@ -77,6 +89,7 @@ export function MortalityForm({
 
 			{open && (
 				<form
+					id="mortality-form"
 					ref={formRef}
 					action={submit}
 					className="mt-4 grid gap-3 sm:grid-cols-[auto_1fr_auto] sm:items-end"
@@ -126,6 +139,18 @@ export function MortalityForm({
 					<AlertTriangle className="w-4 h-4" aria-hidden="true" />
 					{error}
 				</p>
+			)}
+			{overLiveAt !== null && (
+				<label className="mt-3 flex items-start gap-2 text-xs font-semibold text-amber-800 dark:text-amber-300">
+					<input
+						type="checkbox"
+						name="confirmOverLive"
+						value="true"
+						form="mortality-form"
+						className="mt-0.5 h-4 w-4 shrink-0 rounded border-amber-400 accent-rose-600"
+					/>
+					<span>{t("mortality.confirmOverLive", { live: overLiveAt })}</span>
+				</label>
 			)}
 			{liveAfter !== null && !error && (
 				<p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">

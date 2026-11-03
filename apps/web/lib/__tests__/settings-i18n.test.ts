@@ -188,9 +188,9 @@ describe("the settings pages read their copy from the catalogue", () => {
 		}
 	});
 
-	it("keeps LiveClock on the shared date helper", () => {
+	it("keeps LiveClock on the shared farm-time helper", () => {
 		const clock = readFileSync(join(webRoot, "components/LiveClock.tsx"), "utf8");
-		expect(clock).toContain("formatDateTimeLocal(");
+		expect(clock).toContain("formatFarmDateTime(");
 		expect(clock).toContain('useTranslations("dates")');
 	});
 });

@@ -6,6 +6,7 @@ import {
 	parseDateParam,
 	parsePage,
 	resolveDateRange,
+	resolveFarmDateRange,
 	resolvePagination,
 } from "@/lib/pagination";
 import { describe, expect, it } from "vitest";
@@ -60,6 +61,33 @@ describe("resolveDateRange", () => {
 		const range = resolveDateRange("2026-10-05", "2026-10-03");
 		expect(range?.gte?.toISOString()).toBe("2026-10-03T00:00:00.000Z");
 		expect(range?.lt?.toISOString()).toBe("2026-10-06T00:00:00.000Z");
+	});
+});
+
+describe("resolveFarmDateRange", () => {
+	it("uses Asia/Manila midnight, so a 00:30 PHT row is inside the day", () => {
+		const range = resolveFarmDateRange("2026-10-28", "2026-10-28");
+		const gte = range?.gte;
+		const lt = range?.lt;
+
+		expect(gte?.toISOString()).toBe("2026-10-27T16:00:00.000Z");
+		expect(lt?.toISOString()).toBe("2026-10-28T16:00:00.000Z");
+		if (!gte || !lt) throw new Error("expected a farm date range");
+		expect(new Date("2026-10-27T16:30:00.000Z") >= gte).toBe(true);
+		expect(new Date("2026-10-28T15:30:00.000Z") < lt).toBe(true);
+	});
+
+	it("swaps a reversed farm-date range instead of returning nothing", () => {
+		const range = resolveFarmDateRange("2026-10-05", "2026-10-03");
+
+		expect(range?.gte?.toISOString()).toBe("2026-10-02T16:00:00.000Z");
+		expect(range?.lt?.toISOString()).toBe("2026-10-05T16:00:00.000Z");
+	});
+
+	it("ignores malformed dates and supports one-sided ranges", () => {
+		expect(resolveFarmDateRange("2026-02-31", undefined)).toBeUndefined();
+		expect(resolveFarmDateRange("2026-10-01", undefined)?.lt).toBeUndefined();
+		expect(resolveFarmDateRange(undefined, "2026-10-03")?.gte).toBeUndefined();
 	});
 });
 

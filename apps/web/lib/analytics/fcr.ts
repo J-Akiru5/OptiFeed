@@ -58,6 +58,26 @@ export function computeFcr(
 	return { feedGivenKg: feed, biomassGainKg, fcr };
 }
 
+export type FcrTrendDirection = "up" | "down" | "flat";
+
+/**
+ * Direction of the last two comparable FCR values (oldest first).
+ *
+ * The Growth card used to claim "trending downwards" on every render, even on
+ * a new pond with no samples (#752). A trend is only a claim about two data
+ * points, so fewer than two finite values returns null and the card stays
+ * silent instead of inventing a direction.
+ */
+export function fcrTrendDirection(values: readonly number[]): FcrTrendDirection | null {
+	const comparable = values.filter((value) => Number.isFinite(value));
+	if (comparable.length < 2) return null;
+	const previous = comparable[comparable.length - 2];
+	const latest = comparable[comparable.length - 1];
+	if (latest < previous) return "down";
+	if (latest > previous) return "up";
+	return "flat";
+}
+
 /**
  * Feed actually given inside one window: the sum of FeedEvent grams from
  * feed_dispensed events (deprecated FeedingEvent rows are not counted — those

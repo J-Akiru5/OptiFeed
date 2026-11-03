@@ -32,7 +32,7 @@ import {
 	getGrowthHistory,
 	isGrowthHistoryTab,
 } from "@/lib/growth-history";
-import { getPageCount, parsePage, resolveDateRange } from "@/lib/pagination";
+import { getPageCount, parsePage, resolveFarmDateRange } from "@/lib/pagination";
 import { UNLABELED_BATCH, getBiomassTrend } from "@/lib/pond-charts";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -74,7 +74,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 	const to = first(raw.to) ?? "";
 	const q = first(raw.q) ?? "";
 
-	const explicitRange = resolveDateRange(from || undefined, to || undefined);
+	const explicitRange = resolveFarmDateRange(from || undefined, to || undefined);
 	const searchRange = parseQueryFilters(q).recordedBetween;
 	const range = explicitRange ?? searchRange;
 

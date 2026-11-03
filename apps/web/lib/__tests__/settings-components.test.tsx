@@ -380,9 +380,10 @@ describe("change password form", () => {
 });
 
 describe("LiveClock", () => {
-	it("renders the localized time from lib/date-local", () => {
+	it("renders the localized farm time from lib/date-local", () => {
 		vi.useFakeTimers();
-		vi.setSystemTime(new Date("2026-07-08T16:19:00"));
+		// 08:19 UTC is 4:19 PM in Asia/Manila on any test-runner timezone.
+		vi.setSystemTime(new Date("2026-07-08T08:19:00.000Z"));
 
 		render(<LiveClock />);
 
@@ -394,6 +395,6 @@ describe("LiveClock", () => {
 		const { join } = await import("node:path");
 		const source = readFileSync(join(__dirname, "../../components/LiveClock.tsx"), "utf8");
 		expect(source).not.toContain("toLocaleTimeString");
-		expect(source).toContain("formatDateTimeLocal");
+		expect(source).toContain("formatFarmDateTime");
 	});
 });

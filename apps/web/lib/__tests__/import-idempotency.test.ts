@@ -75,16 +75,14 @@ beforeEach(() => {
 			return result ? { result } : null;
 		},
 	);
-	tx.importConfirmation.create.mockImplementation(
-		async ({ data }: { data: ConfirmationData }) => {
-			const key = `${data.ownerId}\0${data.idempotencyKey}`;
-			if (store.has(key)) {
-				throw Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
-			}
-			store.set(key, data.result);
-			return data;
-		},
-	);
+	tx.importConfirmation.create.mockImplementation(async ({ data }: { data: ConfirmationData }) => {
+		const key = `${data.ownerId}\0${data.idempotencyKey}`;
+		if (store.has(key)) {
+			throw Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
+		}
+		store.set(key, data.result);
+		return data;
+	});
 });
 
 describe("confirmImport idempotency (#723)", () => {
@@ -136,7 +134,8 @@ describe("confirmImport idempotency (#723)", () => {
 		expect(replay).toEqual(first);
 		expect(tx.biomassLog.createMany).toHaveBeenCalledTimes(1);
 
-		const where = prisma.importConfirmation.findUnique.mock.calls[0]?.[0].where as ConfirmationWhere;
+		const where = prisma.importConfirmation.findUnique.mock.calls[0]?.[0]
+			.where as ConfirmationWhere;
 		expect(where.ownerId_idempotencyKey.idempotencyKey).toMatch(/^payload-sha256:[a-f0-9]{64}$/);
 
 		// A different payload is a different action, so it still imports.

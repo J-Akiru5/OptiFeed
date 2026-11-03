@@ -35,11 +35,7 @@ function resolveImportIdempotencyKey(
 ): string {
 	const explicit = supplied?.trim();
 	if (explicit) return explicit;
-	const digest = createHash("sha256")
-		.update(type)
-		.update("\0")
-		.update(csvData)
-		.digest("hex");
+	const digest = createHash("sha256").update(type).update("\0").update(csvData).digest("hex");
 	return `payload-sha256:${digest}`;
 }
 

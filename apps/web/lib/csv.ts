@@ -9,6 +9,23 @@ export type ExportableType =
 	| "notifications"
 	| "audit_events";
 
+/**
+ * The datasets a user may upload through the import routes.
+ *
+ * `audit_events` is export-only (#744): its `source`, `actorId` and `createdAt`
+ * are the audit trail's provenance, so accepting them from a file lets a tenant
+ * writer forge a system event, attribute it to another actor, or backdate it.
+ * The export stays available for review.
+ */
+export const IMPORTABLE_TYPES: readonly ExportableType[] = [
+	"biomass_logs",
+	"fish_samples",
+	"feed_events",
+	"fcr_reports",
+	"feed_level_logs",
+	"notifications",
+] as const;
+
 export const EXPORT_LABELS: Record<ExportableType, string> = {
 	biomass_logs: "Biomass Logs",
 	fish_samples: "Fish Samples",

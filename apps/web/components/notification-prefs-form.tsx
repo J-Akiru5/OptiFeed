@@ -12,6 +12,8 @@ interface NotificationPrefsFormProps {
 	pondId: string;
 	initialPrefs: unknown;
 	canWrite?: boolean;
+	/** Owner/admin only: the row is shared by every alert recipient (#748). */
+	canManage?: boolean;
 }
 
 type Feedback = { kind: "success" | "error"; message: string } | null;
@@ -20,6 +22,7 @@ export function NotificationPrefsForm({
 	pondId,
 	initialPrefs,
 	canWrite = true,
+	canManage = true,
 }: NotificationPrefsFormProps) {
 	const t = useTranslations("dashboard.profileSettings");
 	// Legacy rows may only contain the feeding/device flags. Normalize before
@@ -78,11 +81,16 @@ export function NotificationPrefsForm({
 
 	return (
 		<DashboardSection
-			title={t("notifications")}
-			description={t("notificationsDesc")}
+			title={t("alertSettingsTitle")}
+			description={t("alertSettingsDesc")}
 			icon={Bell}
 			data-help="notification-prefs"
 		>
+			{!canManage && (
+				<p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+					{t("alertSettingsAdminOnly")}
+				</p>
+			)}
 			<div className="space-y-1">
 				{toggles.map((toggle) => (
 					<label
@@ -102,7 +110,7 @@ export function NotificationPrefsForm({
 								type="checkbox"
 								checked={prefs[toggle.key]}
 								onChange={(e) => handleChange(toggle.key, e.target.checked)}
-								disabled={isPending || !canWrite}
+								disabled={isPending || !canWrite || !canManage}
 								className="peer sr-only"
 							/>
 							<span className="block h-6 w-11 rounded-full bg-gray-300 transition-colors peer-checked:bg-[#1E7B34] peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-[#0A3D62] peer-focus-visible:ring-offset-2 peer-disabled:opacity-50 dark:bg-gray-600 dark:peer-focus-visible:ring-[#8fc0ea] dark:peer-focus-visible:ring-offset-gray-900" />

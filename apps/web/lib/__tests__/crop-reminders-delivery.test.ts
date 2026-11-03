@@ -112,7 +112,9 @@ beforeEach(() => {
 	mockCycle.findMany.mockResolvedValue([CYCLE] as never);
 	mockPond.findMany.mockResolvedValue([POND] as never);
 	mockBiomass.groupBy.mockResolvedValue([] as never);
-	mockUser.findMany.mockResolvedValue([{ farmId: "owner-1", email: "owner@example.com" }] as never);
+	mockUser.findMany.mockResolvedValue([
+		{ farmId: "owner-1", contactEmail: "owner@example.com" },
+	] as never);
 	mockReminderLog.findMany.mockResolvedValue([] as never);
 	mockReminderLog.update.mockResolvedValue({} as never);
 	mockPondEvent.findMany.mockResolvedValue([] as never);
@@ -369,12 +371,12 @@ describe("recipient grouping", () => {
 	it("skips blank addresses and returns an empty map when nobody is reachable", () => {
 		expect(
 			collectRecipientsByOwner([
-				{ farmId: "owner-1", email: null },
-				{ farmId: "owner-1", email: "   " },
+				{ farmId: "owner-1", contactEmail: null },
+				{ farmId: "owner-1", contactEmail: "   " },
 			]),
 		).toEqual(new Map());
 		expect(
-			collectRecipientsByOwner([{ farmId: "owner-1", email: "  owner@example.com  " }]).get(
+			collectRecipientsByOwner([{ farmId: "owner-1", contactEmail: "  owner@example.com  " }]).get(
 				"owner-1",
 			),
 		).toEqual(["owner@example.com"]);

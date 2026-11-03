@@ -435,6 +435,7 @@ describe("requestPasswordReset", () => {
 describe("completePasswordReset", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		rateLimit.mockResolvedValue({ success: true, remaining: 2 });
 		user.updateMany.mockResolvedValue({ count: 1 } as never);
 		resetTokens.updateMany.mockResolvedValue({ count: 1 } as never);
 		deliverEmail.mockResolvedValue(true);
@@ -457,6 +458,9 @@ describe("completePasswordReset", () => {
 	});
 
 	it("requires a recovery session", async () => {
+		const supabase = await auth();
+		supabase.getUser.mockResolvedValue({ data: { user: null } });
+
 		const result = await completePasswordReset({
 			newPassword: "NewPassw0rd",
 			confirmPassword: "NewPassw0rd",
@@ -464,7 +468,6 @@ describe("completePasswordReset", () => {
 		});
 
 		expect(result).toEqual({ error: "session" });
-		const supabase = await auth();
 		expect(supabase.updateUser).not.toHaveBeenCalled();
 	});
 

@@ -1,5 +1,6 @@
-import { type ChartLabels, MultiLineTrend } from "@/components/charts";
 import { countSeriesValues } from "@/components/charts/chart-data";
+import type { ChartLabels } from "@/components/charts/chart-frame";
+import { LazyMultiLineTrend } from "@/components/charts/lazy";
 import {
 	DashboardCard,
 	DashboardCardRow,
@@ -219,7 +220,7 @@ export default async function GrowthHistoryPage({ searchParams }: GrowthHistoryP
 			</nav>
 
 			{tab === "biomass" && biomassTrend && (
-				<MultiLineTrend
+				<LazyMultiLineTrend
 					title={t("charts.biomassTitle")}
 					summary={t("charts.biomassSummary", {
 						series: biomassTrend.series.length,

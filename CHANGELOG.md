@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The command center renders the chart layer it already shipped (#707).** #629 built six primitives, the shared range control and four platform read models, but no page imported any of them, so the console a platform admin sees was unchanged. `/superadmin` now draws sections C–G from the real queries: registrations per day (`getGrowthSeries`), feed by organization → pond sized by mass (`getFeedBreakdown`), the day × hour feeding grid (`getFeedHeatmap`), telemetry freshness and current fault distribution (`getFleetMonitor` plus the zero-query summaries), and a newest-first activity rail built from the failed-job and pending-approval rows the page already loaded. The shared `ChartRangeProvider`/`ChartRangeControl` wraps the page: choosing 7/30/90 writes `?range=`, so the queries re-run rather than only the plot, and a custom window narrows the widest loaded window in the browser because `parseAnalyticsRange` has no custom spelling. Each read is isolated with `Promise.allSettled`: a failing section renders its own "could not load" panel (the fleet monitor's `sourceError` does the same) instead of an empty axis, while an auth redirect raised inside a loader is re-thrown so a non-admin never gets the console. The range filter is anchored to the newest bucket the server returned, which stops the newest day from disappearing when the browser's day boundary lags the Asia/Manila one. `superadmin-command-center-wiring.test.ts` asserts the imports themselves, which is the part the isolated component suites could not see.
+
+### Changed
+
+- **Recharts is out of every route's first load.** Splitting only the command center's charts left Turbopack holding a sync and an async copy of the chart library: every route that still imported `@/components/charts` statically grew ~+74 kB. The five remaining static consumers (`/admin`, `/dashboard`, `/dashboard/history`, `/dashboard/growth/history`, `/superadmin/operations`) now import the same `charts/lazy` entry points, which removes the duplicate copy and takes the library off their critical path too. Measured with `scripts/perf/bundle-budget.mjs` on the same build: `/superadmin` 1374.4 → 974.9 kB, `/dashboard` 1471.8 → 1058.1, `/dashboard/history` 1447.3 → 1033.4, `/dashboard/growth/history` 1404.2 → 990.3, `/superadmin/operations` 1380.3 → 965.7, `/admin` 1106.0 → 691.4. Those six entries in `perf/bundle-budget.json` are regenerated from that build, so the gate now holds the lower numbers rather than the pre-split ceiling.
+
 ## [1.50.0] - 2026-11-03
 
 ### Added

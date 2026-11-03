@@ -38,8 +38,8 @@
 			"budgetKb": 704.9
 		},
 		"/[locale]/(admin)/admin/page": {
-			"baselineKb": 1106,
-			"budgetKb": 1128.2
+			"baselineKb": 691.4,
+			"budgetKb": 705.3
 		},
 		"/[locale]/(admin)/admin/ponds/[pondId]/delete/page": {
 			"baselineKb": 692.8,
@@ -94,8 +94,8 @@
 			"budgetKb": 1021.9
 		},
 		"/[locale]/(dashboard)/dashboard/growth/history/page": {
-			"baselineKb": 1404.2,
-			"budgetKb": 1432.3
+			"baselineKb": 990.3,
+			"budgetKb": 1010.2
 		},
 		"/[locale]/(dashboard)/dashboard/growth/page": {
 			"baselineKb": 1087.3,
@@ -106,8 +106,8 @@
 			"budgetKb": 1002.8
 		},
 		"/[locale]/(dashboard)/dashboard/history/page": {
-			"baselineKb": 1447.3,
-			"budgetKb": 1476.3
+			"baselineKb": 1033.4,
+			"budgetKb": 1054.1
 		},
 		"/[locale]/(dashboard)/dashboard/log-sample/batches/page": {
 			"baselineKb": 991.7,
@@ -122,8 +122,8 @@
 			"budgetKb": 1015.1
 		},
 		"/[locale]/(dashboard)/dashboard/page": {
-			"baselineKb": 1471.8,
-			"budgetKb": 1501.3
+			"baselineKb": 1058.1,
+			"budgetKb": 1079.3
 		},
 		"/[locale]/(dashboard)/dashboard/profile-settings/page": {
 			"baselineKb": 983.1,
@@ -218,8 +218,8 @@
 			"budgetKb": 980.2
 		},
 		"/[locale]/(superadmin)/superadmin/operations/page": {
-			"baselineKb": 1380.3,
-			"budgetKb": 1408
+			"baselineKb": 965.7,
+			"budgetKb": 985.1
 		},
 		"/[locale]/(superadmin)/superadmin/operations/reports/page": {
 			"baselineKb": 962.3,
@@ -238,8 +238,8 @@
 			"budgetKb": 984.9
 		},
 		"/[locale]/(superadmin)/superadmin/page": {
-			"baselineKb": 1374.4,
-			"budgetKb": 1401.9
+			"baselineKb": 974.9,
+			"budgetKb": 994.4
 		},
 		"/[locale]/(superadmin)/superadmin/ponds/page": {
 			"baselineKb": 960.4,

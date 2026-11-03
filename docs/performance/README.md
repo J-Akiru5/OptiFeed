@@ -70,34 +70,35 @@ which is why the manifest derivation (which works for all of them) is the gate.
 
 ### Measured baseline
 
-Shared by every route (`rootMainFiles`): **432.4 kB**.
+Shared by every route (`rootMainFiles`): **432.6 kB**. Re-measured on 2026-11-03, after
+the chart layer moved behind `charts/lazy` (#707).
 
 | Route | Measured | Budget (+2%) |
 |---|---|---|
-| `/[locale]/page` (landing) | 798.2 kB | 814.2 kB |
-| `/[locale]/login/page` | 845.5 kB | 862.5 kB |
-| `/[locale]/privacy/page` | 586.9 kB | 598.7 kB |
-| `/[locale]/terms/page` | 586.9 kB | 598.7 kB |
-| `/[locale]/(dashboard)/dashboard/page` | **1455.4 kB** | 1484.6 kB |
-| `/[locale]/(dashboard)/dashboard/history/page` | 1432.6 kB | 1461.3 kB |
-| `/[locale]/(dashboard)/dashboard/growth/history/page` | 1396.1 kB | 1424.1 kB |
-| `/[locale]/(superadmin)/superadmin/operations/page` | 1346.6 kB | 1373.6 kB |
-| `/[locale]/(superadmin)/superadmin/page` | 1342.3 kB | 1369.2 kB |
-| `/[locale]/(dashboard)/dashboard/calendar/page` | 1200.7 kB | 1224.8 kB |
-| `/[locale]/(dashboard)/dashboard/settings/hardware/page` | 1116.5 kB | 1138.9 kB |
-| `/[locale]/(admin)/admin/page` | 1079.9 kB | 1101.5 kB |
-| `/[locale]/(admin)/admin/audit/page` | 653.4 kB | 666.5 kB |
-| `/[locale]/change-password/page` | 592.7 kB | 604.6 kB |
+| `/[locale]/page` (landing) | 809.0 kB | 825.2 kB |
+| `/[locale]/login/page` | 849.1 kB | 866.1 kB |
+| `/[locale]/privacy/page` | 589.7 kB | 601.5 kB |
+| `/[locale]/terms/page` | 589.7 kB | 601.5 kB |
+| `/[locale]/(dashboard)/dashboard/page` | **1058.1 kB** | 1079.3 kB |
+| `/[locale]/(dashboard)/dashboard/history/page` | 1033.4 kB | 1054.1 kB |
+| `/[locale]/(dashboard)/dashboard/growth/history/page` | 990.3 kB | 1010.2 kB |
+| `/[locale]/(superadmin)/superadmin/operations/page` | 965.7 kB | 985.1 kB |
+| `/[locale]/(superadmin)/superadmin/page` | 974.9 kB | 994.4 kB |
+| `/[locale]/(dashboard)/dashboard/calendar/page` | 1248.2 kB | 1274.0 kB |
+| `/[locale]/(dashboard)/dashboard/settings/hardware/page` | 1193.7 kB | 1206.8 kB |
+| `/[locale]/(admin)/admin/page` | 691.4 kB | 705.3 kB |
+| `/[locale]/(admin)/admin/audit/page` | 690.0 kB | 704.8 kB |
+| `/[locale]/change-password/page` | 595.2 kB | 607.2 kB |
 
-All 56 measured routes are in `perf/bundle-budget.json` with their own `budgetKb`.
+All 71 measured routes are in `perf/bundle-budget.json` with their own `budgetKb`.
 
 ### Gate semantics
 
 - A route whose measured size exceeds its `budgetKb` fails the job (exit 1).
-- A route that has no entry in the file is compared against `defaultMaxKb` (1484.6 kB = the largest
-  measured route + 2%). A new page therefore cannot import a heavy library unnoticed, and inherits the
-  current worst case until someone adds an explicit entry for it.
-- The shared bootstrap chunks have their own ceiling (441.1 kB).
+- A route that has no entry in the file is compared against `defaultMaxKb` (1501.3 kB = the largest
+  route when the file was last regenerated, + 2%). A new page therefore cannot import a heavy library
+  unnoticed, and inherits the current worst case until someone adds an explicit entry for it.
+- The shared bootstrap chunks have their own ceiling (441.3 kB).
 - A budget entry for a route that no longer exists is reported as a warning, not an error.
 - A missing build output, a missing chunk on disk, or an unreadable budget file exits 2 — the script
   never reports success it did not measure.

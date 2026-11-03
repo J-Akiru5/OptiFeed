@@ -114,6 +114,7 @@ vi.mock("@/components/pwa/snapshot-writer", () => ({ SnapshotWriter: () => null 
 
 import HistoryPage from "@/app/[locale]/(dashboard)/dashboard/history/page";
 import { getHopperLevelSeries } from "@/lib/pond-charts";
+import { renderPageHtml } from "./helpers/render-page";
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -121,7 +122,7 @@ beforeEach(() => {
 
 describe("history charts (#188)", () => {
 	it("renders feed-per-day and hopper charts above the event log", async () => {
-		const html = renderToStaticMarkup(await HistoryPage({ searchParams: Promise.resolve({}) }));
+		const html = await renderPageHtml(await HistoryPage({ searchParams: Promise.resolve({}) }));
 
 		expect(html).toContain("Feed per day");
 		expect(html).toContain("Hopper level");

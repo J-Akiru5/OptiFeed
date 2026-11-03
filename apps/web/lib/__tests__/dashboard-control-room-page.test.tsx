@@ -174,6 +174,7 @@ import DashboardHomePage from "@/app/[locale]/(dashboard)/dashboard/page";
 import { getDeviceHealthSafe } from "@/lib/device-health";
 import { HEALTHY_VIEW } from "@/lib/device-health-model";
 import prisma from "@/lib/prisma";
+import { renderPageHtml } from "./helpers/render-page";
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -181,7 +182,10 @@ beforeEach(() => {
 
 describe("dashboard control room page", () => {
 	it("assembles the viewport layout with the pond overview, charts and rail", async () => {
-		const html = renderToStaticMarkup(
+		// The three charts are split through `charts/lazy` (#707), so the page is
+		// rendered with the streaming renderer: the static one stops at the
+		// skeleton and would only assert the placeholder classes.
+		const html = await renderPageHtml(
 			await DashboardHomePage({ searchParams: Promise.resolve({}) }),
 		);
 

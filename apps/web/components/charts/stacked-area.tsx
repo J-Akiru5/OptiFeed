@@ -63,7 +63,7 @@ export function StackedArea({
 
 	const rows = useMemo(() => {
 		if (!temporal || !range) return stack.rows;
-		return filterByRange(stack.rows, (row) => row.label, range.range);
+		return filterByRange(stack.rows, (row) => row.label, range.range, range.now);
 	}, [stack.rows, temporal, range]);
 
 	const series = useMemo(

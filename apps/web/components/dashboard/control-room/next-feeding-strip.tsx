@@ -59,7 +59,7 @@ export function NextFeedingStrip({
 				className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full bg-[#0A3D62]/5 dark:bg-[#5b9bd5]/10"
 			/>
 			<div className="relative flex min-w-0 flex-col gap-4 xl:flex-row xl:items-center xl:justify-between xl:gap-6">
-				<div className="flex min-w-0 items-center gap-3">
+				<div className="flex min-w-0 items-center gap-3 min-[1700px]:min-w-[10rem] min-[1700px]:flex-1">
 					<span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#0A3D62]/5 text-[#0A3D62] dark:bg-white/5 dark:text-[#8fc0ea]">
 						<Clock aria-hidden="true" className="h-5 w-5" />
 					</span>
@@ -67,7 +67,10 @@ export function NextFeedingStrip({
 						<p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#3D5568] dark:text-gray-400">
 							{label}
 						</p>
-						<p className="truncate text-base font-black text-[#0A3D62] dark:text-gray-100 md:text-lg">
+						<p
+							className="truncate text-base font-black text-[#0A3D62] dark:text-gray-100 min-[1700px]:line-clamp-2 min-[1700px]:whitespace-normal min-[1700px]:break-words md:text-lg"
+							data-fit="hero-pond"
+						>
 							{pondName}
 						</p>
 					</div>
@@ -102,7 +105,10 @@ export function NextFeedingStrip({
 						<dt className="text-[10px] font-bold uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 							{volumeLabel}
 						</dt>
-						<dd className="text-xl font-black text-[#C2410C] dark:text-[#ff8a5c] md:text-2xl">
+						<dd
+							className="whitespace-nowrap text-xl font-black text-[#C2410C] dark:text-[#ff8a5c] md:text-2xl"
+							data-fit="hero-volume"
+						>
 							{volumeValue}
 						</dd>
 					</div>
@@ -110,7 +116,10 @@ export function NextFeedingStrip({
 						<dt className="text-[10px] font-bold uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
 							{rateLabel}
 						</dt>
-						<dd className="text-xl font-black text-[#0A3D62] dark:text-white md:text-2xl">
+						<dd
+							className="whitespace-nowrap text-xl font-black text-[#0A3D62] dark:text-white md:text-2xl"
+							data-fit="hero-rate"
+						>
 							{rateValue}
 						</dd>
 					</div>

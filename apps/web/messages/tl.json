@@ -300,7 +300,14 @@
 					"showing": "Ipinapakita ang {from}–{to} ng {total}",
 					"previous": "Nakaraan",
 					"next": "Susunod",
-					"label": "Pagination ng kasaysayan ng kalibrasyon"
+					"label": "Pagination ng kasaysayan ng kalibrasyon",
+					"temperature": {
+						"title": "Calibration ng temperatura",
+						"empty": "Wala pang naka-save na calibration ng temperatura.",
+						"date": "Petsa",
+						"offset": "Offset",
+						"minimum": "Minimum sa pagpapakain"
+					}
 				},
 				"recalibration": {
 					"title": "Iskedyul ng recalibration",
@@ -445,7 +452,7 @@
 			"healthFault": "May sira",
 			"healthUnknown": "Hindi iniulat",
 			"viewerLabel": "Feeder 3D",
-			"canvasLabel": "Interactive na 3D na modelo ng {label}. I-drag upang i-orbit at gamitin ang mga preset upang palitan ang view.",
+			"canvasLabel": "Interactive na 3D na modelo ng {label}. I-drag upang i-orbit, i-right-drag upang i-pan, i-scroll upang i-zoom, at gamitin ang mga preset upang palitan ang view.",
 			"statusIdle": "Idle",
 			"statusDispensing": "Nagpapakain",
 			"statusPaused": "Naka-pause",
@@ -461,9 +468,12 @@
 			"presetRear": "Likod",
 			"presetTop": "Taas",
 			"simpleView": "Simpleng view",
+			"resetView": "I-reset ang view",
+			"lockCamera": "I-lock ang camera",
+			"unlockCamera": "I-unlock ang camera",
 			"modelVersion": "Modelo",
 			"statusAnnouncement": "Kalagayan ng feeder: {status}",
-			"isoLabelsTip": "Lumalabas lang ang mga label ng komponent kapag nasa Isometric view ang modelo. Naka-lock ang Iso; pumili ng ibang view para mag-orbit.",
+			"isoLabelsTip": "Lumalabas lang ang mga label ng komponent kapag nasa Isometric view ang modelo.",
 			"back": "Bumalik sa dashboard",
 			"desc": "Live na 3D na view ng feeder sa {pond}.",
 			"detailsLabel": "Mga detalye ng device",
@@ -489,7 +499,12 @@
 			"componentsTitle": "Mga komponente",
 			"statusWeak": "Mahinang signal",
 			"diagTitle": "Diagnostics ng firmware",
-			"diagEmpty": "Wala pang diagnostics na naiulat (pupunan ito ng unang heartbeat na may diag object)."
+			"diagEmpty": "Wala pang diagnostics na naiulat (pupunan ito ng unang heartbeat na may diag object).",
+			"backTo3d": "Bumalik sa 3D view",
+			"signal": "Signal",
+			"firmware": "Firmware",
+			"openLargeScreen": "Buksan ang malaking screen",
+			"largeScreenDesc": "Full-screen na live view para sa wall display."
 		},
 		"adminOverview": {
 			"chartActivityRange": "Saklaw: {from} – {to} · {days} araw sa bukid (Asia/Manila).",
@@ -698,7 +713,9 @@
 					"saveFailed": "Hindi ma-save ang larawan. Subukan muli."
 				}
 			},
-			"emailNone": "Walang email na nakatala. Humiling sa iyong administrator na magdagdag nito para makapag-reset ka ng password."
+			"emailNone": "Walang email na nakatala. Humiling sa iyong administrator na magdagdag nito para makapag-reset ka ng password.",
+			"emailMissingTitle": "Walang email sa rekord",
+			"emailMissingDesc": "Hindi available ang pag-reset ng password sa email hangga't walang contact email na idinagdag ng administrator. Hilingin sa may-ari ng organisasyon o platform administrator na magdagdag."
 		},
 		"fcrCalculator": {
 			"setAsTarget": "Gawing growth target",
@@ -1272,6 +1289,7 @@
 			"title": "Antas ng Pakain",
 			"lastKnown": "Huling alam: {percent}%",
 			"offline": "Offline",
+			"sensorOffline": "Offline ang ultrasonic",
 			"noReadingYet": "Wala pang reading",
 			"readingTime": "{date}, {time}",
 			"unknownTime": "Hindi available ang oras ng reading",
@@ -1283,6 +1301,20 @@
 			"lowRefill": "Mababa: mag-refill agad",
 			"ok": "OK",
 			"noData": "Walang data"
+		},
+		"monitoring": {
+			"title": "Pagsubaybay",
+			"statusOnline": "Online",
+			"statusWeak": "Mahinang signal",
+			"statusOffline": "Offline",
+			"statusSafeMode": "Safe mode",
+			"statusFault": "{count, plural, one {# fault} other {# fault}}",
+			"statusNoDevice": "Walang naka-pares na feeder",
+			"healthSafeMode": "Safe mode: tinatanggihan ang pagpapakain",
+			"healthFaults": "{count, plural, one {# aktibong fault} other {# aktibong fault}}",
+			"healthClear": "Walang naiulat na fault",
+			"lastKnownShort": "Huling alam",
+			"summaryLabel": "{status}. Antas ng hopper {percent}."
 		},
 		"home": {
 			"noData": "Wala pang pond na nakatalaga. Hilingin sa administrator na magtalaga ng isa.",
@@ -1632,7 +1664,56 @@
 			"howCalculatedTitle": "Paano ito kinakalkula",
 			"howBiomass": "Kabuuang biomass = bilang ng isda × karaniwang timbang ng katawan.",
 			"howDailyFeed": "Pang-araw-araw na pakain = kabuuang biomass × rate ng pagpapakain.",
-			"howPerMeal": "Pakain bawat pagkain = pang-araw-araw na pakain ÷ pagpapakain bawat araw."
+			"howPerMeal": "Pakain bawat pagkain = pang-araw-araw na pakain ÷ pagpapakain bawat araw.",
+			"feedPerFeeding": "Pagkaing ibibigay bawat pagpapakain",
+			"dailyTotal": "Kabuuan kada araw {grams}g · {feeds} pagpapakain kada araw",
+			"savedTo": "Na-save sa sampling batch <bold>{label}</bold>",
+			"savedToUnlabeled": "Na-save nang walang sampling batch",
+			"deviceOfflineNote": "Offline ang device — maiaapply ang bagong schedule kapag nakakonekta ito muli.",
+			"statusUpdated": "Na-update ang schedule ng device: {previous}g → {current}g bawat pagpapakain.",
+			"statusUnchanged": "Nasa {current}g na ang schedule ng device bawat pagpapakain — walang pagbabago.",
+			"statusRejectedDeviation": "Pinanatili ang schedule sa {previous}g — ang nakalkulang {calculated}g ay lumalayo nang higit sa 50% sa kasalukuyang halaga. Suriin ito bago i-apply.",
+			"statusRejectedOutOfRange": "Pinanatili ang schedule sa {previous}g — ang nakalkulang {calculated}g ay labas sa pinapayagang saklaw.",
+			"statusSkippedConfig": "Walang pagbabago sa schedule ng device — itakda muna ang feeding rate ng pond at ang bilang ng pagpapakain kada araw.",
+			"statusSkippedNoDevice": "Walang pagbabago sa schedule ng device — walang naka-link na device sa pond na ito.",
+			"statusSkippedNoPopulation": "Walang pagbabago sa schedule ng device — itakda ang populasyon ng isda sa pond para makalkula ang biomass.",
+			"statusSkippedTargetPlan": "Na-save ang sample. Hindi pa due ang target growth plan para sa isa pang adjustment — buksan ang Growth para makita ang susunod na petsa.",
+			"logAnother": "Mag-log ng Isa Pang Sample",
+			"backToDashboard": "Bumalik sa Dashboard",
+			"averageMode": "Average na Mode",
+			"individualMode": "Indibidwal na Mode",
+			"batchOptionalLabel": "Sampling batch (opsyonal)",
+			"batchPlaceholder": "hal. Sampling batch 2026-10 A",
+			"weightInputLabel": "Average na Timbang ng Isda (gramo)",
+			"weightPlaceholder": "hal. 220",
+			"lengthInputPlaceholder": "hal. 24",
+			"sampleCountInputLabel": "Bilang ng Sample na Isda",
+			"individualHeading": "Sukat ng Bawat Isda",
+			"addFish": "Magdagdag ng Isda",
+			"fishWeightPlaceholder": "Timbang (g)",
+			"fishLengthPlaceholder": "Haba (cm)",
+			"fishWeightLabel": "Timbang ng isda {index} sa gramo",
+			"fishLengthLabel": "Haba ng isda {index} sa sentimetro",
+			"removeFish": "Alisin ang isda {index}",
+			"errorMeasurements": "Suriin ang mga sukat. Lahat ng halaga ay dapat higit sa 0.",
+			"errorRowWeight": "Ang timbang ay dapat higit sa 0",
+			"errorRowLength": "Ang haba ay dapat 0 o higit pa",
+			"errorFixRows": "Ayusin ang mga naka-highlight na hilera ng isda.",
+			"errorNoValidFish": "Magdagdag ng kahit isang isda na may valid na timbang.",
+			"errorSaveFailed": "Hindi ma-save ang biomass log. Subukan muli.",
+			"sampledCount": "Na-sample ang <bold>{count}</bold> isda.",
+			"calcAbw": "Nakalkulang Average Body Weight (ABW): <bold>{weight}g</bold>.",
+			"avgLengthLine": "Average na Haba: <bold>{length}cm</bold>",
+			"totalBiomass": "Kabuuang Biomass",
+			"hintSetFishCount": "Itakda ang bilang ng isda sa pond para makalkula",
+			"formulaBiomass": "= bilang ng isda × average na timbang",
+			"dailyFeed": "Pagkain Kada Araw",
+			"formulaDailyFeed": "= biomass × {rate}%",
+			"feedPerMeal": "Pagkain Bawat Pagpapakain",
+			"formulaPerMeal": "= kada araw ÷ {feeds} pagpapakain",
+			"biomassBreakdown": "({fish} isda × {weight} g)",
+			"dailyBreakdown": "({biomass}g × {rate}%)",
+			"perMealBreakdown": "(÷ {feeds} pagpapakain)"
 		},
 		"history": {
 			"amount": "HALAGA",
@@ -2279,7 +2360,11 @@
 			"refusalReasonTooSoon": "masyadong maaga mula sa huling dose",
 			"refusalReasonHourlyLimit": "naabot na ang limitasyon kada oras",
 			"refusalReasonRelayOverrun": "lumampas ang relay",
-			"refusalReasonOther": "{code}"
+			"refusalReasonOther": "{code}",
+			"healthUnknownTitle": "Hindi ma-verify ang kalusugan ng feeder",
+			"healthUnknownBody": "Nabigo ang pagbasa ng kalusugan, kaya hindi masasabi ng page na ito kung ligtas ang feeder. Hindi ito iniuulat na healthy.",
+			"healthUnknownLast": "Huling na-verify {date}, {time}",
+			"healthUnknownChecked": "Nabigo ang pagbasa {date}, {time}"
 		},
 		"audit": {
 			"title": "Talaan ng Audit",
@@ -2544,6 +2629,22 @@
 			"downloadBody": "Na-save ang {filename}. Ang SHA-256 ng payload ay {sha256}; dapat itong tumugma sa checksum sa kasaysayan.",
 			"incomplete": "Mukhang hindi kumpleto ang pag-download ng {filename} (nawawala ang checksum marker). Patakbuhin muli ang export.",
 			"stepUpAction": "i-download ang export ng database"
+		},
+		"waterTemp": {
+			"title": "Temperatura ng Tubig",
+			"iconLabel": "Temperatura ng tubig",
+			"statusOk": "OK",
+			"statusStale": "Luma na",
+			"statusBelowMinimum": "Mababa sa minimum",
+			"statusOffline": "Offline ang Sensor",
+			"lastUpdated": "Huling na-update",
+			"feedingMinimum": "Minimum sa pagpapakain: {temp}°C",
+			"belowMinimumNote": "Mas malamig pa sa minimum na {temp}°C ng pond na ito para sa pagpapakain. Hindi hinaharang ang pagpapakain — suriin muna ang reaksyon ng isda bago ang naka-iskedyul na pagpapakain.",
+			"sensorOffline": "Offline ang sensor",
+			"secondsAgo": "{count}s ang nakalipas",
+			"minutesAgo": "{count}m ang nakalipas",
+			"hoursAgo": "{count}h ang nakalipas",
+			"daysAgo": "{count}d ang nakalipas"
 		}
 	},
 	"chat": {
@@ -2771,6 +2872,31 @@
 			"periodEnding": "Panahong nagtatapos sa {date}",
 			"noPond": "Walang nakatalagang pond"
 		},
+		"connectivity": {
+			"sectionLabel": "Nakarehistro, aktibo at koneksyon",
+			"title": "Nakarehistro kumpara sa aktibong device",
+			"description": "Mga nakarehistrong device, aktibong device sa nakaraang {activeWindowDays} araw, at ang nakaimbak na araw-araw na bahagdan ng online sa huling {days} kumpletong araw.",
+			"registered": "Mga nakarehistrong device",
+			"registeredHint": "Lahat ng device sa listahan",
+			"active": "Aktibo sa nakaraang {days} araw",
+			"activeHint": "May heartbeat o anumang feed event mula {date}",
+			"activeShare": "Bahagdan ng aktibo",
+			"activeShareHint": "{active} sa {registered} na nakarehistrong device",
+			"activeShareNone": "Wala pang nakarehistrong device",
+			"notMeasured": "Hindi nasukat",
+			"trendTitle": "Araw-araw na koneksyon, huling 90 araw",
+			"trendDescription": "Bahagdan ng online sa panahong talagang naobserbahan ang mga device. Mula sa nakaimbak na araw-araw na rollup; ang araw na walang nakaimbak na kasaysayan ay hindi iginuguhit.",
+			"trendDaysWithData": "{days} sa {window} araw ang may nakaimbak na kasaysayan",
+			"trendSummary": "Trend ng koneksyon: {days} nakaimbak na araw sa {window}, karaniwang bahagdan ng online {share}%",
+			"trendEmpty": "Wala pang nakaimbak na kasaysayan ng koneksyon.",
+			"trendNoShare": "May nakaimbak na araw pero wala pang nasukat na panahon.",
+			"utcNote": "Ang mga araw ay UTC na araw sa kalendaryo. 90 araw ang retention; ang kulang na araw ay hindi kailanman tinatantya.",
+			"columnDay": "Araw",
+			"columnShare": "Bahagdan ng online",
+			"columnDevices": "Mga device",
+			"columnObserved": "Mga naobserbahang minuto",
+			"dayTooltip": "{day}: {share}% online, {devices} device, {minutes} minutong naobserbahan"
+		},
 		"ponds": {
 			"title": "Mga pond",
 			"description": "{count, plural, one {# pond} other {# pond}} sa lahat ng tenant",
@@ -2887,7 +3013,8 @@
 				"audit": "Talaan ng audit",
 				"announcements": "Mga anunsyo",
 				"reports": "Mga ulat",
-				"security": "Seguridad at pagmamatyag"
+				"security": "Seguridad at pagmamatyag",
+				"jobs": "Mga background job"
 			},
 			"errors": {
 				"title": "Mga event ng error",
@@ -2939,7 +3066,10 @@
 				"columnFinished": "Natapos",
 				"columnType": "Uri",
 				"columnAttempts": "Mga pagsubok",
-				"columnError": "Error"
+				"columnError": "Error",
+				"description": "Kalusugan ng queue at ang dead-letter na listahan. Humihinto ang retry ng isang job kapag naabot ang attempt cap at nananatili ito rito kasama ang huling error.",
+				"summary": "{queued} naka-queue · {running} tumatakbo · {failed} nabigo sa nakalipas na 24 oras.",
+				"columnOwner": "Farm"
 			},
 			"charts": {
 				"period": "Araw",
@@ -3272,6 +3402,9 @@
 			"bottomNavLabel": "Nabigasyon ng platform",
 			"nav": {
 				"overview": "Pangkalahatang Tanaw",
+				"tenants": "Mga Tenant",
+				"fleet": "Fleet",
+				"incidents": "Mga Insidente",
 				"calendar": "Kalendaryo",
 				"users": "Mga User",
 				"organizations": "Mga Organisasyon",
@@ -3280,7 +3413,8 @@
 				"aiProviders": "Mga AI Provider",
 				"settings": "Mga Setting",
 				"operations": "Mga Operasyon",
-				"more": "Higit pa"
+				"more": "Higit pa",
+				"account": "Account"
 			},
 			"shortNav": {
 				"overview": "Tanaw",
@@ -3349,6 +3483,7 @@
 				"disable": "I-disable ang account",
 				"enable": "I-enable ang account",
 				"reset": "I-reset ang password",
+				"resetLink": "Ipadala ang link",
 				"email": "Baguhin ang contact email"
 			},
 			"stepUpActions": {
@@ -3357,6 +3492,7 @@
 				"disable": "i-disable ang account na ito",
 				"enable": "i-enable ang account na ito",
 				"reset": "i-reset ang password na ito",
+				"resetLink": "magpadala ng password reset link",
 				"email": "baguhin ang contact email na ito"
 			},
 			"buttons": {
@@ -3365,11 +3501,21 @@
 				"disable": "I-disable",
 				"enable": "I-enable",
 				"reset": "I-reset",
+				"resetLink": "Ipadala ang link",
 				"email": "Email"
 			},
 			"disableWarning": "Nagba-ban ito ng login at nagbabawi sa lahat ng membership. Walang data na nabubura; ibinabalik ng I-enable ang access mamaya.",
 			"enableWarning": "Ibinabalik ang login at ang mga membership na naitala noong huling pag-disable.",
 			"resetWarning": "Pinapalitan ang password ng account ng isang beses na temporary password, na ipapakita sa ibaba. Kailangang palitan ito ng user sa susunod na pag-sign in.",
+			"resetLinkWarning": "Mag-email ng one-time reset link sa contact address na nasa rekord. Hindi ipinapakita ang link dito.",
+			"resetLinkNoEmailWarning": "Walang contact email ang account na ito. Magdagdag muna, o gamitin ang I-reset para magbigay ng temporary password.",
+			"resetLinkSent": {
+				"title": "Naipadala ang reset link",
+				"description": "Makakapili ang tao ng bagong password mula sa link sa email.",
+				"sentTo": "Naipadala sa {email}",
+				"fallback": "Kung hindi dumating ang email, magbigay ng temporary password.",
+				"done": "Tapos"
+			},
 			"issued": {
 				"title": "Temporary password",
 				"descriptionPrefix": "Ibahagi nang direkta sa",
@@ -3626,7 +3772,8 @@
 				"low": "mababa",
 				"medium": "katamtaman",
 				"high": "mataas"
-			}
+			},
+			"removeDone": "Naalis ang provider."
 		},
 		"settings": {
 			"title": "Mga Setting ng Platform",
@@ -3686,7 +3833,10 @@
 				"inviteReady": "Handa ang mga imbitasyon",
 				"inviteNotReady": "Nilalaktawan ang mga imbitasyon",
 				"reminderReady": "Handa ang mga paalala",
-				"reminderNotReady": "Nilalaktawan ang mga paalala"
+				"reminderNotReady": "Nilalaktawan ang mga paalala",
+				"resetFromLabel": "Password-reset sender variable",
+				"resetReady": "Handa ang reset email",
+				"resetNotReady": "Nilaktawan ang reset email"
 			},
 			"safety": {
 				"title": "Mga safety cap sa pagpapakain",
@@ -3988,7 +4138,110 @@
 			"unassigned": "Walang tenant",
 			"notReported": "Hindi iniulat",
 			"viewFleet": "Monitor ng device",
-			"viewErrors": "Console ng error"
+			"viewErrors": "Console ng error",
+			"trackedSummaryLabel": "Buod ng mga naka-track na insidente",
+			"trackedOpen": "Bukas na naka-track na insidente",
+			"trackedEscalated": "Naka-escalate",
+			"trackedOverdue": "Lampas sa oras ang pag-acknowledge",
+			"trackedResolved": "Kamakailang naresolba",
+			"trackedResolvedHint": "Naresolba sa nakaraang 7 araw, hanggang 20 row.",
+			"trackedTitle": "Mga naka-track na insidente",
+			"trackedDescription": "Awtomatikong binubuksan ng device watch o ng platform admin. Ang bawat paglipat ay nagsusulat ng event sa timeline at audit row.",
+			"trackedUnavailableTitle": "Hindi mabasa ang mga naka-track na insidente.",
+			"trackedUnavailableBody": "Naglo-load pa ang derived conditions sa ibaba. I-reload para subukan muli ang lifecycle read.",
+			"escalatedTitle": "Naka-escalate sa platform-admin role",
+			"escalatedBody": "Kailangan ng acknowledgement sa loob ng 30 minuto. Sa console lang ang notification na ito; walang email, chat o pager.",
+			"escalatedOwner": "May-ari",
+			"escalatedDue": "Target ng ack",
+			"ownerUnassigned": "Walang may-ari",
+			"trackedTruncated": "Ipinapakita ang {shown} sa {total} bukas na insidente.",
+			"trackedEmptyTitle": "Walang naka-track na insidente",
+			"trackedEmptyDescription": "Wala pang binuksan ang device watch, at walang kamakailang naresolba.",
+			"trackedTableLabel": "Mga naka-track na insidente",
+			"columnStatus": "Kalagayan",
+			"columnOwner": "May-ari",
+			"columnAck": "Target ng ack",
+			"columnOpened": "Binuksan",
+			"ackNone": "Walang target ng ack",
+			"ackClosed": "Sarado",
+			"ackOverdue": "Lampas sa oras",
+			"titleDeviceOffline": "Offline ang {device}",
+			"titleSafeMode": "Nasa safe mode ang {device}",
+			"titleFault": "{device}: {fault}",
+			"titleFailedJob": "Nabigo ang background job: {job}",
+			"faults": {
+				"hopper_sensor": "hopper sensor",
+				"rtc": "relo",
+				"relay_overrun": "sobrang dose"
+			},
+			"sourceDeviceOffline": "Offline na device",
+			"sourceSafeMode": "Safe mode",
+			"sourceFault": "Fault ng device",
+			"sourceFailedJob": "Nabigong background job",
+			"sourceManual": "Manwal",
+			"status": {
+				"new": "Bago",
+				"acknowledged": "Na-acknowledge",
+				"investigating": "Sinisiyasat",
+				"resolved": "Naresolba",
+				"escalated": "Naka-escalate"
+			},
+			"derivedTitle": "Derived conditions",
+			"derivedDescription": "Ang read-only na pila sa apat na existing source. Ebidensya ang mga row na ito, hindi naka-track na insidente.",
+			"detail": {
+				"back": "Bumalik sa pila ng insidente",
+				"subtitle": "{source} · {status}",
+				"factsTitle": "Mga detalye ng insidente",
+				"source": "Source",
+				"lastSeen": "Huling nakita",
+				"device": "Device",
+				"dedupeKey": "Key ng kondisyon",
+				"ageMinutes": "Edad (minuto)",
+				"summaryTitle": "Ano ang nangyari",
+				"summaryEmpty": "Walang naitalang summary. Ang timeline sa ibaba ang talaan.",
+				"resolvedAt": "Naresolba noong {time}",
+				"timelineTitle": "Timeline",
+				"timelineDescription": "Pinakaluma muna. Walang actor ang system transition.",
+				"timelineUnavailable": "Hindi mabasa ang timeline. Walang nabago sa insidente mismo.",
+				"timelineEmpty": "Wala pang naitalang event.",
+				"actorSystem": "System",
+				"transition": "{from} → {to}"
+			},
+			"event": {
+				"autoOpened": "Awtomatikong binuksan",
+				"autoResolved": "Awtomatikong naresolba",
+				"acknowledged": "Na-acknowledge",
+				"investigating": "Sinisiyasat",
+				"resolved": "Naresolba",
+				"escalated": "Naka-escalate",
+				"notified": "Naabisuhan ang mga platform admin sa app"
+			},
+			"actions": {
+				"title": "Mga aksyon sa lifecycle",
+				"body": "Kailangan ng rason ang bawat aksyon. Nagsusulat ito ng event sa timeline at audit row sa parehong transaksyon.",
+				"acknowledge": "Acknowledge",
+				"investigate": "Siyasatin",
+				"resolve": "Resolbahin",
+				"escalate": "I-escalate",
+				"ownerLabel": "Platform-admin na may-ari",
+				"ownerHint": "Makikita ng may-ari at ng lahat ng platform admin ang insidenteng ito sa pila. Nagsisimula na ang 30-minutong target ng acknowledgement.",
+				"ownerUnavailable": "Hindi mabasa ang listahan ng may-ari. Hindi pa maaaring mag-escalate hanggang mabasa ito.",
+				"noOwners": "Walang aktibong platform admin.",
+				"reasonHint": "Naitatala sa timeline at platform audit log. Hindi bababa sa 10 karakter.",
+				"done": "Naitala. Makikita na sa timeline at status sa ibaba ang paglipat.",
+				"pending": "Nagtatala…",
+				"submit": "Itala ang aksyon",
+				"terminal": "Naresolba na ang insidenteng ito. Terminal ang resolved para sa mga aksyon ng operator sa slice na ito; binubuksan muli ng system ang parehong insidente kung bumalik ang kondisyon.",
+				"errors": {
+					"invalid_transition": "Hindi pinapayagan ang paglipat na iyon mula sa kasalukuyang kalagayan.",
+					"not_found": "Wala na ang insidente.",
+					"owner_required": "Pumili ng platform-admin na may-ari.",
+					"owner_invalid": "Wala nang aktibong platform-admin grant ang piniling may-ari.",
+					"reason": "Maglagay ng rason na hindi bababa sa 10 karakter.",
+					"conflict": "Nagbago ang insidente habang nagtatrabaho ka. I-reload at subukan muli.",
+					"generic": "Nabigo ang aksyon. Walang naitala."
+				}
+			}
 		},
 		"tenants": {
 			"title": "Kalagayan ng mga Tenant",
@@ -4077,6 +4330,7 @@
 				"disablePlatformUser": "I-disable ang user ng platform",
 				"enablePlatformUser": "I-enable ang user ng platform",
 				"resetPlatformUserPassword": "I-reset ang password ng user",
+				"sendPlatformUserResetLink": "Magpadala ng password reset link",
 				"grantPlatformAdmin": "Bigyan ng platform admin",
 				"revokePlatformAdmin": "Alisin ang platform admin",
 				"startViewAs": "Simulan ang view-as (impersonation)",
@@ -4164,6 +4418,26 @@
 				"PENDING_DELETION": "Naghihintay ng pagbura",
 				"PURGED": "Nabura na"
 			}
+		},
+		"account": {
+			"title": "Iyong account",
+			"description": "Ang iyong pagkakakilanlan sa platform at ang session sa device na ito.",
+			"identity": "Pagkakakilanlan",
+			"identityDesc": "Ang account sa likod ng platform console.",
+			"displayName": "Pangalan",
+			"role": "Tungkulin",
+			"farmId": "Farm ID",
+			"email": "Email",
+			"avatar": "Larawan sa profile",
+			"avatarDesc": "Ipinapakita sa header ng console.",
+			"password": "Password",
+			"passwordDesc": "Palitan ang password na ginagamit mo sa pag-sign in.",
+			"session": "Session",
+			"sessionDesc": "Ang pag-sign out ay nagtatapos sa session na ito sa device at naglilinis ng naka-cache na farm data.",
+			"menuLabel": "Menu ng account",
+			"menuProfile": "Iyong profile",
+			"menuSettings": "Mga setting ng platform",
+			"menuFarm": "Farm dashboard"
 		}
 	},
 	"landing": {
@@ -4748,5 +5022,20 @@
 	"sidebar": {
 		"collapse": "I-collapse ang sidebar",
 		"expand": "I-expand ang sidebar"
+	},
+	"account": {
+		"menu": {
+			"pondOperator": "Operator ng Pond",
+			"language": "Wika",
+			"device": "Device",
+			"close": "Isara ang menu ng profile",
+			"open": "Buksan ang menu ng profile at settings",
+			"adminPanel": "Admin Panel",
+			"platformConsole": "Platform Console",
+			"accountSettings": "Mga setting ng account",
+			"switchLanguage": "Palitan ang wika",
+			"signOut": "Mag-sign out",
+			"userFallback": "Gumagamit"
+		}
 	}
 }

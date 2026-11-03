@@ -57,6 +57,7 @@ import {
 	pondListStatus,
 	summarizeStatuses,
 } from "@/lib/mobile-list";
+import { consoleScopeCrumbs } from "@/lib/superadmin-scope";
 import { createTranslator } from "./helpers/messages";
 
 const tMobile = createTranslator("dashboard.mobile") as unknown as (key: string) => string;
@@ -237,6 +238,9 @@ describe("quick menu (E26)", () => {
 		const hrefs = sections[1].items.map((item) => item.href);
 		for (const href of [
 			"/superadmin",
+			"/superadmin/tenants",
+			"/superadmin/fleet",
+			"/superadmin/incidents",
 			"/superadmin/calendar",
 			"/superadmin/users",
 			"/superadmin/orgs",
@@ -413,8 +417,38 @@ describe("header band titles", () => {
 		expect(pageTitleKey("admin", "/admin/ponds/new")).toBe("ponds");
 		expect(pageTitleKey("admin", "/admin/settings/members/u1/permissions")).toBe("settings");
 		expect(pageTitleKey("platform", "/superadmin/ai-providers")).toBe("aiProviders");
+		expect(pageTitleKey("platform", "/superadmin/account")).toBe("account");
 		expect(pageTitleKey("platform", "/superadmin")).toBe("overview");
 		expect(pageTitleKey("farmer", "/elsewhere")).toBe("");
+	});
+
+	it("titles the command-center pages, longest prefix first (#479)", () => {
+		for (const [pathname, key] of [
+			["/superadmin/tenants", "tenants"],
+			["/superadmin/tenants/compare", "tenants"],
+			["/superadmin/fleet", "fleet"],
+			["/superadmin/incidents", "incidents"],
+		] as const) {
+			expect(pageTitleKey("platform", pathname), pathname).toBe(key);
+		}
+		// The overview stays the fallback, but never wins over a section.
+		expect(pageTitleKey("platform", "/superadmin/elsewhere")).toBe("overview");
+	});
+
+	it("keeps a section crumb for every command-center page (#479)", () => {
+		const crumbLabels = { global: "Global superadmin", section: (key: string) => `section:${key}` };
+
+		for (const [pathname, key] of [
+			["/superadmin/tenants", "tenants"],
+			["/superadmin/tenants/compare", "tenants"],
+			["/superadmin/fleet", "fleet"],
+			["/superadmin/incidents", "incidents"],
+		] as const) {
+			expect(consoleScopeCrumbs(pathname, crumbLabels), pathname).toEqual([
+				{ level: "global", label: "Global superadmin" },
+				{ level: "section", label: `section:${key}` },
+			]);
+		}
 	});
 });
 

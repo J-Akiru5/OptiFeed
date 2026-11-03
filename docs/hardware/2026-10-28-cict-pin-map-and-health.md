@@ -1,8 +1,36 @@
 # CICT Building A feeder: pin map and component health (2026-10-28)
 
 Unit: Device ID `68:09:47:25:E1:80`, chip MAC `70:4B:CA:45:FB:54`, AP `PakaonAI-E180`,
-reflashed 2026-10-28 from `develop` with the `esp32dev-relay5` build (relay on GPIO 5).
+reflashed 2026-10-28 from `develop` with the then-named `esp32dev-relay5` build (now
+`esp32dev-gpio5`, relay on GPIO 5).
 Visual wiring map: https://claude.ai/artifact/RghPSrLuspqU7heBFHqpdy
+
+## Relay pin and hardware variant (single source of truth)
+
+A relay pin belongs to the physical unit, not to the ESP32 board. Firmware built for the
+other pin still boots, heartbeats and reports feeds, but never closes the relay. The build
+environment therefore names the wiring, and the signed OTA manifest must name the same
+variant:
+
+| Unit | Relay GPIO | PlatformIO environment | OTA variant |
+|---|---|---|---|
+| CICT Building A `68:09:47:25:E1:80` | **5** | `esp32dev-gpio5` | `gpio5` |
+| Reference / bench board | **25** | `esp32dev-gpio25` | `gpio25` |
+
+Build the field unit with the copy-pasteable command
+`pio run -d firmware -e esp32dev-gpio5` (add `-t upload` only with owner approval).
+`firmware/platformio.ini` is the only place the pin is defined: each environment sets
+`-DRELAY_PIN` and `-DFW_HW_VARIANT`, `firmware-main.ino` static_asserts that the pair
+agrees, and `apps/web/lib/__tests__/firmware-hardware-variant.test.ts` guards the mapping.
+
+The OTA manifest carries `variant` and `relay_gpio`. A unit refuses an image whose pair
+does not match its own provisioned variant, reports `ota_refusal = variant_mismatch` in
+the heartbeat `diag`, and the device page shows it together with `hw_variant` and
+`relay_gpio`. If a USB flash installs the other variant, the unit keeps the provisioned
+value, sets `hw_variant_ok = false`, locks the relay off, refuses doses with
+`hardware_variant_mismatch`, and blocks OTA checks until the correct image is flashed. A
+factory reset (GPIO 16, 10 s) clears `hw_variant` for a deliberate rewire. `docs/runbook.md`
+links here instead of repeating a pin.
 
 ## Pin map (firmware 1.7.0 on develop; lamps are firmware 1.8.0)
 
@@ -15,7 +43,7 @@ listed together.
 
 | GPIO | Connects to | Notes |
 |---|---|---|
-| 5 | Relay IN | This unit only (`esp32dev-relay5`). Default build uses 25. HIGH = ON |
+| 5 | Relay IN | This unit only (`esp32dev-gpio5`). Reference build `esp32dev-gpio25` uses GPIO 25. HIGH = ON |
 | 23 | Feed button → GND | Press = LOW; dispenses the button dose; hold 5 s at boot = Wi-Fi reset |
 | 17 | Wi-Fi reset button → GND | Hold 5 s; keeps Device ID and token. 1.8.0: a tap (< 5 s) acknowledges a latched fault |
 | 16 | Factory reset button → GND | Hold 10 s; clears Wi-Fi, Device ID and token |

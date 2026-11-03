@@ -38,8 +38,8 @@
 			"budgetKb": 700.4
 		},
 		"/[locale]/(admin)/admin/page": {
-			"baselineKb": 1079.9,
-			"budgetKb": 1101.5
+			"baselineKb": 1103.7,
+			"budgetKb": 1125.8
 		},
 		"/[locale]/(admin)/admin/ponds/[pondId]/delete/page": {
 			"baselineKb": 688.4,
@@ -78,16 +78,16 @@
 			"budgetKb": 984.6
 		},
 		"/[locale]/(dashboard)/dashboard/audit/page": {
-			"baselineKb": 997.5,
-			"budgetKb": 1017.5
+			"baselineKb": 1022.3,
+			"budgetKb": 1042.8
 		},
 		"/[locale]/(dashboard)/dashboard/calendar/page": {
 			"baselineKb": 1227.4,
 			"budgetKb": 1251.9
 		},
 		"/[locale]/(dashboard)/dashboard/devices/[id]/page": {
-			"baselineKb": 979.9,
-			"budgetKb": 999.5
+			"baselineKb": 1001.1,
+			"budgetKb": 1021.1
 		},
 		"/[locale]/(dashboard)/dashboard/growth/history/page": {
 			"baselineKb": 1396.1,
@@ -126,12 +126,12 @@
 			"budgetKb": 984.6
 		},
 		"/[locale]/(dashboard)/dashboard/schedule/page": {
-			"baselineKb": 986.8,
-			"budgetKb": 1006.6
+			"baselineKb": 1009.7,
+			"budgetKb": 1029.9
 		},
 		"/[locale]/(dashboard)/dashboard/settings/data/page": {
-			"baselineKb": 997.5,
-			"budgetKb": 1017.5
+			"baselineKb": 1022.3,
+			"budgetKb": 1042.8
 		},
 		"/[locale]/(dashboard)/dashboard/settings/hardware/page": {
 			"baselineKb": 1167,
@@ -186,8 +186,8 @@
 			"budgetKb": 972.8
 		},
 		"/[locale]/(superadmin)/superadmin/operations/page": {
-			"baselineKb": 1346.6,
-			"budgetKb": 1373.6
+			"baselineKb": 1373.8,
+			"budgetKb": 1401.3
 		},
 		"/[locale]/(superadmin)/superadmin/orgs/[orgId]/page": {
 			"baselineKb": 967.1,
@@ -198,8 +198,8 @@
 			"budgetKb": 975.5
 		},
 		"/[locale]/(superadmin)/superadmin/page": {
-			"baselineKb": 1342.3,
-			"budgetKb": 1369.2
+			"baselineKb": 1371.9,
+			"budgetKb": 1399.3
 		},
 		"/[locale]/(superadmin)/superadmin/ponds/page": {
 			"baselineKb": 951.2,

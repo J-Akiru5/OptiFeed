@@ -572,6 +572,7 @@
 			"title": "Lebel sang Hopper",
 			"lastKnown": "Katapusan nga nahibaluan {percent}%",
 			"offline": "Wala sa linya",
+			"sensorOffline": "Wala sa linya ang ultrasonic",
 			"noReadingYet": "Wala pa sang pagbasa",
 			"readingTime": "{date}, {time}",
 			"unknownTime": "Wala mahibaluan ang oras sang pagbasa",
@@ -583,6 +584,20 @@
 			"lowRefill": "Kulang: i-refill sa madali",
 			"ok": "Maayo",
 			"noData": "Wala sang data"
+		},
+		"monitoring": {
+			"title": "Pagmonitor",
+			"statusOnline": "Online",
+			"statusWeak": "Maluya ang signal",
+			"statusOffline": "Wala sa linya",
+			"statusSafeMode": "Safe mode",
+			"statusFault": "{count, plural, one {# fault} other {# fault}}",
+			"statusNoDevice": "Wala sing naka-pares nga feeder",
+			"healthSafeMode": "Safe mode: ginarefuse ang pagpakaon",
+			"healthFaults": "{count, plural, one {# aktibo nga fault} other {# aktibo nga fault}}",
+			"healthClear": "Wala sing na-report nga fault",
+			"lastKnownShort": "Huli nga nahibal-an",
+			"summaryLabel": "{status}. Lebel sang hopper {percent}."
 		},
 		"feederHero": {
 			"eyebrow": "Live nga pag-monitor",
@@ -638,7 +653,11 @@
 			"refusalReasonTooSoon": "sayo pa sang naulihi nga dose",
 			"refusalReasonHourlyLimit": "naabot na ang limit kada oras",
 			"refusalReasonRelayOverrun": "naglapas ang relay",
-			"refusalReasonOther": "{code}"
+			"refusalReasonOther": "{code}",
+			"healthUnknownTitle": "Indi ma-verify ang kahimsog sang feeder",
+			"healthUnknownBody": "Napaslawan ang pagbasa sang kahimsog, gani indi masiling sang pahina nga ini kon luwas ang feeder. Indi ini ginareport nga healthy.",
+			"healthUnknownLast": "Katapusan nga na-verify {date}, {time}",
+			"healthUnknownChecked": "Napaslawan ang pagbasa {date}, {time}"
 		},
 		"home": {
 			"noData": "Wala pa sang punong nga na-assign. Palihog pamangkot ang imo administrator.",
@@ -865,7 +884,56 @@
 			"howCalculatedTitle": "Paano Ginkuenta",
 			"howBiomass": "Total nga biomass = kadamuon sang isda × average nga timbang.",
 			"howDailyFeed": "Adlaw-adlaw nga pagkaon = total nga biomass × feeding rate.",
-			"howPerMeal": "Pagkaon kada pagpakaon = adlaw-adlaw nga pagkaon ÷ kadamuon sang pagpakaon kada adlaw."
+			"howPerMeal": "Pagkaon kada pagpakaon = adlaw-adlaw nga pagkaon ÷ kadamuon sang pagpakaon kada adlaw.",
+			"feedPerFeeding": "Pagkaon nga ihatag kada pagpakaon",
+			"dailyTotal": "Kabilugan kada adlaw {grams}g · {feeds} ka pagpakaon kada adlaw",
+			"savedTo": "Gin-save sa sampling batch <bold>{label}</bold>",
+			"savedToUnlabeled": "Gin-save nga wala sang sampling batch",
+			"deviceOfflineNote": "Offline ang device — ma-apply ang bag-o nga schedule pag-reconnect sini.",
+			"statusUpdated": "Na-update ang schedule sang device: {previous}g → {current}g kada pagpakaon.",
+			"statusUnchanged": "Ang schedule sang device {current}g na kada pagpakaon — wala nabag-o.",
+			"statusRejectedDeviation": "Ginpabilin ang schedule sa {previous}g — ang nakalkula nga {calculated}g lahi sang sobra sa 50% sa kasamtangan nga kantidad. Repasuhon ini antes i-apply.",
+			"statusRejectedOutOfRange": "Ginpabilin ang schedule sa {previous}g — ang nakalkula nga {calculated}g indi sulod sa ginatugot nga range.",
+			"statusSkippedConfig": "Wala nabag-o ang schedule sang device — i-set anay ang feeding rate sang punong kag ang pagpakaon kada adlaw.",
+			"statusSkippedNoDevice": "Wala nabag-o ang schedule sang device — wala sang device nga naka-link sa sini nga punong.",
+			"statusSkippedNoPopulation": "Wala nabag-o ang schedule sang device — i-set ang populasyon sang isda sa punong agud makalkula ang biomass.",
+			"statusSkippedTargetPlan": "Na-save ang sample. Indi pa takos ang target growth plan para sa isa pa ka adjustment — buksi ang Growth para makita ang sunod nga petsa.",
+			"logAnother": "Mag-log sang Isa Pa nga Sample",
+			"backToDashboard": "Balik sa Dashboard",
+			"averageMode": "Average nga Mode",
+			"individualMode": "Indibidwal nga Mode",
+			"batchOptionalLabel": "Sampling batch (opsyonal)",
+			"batchPlaceholder": "hal. Sampling batch 2026-10 A",
+			"weightInputLabel": "Average nga Timbang sang Isda (gramos)",
+			"weightPlaceholder": "hal. 220",
+			"lengthInputPlaceholder": "hal. 24",
+			"sampleCountInputLabel": "Kadamuon sang Sample nga Isda",
+			"individualHeading": "Kada Isa nga Sukot sang Isda",
+			"addFish": "Magdugang Isda",
+			"fishWeightPlaceholder": "Timbang (g)",
+			"fishLengthPlaceholder": "Kalabaon (cm)",
+			"fishWeightLabel": "Timbang sang isda {index} sa gramos",
+			"fishLengthLabel": "Kalabaon sang isda {index} sa sentimetro",
+			"removeFish": "Kuhaon ang isda {index}",
+			"errorMeasurements": "Palihog susiha ang mga sukot. Ang tanan nga kantidad dapat sobra sa 0.",
+			"errorRowWeight": "Ang timbang dapat sobra sa 0",
+			"errorRowLength": "Ang kalabaon dapat 0 ukon sobra",
+			"errorFixRows": "Palihog ayuha ang mga gin-highlight nga linya sang isda.",
+			"errorNoValidFish": "Palihog magdugang sang bisan isa ka isda nga may balido nga timbang.",
+			"errorSaveFailed": "Indi ma-save ang biomass log. Palihog tilawi liwat.",
+			"sampledCount": "Gin-sample <bold>{count}</bold> ka isda.",
+			"calcAbw": "Nakalkula nga Average Body Weight (ABW): <bold>{weight}g</bold>.",
+			"avgLengthLine": "Average nga Kalabaon: <bold>{length}cm</bold>",
+			"totalBiomass": "Kabilugan nga Biomass",
+			"hintSetFishCount": "I-set ang kadamuon sang isda sa punong agud makalkula",
+			"formulaBiomass": "= kadamuon sang isda × average nga timbang",
+			"dailyFeed": "Pagkaon kada Adlaw",
+			"formulaDailyFeed": "= biomass × {rate}%",
+			"feedPerMeal": "Pagkaon kada Pagpakaon",
+			"formulaPerMeal": "= kada adlaw ÷ {feeds} ka pagpakaon",
+			"biomassBreakdown": "({fish} ka isda × {weight} g)",
+			"dailyBreakdown": "({biomass}g × {rate}%)",
+			"perMealBreakdown": "(÷ {feeds} ka pagpakaon)"
 		},
 		"history": {
 			"amount": "KADAM-ON",
@@ -1637,7 +1705,9 @@
 					"saveFailed": "Indi ma-save ang laray. Tilawi liwat."
 				}
 			},
-			"emailNone": "Wala sing email nga naka-save. Pangayo sa imo administrator nga magdugang sang isa agod makareset ka sang password."
+			"emailNone": "Wala sing email nga naka-save. Pangayo sa imo administrator nga magdugang sang isa agod makareset ka sang password.",
+			"emailMissingTitle": "Wala sang email sa rekord",
+			"emailMissingDesc": "Indi makapadala sang password reset paagi sa email samtang wala pa sing contact email nga gindugang sang administrator. Pangabay sa tag-iya sang organisasyon ukon platform administrator nga magdugang."
 		},
 		"audit": {
 			"title": "Talaan ng Audit",
@@ -1823,7 +1893,7 @@
 			"healthFault": "May problema",
 			"healthUnknown": "Wala ginreport",
 			"viewerLabel": "Feeder 3D",
-			"canvasLabel": "Interactive nga 3D nga modelo sang {label}. I-drag para i-orbit kag gamita ang mga preset para magbaylo sang view.",
+			"canvasLabel": "Interactive nga 3D nga modelo sang {label}. I-drag para i-orbit, i-right-drag para i-pan, i-scroll para i-zoom, kag gamita ang mga preset para magbaylo sang view.",
 			"statusIdle": "Idle",
 			"statusDispensing": "Nagahatag",
 			"statusPaused": "Pahuway",
@@ -1839,9 +1909,12 @@
 			"presetRear": "Likod",
 			"presetTop": "Taas",
 			"simpleView": "Simple nga view",
+			"resetView": "I-reset ang view",
+			"lockCamera": "I-lock ang camera",
+			"unlockCamera": "I-unlock ang camera",
 			"modelVersion": "Modelo",
 			"statusAnnouncement": "Estado sang feeder: {status}",
-			"isoLabelsTip": "Ang mga label sang komponente makita lamang kon ang modelo ara sa Isometric view. Naka-lock ang Iso; magpili sang iban nga view para i-orbit.",
+			"isoLabelsTip": "Ang mga label sang komponente makita lamang kon ang modelo ara sa Isometric view.",
 			"back": "Balik sa dashboard",
 			"desc": "Live nga 3D nga view sang feeder sa {pond}.",
 			"detailsLabel": "Detalye sang device",
@@ -1867,7 +1940,12 @@
 			"componentsTitle": "Mga komponente",
 			"statusWeak": "Maluya ang signal",
 			"diagTitle": "Diyagnostik sang firmware",
-			"diagEmpty": "Wala pay diyagnostik (ang Una nga heartbeat nga nagdala diag, madula ini)."
+			"diagEmpty": "Wala pay diyagnostik (ang Una nga heartbeat nga nagdala diag, madula ini).",
+			"backTo3d": "Magbalik sa 3D view",
+			"signal": "Signal",
+			"firmware": "Firmware",
+			"openLargeScreen": "Buksan ang dako nga screen",
+			"largeScreenDesc": "Full-screen nga live view para sa wall display."
 		},
 		"adminDevices": {
 			"view3d": "3D view",
@@ -2250,7 +2328,14 @@
 					"showing": "Ginapakita {from}–{to} sang {total}",
 					"previous": "Una",
 					"next": "Sunod",
-					"label": "Pagination sang kasaysayan sang calibration"
+					"label": "Pagination sang kasaysayan sang calibration",
+					"temperature": {
+						"title": "Kalibrasyon sang temperatura",
+						"empty": "Wala pa na-save nga kalibrasyon sang temperatura.",
+						"date": "Petsa",
+						"offset": "Offset",
+						"minimum": "Minimum sa pagpakaon"
+					}
 				},
 				"recalibration": {
 					"title": "Iskedyul sang Recalibration",
@@ -2970,6 +3055,22 @@
 				"attention": "Kinahanglan atensyon",
 				"hint": "Ang pagkasunodsunod kag mga filter para lang sa mga item sa sini nga pahina."
 			}
+		},
+		"waterTemp": {
+			"title": "Temperatura sang Tubig",
+			"iconLabel": "Temperatura sang tubig",
+			"statusOk": "OK",
+			"statusStale": "Luma na",
+			"statusBelowMinimum": "Ubos sa minimum",
+			"statusOffline": "Offline ang Sensor",
+			"lastUpdated": "Huli nga na-update",
+			"feedingMinimum": "Minimum sa pagpakaon: {temp}°C",
+			"belowMinimumNote": "Malamig pa sa minimum nga {temp}°C sang sini nga punong para sa pagpakaon. Indi ginadumilian ang pagpakaon — susiha anay ang reaksyon sang isda antes sang naka-iskedyul nga pagpakaon.",
+			"sensorOffline": "Offline ang sensor",
+			"secondsAgo": "{count}s ang nakaligad",
+			"minutesAgo": "{count}m ang nakaligad",
+			"hoursAgo": "{count}h ang nakaligad",
+			"daysAgo": "{count}d ang nakaligad"
 		}
 	},
 	"errors": {
@@ -3218,6 +3319,9 @@
 			"bottomNavLabel": "Nabigasyon sang plataporma",
 			"nav": {
 				"overview": "Pangkalahatan",
+				"tenants": "Mga Tenant",
+				"fleet": "Fleet",
+				"incidents": "Mga Insidente",
 				"calendar": "Kalendaryo",
 				"users": "Mga User",
 				"organizations": "Mga Organisasyon",
@@ -3226,7 +3330,8 @@
 				"aiProviders": "Mga AI Provider",
 				"settings": "Mga Setting",
 				"operations": "Operasyon",
-				"more": "Dugang"
+				"more": "Dugang",
+				"account": "Account"
 			},
 			"shortNav": {
 				"overview": "Panglantaw",
@@ -3348,6 +3453,31 @@
 			"periodEnding": "Panahon nga natapos {date}",
 			"noPond": "Wala sing punong"
 		},
+		"connectivity": {
+			"sectionLabel": "Nakarehistro, aktibo kag koneksyon",
+			"title": "Nakarehistro batok aktibo nga device",
+			"description": "Nakarehistro nga device, aktibo nga device sa nakaligad nga {activeWindowDays} ka adlaw, kag ang narekord nga adlaw-adlaw nga porsyento nga online sa katapusan nga {days} ka kompleto nga adlaw.",
+			"registered": "Nakarehistro nga device",
+			"registeredHint": "Ang tanan nga device sa listahan",
+			"active": "Aktibo sa nakaligad nga {days} ka adlaw",
+			"activeHint": "May heartbeat ukon bisan ano nga feed event sugod {date}",
+			"activeShare": "Porsyento nga aktibo",
+			"activeShareHint": "{active} sa {registered} nga nakarehistro nga device",
+			"activeShareNone": "Wala pa sing nakarehistro nga device",
+			"notMeasured": "Wala nasukod",
+			"trendTitle": "Adlaw-adlaw nga koneksyon, katapusan nga 90 ka adlaw",
+			"trendDescription": "Porsyento nga online sang tion nga talagang naobserbahan ang mga device. Ginkuha sa narekord nga adlaw-adlaw nga rollup; ang adlaw nga wala sing narekord nga kasaysayan indi iginadrowing.",
+			"trendDaysWithData": "{days} sa {window} ka adlaw ang may narekord nga kasaysayan",
+			"trendSummary": "Trend sang koneksyon: {days} ka narekord nga adlaw sa {window}, average nga porsyento nga online {share}%",
+			"trendEmpty": "Wala pa sing narekord nga kasaysayan sang koneksyon.",
+			"trendNoShare": "May narekord nga adlaw pero wala pa sing nasukod nga tion.",
+			"utcNote": "Ang mga adlaw amo ang UTC nga kalendaryo nga adlaw. 90 ka adlaw ang retention; ang kulang nga adlaw wala gid ginatantiya.",
+			"columnDay": "Adlaw",
+			"columnShare": "Porsyento nga online",
+			"columnDevices": "Mga device",
+			"columnObserved": "Naobserbahan nga minuto",
+			"dayTooltip": "{day}: {share}% online, {devices} ka device, {minutes} ka minuto nga naobserbahan"
+		},
 		"users": {
 			"title": "Tanan nga User",
 			"description": "{count, plural, one {# ka account} other {# ka account}} sa tanan nga tenant",
@@ -3383,6 +3513,7 @@
 				"disable": "I-disable ang account",
 				"enable": "I-enable ang account",
 				"reset": "Bag-oha ang password",
+				"resetLink": "Ipadala ang link",
 				"email": "Usbon ang contact email"
 			},
 			"stepUpActions": {
@@ -3391,6 +3522,7 @@
 				"disable": "i-disable ini nga account",
 				"enable": "i-enable ini nga account",
 				"reset": "bag-uhon ang password",
+				"resetLink": "magpadala sang password reset link",
 				"email": "usbon ang contact email sini"
 			},
 			"buttons": {
@@ -3399,11 +3531,21 @@
 				"disable": "Disable",
 				"enable": "Enable",
 				"reset": "Bag-oha",
+				"resetLink": "Ipadala ang link",
 				"email": "Email"
 			},
 			"disableWarning": "Ginadilian sini ang pag-login kag ginabawi ang tanan nga membership. Wala sing data nga ginatangtang; ang Enable nagabalik sang access sa ulihi.",
 			"enableWarning": "Ginabalik ang pag-login kag ang mga membership nga ginrekord sang katapusan nga pag-disable.",
 			"resetWarning": "Pamalihun ang password sang account ubos sang isa ka beses nga temporary password, nga ipakita sa idalom. Kinahanglan bag-uhon ini sa sunod nga pag-log in.",
+			"resetLinkWarning": "Mag-email sang isa lang ka beses nga reset link sa contact address nga narekord. Wala ginapakita ang link diri.",
+			"resetLinkNoEmailWarning": "Wala sang contact email ini nga account. Dugangi anay, ukon gamita ang Bag-oha para makahatag sang temporaryo nga password.",
+			"resetLinkSent": {
+				"title": "Napadala ang reset link",
+				"description": "Makapili ang tawo sang bag-o nga password halin sa link sa email.",
+				"sentTo": "Napadala sa {email}",
+				"fallback": "Kon indi mag-abot ang email, maghatag sang temporaryo nga password.",
+				"done": "Tapos"
+			},
 			"issued": {
 				"title": "Temporaryo nga password",
 				"descriptionPrefix": "Ipaambit direkta sa",
@@ -3766,7 +3908,8 @@
 				"low": "ubos",
 				"medium": "medium",
 				"high": "mataas"
-			}
+			},
+			"removeDone": "Gin-remove ang provider."
 		},
 		"settings": {
 			"title": "Mga Setting sang Plataporma",
@@ -3826,7 +3969,10 @@
 				"inviteReady": "Handa ang mga invite",
 				"inviteNotReady": "Ginaskip ang mga invite",
 				"reminderReady": "Handa ang mga reminder",
-				"reminderNotReady": "Ginaskip ang mga reminder"
+				"reminderNotReady": "Ginaskip ang mga reminder",
+				"resetFromLabel": "Password-reset sender variable",
+				"resetReady": "Handa ang reset email",
+				"resetNotReady": "Ginlaktawan ang reset email"
 			},
 			"safety": {
 				"title": "Mga safety cap sang pagpakaon",
@@ -4007,7 +4153,8 @@
 				"audit": "Audit log",
 				"announcements": "Mga abiso",
 				"reports": "Mga report",
-				"security": "Seguridad kag pagbantay"
+				"security": "Seguridad kag pagbantay",
+				"jobs": "Mga background job"
 			},
 			"errors": {
 				"title": "Mga error event",
@@ -4059,7 +4206,10 @@
 				"columnFinished": "Natapos",
 				"columnType": "Klase",
 				"columnAttempts": "Mga pagtilaw",
-				"columnError": "Error"
+				"columnError": "Error",
+				"description": "Kahimsog sang queue kag ang dead-letter nga listahan. Ang isa ka job nagahulat sang retry tubtob maabot ang attempt cap kag nagapabilin diri upod ang katapusan nga error.",
+				"summary": "{queued} naka-queue · {running} nagadalagan · {failed} napaslawan sa nagligad nga 24 oras.",
+				"columnOwner": "Farm"
 			},
 			"charts": {
 				"period": "Adlaw",
@@ -4414,7 +4564,110 @@
 			"unassigned": "Wala sing tenant",
 			"notReported": "Wala ginreport",
 			"viewFleet": "Monitor sang mga device",
-			"viewErrors": "Console sang error"
+			"viewErrors": "Console sang error",
+			"trackedSummaryLabel": "Kabub-usan sang mga insidente nga gintrack",
+			"trackedOpen": "Bukas nga mga insidente",
+			"trackedEscalated": "Ginescalate",
+			"trackedOverdue": "Lapas sa oras ang pag-acknowledge",
+			"trackedResolved": "Bag-o lang naresolbar",
+			"trackedResolvedHint": "Naresolbar sa nagligad nga 7 ka adlaw, hasta 20 ka row.",
+			"trackedTitle": "Mga insidente nga gintrack",
+			"trackedDescription": "Ginabuksan automatic sang device watch ukon sang platform admin. Ang kada pagbalhin nagsulat sang event sa timeline kag audit row.",
+			"trackedUnavailableTitle": "Wala mabasa ang mga insidente nga gintrack.",
+			"trackedUnavailableBody": "Nagakarga pa ang derived conditions sa idalom. I-reload para sulayan liwat ang lifecycle read.",
+			"escalatedTitle": "Ginescalate sa platform-admin role",
+			"escalatedBody": "Kinahanglan sang acknowledgement sa sulod sang 30 minutos. Sa console lang ini nga notification; wala sing email, chat ukon pager.",
+			"escalatedOwner": "Tag-iya",
+			"escalatedDue": "Target sang ack",
+			"ownerUnassigned": "Wala sing tag-iya",
+			"trackedTruncated": "Ginapakita ang {shown} sa {total} ka bukas nga insidente.",
+			"trackedEmptyTitle": "Wala sing insidente nga gintrack",
+			"trackedEmptyDescription": "Wala pa nakabukas ang device watch sang insidente, kag wala sing bag-o lang naresolbar.",
+			"trackedTableLabel": "Mga insidente nga gintrack",
+			"columnStatus": "Kahimtangan",
+			"columnOwner": "Tag-iya",
+			"columnAck": "Target sang ack",
+			"columnOpened": "Ginbukas",
+			"ackNone": "Wala sing target sang ack",
+			"ackClosed": "Sarado",
+			"ackOverdue": "Lapas sa oras",
+			"titleDeviceOffline": "Offline ang {device}",
+			"titleSafeMode": "Safe mode ang {device}",
+			"titleFault": "{device}: {fault}",
+			"titleFailedJob": "Napaslawan ang background job: {job}",
+			"faults": {
+				"hopper_sensor": "hopper sensor",
+				"rtc": "relo",
+				"relay_overrun": "sobra ang dose"
+			},
+			"sourceDeviceOffline": "Offline nga device",
+			"sourceSafeMode": "Safe mode",
+			"sourceFault": "Fault sang device",
+			"sourceFailedJob": "Napaslawan nga background job",
+			"sourceManual": "Manual",
+			"status": {
+				"new": "Bag-o",
+				"acknowledged": "Na-acknowledge",
+				"investigating": "Ginausisa",
+				"resolved": "Naresolbar",
+				"escalated": "Ginescalate"
+			},
+			"derivedTitle": "Derived conditions",
+			"derivedDescription": "Ang read-only nga pila sa apat ka existing source. Ebidensya ini nga mga row, indi gintrack nga insidente.",
+			"detail": {
+				"back": "Balik sa pila sang insidente",
+				"subtitle": "{source} · {status}",
+				"factsTitle": "Mga detalye sang insidente",
+				"source": "Source",
+				"lastSeen": "Katapusan nga nakita",
+				"device": "Device",
+				"dedupeKey": "Key sang kahimtangan",
+				"ageMinutes": "Edad (minutos)",
+				"summaryTitle": "Ano ang natabo",
+				"summaryEmpty": "Wala sing summary nga nasulat. Ang timeline sa idalom amo ang rekord.",
+				"resolvedAt": "Naresolbar sang {time}",
+				"timelineTitle": "Timeline",
+				"timelineDescription": "Pinakadaan una. Ang system transition wala sing actor.",
+				"timelineUnavailable": "Wala mabasa ang timeline. Wala mabag-o ang insidente mismo.",
+				"timelineEmpty": "Wala pa sing event nga nasulat.",
+				"actorSystem": "System",
+				"transition": "{from} → {to}"
+			},
+			"event": {
+				"autoOpened": "Ginbukas automatic",
+				"autoResolved": "Naresolbar automatic",
+				"acknowledged": "Na-acknowledge",
+				"investigating": "Ginausisa",
+				"resolved": "Naresolbar",
+				"escalated": "Ginescalate",
+				"notified": "Ginpahibalo ang mga platform admin sa app"
+			},
+			"actions": {
+				"title": "Mga aksyon sa lifecycle",
+				"body": "Ang kada aksyon kinahanglan sang rason. Nagsulat ini sang event sa timeline kag audit row sa parehas nga transaksyon.",
+				"acknowledge": "Acknowledge",
+				"investigate": "Usisaon",
+				"resolve": "Resolbaron",
+				"escalate": "I-escalate",
+				"ownerLabel": "Tag-iya nga platform admin",
+				"ownerHint": "Ang tag-iya kag ang tanan nga platform admin makakita sini nga insidente sa pila. Ang 30-minutos nga target sang acknowledgement nagasugod subong.",
+				"ownerUnavailable": "Wala mabasa ang listahan sang tag-iya. Indi pa ma-escalate hasta mabasa ini.",
+				"noOwners": "Wala sing aktibo nga platform admin.",
+				"reasonHint": "Nasulat sa timeline kag sa platform audit log. Bisan 10 ka karakter.",
+				"done": "Nasulat. Makita na sa timeline kag status sa idalom ang pagbalhin.",
+				"pending": "Ginasulat…",
+				"submit": "Isulat ang aksyon",
+				"terminal": "Naresolbar na ini nga insidente. Terminal ang resolved para sa mga aksyon sang operator sa sini nga slice; ginabuksan liwat sang system ang parehas nga insidente kon magbalik ang kahimtangan.",
+				"errors": {
+					"invalid_transition": "Indi tugot ang sina nga pagbalhin halin sa karon nga kahimtangan.",
+					"not_found": "Wala na ang insidente.",
+					"owner_required": "Pilii ang platform-admin nga tag-iya.",
+					"owner_invalid": "Wala na sang aktibo nga platform-admin grant ang pinili nga tag-iya.",
+					"reason": "Magbutang sang rason nga bisan 10 ka karakter.",
+					"conflict": "Nagbag-o ang insidente samtang nagapangabudlay ka. I-reload kag sulayan liwat.",
+					"generic": "Napaslawan ang aksyon. Wala sing nasulat."
+				}
+			}
 		},
 		"tenants": {
 			"title": "Kahimtangan sang mga Tenant",
@@ -4503,6 +4756,7 @@
 				"disablePlatformUser": "I-disable ang user sang platform",
 				"enablePlatformUser": "I-enable ang user sang platform",
 				"resetPlatformUserPassword": "I-reset ang password sang user",
+				"sendPlatformUserResetLink": "Magpadala sang password reset link",
 				"grantPlatformAdmin": "Hatagan sang platform admin",
 				"revokePlatformAdmin": "Kuhaon ang platform admin",
 				"startViewAs": "Sugdan ang view-as (impersonation)",
@@ -4590,6 +4844,26 @@
 				"PENDING_DELETION": "Pahinayon sa pagpanas",
 				"PURGED": "Ginpanas na"
 			}
+		},
+		"account": {
+			"title": "Imo account",
+			"description": "Ang imo pagkakilala sa platform kag ang session sa device nga ini.",
+			"identity": "Pagkakilala",
+			"identityDesc": "Ang account sa likod sang platform console.",
+			"displayName": "Ngalan",
+			"role": "Katungdanan",
+			"farmId": "Farm ID",
+			"email": "Email",
+			"avatar": "Larawan sang profile",
+			"avatarDesc": "Ginapakita sa header sang console.",
+			"password": "Password",
+			"passwordDesc": "Ilisan ang password nga ginagamit mo sa pag-sign in.",
+			"session": "Session",
+			"sessionDesc": "Ang pag-sign out nagatapos sang session nga ini sa device kag ginatinluan ang naka-cache nga farm data.",
+			"menuLabel": "Menu sang account",
+			"menuProfile": "Imo profile",
+			"menuSettings": "Mga setting sang platform",
+			"menuFarm": "Farm dashboard"
 		}
 	},
 	"help": {
@@ -4748,5 +5022,20 @@
 	"sidebar": {
 		"collapse": "Pil-ona ang sidebar",
 		"expand": "Bukasa ang sidebar"
+	},
+	"account": {
+		"menu": {
+			"pondOperator": "Operador sang Punong",
+			"language": "Lengguwahe",
+			"device": "Device",
+			"close": "Sirad-an ang menu sang profile",
+			"open": "Buksi ang menu sang profile kag settings",
+			"adminPanel": "Admin Panel",
+			"platformConsole": "Platform Console",
+			"accountSettings": "Mga setting sang account",
+			"switchLanguage": "Ilisan ang lengguwahe",
+			"signOut": "Mag-sign out",
+			"userFallback": "Manugamit"
+		}
 	}
 }

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import {
 	Activity,
 	Cpu,
+	ListChecks,
 	Megaphone,
 	MessageSquareWarning,
 	ScrollText,
@@ -25,6 +26,7 @@ const tabs = [
 	{ href: "/superadmin/operations", key: "health", icon: Activity },
 	{ href: "/superadmin/operations/errors", key: "errors", icon: TriangleAlert },
 	{ href: "/superadmin/operations/reports", key: "reports", icon: MessageSquareWarning },
+	{ href: "/superadmin/operations/jobs", key: "jobs", icon: ListChecks },
 	{ href: "/superadmin/operations/firmware", key: "firmware", icon: Cpu },
 	{ href: "/superadmin/operations/audit", key: "audit", icon: ScrollText },
 	{ href: "/superadmin/operations/security", key: "security", icon: ShieldCheck },

@@ -9,7 +9,8 @@ vi.mock("@/lib/supabase/server", () => {
 vi.mock("@/lib/prisma", () => ({
 	default: {
 		user: { findUnique: vi.fn() },
-		membership: { findMany: vi.fn() },
+		// #583: the write gate resolves the membership before the legacy role.
+		membership: { findMany: vi.fn(), count: vi.fn() },
 		organization: { findMany: vi.fn() },
 		membershipPermission: { findMany: vi.fn() },
 	},
@@ -49,8 +50,12 @@ async function setUser(overrides: Partial<typeof USER> = {}) {
 	vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...USER, ...overrides } as never);
 }
 
-beforeEach(() => {
+beforeEach(async () => {
 	vi.clearAllMocks();
+	// Legacy account shape: identity exists, no membership row.
+	const prisma = (await import("@/lib/prisma")).default;
+	vi.mocked(prisma.membership.findMany).mockResolvedValue([]);
+	vi.mocked(prisma.membership.count).mockResolvedValue(0);
 	viewAs.isViewingAs.mockResolvedValue(false);
 	viewAs.assertNotViewingAs.mockResolvedValue(undefined);
 	viewAs.getViewAsState.mockResolvedValue({ active: false, reason: "missing" });

@@ -52,6 +52,7 @@ const NAMESPACES = [
 	"superadmin.loading",
 	"superadmin.error",
 	"superadmin.overview",
+	"superadmin.connectivity",
 	"superadmin.users",
 	"superadmin.userActions",
 	"superadmin.stepUp",
@@ -76,6 +77,7 @@ const NAMESPACES = [
 /** Page-specific keys that must exist in both locales. */
 const REQUIRED = [
 	"superadmin.overview.title",
+	"superadmin.connectivity.title",
 	"superadmin.users.title",
 	"superadmin.users.emptyTitle",
 	"superadmin.userActions.titles.grant",
@@ -169,7 +171,7 @@ const PROPS_ONLY = new Set([
 	// #479 M3C.8 monitor components: presentational, every visible string is a
 	// prop from the page's translator.
 	"monitor-panel.tsx",
-	"sparkline.tsx",
+	"connectivity-panel.tsx",
 	"kpi-tile.tsx",
 	"status-mix.tsx",
 	"activity-feed.tsx",

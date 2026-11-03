@@ -42,6 +42,13 @@
       entry and counts the loss, and HTTP calls retry with exponential backoff
       and jitter, capped at 5 minutes. Pure logic lives in safety.h/filters.h
       and is covered by `pio test -d firmware -e native`.
+    - 1.9.0: the safe-mode entry is also a one-off `safety_trip` audit event.
+      One id per lockout is persisted in NVS and reported after identity and
+      Wi-Fi exist; a retry reuses it, and 429/5xx/transport failures back off.
+    - 1.10.0: an OTA image is bound to the unit's relay wiring. The build
+      declares RELAY_PIN and FW_HW_VARIANT, the signed manifest carries variant
+      and relay_gpio, and a mismatch is refused before any dose (hardware.h).
+      Heartbeats report the variant, pin, provisioned variant and refusal.
 
   MACHINE STATUS INTERFACE (1.8.0, status.h):
     - Four panel lamps, each switched by an NPN transistor from its GPIO:
@@ -101,6 +108,8 @@
 #include "safety.h"
 // Dashboard-driven configuration and its absolute safety envelope (1.7.0).
 #include "config.h"
+// Hardware variant <-> relay pin map; shared with the host tests (#582).
+#include "hardware.h"
 #include "status.h"
 #ifdef ENABLE_LAN_OTA
 #include <ArduinoOTA.h>
@@ -125,7 +134,7 @@
 
 // Reported at boot and in the heartbeat body so the fleet and the OTA rollout
 // can tell builds apart. Bump on every firmware change.
-#define FW_VERSION "1.8.1"
+#define FW_VERSION "1.10.0"
 // Board string the signed manifest must carry. One value for every unit this
 // firmware runs on (ESP32-WROOM-32U); a manifest for another board is refused.
 #define FW_BOARD "wroom32u"
@@ -355,17 +364,23 @@ VC2U+UkjnsS9bS7guFXvY41PNeEVH4lp5iEcgtjQc6E+IgFO8QHwfPoRgg==
 #define DEFAULT_WIFI_SSID "YOUR_WIFI_SSID"
 #define DEFAULT_WIFI_PASS "YOUR_WIFI_PASSWORD"
 
-// Relay signal pin. 25 is the reference wiring; a unit wired to another GPIO is
-// built with -DRELAY_PIN=<n> (see [env:esp32dev-relay5] in platformio.ini).
-// GPIO 25 is the reference wiring. GPIO 5 also works and is what the CICT unit
-// uses (-DRELAY_PIN=5, env esp32dev-relay5): it is a strapping pin, but only for
-// SDIO slave timing, which this sketch never configures, and strapping is only
-// sampled at reset. Its reset state is a weak internal pull-up, so it sits
-// weakly HIGH until setup() drives it LOW; confirm on the bench that this does
-// not click the relay at power-up.
+// Relay signal pin. There is deliberately no default: a relay pin is a property
+// of the physical unit, so [env:esp32dev-gpio5] and [env:esp32dev-gpio25] in
+// platformio.ini set RELAY_PIN and FW_HW_VARIANT together (issue #582). The
+// static_assert below refuses a pair that names one wiring but drives another.
+// GPIO 25 is the reference wiring. GPIO 5 is the CICT Building A field unit: it
+// is a strapping pin, but only for SDIO slave timing, which this sketch never
+// configures, and strapping is only sampled at reset. Its reset state is a weak
+// internal pull-up, so it sits weakly HIGH until setup() drives it LOW; confirm
+// on the bench that this does not click the relay at power-up.
 #ifndef RELAY_PIN
-#define RELAY_PIN       25
+#error "RELAY_PIN is required: build -e esp32dev-gpio5 or -e esp32dev-gpio25"
 #endif
+#ifndef FW_HW_VARIANT
+#error "FW_HW_VARIANT is required: build -e esp32dev-gpio5 or -e esp32dev-gpio25"
+#endif
+static_assert(fw::relayPinForVariant(FW_HW_VARIANT) == RELAY_PIN,
+              "FW_HW_VARIANT must match RELAY_PIN (gpio5=5, gpio25=25)");
 #define BUTTON_PIN      23          // hardwired feed button; wired to GND via INPUT_PULLUP
 
 // ---- Dedicated reset buttons (both active-low) --------------------------
@@ -488,6 +503,11 @@ bool resetButtonsArmed = false;
 #define NVS_RESET_LAST_KEY    "rst_last_ep"
 #define NVS_SAFE_MODE_KEY     "safe_mode"
 #define NVS_SAFE_UNTIL_KEY    "safe_until_ep"
+// #455: one incident id per safe-mode lockout, plus whether it was reported.
+// All three are inside the 15-character NVS key limit.
+#define NVS_SAFE_TRIP_ID_KEY   "safe_trip_id"
+#define NVS_SAFE_TRIP_SENT_KEY "safe_trip_sent"
+#define NVS_SAFE_TRIP_AT_KEY   "safe_trip_at"
 
 #define WIFI_RETRY_INTERVAL_MS 10000
 
@@ -535,6 +555,10 @@ float gramsPerSecond = DEFAULT_GRAMS_PER_SECOND;
 // is applied.
 #define NVS_CONFIG_REV_KEY  "cfg_rev"
 #define NVS_CONFIG_JSON_KEY "cfg_json"
+// #582: the hardware variant this unit was provisioned with. Reported in the
+// heartbeat; the OTA contract is enforced against the running image's
+// FW_HW_VARIANT (a wrong-variant USB flash replaces this value at boot).
+#define NVS_HW_VARIANT_KEY  "hw_variant"
 
 fw::DeviceConfig deviceConfig = fw::defaultDeviceConfig();
 uint32_t appliedConfigRev = 0;         // echoed as `config_rev` in the heartbeat
@@ -593,6 +617,12 @@ Preferences prefs;  // NVS storage for WiFi credentials and device state
 String provisionedDeviceId;
 String provisionedDeviceToken;
 bool provisionedFlag = false;  // NVS "provisioned" marker written on a full save
+// #582: hardware variant stored at first boot and reported in the heartbeat.
+// Once set, it is authoritative: an image built for another relay pin cannot
+// dispense and cannot install an OTA update until the correct image is flashed
+// (or a factory reset re-provisions the unit after a deliberate rewire).
+String provisionedHwVariant;
+bool hardwareVariantOk = true;
 
 bool rtcAvailable = false;
 bool feederActive = false;
@@ -783,6 +813,14 @@ fw::NetRetry scheduleRetry;
 fw::NetRetry eventFlushRetry;
 fw::NetRetry refusalRetry;
 fw::NetRetry ackRetry;
+// #455: the safe-mode trip identity and its deferred report. `safeTripIso` is
+// the RTC time captured when the relay locked, persisted so a reboot does not
+// replace the incident time with the report time.
+fw::SafetyTrip safeTrip;
+fw::NetRetry safetyTripRetry;
+char safeTripIso[32] = "unknown";
+bool safeTripAtRuntime = false;
+unsigned long lastHeartbeatOkMs = 0;
 
 bool safeModeActive = false;
 char lastResetReasons[48] = "none";
@@ -816,6 +854,7 @@ uint32_t nextEventSequence = 1;
 void stopFeedCycle();
 void serviceDispenseSafety();
 void serviceSafetyReports();
+void serviceSafetyTripReport();
 void serviceSafeMode();
 void serviceIndicators();
 void serviceFaults();
@@ -859,8 +898,13 @@ static const OtaPublicKey OTA_PUBLIC_KEYS[] = {
 static const size_t OTA_PUBLIC_KEY_COUNT = sizeof(OTA_PUBLIC_KEYS) / sizeof(OTA_PUBLIC_KEYS[0]);
 
 // Reported in every heartbeat. One of: idle, checking, pending_verify, valid,
-// downloading, installed, aborted, failed, rolled_back.
+// downloading, installed, aborted, failed, rolled_back, refused_variant.
+// `refused_variant` is #582: the signed manifest did not name this unit's relay
+// variant. `otaRefusalReason` keeps the machine reason for diagnostics so the
+// app can show why the unit declined an image instead of failing silently.
 const char *otaState = "idle";
+const char *otaRefusalReason = "none";
+String otaRefusedVersion;
 
 // True from the moment the download starts until it ends. dispenseFeed()
 // refuses every trigger while it is set and reports feed_refused with reason
@@ -974,6 +1018,42 @@ void loadDeviceIdentity() {
   if (!apiIdentityAvailable()) {
     Serial.println("[IDENTITY] not provisioned - API disabled");
   }
+}
+
+// Load (or first-time provision) the hardware variant. The NVS value is the
+// unit's provisioned variant and, once written, it is authoritative: an image
+// built for a different relay pin never overwrites it. That mismatch means the
+// wrong binary was flashed, so the relay stays locked off, every dose is
+// refused (and reported), and OTA is blocked until the correct image is flashed.
+// A factory reset (GPIO 16, 10 s) clears the key so a deliberately rewired unit
+// can provision the new variant from the image it is then flashed with.
+void loadHardwareVariant() {
+  provisionedHwVariant = prefs.getString(NVS_HW_VARIANT_KEY, "");
+  provisionedHwVariant.trim();
+
+  if (provisionedHwVariant.length() == 0) {
+    provisionedHwVariant = FW_HW_VARIANT;
+    prefs.putString(NVS_HW_VARIANT_KEY, provisionedHwVariant);
+    hardwareVariantOk = true;
+    Serial.printf("[HW] provisioned variant %s (relay GPIO %d)\n",
+                  provisionedHwVariant.c_str(), RELAY_PIN);
+    return;
+  }
+  if (provisionedHwVariant != FW_HW_VARIANT) {
+    hardwareVariantOk = false;
+    digitalWrite(RELAY_PIN, RELAY_OFF);
+    Serial.printf("[HW] ERROR: this image is built for '%s' (relay GPIO %d) but the unit "
+                  "is provisioned as '%s' (relay GPIO %d) - relay locked off, doses "
+                  "refused, OTA blocked. Flash the correct image; use a factory reset "
+                  "(GPIO %d, 10 s) only after a deliberate rewire.\n",
+                  FW_HW_VARIANT, RELAY_PIN, provisionedHwVariant.c_str(),
+                  fw::relayPinForVariant(provisionedHwVariant.c_str()),
+                  FACTORY_RESET_BUTTON_PIN);
+    return;
+  }
+  hardwareVariantOk = true;
+  Serial.printf("[HW] variant %s (relay GPIO %d)\n",
+                provisionedHwVariant.c_str(), RELAY_PIN);
 }
 
 // ---- Dispense calibration (grams per second) -----------------------------
@@ -1194,10 +1274,15 @@ void clearDeviceIdentity() {
   prefs.remove("device_id");
   prefs.remove("device_token");
   prefs.remove("provisioned");
+  // #582: a deliberate rewire is the only reason to forget the provisioned
+  // variant. The next boot writes the variant of the image being flashed.
+  prefs.remove(NVS_HW_VARIANT_KEY);
   provisionedDeviceId = "";
   provisionedDeviceToken = "";
+  provisionedHwVariant = "";
+  hardwareVariantOk = true;
   provisionedFlag = false;
-  Serial.println("[RESET] Stored device identity cleared");
+  Serial.println("[RESET] Stored device identity and hardware variant cleared");
 }
 
 void initResetButtons() {
@@ -3074,9 +3159,14 @@ bool performFirmwareUpdate(const String &url, size_t expectedSize, const String 
 // ---- Signed update check ----
 bool checkForUpdate() {
   otaSetState("checking");
+  // #582: declare the relay variant so the server never offers an image for
+  // the other wiring. The device still enforces the same rule against the
+  // signed manifest below - this only avoids a pointless download.
   const String url = String(OTA_CHECK_URL) + "?device_id=" +
                      urlEncodeValue(provisionedDeviceId) + "&version=" +
-                     urlEncodeValue(FW_VERSION);
+                     urlEncodeValue(FW_VERSION) + "&variant=" +
+                     urlEncodeValue(FW_HW_VARIANT) + "&relay_gpio=" +
+                     String(RELAY_PIN);
 
   HTTPClient https;
   kickWatchdog();
@@ -3157,6 +3247,8 @@ bool checkForUpdate() {
     return false;
   }
   const String manifestBoard = manifestDoc["board"] | "";
+  const String manifestVariant = manifestDoc["variant"] | "";
+  const int manifestRelayGpio = manifestDoc["relay_gpio"] | -1;
   const String manifestVersion = manifestDoc["version"] | "";
   const size_t manifestSize = (size_t)(manifestDoc["size"] | 0);
   const String manifestSha = manifestDoc["sha256"] | "";
@@ -3176,6 +3268,27 @@ bool checkForUpdate() {
     otaPostpone("manifest_mismatch");
     return false;
   }
+  // #582: a signed image is only installable on the exact wiring it was built
+  // for. Both the variant name and the relay GPIO must agree with this unit's
+  // provisioned variant, and the pair must be internally consistent. This is
+  // the refusal that stops a GPIO 25 image from silently leaving the GPIO 5
+  // field unit unable to dispense.
+  if (!fw::otaMatchesHardware(manifestVariant.c_str(), manifestRelayGpio,
+                              provisionedHwVariant.c_str(), RELAY_PIN)) {
+    Serial.printf("[OTA] manifest variant '%s' (relay GPIO %d) does not match "
+                  "provisioned '%s' (relay GPIO %d) - refusing\n",
+                  manifestVariant.length() ? manifestVariant.c_str() : "(missing)",
+                  manifestRelayGpio, provisionedHwVariant.c_str(), RELAY_PIN);
+    otaRefusalReason = "variant_mismatch";
+    otaRefusedVersion = version;
+    otaSetState("refused_variant");
+    otaPostpone("variant_mismatch");
+    return false;
+  }
+  // A matching signed release clears a previous variant refusal so the app
+  // stops showing a stale reason once the channel is corrected.
+  otaRefusalReason = "none";
+  otaRefusedVersion = "";
   if (compareSemver(version.c_str(), FW_VERSION) <= 0) {
     Serial.printf("[OTA] signed version %s is not newer than %s - refusing\n",
                   version.c_str(), FW_VERSION);
@@ -3229,6 +3342,17 @@ void maybeCheckForUpdate() {
   if (!apiIdentityAvailable()) return;
   if (provisioningActive || otaInProgress) return;
   if ((long)(millis() - nextOtaCheckMs) < 0) return;
+
+  // #582: an image built for another relay pin must not download an update
+  // either. The unit is already misflashed; keep it offline from OTA until the
+  // correct image is flashed and report the reason in the heartbeat.
+  if (!hardwareVariantOk) {
+    otaRefusalReason = "provisioned_variant_mismatch";
+    otaSetState("refused_variant");
+    Serial.println("[OTA] check refused: running image does not match the provisioned variant");
+    otaPostpone("provisioned_variant_mismatch");
+    return;
+  }
 
   const char *gate = otaPreflightFailure();
   if (gate != nullptr) {
@@ -3297,7 +3421,7 @@ void clearSafetyStateForReset() {
   Serial.println("[SAFETY] safe mode and reset history cleared by a reset hold");
 }
 
-void enterSafeMode() {
+void enterSafeMode(bool runtime = false) {
   safeModeActive = true;
   digitalWrite(RELAY_PIN, RELAY_OFF);
   feederActive = false;
@@ -3308,7 +3432,27 @@ void enterSafeMode() {
   prefs.putBool(NVS_SAFE_MODE_KEY, true);
   if (clockValid) prefs.putUInt(NVS_SAFE_UNTIL_KEY, safeModeWindow.untilEpoch());
   else prefs.remove(NVS_SAFE_UNTIL_KEY);
-  Serial.printf("[SAFETY] SAFE MODE: %s\n", lastResetReasons);
+  // #455: one incident per lockout. Persist the id before any report, so a
+  // reboot inside the trip resumes the same incident instead of creating a
+  // second one. If the previous trip is still unreported, keep it: replacing
+  // the only id would drop that incident. The report itself is deferred until
+  // identity + Wi-Fi exist.
+  if (!safeTrip.pending()) {
+    safeTripAtRuntime = runtime;
+    const uint32_t tripId = fw::SafetyTrip::newId(esp_random());
+    safeTrip.start(tripId);
+    const String tripAt = clockValid ? getRTCiso8601() : String("unknown");
+    strncpy(safeTripIso, tripAt.c_str(), sizeof(safeTripIso) - 1);
+    safeTripIso[sizeof(safeTripIso) - 1] = '\0';
+    prefs.putUInt(NVS_SAFE_TRIP_ID_KEY, tripId);
+    prefs.putBool(NVS_SAFE_TRIP_SENT_KEY, false);
+    prefs.putString(NVS_SAFE_TRIP_AT_KEY, safeTripIso);
+    Serial.printf("[SAFETY] SAFE MODE: %s (trip %08lx)\n", lastResetReasons,
+                  (unsigned long)tripId);
+  } else {
+    Serial.printf("[SAFETY] SAFE MODE: %s (trip %08lx still unreported)\n", lastResetReasons,
+                  (unsigned long)safeTrip.id());
+  }
 }
 
 void leaveSafeMode(const char *reason) {
@@ -3344,13 +3488,41 @@ void initSafetyState(esp_reset_reason_t reason) {
 
   const bool safeModeNvs = prefs.getBool(NVS_SAFE_MODE_KEY, false);
   const uint32_t until = prefs.getUInt(NVS_SAFE_UNTIL_KEY, 0);
+
+  // #455: a trip is an incident, not a state. Resume a pending trip even when
+  // safe mode has already been left (quiet window elapsed or reset hold), so a
+  // reboot before the report cannot lose it.
+  uint32_t tripId = prefs.getUInt(NVS_SAFE_TRIP_ID_KEY, 0);
+  bool tripReported = prefs.getBool(NVS_SAFE_TRIP_SENT_KEY, false);
   if (safeModeNvs) {
     safeModeActive = true;
     safeModeWindow.resume(until, millis(), (unsigned long)deviceConfig.safeModeQuietS * 1000UL);
+    // Upgrading from <1.9.0 mid-trip has no id yet, so adopt this boot as the
+    // trip; the original lockout time is not in NVS.
+    if (tripId == 0) {
+      tripId = fw::SafetyTrip::newId(esp_random());
+      tripReported = false;
+      prefs.putUInt(NVS_SAFE_TRIP_ID_KEY, tripId);
+      prefs.putBool(NVS_SAFE_TRIP_SENT_KEY, false);
+    }
+  }
+  if (tripId != 0) {
+    safeTripAtRuntime = false;
+    safeTrip.resume(tripId, tripReported);
+    const String tripAt = prefs.isKey(NVS_SAFE_TRIP_AT_KEY)
+                              ? prefs.getString(NVS_SAFE_TRIP_AT_KEY, "unknown")
+                              : String("unknown");
+    strncpy(safeTripIso, tripAt.c_str(), sizeof(safeTripIso) - 1);
+    safeTripIso[sizeof(safeTripIso) - 1] = '\0';
+    Serial.printf("[SAFETY] trip %08lx resumed (%s)\n", (unsigned long)tripId,
+                  tripReported ? "reported" : "pending");
+  }
+  if (safeModeNvs) {
     if (safeModeWindow.elapsed(clockValid, epoch, millis())) {
       leaveSafeMode("quiet period elapsed while off");
     } else {
-      Serial.printf("[SAFETY] SAFE MODE persists: %s\n", lastResetReasons);
+      Serial.printf("[SAFETY] SAFE MODE persists: %s (trip %08lx, %s)\n", lastResetReasons,
+                    (unsigned long)tripId, tripReported ? "reported" : "pending");
     }
   }
 
@@ -3527,7 +3699,8 @@ void setup() {
   resetReasonName = resetReasonLabel(resetReason);
   lastResetWasBrownout = (resetReason == ESP_RST_BROWNOUT);
   Serial.printf("[INIT] Reset reason: %s\n", resetReasonName);
-  Serial.printf("[INIT] Relay on GPIO %d (active %s)\n", RELAY_PIN, RELAY_ACTIVE_LOW ? "LOW" : "HIGH");
+  Serial.printf("[INIT] Relay on GPIO %d (active %s, variant %s)\n", RELAY_PIN,
+                RELAY_ACTIVE_LOW ? "LOW" : "HIGH", FW_HW_VARIANT);
 
   // The relay is also switched off before every software reset, panic reboot,
   // OTA install reboot and ESP.restart(). Registered before anything can restart.
@@ -3567,6 +3740,8 @@ void setup() {
   prefs.putUInt("rebootCount", rebootCount);
   Serial.printf("[INIT] Boot #%lu\n", rebootCount);
   loadDeviceIdentity();
+  // #582: the relay variant is part of the unit's identity for OTA purposes.
+  loadHardwareVariant();
   // The dashboard-driven last-good configuration (1.7.0) must be in force
   // before the safety state, the hopper filter and the boot summary are built.
   loadPersistedConfig();
@@ -3676,10 +3851,11 @@ void setup() {
 
   // One concise boot summary: what the unit is, how it last died, and the
   // limits it is now enforcing (dashboard config, envelope-bounded).
-  Serial.printf("[BOOT] summary: fw=%s reset=%s safe_mode=%d brownout_hold=%lus relay=GPIO%d "
+  Serial.printf("[BOOT] summary: fw=%s variant=%s reset=%s safe_mode=%d "
+                "brownout_hold=%lus relay=GPIO%d "
                 "identity=%s wifi=%s feeds=%d limits=%lus-gap/%u-per-hour/%.0fg-per-day/"
                 "dose<=%.0fg/hold=%lus/config_rev=%lu\n",
-                FW_VERSION, resetReasonName, safeModeActive ? 1 : 0,
+                FW_VERSION, FW_HW_VARIANT, resetReasonName, safeModeActive ? 1 : 0,
                 (unsigned long)deviceConfig.brownoutHoldS, RELAY_PIN,
                 apiIdentityAvailable() ? "yes" : "no",
                 WiFi.status() == WL_CONNECTED ? "online" : "offline", feedTimesCount,
@@ -3700,6 +3876,7 @@ void loop() {
   // any blocking work below. Also runs at every kickWatchdog() boundary.
   serviceDispenseSafety();
   serviceSafetyReports();
+  serviceSafetyTripReport();
   serviceSafeMode();
   serviceOtaHealthCheck();  // pending-verify deadline; relay stays OFF until valid
   serviceFaults();          // FaultManager: safe mode, RTC probe, offline echo check
@@ -3877,6 +4054,15 @@ void dispenseFeed(float grams, const char* source, const String &requestId, bool
   // call: feed the watchdog around the whole dispense decision.
   kickWatchdog();
 
+  // #582: a binary built for another relay pin cannot be trusted to close this
+  // unit's relay. Refuse every source instead of reporting a feed that cannot
+  // physically happen (the server records the refusal reason).
+  if (!hardwareVariantOk) {
+    digitalWrite(RELAY_PIN, RELAY_OFF);
+    reportFeedError(fw::Refusal::HARDWARE_VARIANT, grams, source);
+    return;
+  }
+
   // Fail-safe order: a unit in safe mode or inside its post-brownout hold must
   // not energize the relay for anything, including a schedule that was already
   // due. Both report a refusal so the server audit trail shows the skip.
@@ -3998,6 +4184,87 @@ void serviceSafetyReports() {
   if (!pendingRelayOverrunReport) return;
   pendingRelayOverrunReport = false;
   reportFeedError(fw::Refusal::RELAY_OVERRUN, overrunGrams, overrunSource);
+}
+
+// #455: report the one-off safe-mode trip. The id was created when
+// enterSafeMode() locked the relay and persisted, so a report deferred past
+// Wi-Fi (or a reboot) is still the same incident. `device_health` already owns
+// the CRITICAL alert; this row is the History event, not a second notification.
+void serviceSafetyTripReport() {
+  if (!safeTrip.pending()) return;
+  // Rare-path diagnostics: a pending trip is an incident that must not be lost
+  // silently. At most one line every 30 s, only while a trip is pending.
+  static unsigned long lastWaitLogMs = 0;
+  if (millis() - lastWaitLogMs >= 30000UL) {
+    lastWaitLogMs = millis();
+    Serial.printf("[SAFETY] trip %08lx wait: wifi=%d hb_age=%lu ready=%d\n",
+                  (unsigned long)safeTrip.id(), WiFi.status() == WL_CONNECTED ? 1 : 0,
+                  lastHeartbeatOkMs ? (millis() - lastHeartbeatOkMs) : 999999UL,
+                  safetyTripRetry.ready(millis()) ? 1 : 0);
+  }
+  if (!apiIdentityAvailable() || WiFi.status() != WL_CONNECTED) return;
+  // Every ingest event shares the device's 1 s lastSeenAt rate limit. A
+  // heartbeat just updated it, so wait before posting the trip.
+  if (lastHeartbeatOkMs != 0 && millis() - lastHeartbeatOkMs < 2000UL) return;
+  const unsigned long now = millis();
+  if (!safetyTripRetry.ready(now)) return;
+
+  char tripId[16];
+  snprintf(tripId, sizeof(tripId), "%08lx", (unsigned long)safeTrip.id());
+  Serial.printf("[SAFETY] trip %s posting (failures=%u)\n", tripId, safetyTripRetry.failures());
+
+  HTTPClient https;
+  kickWatchdog();
+  if (!beginHttps(https, INGEST_URL)) {
+    Serial.printf("[SAFETY] trip %s connect failed\n", tripId);
+    safetyTripRetry.recordFailure(millis(), netJitter());
+    return;
+  }
+  https.addHeader("Content-Type", "application/json");
+  https.addHeader("X-Device-Token", provisionedDeviceToken);
+
+  char eventId[24];
+  fw::SafetyTrip::eventId(safeTrip.id(), eventId, sizeof(eventId));
+
+  JsonDocument doc;
+  doc["device_id"]        = provisionedDeviceId;
+  doc["event_type"]       = "safety_trip";
+  doc["event_id"]         = eventId;
+  doc["trip_id"]          = tripId;
+  doc["firmware_version"] = FW_VERSION;
+  doc["timestamp"]        = safeTripIso[0] ? safeTripIso : "unknown";
+  doc["abnormal_resets"]  = resetHistory.count();
+  doc["reset_reasons"]    = lastResetReasons;
+  doc["reset_reason"]     = resetReasonName;
+  doc["entry"]            = safeTripAtRuntime ? "runtime" : "boot";
+  doc["quiet_s"]          = deviceConfig.safeModeQuietS;
+  doc["uptime_s"]         = (millis() - bootTime) / 1000UL;
+  String out;
+  serializeJson(doc, out);
+
+  int code = https.POST(out);
+  https.end();
+  kickWatchdog();
+
+  if (code >= 200 && code < 300) {
+    safeTrip.markReported();
+    prefs.putBool(NVS_SAFE_TRIP_SENT_KEY, true);
+    safetyTripRetry.recordSuccess();
+    Serial.printf("[SAFETY] trip %s reported (%d)\n", tripId, code);
+  } else if (code == 429 || code == 408) {
+    // Transient: never drop the incident because the device polled too soon.
+    safetyTripRetry.recordFailure(millis(), netJitter());
+    Serial.printf("[SAFETY] trip %s deferred (%d)\n", tripId, code);
+  } else if (code >= 400 && code < 500) {
+    // An older server (422) or a rejected payload: retrying cannot help.
+    safeTrip.markReported();
+    prefs.putBool(NVS_SAFE_TRIP_SENT_KEY, true);
+    safetyTripRetry.recordSuccess();
+    Serial.printf("[SAFETY] trip %s refused (%d)\n", tripId, code);
+  } else {
+    safetyTripRetry.recordFailure(millis(), netJitter());
+    Serial.printf("[SAFETY] trip %s report failed (%d)\n", tripId, code);
+  }
 }
 
 // ==================== Tier 1 — RTC Schedule ====================
@@ -4608,6 +4875,14 @@ void sendTelemetry() {
   doc["last_reset_reasons"] = lastResetReasons;
   JsonObject diag = doc["diag"].to<JsonObject>();
   diag["fw"] = FW_VERSION;
+  // #582: the relay wiring identity, visible on the device page before a dose
+  // is attempted. `ota_refusal` is why the last signed image was declined.
+  diag["hw_variant"] = FW_HW_VARIANT;
+  diag["relay_gpio"] = RELAY_PIN;
+  diag["provisioned_hw_variant"] = provisionedHwVariant;
+  diag["hw_variant_ok"] = hardwareVariantOk;
+  diag["ota_refusal"] = otaRefusalReason;
+  if (otaRefusedVersion.length() > 0) diag["ota_refused_version"] = otaRefusedVersion;
   diag["safe_mode"] = safeModeActive;
   diag["reset_abnormal_count"] = resetHistory.count();
   diag["reset_reason_mask"] = resetHistory.mask();
@@ -4672,6 +4947,9 @@ void sendTelemetry() {
   kickWatchdog();
   if (code >= 200 && code < 300) {
     heartbeatRetry.recordSuccess();
+    // #455: the ingest route rate-limits every event on lastSeenAt (1 s); the
+    // deferred trip report waits until this heartbeat is old enough.
+    lastHeartbeatOkMs = millis();
   } else {
     heartbeatRetry.recordFailure(millis(), netJitter());
   }

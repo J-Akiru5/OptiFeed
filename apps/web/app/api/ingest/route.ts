@@ -136,7 +136,7 @@ const heartbeatSchema = baseSchema.extend({
 const feedDispensedSchema = baseSchema.extend({
 	grams: z.number().positive(),
 	source: z.enum(["scheduled", "dashboard", "button"]),
-	feed_request_id: z.string().nullable().optional(),
+	feed_request_id: z.string().min(1).nullable().optional(),
 });
 
 const scheduleAckedSchema = baseSchema.extend({
@@ -365,42 +365,11 @@ export const POST = withApi(
 			}
 
 			try {
-				const operations: Prisma.PrismaPromise<unknown>[] = [
-					prisma.energyDevice.update({
-						where: { id: device.id },
-						data: {
-							lastSeenAt: new Date(),
-							rtcOk: parsed.data.rtc_ok,
-							feederActive: parsed.data.feeder_active,
-							// I-97: the signal rides the heartbeat write that already
-							// exists, so no extra query per beat. A beat without an RSSI
-							// (old firmware) leaves the last known reading untouched.
-							...rssiUpdate,
-							...diagUpdate,
-						},
-					}),
-				];
-
-				if (heartbeatChanged || heartbeatDue) {
-					operations.push(
-						prisma.feedEvent.create({
-							data: {
-								deviceId: device.id,
-								eventId,
-								eventType: "heartbeat",
-								timestamp: parsed.data.timestamp,
-								rtcOk: parsed.data.rtc_ok,
-								feederActive: parsed.data.feeder_active,
-							},
-						}),
-					);
-				}
-
-				// I-100: record the applied firmware config revision once per change,
-				// so ops can confirm a unit really took a dashboard change. The lookup
-				// only runs on a heartbeat that is already being written (changed or
-				// due), which keeps it to one query per device per few minutes.
+				// I-100: the config revision lookup stays outside the transaction so a
+				// read failure cannot abort the heartbeat. Only a heartbeat being
+				// written (changed or due) pays for it.
 				const reportedConfigRev = parsed.data.config_rev;
+				let lastAppliedConfigRev: unknown = null;
 				if (typeof reportedConfigRev === "number" && (heartbeatChanged || heartbeatDue)) {
 					try {
 						const lastConfigEvent = await prisma.deviceStateEvent.findFirst({
@@ -408,30 +377,9 @@ export const POST = withApi(
 							orderBy: { createdAt: "desc" },
 							select: { metadata: true },
 						});
-						const lastConfigMetadata = (lastConfigEvent?.metadata ?? null) as {
-							configRev?: unknown;
-						} | null;
-						if (lastConfigMetadata?.configRev !== reportedConfigRev) {
-							operations.push(
-								prisma.deviceStateEvent.create({
-									data: {
-										deviceId: device.id,
-										eventType: "config_applied",
-										source: "device",
-										deviceTime: parsed.data.timestamp,
-										metadata: {
-											configRev: reportedConfigRev,
-											...(parsed.data.firmware_version
-												? { version: parsed.data.firmware_version }
-												: {}),
-										},
-									},
-								}),
-							);
-						}
+						lastAppliedConfigRev =
+							(lastConfigEvent?.metadata as { configRev?: unknown } | null)?.configRev ?? null;
 					} catch (error) {
-						// A lookup failure must never drop the heartbeat; the change is
-						// recorded on a later beat.
 						console.warn(
 							"[ingest] config revision lookup failed",
 							error instanceof Error ? error.message : String(error),
@@ -439,383 +387,447 @@ export const POST = withApi(
 					}
 				}
 
-				// OTA lifecycle transition (ota_installed / ota_valid /
-				// ota_rolled_back) with the reported version, so the rollout can be
-				// audited from existing DeviceStateEvent rows. No schema change.
-				if (otaTransitionEvent) {
-					operations.push(
-						prisma.deviceStateEvent.create({
-							data: {
-								deviceId: device.id,
-								eventType: otaTransitionEvent,
-								source: "device",
-								deviceTime: parsed.data.timestamp,
-								metadata: {
-									state: parsed.data.ota_state,
-									...(parsed.data.firmware_version
-										? { version: parsed.data.firmware_version }
-										: {}),
-									...(parsed.data.reset_reason ? { resetReason: parsed.data.reset_reason } : {}),
-								},
-							},
-						}),
-					);
-				}
-
-				// #263: one row per observed version change, so the hardware card
-				// reads the version the unit actually runs after a USB flash.
-				if (firmwareReportedEvent && reportedVersion) {
-					operations.push(
-						prisma.deviceStateEvent.create({
-							data: {
-								deviceId: device.id,
-								eventType: FIRMWARE_REPORTED_EVENT,
-								source: "device",
-								deviceTime: parsed.data.timestamp,
-								metadata: { version: reportedVersion },
-							},
-						}),
-					);
-				}
-
-				if (healthReport && healthChangedNow) {
-					operations.push(
-						prisma.deviceStateEvent.create({
-							data: {
-								deviceId: device.id,
-								eventType: DEVICE_HEALTH_EVENT,
-								source: "device",
-								deviceTime: parsed.data.timestamp,
-								metadata: healthEventMetadata(healthReport) as Prisma.InputJsonObject,
-							},
-						}),
-					);
-					if (healthAlert && device.pondId) {
-						operations.push(
-							prisma.notification.create({
-								data: {
-									pondId: device.pondId,
-									tier: healthAlert.tier,
-									category: "system",
-									message: healthAlert.message,
-									linkTo: "/dashboard/settings/hardware",
-								},
-							}),
-						);
-					}
-				}
-
-				// N15: "connected" only on first contact or offline→online, not every beat.
-				if (wasOffline) {
-					operations.push(
-						prisma.deviceStateEvent.create({
-							data: {
-								deviceId: device.id,
-								eventType: "connected",
-								source: "device",
-								deviceTime: parsed.data.timestamp,
-							},
-						}),
-					);
-				}
-
-				// Feed level sensor reading piggybacked on heartbeat.
-				//
-				// The firmware reports 0 % together with 0 cm when the HC-SR04
-				// pulse times out; a real empty hopper reports its actual distance.
-				// Trusting the sentinel overwrote the last known level with 0 % and
-				// fired a false CRITICAL alert on every
-				// failed read, so the heartbeat still updates `lastSeenAt` below but
-				// the level, history row and hopper alerts are skipped.
-				const levelPercent = parsed.data.feed_level_percent;
-				const levelCm = parsed.data.feed_level_cm;
-				const isSensorTimeout = levelPercent === 0 && levelCm === 0;
-
-				if (typeof levelPercent === "number" && !isSensorTimeout) {
-					operations.push(
-						prisma.energyDevice.update({
+				await prisma.$transaction(async (tx) => {
+					const operations: Prisma.PrismaPromise<unknown>[] = [
+						tx.energyDevice.update({
 							where: { id: device.id },
 							data: {
-								feedLevelPercent: levelPercent,
-								// A heartbeat without a distance keeps the last known
-								// one instead of blanking a real reading.
-								...(typeof levelCm === "number" ? { feedLevelCm: levelCm } : {}),
-								feedLevelUpdatedAt: new Date(),
+								lastSeenAt: new Date(),
+								rtcOk: parsed.data.rtc_ok,
+								feederActive: parsed.data.feeder_active,
+								// I-97: the signal rides the heartbeat write that already
+								// exists, so no extra query per beat. A beat without an RSSI
+								// (old firmware) leaves the last known reading untouched.
+								...rssiUpdate,
+								...diagUpdate,
 							},
 						}),
-					);
+					];
 
-					// Org policy (issue #190): the pond's personal prefs and the
-					// owning org's settings decide the warning threshold and whether
-					// an alert is created. With no resolvable pond/org the schema
-					// defaults and every role apply, matching legacy behaviour.
-					const pondContext = device.pondId
-						? await prisma.pond.findUnique({
-								where: { id: device.pondId },
-								select: { feedsPerDay: true, ownerId: true, notificationPrefs: true },
-							})
-						: null;
-					const orgContext = pondContext ? await getOrgSettingsForFarm(pondContext.ownerId) : null;
-					const feedSettings = orgContext?.settings ?? ORG_SETTINGS_DEFAULTS;
-					const feedPrefs = normalizeNotificationPrefs(pondContext?.notificationPrefs);
-
-					// Resolved lazily: a healthy hopper costs no membership query.
-					let alertRoles: Awaited<ReturnType<typeof getOrgAlertRoles>> | null = null;
-					const hopperAlertsAllowed = async (): Promise<boolean> => {
-						if (!device.pondId) return false;
-						alertRoles ??= await getOrgAlertRoles(orgContext?.orgId ?? null);
-						return shouldCreatePondAlert({
-							settings: feedSettings,
-							category: "hopper_low",
-							prefs: feedPrefs,
-							roles: alertRoles,
-						});
-					};
-
-					// Log to FeedLevelLog sparingly — every 30min or >5% delta
-					const lastLog = await prisma.feedLevelLog.findFirst({
-						where: { deviceId: device.id },
-						orderBy: { recordedAt: "desc" },
-					});
-					const shouldLog =
-						!lastLog ||
-						Date.now() - lastLog.recordedAt.getTime() > 30 * 60 * 1000 ||
-						Math.abs(lastLog.levelPercent - levelPercent) > 5;
-					if (shouldLog) {
+					if (heartbeatChanged || heartbeatDue) {
 						operations.push(
-							prisma.feedLevelLog.create({
+							tx.feedEvent.create({
 								data: {
 									deviceId: device.id,
-									levelPercent,
-									distanceCm: levelCm ?? 0,
+									eventId,
+									eventType: "heartbeat",
+									timestamp: parsed.data.timestamp,
+									rtcOk: parsed.data.rtc_ok,
+									feederActive: parsed.data.feeder_active,
 								},
 							}),
 						);
 					}
 
-					// Hopper alerts are episodes (#534). One row opens when the level
-					// first drops below the org threshold, is updated in place when it
-					// escalates to CRITICAL, and closes when the level recovers.
-					// Acknowledge / mark-all-read silences the bell without re-arming
-					// the next heartbeat, and the old 6 h repeat is gone.
-					const pelletLevel = levelPercent;
-					const pelletTier = hopperAlertTier(pelletLevel, feedSettings.hopperLowPct);
-					const pelletAlertAllowed = pelletTier ? await hopperAlertsAllowed() : false;
+					// I-100: record the applied firmware config revision once per change,
+					// so ops can confirm a unit really took a dashboard change. The
+					// read happened before the transaction; a lookup failure cannot
+					// abort the heartbeat.
+					if (
+						typeof reportedConfigRev === "number" &&
+						(heartbeatChanged || heartbeatDue) &&
+						lastAppliedConfigRev !== reportedConfigRev
+					) {
+						operations.push(
+							tx.deviceStateEvent.create({
+								data: {
+									deviceId: device.id,
+									eventType: "config_applied",
+									source: "device",
+									deviceTime: parsed.data.timestamp,
+									metadata: {
+										configRev: reportedConfigRev,
+										...(parsed.data.firmware_version
+											? { version: parsed.data.firmware_version }
+											: {}),
+									},
+								},
+							}),
+						);
+					}
 
-					let pelletAlertQueued = false;
-					if (pelletTier && device.pondId && pelletAlertAllowed) {
-						const episode = await openEpisode(prisma, {
-							pondId: device.pondId,
-							category: "pellet",
-							episodeKey: pelletEpisodeKey(device.id),
-							tier: pelletTier,
-							message:
-								pelletTier === "CRITICAL"
-									? "Feed hopper is nearly empty — refill immediately"
-									: "Feed hopper is running low — schedule a refill soon",
-							linkTo: "/dashboard/settings",
-						});
-						pelletAlertQueued = true;
-						// A calendar marker only for a fresh or escalated CRITICAL: the state
-						// event is what the harvest calendar renders, so repeats of the same
-						// episode must not add chips (#534).
-						const criticalEscalation =
-							pelletTier === "CRITICAL" && (episode.created || episode.updated);
-						if (criticalEscalation) {
+					// OTA lifecycle transition (ota_installed / ota_valid /
+					// ota_rolled_back) with the reported version, so the rollout can be
+					// audited from existing DeviceStateEvent rows. No schema change.
+					if (otaTransitionEvent) {
+						operations.push(
+							tx.deviceStateEvent.create({
+								data: {
+									deviceId: device.id,
+									eventType: otaTransitionEvent,
+									source: "device",
+									deviceTime: parsed.data.timestamp,
+									metadata: {
+										state: parsed.data.ota_state,
+										...(parsed.data.firmware_version
+											? { version: parsed.data.firmware_version }
+											: {}),
+										...(parsed.data.reset_reason ? { resetReason: parsed.data.reset_reason } : {}),
+									},
+								},
+							}),
+						);
+					}
+
+					// #263: one row per observed version change, so the hardware card
+					// reads the version the unit actually runs after a USB flash.
+					if (firmwareReportedEvent && reportedVersion) {
+						operations.push(
+							tx.deviceStateEvent.create({
+								data: {
+									deviceId: device.id,
+									eventType: FIRMWARE_REPORTED_EVENT,
+									source: "device",
+									deviceTime: parsed.data.timestamp,
+									metadata: { version: reportedVersion },
+								},
+							}),
+						);
+					}
+
+					if (healthReport && healthChangedNow) {
+						operations.push(
+							tx.deviceStateEvent.create({
+								data: {
+									deviceId: device.id,
+									eventType: DEVICE_HEALTH_EVENT,
+									source: "device",
+									deviceTime: parsed.data.timestamp,
+									metadata: healthEventMetadata(healthReport) as Prisma.InputJsonObject,
+								},
+							}),
+						);
+						if (healthAlert && device.pondId) {
 							operations.push(
-								prisma.deviceStateEvent.create({
+								tx.notification.create({
 									data: {
-										deviceId: device.id,
-										eventType: "pellet_low",
-										source: "device",
-										deviceTime: parsed.data.timestamp,
-										metadata: { levelPercent },
+										pondId: device.pondId,
+										tier: healthAlert.tier,
+										category: "system",
+										message: healthAlert.message,
+										linkTo: "/dashboard/settings/hardware",
 									},
 								}),
 							);
 						}
 					}
 
-					// Recovery closes both hopper episodes, so the next dip opens a fresh
-					// one instead of resurrecting a resolved row.
-					if (device.pondId && !pelletTier) {
-						await closeEpisode(prisma, pelletEpisodeKey(device.id));
-						await closeEpisode(prisma, feedDaysEpisodeKey(device.id));
+					// N15: "connected" only on first contact or offline→online, not every beat.
+					if (wasOffline) {
+						operations.push(
+							tx.deviceStateEvent.create({
+								data: {
+									deviceId: device.id,
+									eventType: "connected",
+									source: "device",
+									deviceTime: parsed.data.timestamp,
+								},
+							}),
+						);
 					}
 
-					// 2-days-of-feed-remaining advance warning. The estimate is the
-					// same shared helper the dashboard card uses (lib/feed-level.ts), so
-					// both surfaces agree and a missing capacity or meal size yields null
-					// instead of a `99`-style sentinel. It runs its own episode so it
-					// cannot stack on top of the low-hopper alert (#534).
-					if (device.pondId) {
-						const deviceFull = await prisma.energyDevice.findUnique({
-							where: { id: device.id },
-							select: { hopperCapacityG: true, gramsPerFeeding: true },
-						});
-						if (deviceFull && pondContext) {
-							const daysRemaining = estimateDaysOfFeedRemaining({
-								levelPercent,
-								hopperCapacityG: deviceFull.hopperCapacityG,
-								gramsPerFeeding: deviceFull.gramsPerFeeding,
-								feedsPerDay: pondContext.feedsPerDay,
+					// Feed level sensor reading piggybacked on heartbeat.
+					//
+					// The firmware reports 0 % together with 0 cm when the HC-SR04
+					// pulse times out; a real empty hopper reports its actual distance.
+					// Trusting the sentinel overwrote the last known level with 0 % and
+					// fired a false CRITICAL alert on every
+					// failed read, so the heartbeat still updates `lastSeenAt` below but
+					// the level, history row and hopper alerts are skipped.
+					const levelPercent = parsed.data.feed_level_percent;
+					const levelCm = parsed.data.feed_level_cm;
+					const isSensorTimeout = levelPercent === 0 && levelCm === 0;
+
+					if (typeof levelPercent === "number" && !isSensorTimeout) {
+						operations.push(
+							tx.energyDevice.update({
+								where: { id: device.id },
+								data: {
+									feedLevelPercent: levelPercent,
+									// A heartbeat without a distance keeps the last known
+									// one instead of blanking a real reading.
+									...(typeof levelCm === "number" ? { feedLevelCm: levelCm } : {}),
+									feedLevelUpdatedAt: new Date(),
+								},
+							}),
+						);
+
+						// Org policy (issue #190): the pond's personal prefs and the
+						// owning org's settings decide the warning threshold and whether
+						// an alert is created. With no resolvable pond/org the schema
+						// defaults and every role apply, matching legacy behaviour.
+						const pondContext = device.pondId
+							? await tx.pond.findUnique({
+									where: { id: device.pondId },
+									select: { feedsPerDay: true, ownerId: true, notificationPrefs: true },
+								})
+							: null;
+						const orgContext = pondContext
+							? await getOrgSettingsForFarm(pondContext.ownerId, tx)
+							: null;
+						const feedSettings = orgContext?.settings ?? ORG_SETTINGS_DEFAULTS;
+						const feedPrefs = normalizeNotificationPrefs(pondContext?.notificationPrefs);
+
+						// Resolved lazily: a healthy hopper costs no membership query.
+						let alertRoles: Awaited<ReturnType<typeof getOrgAlertRoles>> | null = null;
+						const hopperAlertsAllowed = async (): Promise<boolean> => {
+							if (!device.pondId) return false;
+							alertRoles ??= await getOrgAlertRoles(orgContext?.orgId ?? null, tx);
+							return shouldCreatePondAlert({
+								settings: feedSettings,
+								category: "hopper_low",
+								prefs: feedPrefs,
+								roles: alertRoles,
 							});
-							if (
-								daysRemaining !== null &&
-								daysRemaining <= FEED_DAYS_WARNING &&
-								daysRemaining > 0 &&
-								!pelletAlertQueued &&
-								(await hopperAlertsAllowed())
-							) {
-								await openEpisode(prisma, {
-									pondId: device.pondId,
-									category: "pellet",
-									episodeKey: feedDaysEpisodeKey(device.id),
-									tier: "WARNING",
-									message: `Feed will run out in ~${Math.ceil(daysRemaining)} day(s) — refill hopper soon`,
-									linkTo: "/dashboard/settings",
-								});
+						};
+
+						// Log to FeedLevelLog sparingly — every 30min or >5% delta
+						const lastLog = await tx.feedLevelLog.findFirst({
+							where: { deviceId: device.id },
+							orderBy: { recordedAt: "desc" },
+						});
+						const shouldLog =
+							!lastLog ||
+							Date.now() - lastLog.recordedAt.getTime() > 30 * 60 * 1000 ||
+							Math.abs(lastLog.levelPercent - levelPercent) > 5;
+						if (shouldLog) {
+							operations.push(
+								tx.feedLevelLog.create({
+									data: {
+										deviceId: device.id,
+										levelPercent,
+										distanceCm: levelCm ?? 0,
+									},
+								}),
+							);
+						}
+
+						// Hopper alerts are episodes (#534). One row opens when the level
+						// first drops below the org threshold, is updated in place when it
+						// escalates to CRITICAL, and closes when the level recovers.
+						// Acknowledge / mark-all-read silences the bell without re-arming
+						// the next heartbeat, and the old 6 h repeat is gone.
+						const pelletLevel = levelPercent;
+						const pelletTier = hopperAlertTier(pelletLevel, feedSettings.hopperLowPct);
+						const pelletAlertAllowed = pelletTier ? await hopperAlertsAllowed() : false;
+
+						let pelletAlertQueued = false;
+						if (pelletTier && device.pondId && pelletAlertAllowed) {
+							const episode = await openEpisode(tx, {
+								pondId: device.pondId,
+								category: "pellet",
+								episodeKey: pelletEpisodeKey(device.id),
+								tier: pelletTier,
+								message:
+									pelletTier === "CRITICAL"
+										? "Feed hopper is nearly empty — refill immediately"
+										: "Feed hopper is running low — schedule a refill soon",
+								linkTo: "/dashboard/settings",
+							});
+							pelletAlertQueued = true;
+							// A calendar marker only for a fresh or escalated CRITICAL: the state
+							// event is what the harvest calendar renders, so repeats of the same
+							// episode must not add chips (#534).
+							const criticalEscalation =
+								pelletTier === "CRITICAL" && (episode.created || episode.updated);
+							if (criticalEscalation) {
+								operations.push(
+									tx.deviceStateEvent.create({
+										data: {
+											deviceId: device.id,
+											eventType: "pellet_low",
+											source: "device",
+											deviceTime: parsed.data.timestamp,
+											metadata: { levelPercent },
+										},
+									}),
+								);
 							}
+						}
+
+						// Recovery closes both hopper episodes, so the next dip opens a fresh
+						// one instead of resurrecting a resolved row.
+						if (device.pondId && !pelletTier) {
+							await closeEpisode(tx, pelletEpisodeKey(device.id));
+							await closeEpisode(tx, feedDaysEpisodeKey(device.id));
+						}
+
+						// 2-days-of-feed-remaining advance warning. The estimate is the
+						// same shared helper the dashboard card uses (lib/feed-level.ts), so
+						// both surfaces agree and a missing capacity or meal size yields null
+						// instead of a `99`-style sentinel. It runs its own episode so it
+						// cannot stack on top of the low-hopper alert (#534).
+						if (device.pondId) {
+							const deviceFull = await tx.energyDevice.findUnique({
+								where: { id: device.id },
+								select: { hopperCapacityG: true, gramsPerFeeding: true },
+							});
+							if (deviceFull && pondContext) {
+								const daysRemaining = estimateDaysOfFeedRemaining({
+									levelPercent,
+									hopperCapacityG: deviceFull.hopperCapacityG,
+									gramsPerFeeding: deviceFull.gramsPerFeeding,
+									feedsPerDay: pondContext.feedsPerDay,
+								});
+								if (
+									daysRemaining !== null &&
+									daysRemaining <= FEED_DAYS_WARNING &&
+									daysRemaining > 0 &&
+									!pelletAlertQueued &&
+									(await hopperAlertsAllowed())
+								) {
+									await openEpisode(tx, {
+										pondId: device.pondId,
+										category: "pellet",
+										episodeKey: feedDaysEpisodeKey(device.id),
+										tier: "WARNING",
+										message: `Feed will run out in ~${Math.ceil(daysRemaining)} day(s) — refill hopper soon`,
+										linkTo: "/dashboard/settings",
+									});
+								}
+							}
+						}
+
+						// Detect hopper refill: previously low level is now above the org threshold
+						if (
+							lastLog &&
+							lastLog.levelPercent <= feedSettings.hopperLowPct &&
+							levelPercent > feedSettings.hopperLowPct
+						) {
+							operations.push(
+								tx.deviceStateEvent.create({
+									data: {
+										deviceId: device.id,
+										eventType: "pellet_refilled",
+										source: "device",
+										deviceTime: parsed.data.timestamp,
+										metadata: {
+											previousLevel: lastLog.levelPercent,
+											currentLevel: levelPercent,
+										},
+									},
+								}),
+							);
 						}
 					}
 
-					// Detect hopper refill: previously low level is now above the org threshold
-					if (
-						lastLog &&
-						lastLog.levelPercent <= feedSettings.hopperLowPct &&
-						levelPercent > feedSettings.hopperLowPct
-					) {
+					// Water temperature sensor reading piggybacked on heartbeat
+					if (typeof parsed.data.water_temp_c === "number" && parsed.data.water_temp_ok === true) {
 						operations.push(
-							prisma.deviceStateEvent.create({
+							tx.energyDevice.update({
+								where: { id: device.id },
 								data: {
-									deviceId: device.id,
-									eventType: "pellet_refilled",
-									source: "device",
-									deviceTime: parsed.data.timestamp,
-									metadata: {
-										previousLevel: lastLog.levelPercent,
-										currentLevel: levelPercent,
-									},
+									waterTempC: parsed.data.water_temp_c,
+									waterTempOk: true,
+									waterTempUpdatedAt: new Date(),
 								},
 							}),
 						);
-					}
-				}
 
-				// Water temperature sensor reading piggybacked on heartbeat
-				if (typeof parsed.data.water_temp_c === "number" && parsed.data.water_temp_ok === true) {
-					operations.push(
-						prisma.energyDevice.update({
-							where: { id: device.id },
-							data: {
-								waterTempC: parsed.data.water_temp_c,
-								waterTempOk: true,
-								waterTempUpdatedAt: new Date(),
-							},
-						}),
-					);
-
-					// Also keep the history the dashboard chart reads. Throttled to one
-					// row per device per 5 minutes; a rejected/absent probe writes nothing.
-					const lastTempLog = await prisma.waterTempLog.findFirst({
-						where: { deviceId: device.id },
-						orderBy: { recordedAt: "desc" },
-						select: { recordedAt: true },
-					});
-					const tempLogDue =
-						!lastTempLog ||
-						Date.now() - lastTempLog.recordedAt.getTime() >= WATER_TEMP_LOG_INTERVAL_MS;
-					if (tempLogDue) {
-						// Ownership stamp, same convention as FeedLevelLog.farmId: the
-						// device has no farm of its own, so read it from its pond (at most
-						// once per 5 minutes, only when the row is due).
-						const pondFarm = device.pondId
-							? await prisma.pond.findUnique({
-									where: { id: device.pondId },
-									select: { farmId: true },
-								})
-							: null;
-						operations.push(
-							prisma.waterTempLog.create({
-								data: {
-									deviceId: device.id,
-									tempC: parsed.data.water_temp_c,
-									farmId: pondFarm?.farmId ?? null,
-								},
-							}),
-						);
-					}
-				} else {
-					// Probe undetected (or field omitted) — flag offline without overwriting
-					// the last real reading with the -127 disconnect sentinel.
-					operations.push(
-						prisma.energyDevice.update({
-							where: { id: device.id },
-							data: { waterTempOk: false },
-						}),
-					);
-				}
-
-				// Cold-water episode (#486, #534): one warning per dip below the
-				// device's configured feeding minimum, closed once the water warms back
-				// above it. Feeding itself is never blocked.
-				if (
-					device.pondId &&
-					typeof device.minFeedTempC === "number" &&
-					typeof parsed.data.water_temp_c === "number" &&
-					parsed.data.water_temp_ok === true
-				) {
-					if (parsed.data.water_temp_c < device.minFeedTempC) {
-						await openEpisode(prisma, {
-							pondId: device.pondId,
-							category: "feeding",
-							episodeKey: coldWaterEpisodeKey(device.id),
-							tier: "WARNING",
-							message:
-								"Water temperature is below this pond's feeding minimum — check the fish before the next feed",
-							linkTo: "/dashboard",
+						// Also keep the history the dashboard chart reads. Throttled to one
+						// row per device per 5 minutes; a rejected/absent probe writes nothing.
+						const lastTempLog = await tx.waterTempLog.findFirst({
+							where: { deviceId: device.id },
+							orderBy: { recordedAt: "desc" },
+							select: { recordedAt: true },
 						});
+						const tempLogDue =
+							!lastTempLog ||
+							Date.now() - lastTempLog.recordedAt.getTime() >= WATER_TEMP_LOG_INTERVAL_MS;
+						if (tempLogDue) {
+							// Ownership stamp, same convention as FeedLevelLog.farmId: the
+							// device has no farm of its own, so read it from its pond (at most
+							// once per 5 minutes, only when the row is due).
+							const pondFarm = device.pondId
+								? await tx.pond.findUnique({
+										where: { id: device.pondId },
+										select: { farmId: true },
+									})
+								: null;
+							operations.push(
+								tx.waterTempLog.create({
+									data: {
+										deviceId: device.id,
+										tempC: parsed.data.water_temp_c,
+										farmId: pondFarm?.farmId ?? null,
+									},
+								}),
+							);
+						}
 					} else {
-						await closeEpisode(prisma, coldWaterEpisodeKey(device.id));
+						// Probe undetected (or field omitted) — flag offline without overwriting
+						// the last real reading with the -127 disconnect sentinel.
+						operations.push(
+							tx.energyDevice.update({
+								where: { id: device.id },
+								data: { waterTempOk: false },
+							}),
+						);
 					}
-				}
 
-				if (wasOffline && device.lastSeenAt) {
-					operations.push(
-						prisma.deviceStateEvent.create({
-							data: {
-								deviceId: device.id,
-								eventType: "disconnected",
-								source: "system",
-								deviceTime: device.lastSeenAt.toISOString(),
-								metadata: { durationMs: Date.now() - device.lastSeenAt.getTime() },
-							},
-						}),
-					);
-				}
-
-				// Phase 3: close the offline episode and auto-clear any legacy
-				// disconnected rows on reconnect.
-				if (wasOffline && device.pondId) {
-					await closeEpisode(prisma, offlineEpisodeKey(device.id));
-					operations.push(
-						prisma.notification.updateMany({
-							where: {
+					// Cold-water episode (#486, #534): one warning per dip below the
+					// device's configured feeding minimum, closed once the water warms back
+					// above it. Feeding itself is never blocked.
+					if (
+						device.pondId &&
+						typeof device.minFeedTempC === "number" &&
+						typeof parsed.data.water_temp_c === "number" &&
+						parsed.data.water_temp_ok === true
+					) {
+						if (parsed.data.water_temp_c < device.minFeedTempC) {
+							await openEpisode(tx, {
 								pondId: device.pondId,
-								category: "connectivity",
-								autoCleared: false,
-								acknowledgedAt: null,
-							},
-							data: {
-								autoCleared: true,
-								read: true,
-								resolvedAt: new Date(),
-							},
-						}),
-					);
-				}
+								category: "feeding",
+								episodeKey: coldWaterEpisodeKey(device.id),
+								tier: "WARNING",
+								message:
+									"Water temperature is below this pond's feeding minimum — check the fish before the next feed",
+								linkTo: "/dashboard",
+							});
+						} else {
+							await closeEpisode(tx, coldWaterEpisodeKey(device.id));
+						}
+					}
 
-				await prisma.$transaction(operations);
+					if (wasOffline && device.lastSeenAt) {
+						operations.push(
+							tx.deviceStateEvent.create({
+								data: {
+									deviceId: device.id,
+									eventType: "disconnected",
+									source: "system",
+									deviceTime: device.lastSeenAt.toISOString(),
+									metadata: { durationMs: Date.now() - device.lastSeenAt.getTime() },
+								},
+							}),
+						);
+					}
+
+					// Phase 3: close the offline episode and auto-clear any legacy
+					// disconnected rows on reconnect.
+					if (wasOffline && device.pondId) {
+						await closeEpisode(tx, offlineEpisodeKey(device.id));
+						operations.push(
+							tx.notification.updateMany({
+								where: {
+									pondId: device.pondId,
+									category: "connectivity",
+									autoCleared: false,
+									acknowledgedAt: null,
+								},
+								data: {
+									autoCleared: true,
+									read: true,
+									resolvedAt: new Date(),
+								},
+							}),
+						);
+					}
+
+					for (const operation of operations) {
+						await operation;
+					}
+				});
 			} catch (error) {
 				if (isUniqueConstraintError(error)) {
 					return new Response(null, { status: 204 });
@@ -836,6 +848,10 @@ export const POST = withApi(
 
 			// Gap #2: a retry of the same feed (same requestId + source) must not
 			// double-count, even when the firmware regenerated its event_id.
+			// The pre-check below is only a fast path. The partial unique index
+			// "FeedEvent_feed_dispensed_request_key" (migration 20261103090000)
+			// is the concurrency guarantee: a losing insert raises P2002 and is
+			// caught below as 204.
 			if (parsed.data.feed_request_id) {
 				const existing = await prisma.feedEvent.findFirst({
 					where: {

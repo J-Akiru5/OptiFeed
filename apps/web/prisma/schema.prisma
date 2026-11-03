@@ -60,6 +60,10 @@ model User {
   email              String   @unique // synthetic login address <farmId>@pond.optifeed.local; never deliverable, never edited
   contactEmail       String?  @unique // deliverable address an administrator records (#449); used for password-reset mail
   displayName        String?
+  /// Legacy global flag. Tenant authority is `Membership.role` in an ACTIVE
+  /// Organization (#583) — see `lib/auth/write-access.ts`. It is only consulted
+  /// for accounts with no membership row at all, i.e. ones created before the
+  /// membership model. Do not add new reads of this column.
   role               UserRole @default(OPERATOR)
   mustChangePassword Boolean  @default(false)
   avatarPath         String? // object key in the private `avatars` bucket (#198); served via short-lived signed URLs
@@ -330,30 +334,46 @@ model FeedLevelLog {
 }
 
 model Notification {
-  id             String    @id @default(cuid())
-  pondId         String
-  tier           String
-  message        String
-  linkTo         String?
-  read           Boolean   @default(false)
-  category       String? // "connectivity" | "feeding" | "pellet" | "pge" | "schedule" | "system"
-  acknowledgedAt DateTime?
-  acknowledgedBy String?
-  autoCleared    Boolean   @default(false)
-  createdAt      DateTime  @default(now())
-  farmId         String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
+  id               String    @id @default(cuid())
+  pondId           String
+  tier             String
+  message          String
+  linkTo           String?
+  read             Boolean   @default(false)
+  category         String? // "connectivity" | "feeding" | "pellet" | "pge" | "schedule" | "system"
+  acknowledgedAt   DateTime?
+  acknowledgedBy   String?
+  autoCleared      Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  farmId           String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
   // Alert episodes (#534): one open row per active condition instead of one row
   // per reading. `episodeKey` is the stable condition key, `resolvedAt` records
   // when the condition cleared, and `supersededById` points at the row a folded
   // historical duplicate was merged into (kept for audit, hidden from lists).
-  episodeKey     String?
-  resolvedAt     DateTime?
-  supersededById String?
+  //
+  // The race-safe guarantee behind `openEpisode()` is the partial unique index
+  // `Notification_one_open_per_episode`, created by migration
+  // 20261102200000_alert_episode_dedup:
+  //   UNIQUE ("episodeKey")
+  //   WHERE "resolvedAt" IS NULL
+  //     AND "autoCleared" = false
+  //     AND "supersededById" IS NULL
+  // Prisma's schema language cannot express a partial index, so it exists only
+  // in that migration. Do not delete the migration's index as schema drift.
+  episodeKey       String?
+  resolvedAt       DateTime?
+  supersededById   String?
+  /// Why a system process closed the episode: "condition_recovered",
+  /// "duplicate_open_episode" or "superseded_historical_duplicate". Kept for
+  /// audit; user acknowledgements do not set it.
+  resolutionReason String?
 
   pond Pond @relation(fields: [pondId], references: [id])
 
   @@index([pondId, read])
+  @@index([pondId, createdAt])
   @@index([farmId])
+  @@index([farmId, createdAt])
   @@index([episodeKey])
   @@index([pondId, supersededById])
 }
@@ -423,6 +443,7 @@ model EnergyDevice {
   feedLevelLogs    FeedLevelLog[]
   waterTempLogs    WaterTempLog[]
   settingsDrafts   PondSettingsDraft[]
+  connectivity     DeviceConnectivityDaily[]
 
   @@index([pondId])
 }
@@ -435,6 +456,8 @@ model FeedEvent {
   timestamp     String // device RTC time — may be "unknown" if RTC unavailable
   grams         Float?
   source        String? // "scheduled" | "dashboard" | "button"
+  // Unique for feed_dispensed rows with a request id (partial index in
+  // migration 20261103090000; Prisma cannot express partial indexes).
   feedRequestId String?
   commandId     String? // links to ScheduleCommand id for schedule_acked events
   rtcOk         Boolean?
@@ -462,6 +485,11 @@ model FeedRequest {
 
   device EnergyDevice @relation(fields: [deviceId], references: [id])
 
+  // #581: at most one pending row per device is enforced by the partial unique
+  // index "FeedRequest_deviceId_pending_key" created in migration
+  // 20261102190000_feed_request_pending_unique. Prisma cannot express a partial
+  // index, so do not replace it with a plain @@unique([deviceId]) or a full
+  // index: either would also forbid the historical rows a device accumulates.
   @@index([deviceId, status])
   @@index([farmId])
 }
@@ -484,6 +512,34 @@ model DeviceStateEvent {
   @@index([deviceId, createdAt])
   @@index([eventType, createdAt])
   @@index([farmId])
+}
+
+/// Per-device daily connectivity rollup (issue #479, M3C.10; decision O24).
+///
+/// One row per (device, UTC calendar day), aggregated from the stored
+/// `FeedEvent` heartbeat rows by the `device-watch` cron before the 7-day
+/// heartbeat sweep. It is the only source for the 90-day trend: a day with no
+/// row is reported as "no data" and is never estimated from neighbouring days.
+/// Rows older than 90 days are pruned by the same cron.
+model DeviceConnectivityDaily {
+  id             String   @id @default(cuid())
+  deviceId       String
+  /// UTC calendar day. A DATE, so the unique key cannot shift with a time zone.
+  day            DateTime @db.Date
+  firstSeenAt    DateTime
+  lastSeenAt     DateTime
+  /// Measured online time: the heartbeat span minus the silence beyond the
+  /// configured gap threshold (see `lib/platform/connectivity-rules.ts`).
+  onlineMinutes  Int
+  heartbeatCount Int
+  gapCount       Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  device EnergyDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, day])
+  @@index([day])
 }
 
 // Schedule edits as queued commands — never write directly to Pond.
@@ -662,6 +718,109 @@ model PlatformAuditLog {
 
   @@index([orgId, createdAt])
   @@index([actorUserId, createdAt])
+  @@index([createdAt])
+}
+
+/// What opened a platform incident. `device_offline`, `safe_mode`, `fault` and
+/// `failed_job` are maintained automatically by the device-watch sync;
+/// `notification` and `manual` are reserved for incidents an operator or a
+/// future ingestion path opens by hand.
+enum PlatformIncidentSource {
+  DEVICE_OFFLINE
+  SAFE_MODE
+  FAULT
+  FAILED_JOB
+  NOTIFICATION
+  MANUAL
+}
+
+enum PlatformIncidentSeverity {
+  CRITICAL
+  WARNING
+  INFO
+}
+
+enum PlatformIncidentStatus {
+  NEW
+  ACKNOWLEDGED
+  INVESTIGATING
+  RESOLVED
+  ESCALATED
+}
+
+enum PlatformIncidentEventType {
+  AUTO_OPENED
+  AUTO_RESOLVED
+  ACKNOWLEDGED
+  INVESTIGATING
+  RESOLVED
+  ESCALATED
+  /// The platform-admin role was told in the console. There is no email,
+  /// chat or pager channel (plan decision O20).
+  NOTIFIED
+}
+
+/// One platform incident (issue #479, M3C.6; plan decisions O19/O20).
+///
+/// `dedupeKey` is the stable condition key (`device_offline:<deviceId>`,
+/// `safe_mode:<deviceId>`, `fault:<deviceId>:<fault>`, `failed_job:<jobId>`).
+/// It is unique, so a repeating condition updates the same row instead of
+/// opening a second incident. A resolved condition that returns reopens the
+/// same row; that is a system transition, not a UI action.
+///
+/// `orgId`, `farmId`, `deviceId`, `pondId` and `ownerId` are immutable stamps
+/// with no foreign keys by design: the incident survives the subject's
+/// deletion, and the audit trail stays readable. `ownerId` is a `User.id` that
+/// currently holds an active `PlatformAdmin` grant.
+///
+/// Every transition writes one `PlatformIncidentEvent` and one
+/// `PlatformAuditLog` row; the pure rules live in
+/// `lib/platform/incident-lifecycle-rules.ts`.
+model PlatformIncident {
+  id             String                   @id @default(cuid())
+  dedupeKey      String                   @unique
+  source         PlatformIncidentSource
+  severity       PlatformIncidentSeverity
+  status         PlatformIncidentStatus   @default(NEW)
+  title          String
+  summary        String?
+  orgId          String?
+  farmId         String?
+  deviceId       String?
+  pondId         String?
+  ownerId        String?
+  openedAt       DateTime                 @default(now())
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+  escalatedAt    DateTime?
+  ackDueAt       DateTime?
+  lastSeenAt     DateTime                 @default(now())
+  metadata       Json?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  events PlatformIncidentEvent[]
+
+  @@index([status, severity, openedAt])
+  @@index([orgId, openedAt])
+}
+
+/// Append-only timeline for a platform incident. `actorId` null means the
+/// system (the device-watch sync) made the transition.
+model PlatformIncidentEvent {
+  id         String                     @id @default(cuid())
+  incidentId String
+  type       PlatformIncidentEventType
+  fromStatus PlatformIncidentStatus?
+  toStatus   PlatformIncidentStatus?
+  actorId    String?
+  note       String?
+  metadata   Json?
+  createdAt  DateTime                   @default(now())
+
+  incident PlatformIncident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId, createdAt])
 }
 
 model ImpersonationSession {
@@ -732,6 +891,10 @@ model BackgroundJob {
   result      Json?
   error       String?
   attempts    Int          @default(0)
+  /// When the next attempt may run. NULL means "as soon as a worker reaches it".
+  nextAttemptAt DateTime?
+  /// Operator-facing detail from the last attempt. Never returned to tenants.
+  lastError   String?
   lockedAt    DateTime?
   lockedBy    String?
   createdAt   DateTime     @default(now())
@@ -741,6 +904,7 @@ model BackgroundJob {
   artifact    JobArtifact?
 
   @@index([status, createdAt])
+  @@index([status, nextAttemptAt])
   @@index([ownerId, createdAt])
   @@index([expiresAt])
 }

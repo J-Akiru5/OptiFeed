@@ -61,6 +61,11 @@ vi.mock("@/lib/auth/session", () => ({
 	})),
 }));
 
+vi.mock("@/lib/auth/permissions", () => ({
+	hasPermission: vi.fn(async () => true),
+	requirePermission: vi.fn(async () => undefined),
+}));
+
 vi.mock("@/lib/pond-selection", () => ({
 	getActivePond: vi.fn(async () => ({
 		id: "pond-1",
@@ -159,7 +164,7 @@ vi.mock("@/lib/prisma", () => ({
 			findMany: vi.fn(async () => []),
 			aggregate: vi.fn(async () => ({ _sum: { grams: 0 } })),
 		},
-		deviceStateEvent: { findFirst: vi.fn(async () => null) },
+		deviceStateEvent: { findFirst: vi.fn(async () => null), findMany: vi.fn(async () => []) },
 		biomassLog: { findFirst: vi.fn(async () => null) },
 		fcrReport: { findFirst: vi.fn(async () => null) },
 		feedLevelLog: { findMany: vi.fn(async () => []) },
@@ -231,12 +236,14 @@ import HardwareSettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/
 import SettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/page";
 import PondSettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/pond/page";
 import ProfileSettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/profile/page";
+import { hasPermission } from "@/lib/auth/permissions";
 import { canWrite, getCurrentUser } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 
 beforeEach(() => {
 	vi.clearAllMocks();
 	vi.mocked(canWrite).mockResolvedValue(true);
+	vi.mocked(hasPermission).mockResolvedValue(true);
 });
 
 function expectReadOnlyNote(html: string) {
@@ -291,6 +298,36 @@ describe("hardware settings page", () => {
 		expect(html).toContain("Device ID (MAC)");
 	});
 
+	it("shows the stored water temperature verbatim, with the offset applied once (#622)", async () => {
+		// The mock device stores 28.5 °C with a -0.5 offset, i.e. the firmware
+		// already sent 29.0 - 0.5. The page must not subtract it a second time.
+		const html = renderToStaticMarkup(
+			await HardwareSettingsPage({ searchParams: Promise.resolve({}) }),
+		);
+
+		expect(html).toContain("Last reading: <strong>28.5°C</strong>");
+		expect(html).toContain("29.0°C");
+		expect(html).not.toContain("27.5°C");
+	});
+
+	it("lists saved temperature calibrations in the calibration history (#613)", async () => {
+		vi.mocked(prisma.deviceStateEvent.findMany).mockResolvedValueOnce([
+			{
+				id: "tce-1",
+				createdAt: new Date("2026-11-02T08:00:00.000Z"),
+				metadata: { tempOffsetC: -0.5, minFeedTempC: 24 },
+			},
+		] as never);
+
+		const html = renderToStaticMarkup(
+			await HardwareSettingsPage({ searchParams: Promise.resolve({}) }),
+		);
+
+		expect(html).toContain("temperature-calibration-history");
+		expect(html).toContain("-0.5 °C");
+		expect(html).toContain("24.0 °C");
+	});
+
 	it("shows the sticker MAC as the Device ID and the heartbeat's firmware version", async () => {
 		vi.mocked(prisma.deviceStateEvent.findFirst).mockResolvedValueOnce({
 			eventType: "firmware_reported",
@@ -332,7 +369,7 @@ describe("pond settings page", () => {
 	});
 
 	it("explains read-only mode on the pond form", async () => {
-		vi.mocked(canWrite).mockResolvedValueOnce(false);
+		vi.mocked(hasPermission).mockResolvedValueOnce(false);
 
 		const html = renderToStaticMarkup(await PondSettingsPage());
 

@@ -1,11 +1,14 @@
 import {
 	Activity,
 	BarChart3,
+	Building2,
 	CalendarDays,
 	Cpu,
 	Droplets,
 	FolderTree,
 	type LucideIcon,
+	OctagonAlert,
+	Radio,
 	Settings,
 	Sparkles,
 	Users,
@@ -14,6 +17,9 @@ import {
 /** Message keys under `superadmin.shell.nav`, one per console section. */
 export type SuperadminNavKey =
 	| "overview"
+	| "tenants"
+	| "fleet"
+	| "incidents"
 	| "calendar"
 	| "users"
 	| "organizations"
@@ -35,17 +41,22 @@ export type SuperadminNavGroup = {
 
 /**
  * The platform console sidebar, grouped by what the operator is doing (plan
- * M3C.1, decision T24). Every URL is the one the flat nine-item list used, so
- * no link, bookmark or audit trail changes.
+ * M3C.1, decision T24). Every URL the flat nine-item list used is unchanged, so
+ * no bookmark or audit trail changes.
  *
- * Command Center holds only Overview until its pages exist: Incidents (M3C.5)
- * and Fleet monitor (M3C.4) join it when they ship, not before, so the sidebar
- * never links to a page that is not there. Audit stays a tab under Operations.
+ * Command Center holds the operator's first-stop pages: the overview, then the
+ * tenant health table (M3C.3), the fleet monitor (M3C.4) and the incident queue
+ * (M3C.5) once each page shipped. Audit stays a tab under Operations.
  */
 export const SUPERADMIN_NAV_GROUPS: readonly SuperadminNavGroup[] = [
 	{
 		key: "commandCenter",
-		items: [{ href: "/superadmin", key: "overview", icon: BarChart3 }],
+		items: [
+			{ href: "/superadmin", key: "overview", icon: BarChart3 },
+			{ href: "/superadmin/tenants", key: "tenants", icon: Building2 },
+			{ href: "/superadmin/fleet", key: "fleet", icon: Radio },
+			{ href: "/superadmin/incidents", key: "incidents", icon: OctagonAlert },
+		],
 	},
 	{
 		key: "ecosystem",

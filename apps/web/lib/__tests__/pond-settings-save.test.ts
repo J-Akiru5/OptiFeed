@@ -19,8 +19,11 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 vi.mock("@/lib/auth/session", () => ({
-	requireWriteAccess: vi.fn(),
 	getCurrentPondOwnerId: vi.fn(async () => "farm-1"),
+}));
+
+vi.mock("@/lib/auth/permissions", () => ({
+	requirePermission: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/feed-grams", () => ({
@@ -38,11 +41,11 @@ vi.mock("@/lib/settings/feeding-caps", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { updateScheduleCommand } from "@/lib/actions/schedule";
-import { requireWriteAccess } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/permissions";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import prisma from "@/lib/prisma";
 
-const mockRequireWriteAccess = vi.mocked(requireWriteAccess);
+const mockRequirePermission = vi.mocked(requirePermission);
 const mockSync = vi.mocked(syncDeviceGramsForPond);
 const mockSchedule = vi.mocked(updateScheduleCommand);
 const mockPond = vi.mocked(prisma.pond);
@@ -62,7 +65,7 @@ const POND = {
 
 beforeEach(() => {
 	vi.clearAllMocks();
-	mockRequireWriteAccess.mockResolvedValue(undefined);
+	mockRequirePermission.mockResolvedValue(undefined);
 	mockPond.findFirst.mockResolvedValue(POND as never);
 	mockDevice.findFirst.mockResolvedValue({
 		id: "device-1",
@@ -183,13 +186,14 @@ describe("updatePondSettings success path", () => {
 });
 
 describe("updatePondSettings guard", () => {
-	it("returns a structured failure when the caller cannot write", async () => {
-		mockRequireWriteAccess.mockRejectedValue(new Error("Write access required"));
+	it("returns a structured failure when the caller lacks the permission", async () => {
+		mockRequirePermission.mockRejectedValueOnce(new Error("Forbidden"));
 		const { updatePondSettings } = await import("@/lib/actions/settings");
 		const result = await updatePondSettings("pond-1", 2, 2);
 
 		expect(result.success).toBe(false);
 		if (!result.success) {
+			expect(result.code).toBe("forbidden");
 			expect(result.fieldErrors).toEqual([]);
 			expect(result.conflicts).toEqual([]);
 		}

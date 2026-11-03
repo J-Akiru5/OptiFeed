@@ -6,6 +6,7 @@ import {
 	Activity,
 	BarChart3,
 	Bell,
+	Building2,
 	CalendarDays,
 	CalendarRange,
 	Clock,
@@ -20,7 +21,9 @@ import {
 	type LucideIcon,
 	MapPin,
 	Menu,
+	OctagonAlert,
 	Plus,
+	Radio,
 	ScanLine,
 	Search,
 	Settings,
@@ -125,6 +128,19 @@ export function quickMenuSections(input: {
 				title: t("sections.destinations"),
 				items: [
 					{ id: "overview", label: nav("overview"), href: "/superadmin", icon: BarChart3 },
+					{
+						id: "tenants",
+						label: nav("tenants"),
+						href: "/superadmin/tenants",
+						icon: Building2,
+					},
+					{ id: "fleet", label: nav("fleet"), href: "/superadmin/fleet", icon: Radio },
+					{
+						id: "incidents",
+						label: nav("incidents"),
+						href: "/superadmin/incidents",
+						icon: OctagonAlert,
+					},
 					{
 						id: "calendar",
 						label: nav("calendar"),
@@ -255,6 +271,7 @@ export function QuickMenu({
 	const [mounted, setMounted] = useState(false);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
+	const panelRef = useRef<HTMLDivElement>(null);
 
 	const sections = quickMenuSections({ shell, isTenantAdmin, t, nav });
 	const needle = query.trim().toLowerCase();
@@ -283,6 +300,35 @@ export function QuickMenu({
 			if (event.key === "Escape") {
 				setOpen(false);
 				triggerRef.current?.focus();
+				return;
+			}
+			if (event.key !== "Tab") return;
+			// `aria-modal` promises the rest of the page is inert, so Tab must not
+			// walk out of the sheet into the header and bottom bar behind it. Wrap
+			// between the first and last control, and pull focus back in if it has
+			// drifted onto the backdrop.
+			const panel = panelRef.current;
+			if (!panel) return;
+			const focusable = Array.from(
+				panel.querySelectorAll<HTMLElement>(
+					'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+				),
+			);
+			if (focusable.length === 0) return;
+			const first = focusable[0];
+			const last = focusable[focusable.length - 1];
+			const active = document.activeElement as HTMLElement | null;
+			if (!active || !panel.contains(active)) {
+				event.preventDefault();
+				(event.shiftKey ? last : first).focus();
+				return;
+			}
+			if (event.shiftKey && active === first) {
+				event.preventDefault();
+				last.focus();
+			} else if (!event.shiftKey && active === last) {
+				event.preventDefault();
+				first.focus();
 			}
 		};
 		document.addEventListener("keydown", onKeyDown);
@@ -376,6 +422,7 @@ export function QuickMenu({
 							role="dialog"
 							aria-modal="true"
 							aria-label={t("menuLabel")}
+							ref={panelRef}
 							className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-3xl bg-white pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl dark:bg-gray-900"
 						>
 							<div className="mx-auto mt-2 h-1 w-10 rounded-full bg-gray-300 dark:bg-gray-700" />

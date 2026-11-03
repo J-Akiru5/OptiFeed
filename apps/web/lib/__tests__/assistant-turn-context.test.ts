@@ -57,6 +57,8 @@ import { buildAssistantTurnData } from "../assistant/turn-context";
 const CALLER: AssistantCaller = {
 	userId: "user-1",
 	role: "farmer",
+	membershipRole: null,
+	isOwner: false,
 	permissions: new Set<Permission>(),
 	canWrite: true,
 	isPlatformAdmin: false,
@@ -89,6 +91,7 @@ const DEVICE = {
 	feedLevelPercent: 62,
 	lastSeenAt: new Date(),
 	gramsPerFeeding: 120,
+	dailyCapG: 4000,
 };
 
 beforeEach(() => {
@@ -196,6 +199,7 @@ describe("feeder snapshot", () => {
 				feedLevelPercent: true,
 				lastSeenAt: true,
 				gramsPerFeeding: true,
+				dailyCapG: true,
 			},
 		});
 		expect(data.turn).toMatchObject({
@@ -572,6 +576,8 @@ describe("prompt and proposal context", () => {
 			currentGrams: 120,
 			currentFeedsPerDay: 2,
 			currentRatePct: 2.5,
+			currentDailyCapG: 4000,
+			deviceOnline: true,
 		});
 	});
 });

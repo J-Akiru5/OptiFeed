@@ -10,7 +10,7 @@ import {
 } from "@/lib/limits";
 import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { FeedRequest, Prisma, PrismaClient } from "@prisma/client";
 
 /**
  * The one manual-feed and pause code path (plan M5.2, ADR-PK-05 §6).
@@ -46,8 +46,101 @@ export type SchedulePauseOutcome =
 	| { ok: true; wasPaused: boolean }
 	| { ok: false; code: "device_not_found" | "pond_fallow"; error: string };
 
+export type ManualFeedInput = {
+	deviceId: string;
+	grams?: number;
+	/** When set, the device must belong to a pond owned by this farm. */
+	farmId?: string | null;
+	/** Actor recorded on the DeviceStateEvent (farmId for tenant, user id for platform). */
+	actorId: string;
+	triggerSource: string;
+};
+
+const FEED_ALREADY_PENDING_CODE = "feed_already_pending";
+
+/**
+ * Raised when the caller already owns a transaction and the insert lost the
+ * one-pending-per-device race. Postgres aborts that transaction on the unique
+ * violation, so the command cannot read the winning row itself; the transaction
+ * owner must roll back and re-read it.
+ */
+export class FeedRequestAlreadyPendingError extends Error {
+	readonly code = FEED_ALREADY_PENDING_CODE;
+
+	constructor(readonly deviceId: string) {
+		super(`A feed request is already pending for device ${deviceId}.`);
+		this.name = "FeedRequestAlreadyPendingError";
+	}
+}
+
+function canOpenTransaction(db: CommandDb): db is PrismaClient {
+	return typeof (db as PrismaClient).$transaction === "function";
+}
+
+/**
+ * True for the partial unique index added in #581. Prisma may surface the
+ * conflict as P2002, while a driver-level error carries SQLSTATE 23505 (or the
+ * index name) in its message.
+ */
+function isUniqueViolation(error: unknown): boolean {
+	if (typeof error !== "object" || error === null) return false;
+	const record = error as {
+		code?: unknown;
+		meta?: { code?: unknown };
+		message?: unknown;
+	};
+	if (record.code === "P2002" || record.meta?.code === "23505") return true;
+	return (
+		typeof record.message === "string" &&
+		(record.message.includes("23505") ||
+			record.message.includes("FeedRequest_deviceId_pending_key"))
+	);
+}
+
+/**
+ * Serialise every manual-feed decision for one device. The row lock is the
+ * serialisation point for the pending check, the daily-cap aggregate, the
+ * request insert and the audit insert.
+ *
+ * The tenant path scopes the lock through the pond owner, so naming another
+ * farm's device neither locks nor reveals it. The platform path has already
+ * authorised the device, so it locks by id alone.
+ */
+async function lockDeviceRow(db: CommandDb, input: ManualFeedInput): Promise<void> {
+	if (input.farmId) {
+		await db.$queryRaw`
+			SELECT d."id"
+			FROM "EnergyDevice" AS d
+			JOIN "Pond" AS p ON p."id" = d."pondId"
+			WHERE d."id" = ${input.deviceId} AND p."ownerId" = ${input.farmId}
+			FOR UPDATE OF d
+		`;
+		return;
+	}
+
+	await db.$queryRaw`
+		SELECT "id"
+		FROM "EnergyDevice"
+		WHERE "id" = ${input.deviceId}
+		FOR UPDATE
+	`;
+}
+
 /**
  * Queue a manual feed for a device.
+ *
+ * The whole decision runs in one transaction: lock the device row, read the
+ * settings and today's usage, then insert the request and its audit row. Two
+ * concurrent callers therefore cannot both evaluate the cap against the same
+ * pre-insert total, and a device never gets two pending requests.
+ *
+ * `db` may be a PrismaClient (this function opens the transaction) or a
+ * caller-owned TransactionClient (the platform action passes its transaction so
+ * the platform audit commits with the command). When the insert loses the
+ * partial unique index race, the PrismaClient path re-reads the winning row and
+ * reports it as already pending; a caller-owned transaction has already been
+ * aborted by Postgres and must handle `FeedRequestAlreadyPendingError` after
+ * its rollback.
  *
  * Order matters: scope, fallow, stale cleanup, offline, basic amount validation,
  * duplicate checks, the remaining daily ceiling, relay-time cap, then the
@@ -57,16 +150,41 @@ export type SchedulePauseOutcome =
  */
 export async function createManualFeedRequest(
 	db: CommandDb,
-	input: {
-		deviceId: string;
-		grams?: number;
-		/** When set, the device must belong to a pond owned by this farm. */
-		farmId?: string | null;
-		/** Actor recorded on the DeviceStateEvent (farmId for tenant, user id for platform). */
-		actorId: string;
-		triggerSource: string;
-	},
+	input: ManualFeedInput,
 ): Promise<ManualFeedOutcome> {
+	if (canOpenTransaction(db)) {
+		try {
+			return await db.$transaction((tx) => queueManualFeedRequest(tx, input));
+		} catch (error) {
+			if (!isUniqueViolation(error)) throw error;
+			// The transaction rolled back. A writer that did not take the device
+			// lock (for example a calibration request) won the race; return the
+			// row it committed instead of surfacing a database error.
+			const existing = await db.feedRequest.findFirst({
+				where: { deviceId: input.deviceId, status: "pending" },
+				select: { id: true },
+			});
+			if (!existing) throw error;
+			return { ok: true, requestId: existing.id, alreadyPending: true };
+		}
+	}
+
+	try {
+		return await queueManualFeedRequest(db, input);
+	} catch (error) {
+		if (isUniqueViolation(error)) {
+			throw new FeedRequestAlreadyPendingError(input.deviceId);
+		}
+		throw error;
+	}
+}
+
+async function queueManualFeedRequest(
+	db: CommandDb,
+	input: ManualFeedInput,
+): Promise<ManualFeedOutcome> {
+	await lockDeviceRow(db, input);
+
 	const device = await db.energyDevice.findFirst({
 		where: {
 			id: input.deviceId,
@@ -290,4 +408,38 @@ export async function setSchedulePause(
 	});
 
 	return { ok: true, wasPaused: device.isPaused };
+}
+
+/**
+ * Claim the next pending feed request for a device (#670).
+ *
+ * The device poll used to `findFirst` a pending row and then `update` it by id.
+ * Two overlapping polls with the same valid token could both read the row and
+ * both be told to dispense it. The claim is a compare-and-set: `updateMany`
+ * guarded by `status: "pending"`, and only the caller whose update changed a
+ * row gets the request.
+ *
+ * `lost` is deliberately distinct from `empty`: a lost race may leave another
+ * pending row behind, so the caller can look again instead of stopping.
+ */
+export type PendingFeedClaim =
+	| { status: "claimed"; request: FeedRequest }
+	| { status: "lost" }
+	| { status: "empty" };
+
+export async function claimPendingFeedRequest(
+	db: CommandDb,
+	deviceId: string,
+): Promise<PendingFeedClaim> {
+	const pending = await db.feedRequest.findFirst({
+		where: { deviceId, status: "pending" },
+		orderBy: { createdAt: "asc" },
+	});
+	if (!pending) return { status: "empty" };
+
+	const claimed = await db.feedRequest.updateMany({
+		where: { id: pending.id, status: "pending" },
+		data: { status: "dispatched" },
+	});
+	return claimed.count > 0 ? { status: "claimed", request: pending } : { status: "lost" };
 }

@@ -286,7 +286,7 @@ describe("acceptAssistantAction execution", () => {
 		await expect(acceptAssistantAction("action-1")).resolves.toEqual({
 			success: false,
 			error:
-				'You need the "control_feeder" permission to log a sample. Ask an organization admin to grant it.',
+				'You need the "control_feeder" permission (normally an operator or above) to log a sample. Ask an organization admin to grant it.',
 		});
 	});
 

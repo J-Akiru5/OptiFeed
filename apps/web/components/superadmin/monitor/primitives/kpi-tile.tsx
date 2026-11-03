@@ -1,7 +1,7 @@
+import { Sparkline } from "@/components/charts/sparkline";
 import { CARD } from "@/components/superadmin/ui";
 import { cn } from "@/lib/utils";
 import { ArrowDown, ArrowRight, ArrowUp, type LucideIcon } from "lucide-react";
-import { Sparkline } from "./sparkline";
 
 /**
  * One number on the Command Center (issue #479, M3C.8).

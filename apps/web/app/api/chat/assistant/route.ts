@@ -4,7 +4,7 @@ import { withApi } from "@/lib/api/instrumentation";
 import { getAssistantCaller } from "@/lib/assistant/caller";
 import { assistantToday } from "@/lib/assistant/catalog";
 import { decideAssistantTurn } from "@/lib/assistant/planner";
-import { createAssistantProposal } from "@/lib/assistant/propose";
+import { AssistantRefusalError, createAssistantProposal } from "@/lib/assistant/propose";
 import { buildAssistantTurnData } from "@/lib/assistant/turn-context";
 import { withAuth } from "@/lib/auth/with-auth";
 import { looksLikeAssistantRequest } from "@/lib/chat/agent-intent";
@@ -80,19 +80,27 @@ export const POST = withApi(
 		const t = createNamespaceTranslator(locale, "chat");
 
 		if (decision.kind === "propose") {
-			const proposal = await createAssistantProposal({
-				userId: caller.userId,
-				orgId: data.orgId,
-				pondId: data.pondId,
-				toolId: decision.toolId,
-				payload: decision.payload,
-				context: data.proposal,
-			});
-			return ok({
-				kind: "action",
-				...proposal,
-				text: t("assistantProposal"),
-			});
+			try {
+				const proposal = await createAssistantProposal({
+					userId: caller.userId,
+					orgId: data.orgId,
+					pondId: data.pondId,
+					toolId: decision.toolId,
+					payload: decision.payload,
+					context: data.proposal,
+					caller,
+				});
+				return ok({
+					kind: "action",
+					...proposal,
+					text: t("assistantProposal"),
+				});
+			} catch (error) {
+				if (error instanceof AssistantRefusalError) {
+					return ok({ kind: "clarify", text: error.message });
+				}
+				throw error;
+			}
 		}
 
 		if (decision.kind === "navigate") {

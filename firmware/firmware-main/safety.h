@@ -9,6 +9,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 namespace fw {
@@ -31,6 +32,7 @@ enum class Refusal : uint8_t {
   TOO_SOON,
   HOURLY_LIMIT,
   RELAY_OVERRUN,
+  HARDWARE_VARIANT,
   COUNT,
 };
 
@@ -47,6 +49,7 @@ inline const char *refusalReason(Refusal reason) {
     case Refusal::TOO_SOON: return "too_soon";
     case Refusal::HOURLY_LIMIT: return "hourly_limit";
     case Refusal::RELAY_OVERRUN: return "relay_overrun";
+    case Refusal::HARDWARE_VARIANT: return "hardware_variant_mismatch";
     default: return "none";
   }
 }
@@ -314,6 +317,55 @@ class SafeModeWindow {
   uint32_t untilEpoch_;
   unsigned long startedMs_;
   unsigned long quietMs_;
+};
+
+/*
+  One safe-mode trip, as the unit reports it (#455).
+
+  A trip is created when enterSafeMode() locks the relay. The id and the
+  "reported" flag are persisted, so a report deferred past Wi-Fi (or across a
+  reboot inside the same trip) is still the same incident, not a second one.
+
+  Pure on purpose: no Preferences, no HTTP. The sketch owns persistence and
+  transport; the host tests own the identity rules.
+*/
+class SafetyTrip {
+ public:
+  SafetyTrip() : id_(0), reported_(false) {}
+
+  void start(uint32_t id) {
+    id_ = id;
+    reported_ = false;
+  }
+
+  // Restore after a reboot inside the same trip.
+  void resume(uint32_t id, bool reported) {
+    id_ = id;
+    reported_ = reported;
+  }
+
+  bool pending() const { return id_ != 0 && !reported_; }
+  void markReported() { reported_ = true; }
+  void clear() {
+    id_ = 0;
+    reported_ = false;
+  }
+
+  uint32_t id() const { return id_; }
+  bool reported() const { return reported_; }
+
+  // Zero means "no trip", so a generated id is never zero.
+  static uint32_t newId(uint32_t randomValue) { return randomValue == 0 ? 1UL : randomValue; }
+
+  // "trip-1a2b3c4d" (13 chars), inside the ingest `event_id` min(8).
+  static void eventId(uint32_t id, char *out, size_t size) {
+    if (out == nullptr || size == 0) return;
+    snprintf(out, size, "trip-%08lx", (unsigned long)id);
+  }
+
+ private:
+  uint32_t id_;
+  bool reported_;
 };
 
 // ---------------------------------------------------------------------------

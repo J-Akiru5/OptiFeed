@@ -41,6 +41,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/retention", () => ({
 	deleteOldHeartbeatEvents: vi.fn().mockResolvedValue(3),
 	deleteExpiredPondSettingsDrafts: vi.fn().mockResolvedValue(2),
+	deleteOldDeviceStateEvents: vi.fn().mockResolvedValue(4),
 }));
 
 vi.mock("@/lib/error-capture", () => ({
@@ -49,6 +50,17 @@ vi.mock("@/lib/error-capture", () => ({
 
 vi.mock("@/lib/rate-limit", () => ({
 	cleanupExpiredRateLimitBuckets: vi.fn().mockResolvedValue(7),
+}));
+
+// O24: the daily connectivity rollup rides this cron before the heartbeat sweep.
+vi.mock("@/lib/platform/connectivity", () => ({
+	rollupDeviceConnectivity: vi.fn().mockResolvedValue({
+		processedDays: ["2026-11-01"],
+		emptyDays: [],
+		devices: 2,
+		pruned: 0,
+		alreadyRolledUp: false,
+	}),
 }));
 
 vi.mock("@/i18n/routing", () => ({ redirect: vi.fn() }));
@@ -65,9 +77,14 @@ import {
 	deviceStatusPolicyFromValue,
 } from "@/lib/device-status";
 import { deleteExpiredErrorEvents } from "@/lib/error-capture";
+import { rollupDeviceConnectivity } from "@/lib/platform/connectivity";
 import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
-import { deleteExpiredPondSettingsDrafts, deleteOldHeartbeatEvents } from "@/lib/retention";
+import {
+	deleteExpiredPondSettingsDrafts,
+	deleteOldDeviceStateEvents,
+	deleteOldHeartbeatEvents,
+} from "@/lib/retention";
 import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 
 const mockEnergyDevice = vi.mocked(prisma.energyDevice);
@@ -114,6 +131,7 @@ describe("api/cron/device-watch", () => {
 		vi.mocked(prisma.orgSetting.findMany).mockResolvedValue([] as never);
 		vi.mocked(getDeviceStatusPolicy).mockResolvedValue(DEFAULT_DEVICE_STATUS_POLICY);
 		vi.mocked(deleteOldHeartbeatEvents).mockResolvedValue(3);
+		vi.mocked(deleteOldDeviceStateEvents).mockResolvedValue(4);
 		vi.mocked(cleanupExpiredRateLimitBuckets).mockResolvedValue(7);
 	});
 
@@ -201,6 +219,33 @@ describe("api/cron/device-watch", () => {
 		expect(deleteExpiredErrorEvents).toHaveBeenCalledTimes(1);
 		// I-99: expired pond-settings drafts are pruned in the same pass.
 		expect(deleteExpiredPondSettingsDrafts).toHaveBeenCalledTimes(1);
+		// #593: the 180-day DeviceStateEvent sweep is part of the same pass.
+		expect(deleteOldDeviceStateEvents).toHaveBeenCalledTimes(1);
+	});
+
+	it("reports the DeviceStateEvent rows pruned by the housekeeping pass", async () => {
+		vi.mocked(deleteOldDeviceStateEvents).mockResolvedValue(4);
+		const res = await GET(cronRequest("Bearer test-cron-secret"));
+
+		await expect(res.json()).resolves.toMatchObject({
+			data: { deviceStateEventsDeleted: 4 },
+		});
+	});
+
+	it("stores the previous day's connectivity before deleting the heartbeat rows it reads", async () => {
+		const res = await GET(cronRequest("Bearer test-cron-secret"));
+
+		await expect(res.json()).resolves.toMatchObject({
+			data: {
+				connectivity: { processedDays: ["2026-11-01"], devices: 2 },
+				heartbeatsDeleted: 3,
+			},
+		});
+		expect(rollupDeviceConnectivity).toHaveBeenCalledTimes(1);
+		// 7-day heartbeat retention deletes the source; the rollup must win.
+		expect(vi.mocked(rollupDeviceConnectivity).mock.invocationCallOrder[0]).toBeLessThan(
+			vi.mocked(deleteOldHeartbeatEvents).mock.invocationCallOrder[0],
+		);
 	});
 
 	it("scans the most recently stale devices first, so an already-alerted device cannot starve new outages", async () => {

@@ -295,6 +295,7 @@ void test_refusal_reasons_match_the_server_contract(void) {
   TEST_ASSERT_EQUAL_STRING("relay_overrun", refusalReason(Refusal::RELAY_OVERRUN));
   TEST_ASSERT_EQUAL_STRING("daily_gram_cap_exceeded", refusalReason(Refusal::DAILY_CAP));
   TEST_ASSERT_EQUAL_STRING("dose_time_exceeds_cap", refusalReason(Refusal::DOSE_TOO_LONG));
+  TEST_ASSERT_EQUAL_STRING("hardware_variant_mismatch", refusalReason(Refusal::HARDWARE_VARIANT));
 }
 
 // ---------------------------------------------------------------- safe mode
@@ -372,6 +373,58 @@ void test_describe_reset_reasons(void) {
   TEST_ASSERT_EQUAL_STRING("task_wdt,brownout", out);
   describeResetReasons(0, out, sizeof(out));
   TEST_ASSERT_EQUAL_STRING("none", out);
+}
+
+// ---------------------------------------------------------------- safety trip
+
+void test_safety_trip_starts_pending(void) {
+  SafetyTrip trip;
+  trip.start(0x1a2b3c4dUL);
+  TEST_ASSERT_TRUE(trip.pending());
+  TEST_ASSERT_EQUAL_UINT32(0x1a2b3c4dUL, trip.id());
+  TEST_ASSERT_FALSE(trip.reported());
+}
+
+void test_safety_trip_reports_once(void) {
+  SafetyTrip trip;
+  trip.start(7);
+  trip.markReported();
+  TEST_ASSERT_FALSE(trip.pending());
+  TEST_ASSERT_TRUE(trip.reported());
+  // A resume with reported=true (a reboot after delivery) stays silent.
+  trip.resume(7, true);
+  TEST_ASSERT_FALSE(trip.pending());
+}
+
+void test_safety_trip_resume_after_reboot(void) {
+  SafetyTrip trip;
+  trip.resume(0x0badf00dUL, false);
+  TEST_ASSERT_TRUE(trip.pending());
+  TEST_ASSERT_EQUAL_UINT32(0x0badf00dUL, trip.id());
+  trip.resume(0x0badf00dUL, true);
+  TEST_ASSERT_FALSE(trip.pending());
+}
+
+void test_safety_trip_new_id_never_zero(void) {
+  TEST_ASSERT_EQUAL_UINT32(1UL, SafetyTrip::newId(0));
+  TEST_ASSERT_EQUAL_UINT32(0x1a2b3c4dUL, SafetyTrip::newId(0x1a2b3c4dUL));
+}
+
+void test_safety_trip_event_id_is_stable_and_valid(void) {
+  char out[24];
+  SafetyTrip::eventId(0x1a2b3c4dUL, out, sizeof(out));
+  TEST_ASSERT_EQUAL_STRING("trip-1a2b3c4d", out);
+  // The ingest contract requires event_id min 8; this is always 13.
+  TEST_ASSERT_EQUAL_UINT(13, strlen(out));
+}
+
+void test_safety_trip_clear(void) {
+  SafetyTrip trip;
+  trip.start(9);
+  trip.markReported();
+  trip.clear();
+  TEST_ASSERT_FALSE(trip.pending());
+  TEST_ASSERT_EQUAL_UINT32(0UL, trip.id());
 }
 
 // ---------------------------------------------------------------- button guard
@@ -610,6 +663,12 @@ int main(int, char **) {
   RUN_TEST(test_safe_mode_window_is_thirty_minutes);
   RUN_TEST(test_safe_mode_window_falls_back_to_uptime_without_a_clock);
   RUN_TEST(test_safe_mode_window_resumes_from_nvs);
+  RUN_TEST(test_safety_trip_starts_pending);
+  RUN_TEST(test_safety_trip_reports_once);
+  RUN_TEST(test_safety_trip_resume_after_reboot);
+  RUN_TEST(test_safety_trip_new_id_never_zero);
+  RUN_TEST(test_safety_trip_event_id_is_stable_and_valid);
+  RUN_TEST(test_safety_trip_clear);
   RUN_TEST(test_describe_reset_reasons);
 
   RUN_TEST(test_button_noise_disables_after_more_than_five_glitches_in_a_minute);

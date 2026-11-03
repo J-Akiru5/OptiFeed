@@ -7,9 +7,15 @@ import { deleteExpiredErrorEvents } from "@/lib/error-capture";
 import { normalizeNotificationPrefs } from "@/lib/limits";
 import { offlineEpisodeKey, openEpisode } from "@/lib/notifications/episodes";
 import { reportError } from "@/lib/observability";
+import { rollupDeviceConnectivity } from "@/lib/platform/connectivity";
+import { syncPlatformIncidents } from "@/lib/platform/incident-sync";
 import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
-import { deleteExpiredPondSettingsDrafts, deleteOldHeartbeatEvents } from "@/lib/retention";
+import {
+	deleteExpiredPondSettingsDrafts,
+	deleteOldDeviceStateEvents,
+	deleteOldHeartbeatEvents,
+} from "@/lib/retention";
 import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import {
 	ORG_SETTINGS_DEFAULTS,
@@ -139,7 +145,22 @@ export const GET = withApi(
 			//    period, deduped through ReminderLog. Re-runs are no-ops.
 			const recalibration = await processRecalibrationReminders();
 
-			// 3. Batched housekeeping so each run stays under the Vercel Hobby
+			// 2b. Platform incident lifecycle (#479, M3C.6): open one incident per
+			//     observed condition and close it when the condition clears. This
+			//     is separate from the tenant notifications above, so it never
+			//     produces a second alert. Bounded and isolated: a failure is
+			//     reported in the response, not by taking the cron run down.
+			const incidents = await syncPlatformIncidents(now);
+
+			// 3. Connectivity history (#479, M3C.10; O24). The previous completed
+			//    UTC day is aggregated from the stored heartbeat rows. This MUST run
+			//    before the sweep below, which deletes those rows after 7 days.
+			//    The `connectivity.rollup` marker makes it a one-per-day no-op on
+			//    later runs, so the extra work is a single lookup unless a day is
+			//    actually waiting to be stored.
+			const connectivity = await rollupDeviceConnectivity();
+
+			// 4. Batched housekeeping so each run stays under the Vercel Hobby
 			//    10-second limit: one small batch per job per run.
 			const heartbeatsDeleted = await deleteOldHeartbeatEvents();
 			const bucketsDeleted = await cleanupExpiredRateLimitBuckets();
@@ -149,14 +170,20 @@ export const GET = withApi(
 			// Unsaved pond-settings drafts nobody returned to (I-99), one batch
 			// per run like the other housekeeping jobs.
 			const draftsDeleted = await deleteExpiredPondSettingsDrafts();
+			// DeviceStateEvent audit trail: 180 days, one batch per run, and never
+			// a row for a pond with an open alert or a reconciliation in progress.
+			const deviceStateEventsDeleted = await deleteOldDeviceStateEvents();
 
 			return ok({
 				offlineAlerts,
 				recalibration,
+				incidents,
+				connectivity,
 				heartbeatsDeleted,
 				bucketsDeleted,
 				errorEventsDeleted,
 				draftsDeleted,
+				deviceStateEventsDeleted,
 			});
 		} catch (error) {
 			reportError(error, { route: "cron/device-watch" });

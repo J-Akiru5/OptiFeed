@@ -11,7 +11,7 @@
  *   3. pnpm-lock.yaml does not record the same overrides (a mismatch makes
  *      `pnpm install --frozen-lockfile` reject the tree);
  *   4. a resolved version of a security-relevant package is below the floor
- *      the override was added for.
+ *      the override was added for, or outside the major line it replaces.
  *
  * The lockfile is parsed directly: it is the only resolution record that
  * exists before `node_modules`, and reading it keeps the check fast and
@@ -50,13 +50,13 @@ const EXPECTED_OVERRIDES = new Map([
 
 /**
  * What "still pinned" means for each package. `floor` is the lowest secure
- * version; `forbidMajor` catches a package that the override should have
- * replaced but that is still resolved somewhere in the tree.
+ * version; `exactForMajor` pins a major line that the override replaces
+ * wholesale (minimatch 3.x -> 3.1.5).
  */
 const TARGETS = [
 	{ name: "dompurify", floor: "3.4.17" },
-	{ name: "minimatch", floor: "3.1.5" },
-	{ name: "uuid", forbidMajor: 8, required: true },
+	{ name: "minimatch", floor: "3.1.5", exactForMajor: { 3: "3.1.5" } },
+	{ name: "uuid", floor: "11.1.1", required: true },
 	{ name: "browserslist", floor: "4.28.7" },
 	{ name: "proxy-addr", floor: "2.0.8" },
 	{ name: "source-map-js", floor: "1.2.2" },
@@ -194,7 +194,11 @@ function sortVersions(versions) {
 function describeTarget(target) {
 	const parts = [];
 	if (target.floor) parts.push(`>= ${target.floor}`);
-	if (target.forbidMajor !== undefined) parts.push(`not major ${target.forbidMajor}`);
+	if (target.exactForMajor) {
+		for (const [major, version] of Object.entries(target.exactForMajor)) {
+			parts.push(`major ${major} = ${version}`);
+		}
+	}
 	if (target.required) parts.push("must stay installed");
 	return parts.join(", ");
 }
@@ -272,11 +276,14 @@ for (const target of TARGETS) {
 			continue;
 		}
 
-		if (target.forbidMajor !== undefined && parsed.major === target.forbidMajor) {
-			problems.push(
-				`${target.name}@${version} is still on forbidden major ${target.forbidMajor}`,
-			);
-			state = "FAIL";
+		if (target.exactForMajor?.[parsed.major] !== undefined) {
+			const pinned = target.exactForMajor[parsed.major];
+			if (version !== pinned) {
+				problems.push(
+					`${target.name}@${version} does not match the ${pinned} pin for major ${parsed.major}`,
+				);
+				state = "FAIL";
+			}
 		}
 
 		if (target.floor) {

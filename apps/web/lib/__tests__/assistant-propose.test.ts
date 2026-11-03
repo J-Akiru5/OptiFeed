@@ -11,6 +11,7 @@ vi.mock("@/i18n/routing", () => ({ redirect: vi.fn() }));
 vi.mock("next-intl/server", () => ({ getLocale: vi.fn(async () => "en") }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
+import type { AssistantCaller } from "../assistant/caller";
 import { ASSISTANT_PROPOSAL_TTL_MS, createAssistantProposal } from "../assistant/propose";
 
 const context = {
@@ -20,6 +21,20 @@ const context = {
 	currentGrams: 80,
 	currentFeedsPerDay: 3,
 	currentRatePct: 3,
+	currentDailyCapG: 4000,
+	deviceOnline: true,
+};
+
+const owner: AssistantCaller = {
+	userId: "user-1",
+	role: "owner",
+	membershipRole: "OWNER",
+	isOwner: true,
+	permissions: new Set(["manage_schedule", "control_feeder"]),
+	canWrite: true,
+	isPlatformAdmin: false,
+	isTenantAdmin: true,
+	orgName: "Org A",
 };
 
 beforeEach(() => {
@@ -41,6 +56,7 @@ describe("createAssistantProposal", () => {
 			toolId: "feeding.set_grams",
 			payload: { grams: "95" },
 			context,
+			caller: owner,
 		});
 
 		expect(proposal.actionId).toBe("action-1");
@@ -63,8 +79,24 @@ describe("createAssistantProposal", () => {
 				toolId: "feeding.set_grams",
 				payload: { grams: -1 },
 				context,
+				caller: owner,
 			}),
 		).rejects.toBeTruthy();
+		expect(mocks.create).not.toHaveBeenCalled();
+	});
+
+	it("refuses a proposal the caller's session could not carry out", async () => {
+		await expect(
+			createAssistantProposal({
+				userId: "user-1",
+				orgId: "org-1",
+				pondId: "pond-1",
+				toolId: "feeding.set_grams",
+				payload: { grams: 95 },
+				context,
+				caller: { ...owner, permissions: new Set() },
+			}),
+		).rejects.toThrow('You need the "manage_schedule" permission');
 		expect(mocks.create).not.toHaveBeenCalled();
 	});
 
@@ -77,6 +109,7 @@ describe("createAssistantProposal", () => {
 				toolId: "not.a.tool",
 				payload: {},
 				context,
+				caller: owner,
 			}),
 		).rejects.toThrow("Unknown assistant tool.");
 	});

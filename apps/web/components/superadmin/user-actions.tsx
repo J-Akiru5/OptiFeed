@@ -236,7 +236,7 @@ export function UserActions({
 				aria-haspopup="dialog"
 				aria-expanded={mode !== null}
 				className={cn(
-					"rounded-xl p-2 text-[#3D5568] dark:text-slate-400 transition-colors hover:bg-[#F4F7F6] dark:hover:bg-[#162238] hover:text-[#0A3D62] disabled:opacity-50",
+					"rounded-xl p-2 text-console-content-muted transition-colors hover:bg-console-surface-raised hover:text-console-content disabled:opacity-50",
 					FOCUS_RING,
 				)}
 			>
@@ -582,11 +582,11 @@ function ActionButton({
 				FOCUS_RING,
 				danger
 					? active
-						? "border-[#C42B3A] bg-[#C42B3A] text-white"
-						: "border-red-200 bg-red-50 text-[#C42B3A] dark:text-red-300 hover:bg-red-100"
+						? "border-console-critical-strong bg-console-critical-strong text-console-accent-foreground"
+						: "border-console-critical-content/30 bg-console-critical-surface text-console-critical-content hover:bg-console-critical-surface/80"
 					: active
-						? "border-[#E85A2A] bg-[#E85A2A] text-white"
-						: "border-gray-200 dark:border-[#24304A] bg-[#F4F7F6] dark:bg-[#0B1220] text-[#3D5568] dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-[#1B2740]",
+						? "border-console-accent bg-console-accent text-console-accent-foreground"
+						: "border-console-border bg-console-surface-sunken text-console-content-muted hover:bg-console-surface-raised hover:text-console-content",
 			)}
 		>
 			{icon}

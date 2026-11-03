@@ -247,6 +247,17 @@ describe("fleet page per-device telemetry", () => {
 		expect(output.indexOf("Zulu silent")).toBeLessThan(output.indexOf("Alpha healthy"));
 	});
 
+	it("renders the table from md up and the same rows as cards below it", async () => {
+		mocks.getFleetMonitor.mockResolvedValue(monitor([unit({ label: "Alpha" })]));
+
+		const output = await html();
+
+		// The wide table and the card list are siblings: exactly one is visible
+		// at a time, so a phone no longer gets the 52 rem table above the cards.
+		expect(output).toContain("hidden md:block");
+		expect(output).toContain("md:hidden");
+	});
+
 	it("keeps a failed read an explicit error, with no unit list pretending to be fine", async () => {
 		mocks.getFleetMonitor.mockResolvedValue(failed());
 

@@ -177,6 +177,11 @@ const PROPS_ONLY = new Set([
 	"activity-feed.tsx",
 	"attention-list.tsx",
 	"command-center-layout.tsx",
+	// #707 command-center chart sections: the charts component receives every
+	// string from the page's `superadmin.overview` translator, and the range
+	// frame holds the controlled chart range and has no copy at all.
+	"command-center-charts.tsx",
+	"command-center-range.tsx",
 	"scope-banner.tsx",
 	"status-bands.tsx",
 ]);

@@ -234,6 +234,26 @@ load only the visible section. The existing overview is already ~49 queries; a
 single-page “everything” view would be a regression even though each individual
 loader is bounded. The new loaders are additive and can be composed per tab.
 
+### What `/superadmin` actually loads after #707
+
+#707 wires sections C–G into the command center. The additions run in one
+`Promise.allSettled` beside the existing reads, and each failure is isolated to
+the chart that needed it (an explicit error panel, never a zero series):
+
+| Addition | Queries |
+| --- | --- |
+| `getGrowthSeries` | +1 |
+| `getFeedBreakdown` | +4 |
+| `getFeedHeatmap` | +1 |
+| `getFleetMonitor` (freshness/faults are free) | +7 |
+| **Total** | **≈ 62** |
+
+`getTenantHealthDataset` (+6) and `getIncidentQueue` (+15) deliberately stay off
+this route, per the recommendation above. Freshness and faults are the only
+reason the 7-query fleet monitor is here; if the page's latency budget tightens,
+move that section to `/superadmin/fleet` (which already loads the monitor) rather
+than adding a cheaper-looking query that would report a different fleet.
+
 ---
 
 ## 5. Authorization and tenant boundary

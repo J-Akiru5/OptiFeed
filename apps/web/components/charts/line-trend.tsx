@@ -56,7 +56,7 @@ export function LineTrend({
 
 	const visible = useMemo(() => {
 		if (!temporal || !range) return points;
-		return filterByRange(points, (point) => point.label, range.range);
+		return filterByRange(points, (point) => point.label, range.range, range.now);
 	}, [points, temporal, range]);
 
 	return (

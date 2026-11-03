@@ -89,6 +89,7 @@ import { getAuditLog } from "@/lib/actions/audit";
 import { canWrite } from "@/lib/auth/session";
 import { getBiomassHistory } from "@/lib/growth-history";
 import prisma from "@/lib/prisma";
+import { renderPageHtml } from "./helpers/render-page";
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -294,7 +295,7 @@ describe("growth history page", () => {
 			{ day: "2026-10-02", batch: "Batch B", grams: 118.2 },
 		] as never);
 
-		const html = renderToStaticMarkup(
+		const html = await renderPageHtml(
 			await GrowthHistoryPage({ searchParams: Promise.resolve({ tab: "biomass" }) }),
 		);
 

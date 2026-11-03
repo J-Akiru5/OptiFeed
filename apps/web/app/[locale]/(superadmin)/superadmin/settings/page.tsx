@@ -209,7 +209,7 @@ export default async function SuperadminSettingsPage() {
 					</p>
 					<Link
 						href="/superadmin/settings/backup"
-						className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-[#E85A2A] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#d04a1f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A] focus-visible:ring-offset-2"
+						className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-console-accent px-4 py-2.5 text-sm font-bold text-console-accent-foreground shadow-sm transition-colors hover:bg-console-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-console-focus focus-visible:ring-offset-2"
 					>
 						{tBackup("open")}
 					</Link>

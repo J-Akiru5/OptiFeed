@@ -146,6 +146,34 @@ describe("/superadmin/incidents", () => {
 		expect(html).toContain("Derived conditions");
 	});
 
+	it("hides both wide tables below md and renders their rows as cards", async () => {
+		mocks.queue.mockResolvedValue(
+			queue({
+				incidents: [
+					{
+						key: "device:pond-1",
+						title: "Pond link lost",
+						tenantName: "Alpha",
+						pondName: "Pond 1",
+						severity: "critical",
+						since: NOW,
+						count: 1,
+						href: null,
+						detail: null,
+						sources: ["device"],
+					},
+				],
+			}),
+		);
+
+		const html = renderToStaticMarkup(await SuperadminIncidentsPage());
+
+		// Tracked incidents and the derived-condition table each pair a hidden
+		// table with a card list; a phone must not get both at once (#631).
+		expect(html.split("hidden md:block").length - 1).toBe(2);
+		expect(html.split("md:hidden").length - 1).toBe(2);
+	});
+
 	it("announces escalated incidents to the platform-admin role in-app", async () => {
 		const html = renderToStaticMarkup(await SuperadminIncidentsPage());
 

@@ -85,7 +85,9 @@ export function Timeline({
 	error,
 }: TimelineProps) {
 	const range = useChartRange();
-	const visible = range ? filterByRange(events, (event) => event.at, range.range) : events;
+	const visible = range
+		? filterByRange(events, (event) => event.at, range.range, range.now)
+		: events;
 	const ordered = [...visible].sort((a, b) => {
 		const diff = eventTime(b.at) - eventTime(a.at);
 		if (Number.isNaN(diff) || diff === 0) return a.id.localeCompare(b.id);

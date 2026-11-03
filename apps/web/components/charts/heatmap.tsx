@@ -79,7 +79,7 @@ export function Heatmap({
 	const theme = useChartTheme();
 	const range = useChartRange();
 
-	const visible = range ? filterByRange(rows, (row) => row.date, range.range) : rows;
+	const visible = range ? filterByRange(rows, (row) => row.date, range.range, range.now) : rows;
 	const matrix = visible.map((row) => ({
 		date: row.date,
 		values: normalizeValues(row.values),

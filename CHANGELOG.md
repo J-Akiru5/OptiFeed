@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.51.0] - 2026-11-03
+
+### Added
+
+- **The command center renders the charts it was built for (#707).** The six primitives, the shared 7d/30d/90d/custom range and the lazy entry points were shipped in #629 but no page imported them, so the console still showed the old three charts. The sections now read from the real growth, feed-breakdown, heatmap, freshness and fault models, with explicit empty, single-point, error and permission-denied states. Found by an independent QA pass, not by the unit tests - the components were only ever tested in isolation.
+
+### Fixed
+
+- **Six console contrast and layout defects from that QA pass (#631).** Dark-mode hover text went from 1.41:1 to the tested `console-content` pair; white on brand orange (3.54:1) moved to the accent pair at 5.18:1 light and 8.06:1 dark; five error banners and the "BEST" chip no longer sit light inside dark chrome; the navy chart series (1.54:1 on dark) got a dark palette where the darkest is 6.20:1; five tables stop rendering as both table and cards at 390 px; and the connectivity chart's 9 px viewBox labels no longer scale to ~4 px on a phone.
+
+### Added
+
+- **The command center renders the chart layer it already shipped (#707).** #629 built six primitives, the shared range control and four platform read models, but no page imported any of them, so the console a platform admin sees was unchanged. `/superadmin` now draws sections C–G from the real queries: registrations per day (`getGrowthSeries`), feed by organization → pond sized by mass (`getFeedBreakdown`), the day × hour feeding grid (`getFeedHeatmap`), telemetry freshness and current fault distribution (`getFleetMonitor` plus the zero-query summaries), and a newest-first activity rail built from the failed-job and pending-approval rows the page already loaded. The shared `ChartRangeProvider`/`ChartRangeControl` wraps the page: choosing 7/30/90 writes `?range=`, so the queries re-run rather than only the plot, and a custom window narrows the widest loaded window in the browser because `parseAnalyticsRange` has no custom spelling. Each read is isolated with `Promise.allSettled`: a failing section renders its own "could not load" panel (the fleet monitor's `sourceError` does the same) instead of an empty axis, while an auth redirect raised inside a loader is re-thrown so a non-admin never gets the console. The range filter is anchored to the newest bucket the server returned, which stops the newest day from disappearing when the browser's day boundary lags the Asia/Manila one. `superadmin-command-center-wiring.test.ts` asserts the imports themselves, which is the part the isolated component suites could not see.
+
+### Changed
+
+- **Recharts is out of every route's first load.** Splitting only the command center's charts left Turbopack holding a sync and an async copy of the chart library: every route that still imported `@/components/charts` statically grew ~+74 kB. The five remaining static consumers (`/admin`, `/dashboard`, `/dashboard/history`, `/dashboard/growth/history`, `/superadmin/operations`) now import the same `charts/lazy` entry points, which removes the duplicate copy and takes the library off their critical path too. Measured with `scripts/perf/bundle-budget.mjs` on the same build: `/superadmin` 1374.4 → 974.9 kB, `/dashboard` 1471.8 → 1058.1, `/dashboard/history` 1447.3 → 1033.4, `/dashboard/growth/history` 1404.2 → 990.3, `/superadmin/operations` 1380.3 → 965.7, `/admin` 1106.0 → 691.4. Those six entries in `perf/bundle-budget.json` are regenerated from that build, so the gate now holds the lower numbers rather than the pre-split ceiling.
+
+### Fixed
+
+- **The console's dark hover states, light panels, chart series and mobile tables now follow the token layer (#631).** The independent QA run on #631 found the shell themed but the page bodies still carrying light-only decisions; all six P2 defects are fixed without a new literal in a converted file:
+  - Hover text: the six `hover:text-[#0A3D62]` sites (`ops-nav`, `config-centre`, `user-actions`, `new-account-form`, `operations/errors`, `org-members`) were 1.41–1.66:1 in dark mode and now use `text-console-content` / `hover:bg-console-surface-raised`; the active tabs use the same AA-safe accent pair as the sidebar.
+  - White on the brand orange (3.54:1) is gone from the settings "Open backup" button, the active user filter and the account-menu avatar; all three use `console-accent` with `console-accent-foreground` (5.18:1 light, 8.06:1 dark).
+  - The error banners on fleet, incidents (list and detail) and tenants, the "BEST" comparison chip and the route skeleton now paint from `console-critical-surface` / `console-ok-surface` / `console-border-strong`, so no light panel is stranded in dark mode.
+  - `SERIES_COLORS` gained a `DARK_SERIES_COLORS` counterpart: navy `#0A3D62` was 1.54:1 on the dark card, so the second stacked-bar/donut series disappeared. Every dark series is now ≥6:1 on `#111A2C`, and the contrast suite asserts both palettes at the 3:1 graphical-object threshold from the tokens in `globals.css`.
+  - The five list pages (fleet, incidents ×2 tables, tenants, tenants/compare) hide the 64 rem table below `md`, matching the sibling pages, so a phone no longer renders the table and the same rows as cards.
+  - The connectivity trend's 720×168 viewBox scaled its 9 px axis labels to ~4 px at 390 px; the labels are now HTML at a fixed 10 px beside a horizontally stretched plot, so the chart stays readable at every width.
+  No route, dependency, query or authorization check changed; `bundle budget + latency` stays green (all 71 routes within budget, 3/3 gated endpoints within their p50/p95 limits).
+
 ## [1.50.0] - 2026-11-03
 
 ### Added

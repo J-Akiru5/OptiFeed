@@ -53,12 +53,12 @@ export function MultiLineTrend({
 	const lines = series.series.map((key, index) => ({
 		key,
 		label: seriesLabels[key] ?? key,
-		color: seriesColor(index),
+		color: seriesColor(index, theme.dark),
 	}));
 
 	const rows = useMemo(() => {
 		if (!temporal || !range) return series.rows;
-		return filterByRange(series.rows, (row) => String(row.label), range.range);
+		return filterByRange(series.rows, (row) => String(row.label), range.range, range.now);
 	}, [series.rows, temporal, range]);
 
 	return (

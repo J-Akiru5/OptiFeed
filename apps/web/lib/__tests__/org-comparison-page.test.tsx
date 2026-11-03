@@ -191,4 +191,18 @@ describe("comparison page", () => {
 		expect(output).toContain('value="org-gamma"');
 		expect(output).toContain("Compare selected");
 	});
+
+	it("renders the comparison table only from md up, with the same rows as cards", async () => {
+		const output = await html(["org-alpha", "org-beta"]);
+
+		expect(output).toContain("hidden md:block");
+		expect(output).toContain("md:hidden");
+	});
+
+	it("paints the best marker from the status tokens, so it survives dark mode", async () => {
+		const output = await html(["org-alpha", "org-beta"]);
+
+		expect(output).toContain("bg-console-ok-surface");
+		expect(output).not.toContain("#E8F5EC");
+	});
 });

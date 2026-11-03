@@ -573,7 +573,7 @@ export function OrgMembersPanel({
 														onClick={() => handleRevoke(member)}
 														disabled={pendingRevoke}
 														className={cn(
-															"inline-flex items-center gap-1 rounded-lg bg-[#C42B3A] px-2.5 py-1.5 text-[10px] font-black text-white hover:bg-[#a92330] disabled:opacity-60",
+															"inline-flex items-center gap-1 rounded-lg bg-console-critical-strong px-2.5 py-1.5 text-[10px] font-black text-console-accent-foreground hover:bg-console-critical-hover disabled:opacity-60",
 															FOCUS_RING,
 														)}
 													>
@@ -597,7 +597,7 @@ export function OrgMembersPanel({
 													onClick={() => setRevokeConfirm(member.membershipId)}
 													disabled={!reasonReady}
 													className={cn(
-														"rounded-lg border border-[#C42B3A]/30 px-2.5 py-1.5 text-[10px] font-black text-[#C42B3A] dark:text-red-300 transition-colors hover:bg-[#FDE8EA] disabled:cursor-not-allowed disabled:opacity-50",
+														"rounded-lg border border-console-critical-content/30 px-2.5 py-1.5 text-[10px] font-black text-console-critical-content transition-colors hover:bg-console-critical-surface disabled:cursor-not-allowed disabled:opacity-50",
 														FOCUS_RING,
 													)}
 												>

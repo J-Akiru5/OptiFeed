@@ -152,9 +152,10 @@ change.
 | `grams_per_feeding`, `button_feed_grams`, `grams_per_second`, `temp_offset_c` | `EnergyDevice` columns |
 | `hopper_full_cm`, `hopper_empty_cm` | `EnergyDevice` columns (null → default geometry) |
 | `min_dispense_gap_s`, `max_dispenses_per_hour`, `brownout_hold_s`, `safe_mode_*` | `PlatformSetting` `firmware.gates`, edited in Superadmin → Settings → Firmware safety gates |
+| `ota_check_interval_s`, `ota_min_uptime_s`, `ota_min_rssi_dbm`, `ota_feed_guard_min`, `ota_window_start_min`, `ota_window_end_min`, `ota_min_free_heap_bytes`, `ota_no_data_timeout_ms`, `ota_download_timeout_ms`, `ota_health_check_timeout_ms` | `PlatformSetting` `firmware.gates` (same row as the gates), edited in Superadmin → Settings → OTA rollout policy (#660) |
 | `weak_after_min`, `offline_after_min` | `PlatformSetting` `device.status` (I-95), diagnostics only: the server still classifies connectivity and E36 keeps alerts on the platform policy |
 | `hopper_low_pct` | `OrgSetting.hopperLowPct` — device pond → pond owner (farm) → active organization → row (the same chain ingest alerts use). Cached per device for 60 s; a missing/unreadable org returns 20 % |
-| OTA guards, calibration ceiling, hopper filter tuning, button guard, heartbeat interval | `firmware.gates` defaults (server-driven; stored and sent so a future UI or setting can move them without a reflash) |
+| Calibration ceiling, hopper filter tuning, button guard, heartbeat interval | `firmware.gates` defaults (server-driven; stored and sent so a future UI or setting can move them without a reflash) |
 
 No schema change is required: `PlatformSetting` is the existing key/value JSON
 store. **No item needed an additive migration**, so nothing was stopped for
@@ -184,13 +185,32 @@ filter warns at the organization's threshold instead of the compile-time 20 %.
 
 ## Superadmin UI
 
-Superadmin → Settings → **Firmware safety gates** (en + hil, hil is a draft for
-native review): seven number inputs generated from the field table, inline
-min/max validation, a required reason of at least 10 characters, and one
-`PlatformAuditLog` row (`platform.settings.firmware_gates`) in the same
-transaction as the `PlatformSetting` upsert, carrying the before/after values.
-Non-gate values already stored (OTA, calibration, button guard, heartbeat) are
-preserved on save.
+Superadmin → Settings → **Firmware safety gates**: seven number inputs generated
+from the field table, inline min/max validation, a required reason of at least 10
+characters, and one `PlatformAuditLog` row (`platform.settings.firmware_gates`) in
+the same transaction as the `PlatformSetting` upsert, carrying the before/after
+values. Non-gate values already stored (OTA, calibration, button guard,
+heartbeat) are preserved on save.
+
+Superadmin → Settings → **OTA rollout policy** (#660): the ten `ota_*` keys that
+previously had no surface, generated from `FIRMWARE_OTA_FIELDS` (a `surface: "ota"`
+marker on the same field table). They write through `setFirmwareOtaPolicy`, which
+merges into the same `firmware.gates` row, refuses any id outside the ten, refuses
+`ota_window_start_min >= ota_window_end_min` instead of letting
+`normalizeFirmwareValues` repair it to the defaults, and writes one
+`PlatformAuditLog` row (`platform.settings.firmware_ota_policy`) with the
+before/after values in the same transaction.
+
+The same section renders what the fleet reports back. Firmware 1.7.0+ echoes one
+`config_rev` for the whole config plus `config_source` (`server` / `nvs` /
+`default`); ingest already records `config_applied` when that revision changes.
+`getOtaPolicyStatus` compares the newest `config_applied` row per device with the
+newest `platform.settings.firmware_ota_policy` audit row, so a unit that has not
+echoed a config since the last change is shown as **pending** and a unit with no
+`config_applied` row at all as **never reported**. Per-key device values are not
+available: the firmware reports one revision, never the individual numbers, and
+the card says so rather than inventing a second config store.
+
 
 ## E38: the daily ceiling is the only gram cap
 

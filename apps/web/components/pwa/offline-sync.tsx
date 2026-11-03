@@ -8,7 +8,6 @@ import {
 	removeOutboxItem,
 	resetOutboxItem,
 } from "@/lib/offline/outbox";
-import { flushBiomassOutbox } from "@/lib/offline/sync";
 import { useOnlineStatus } from "@/lib/pwa/use-online-status";
 import { createClient } from "@/lib/supabase/client";
 import { AlertTriangle, CloudOff, RefreshCw, Trash2, X } from "lucide-react";
@@ -40,11 +39,51 @@ const EMPTY_SUMMARY: QueueSummary = {
 };
 
 /**
+ * How often the outbox is drained without waiting for a browser `online`
+ * transition. A flaky link (or a proxy/VPN change) often recovers without that
+ * event, and the layout keeps this component mounted across navigation, so
+ * mount alone is not enough.
+ */
+export const OUTBOX_FLUSH_INTERVAL_MS = 30_000;
+
+export interface OfflineSyncProps {
+	scope: string;
+	/** Overridable for tests; production uses {@link OUTBOX_FLUSH_INTERVAL_MS}. */
+	flushIntervalMs?: number;
+}
+
+/**
+ * The replay engine (server-action proxy, claim bookkeeping, queue walk) is not
+ * needed for first paint. Keep it in its own chunk so the dashboard layout's
+ * initial JS does not grow for a feature that only runs after hydration.
+ */
+let replayModule: Promise<typeof import("@/lib/offline/sync")> | null = null;
+
+function loadReplay(): Promise<typeof import("@/lib/offline/sync")> {
+	if (!replayModule) {
+		// A failed chunk fetch must not poison every later drain in this tab.
+		replayModule = import("@/lib/offline/sync").catch((error: unknown) => {
+			replayModule = null;
+			throw error;
+		});
+	}
+	return replayModule;
+}
+
+/**
  * Replays the offline outbox and shows its state: pending count, a retry
  * control and any failed/conflicted item with retry/discard actions. Nothing
  * is ever dropped silently.
+ *
+ * The queue is drained on mount/rehydration, on `online`, whenever the outbox
+ * changes and on a timer. Every entry point is idempotent: the sync layer
+ * claims each item before sending it, so overlapping triggers cannot submit
+ * the same sample twice.
  */
-export function OfflineSync({ scope }: { scope: string }) {
+export function OfflineSync({
+	scope,
+	flushIntervalMs = OUTBOX_FLUSH_INTERVAL_MS,
+}: OfflineSyncProps) {
 	const t = useTranslations("pwa");
 	const tDates = useTranslations("dates");
 	const online = useOnlineStatus();
@@ -89,6 +128,7 @@ export function OfflineSync({ scope }: { scope: string }) {
 		running.current = true;
 		setBusy(true);
 		try {
+			const { flushBiomassOutbox } = await loadReplay();
 			const result = await flushBiomassOutbox(scope);
 			if (result.discardedFeed > 0) {
 				toast.warning(t("feedDiscarded", { count: result.discardedFeed }));
@@ -106,9 +146,21 @@ export function OfflineSync({ scope }: { scope: string }) {
 		}
 	}, [scope, t, refresh]);
 
+	// The trigger effect below outlives individual renders; keep the latest
+	// callbacks in refs so listeners and timers never run a stale closure.
+	const runRef = useRef(run);
+	const refreshRef = useRef(refresh);
+	const tRef = useRef(t);
+	useEffect(() => {
+		runRef.current = run;
+		refreshRef.current = refresh;
+		tRef.current = t;
+	}, [run, refresh, t]);
+
 	// A different signed-in account must not inherit this device's offline queue.
 	// Identity is resolved before the first replay so a new user can never flush
-	// the previous user's queued samples with their own session.
+	// the previous user's queued samples with their own session. Mount-only: a
+	// changed translator identity must not re-trigger a replay.
 	useEffect(() => {
 		let cancelled = false;
 
@@ -122,7 +174,7 @@ export function OfflineSync({ scope }: { scope: string }) {
 				const user = session?.user;
 				if (!user || cancelled) return;
 				const cleared = await clearOfflineDataIfUserChanged(user.id);
-				if (!cancelled && cleared) toast.info(t("clearedForNewUser"));
+				if (!cancelled && cleared) toast.info(tRef.current("clearedForNewUser"));
 			} catch {
 				// Identity refresh is best-effort; sign-out paths also clear the store.
 			}
@@ -131,20 +183,45 @@ export function OfflineSync({ scope }: { scope: string }) {
 		const start = async () => {
 			await syncIdentity();
 			identityResolved.current = true;
-			if (!cancelled) await run();
+			// Rehydration drain: a reload while already online must not leave the
+			// queue waiting for an `online` transition that will never happen.
+			if (!cancelled) await runRef.current();
 		};
 
 		void start();
-		const onOnline = () => void run();
-		const onOutboxChanged = () => void refresh();
-		window.addEventListener("online", onOnline);
-		window.addEventListener(OUTBOX_CHANGED_EVENT, onOutboxChanged);
 		return () => {
 			cancelled = true;
+		};
+	}, []);
+
+	// Every signal that can mean "the network may be back" drains the queue.
+	// `online` alone is unreliable (it does not fire when a flaky link recovers
+	// or a proxy changes), and the layout keeps this mounted across navigation.
+	useEffect(() => {
+		const drain = () => {
+			void runRef.current();
+		};
+		const onOnline = () => drain();
+		const onOutboxChanged = () => {
+			void refreshRef.current();
+			// Newly queued work is sent immediately when the device is reachable.
+			drain();
+		};
+		const onVisible = () => {
+			if (document.visibilityState === "visible") drain();
+		};
+
+		const timer = window.setInterval(drain, flushIntervalMs);
+		window.addEventListener("online", onOnline);
+		window.addEventListener(OUTBOX_CHANGED_EVENT, onOutboxChanged);
+		document.addEventListener("visibilitychange", onVisible);
+		return () => {
+			window.clearInterval(timer);
 			window.removeEventListener("online", onOnline);
 			window.removeEventListener(OUTBOX_CHANGED_EVENT, onOutboxChanged);
+			document.removeEventListener("visibilitychange", onVisible);
 		};
-	}, [run, refresh, t]);
+	}, [flushIntervalMs]);
 
 	const retryItem = async (id: string) => {
 		await resetOutboxItem(id);

@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.49.0] - 2026-11-03
+
+### Added
+
+- **The feed calculator takes either kilograms or grams (#683).** A labelled unit control switches every weight field and result, converting what is already typed (1.5 kg <-> 1500 g) without drift. The server still receives kilograms and `gramsPerFeeding` stays in grams, so the device contract is unchanged.
+- **The OTA rollout policy is visible and editable from the console (#660).** Ten fields generated from the firmware field table, written through the existing platform settings path with an audit row and a guard against an inverted rollout window. The card also reports each unit's state - applied, pending, reported, never reported - by comparing the echoed `config_rev`, so an unsaved value never looks applied.
+
+### Fixed
+
+- **A sample queued offline no longer waits for an `online` transition (#665).** The outbox drains on mount, on a 30-second timer, on visibility change and on a new queued item. Per-item claims with a two-minute expiry make a double drain safe, per-pond order is preserved, and an item that fails three times is surfaced instead of retried forever. The replay engine is lazy-loaded, so the dashboard chunk did not grow.
+- **The dashboard bar no longer claims to be sticky when it never was (#572).** The shell already keeps it permanently visible as a flex sibling of the single scroll pane, so `sticky top-0` was decorative; it is removed, the height stays 64 px because the control-room and calendar chrome subtract it, and separation is an inset hairline. CSS only.
+
+### Added
+
+- **The feed calculator accepts weights in kilograms or grams (#683).** A labelled **Weight unit** control re-expresses the current and target weights when it is switched (`1.5 kg` <-> `1500 g`), so a farmer weighing fingerlings can type grams instead of `0.015`. Every weight field and result on the card follows the selected unit; the per-meal dose stays in grams because the feeder firmware works in grams. The server contract is unchanged: values are converted to kilograms at the UI boundary before `calculateFcrFeed` receives `currentWeightKg` / `targetWeightKg`. Copy is in English, Hiligaynon and Tagalog; blank or malformed input is rejected rather than sent as `NaN`.
+- **The OTA rollout policy has a dashboard surface and a report-back view (#660).** The ten `ota_*` keys (check interval, uptime and signal floors, near-feed guard, quiet window, heap floor and the download and health-check timeouts) were settable on the device but had no input anywhere, so every unit stayed on the compile-time values. Superadmin → Settings → **OTA rollout policy** now edits all ten through `setFirmwareOtaPolicy`, which writes the same `firmware.gates` row (no new table), refuses any id outside the ten, refuses a quiet window whose start is not before its end instead of letting the reader repair it to the defaults, and records one `platform.settings.firmware_ota_policy` audit row with the before/after values and the required reason. The same section shows what the fleet reports back: firmware 1.7.0+ echoes one `config_rev` for the whole config plus `config_source`, so each unit is shown as applied, pending, reported or never reported by comparing its newest `config_applied` row with the last recorded policy change. Per-key device values are not shown because the firmware never sends them. Copy is in English, Hiligaynon and Tagalog (machine-drafted, queued for review); no new dependency and no schema change.
+
+### Fixed
+
+- **A sample queued while offline is replayed without waiting for an `online` event (#665).** The outbox is drained on mount/rehydration, whenever it changes, when the tab becomes visible and on a 30-second timer, in addition to the browser's `online` event. Each queued item is claimed before it is sent and removed only after the server accepts it, so overlapping drains (or a second tab) cannot submit the same sample twice, and a pond's samples keep their order. An item that uses all three automatic attempts is parked as `failed` and stays in the sync panel with a manual retry instead of being retried forever.
+- **The farmer dashboard's top bar no longer claims a sticky position it never had (#572).** The shell is a fixed-height frame and the content pane is its only scroller, so the bar is already pinned by sitting outside the scroller — `position: sticky` could never engage. The bar is now plain markup in the server layout with a constant inset hairline instead of a heavy shadow; no client JavaScript, height, border or padding changed, so nothing shifts. The mobile band keeps its `env(safe-area-inset-top)` padding, and the pane keeps reserving the bottom bar plus `env(safe-area-inset-bottom)`.
+
 ## [1.48.1] - 2026-11-03
 
 ### Changed

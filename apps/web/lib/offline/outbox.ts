@@ -27,6 +27,8 @@ export interface OutboxItem {
 	status: OutboxItemStatus;
 	lastError?: string;
 	idempotencyKey?: string;
+	/** Set while a replay owns this item; never sent by a second replay before it expires. */
+	claimedAt?: string;
 }
 
 /** Any record found in the queue, including legacy/foreign (e.g. feed) items. */
@@ -39,6 +41,7 @@ export interface StoredOutboxRecord {
 	status: OutboxItemStatus;
 	lastError?: string;
 	idempotencyKey?: string;
+	claimedAt?: string;
 }
 
 export interface FeedCommandQueueRefusal {
@@ -48,11 +51,18 @@ export interface FeedCommandQueueRefusal {
 
 export const OUTBOX_STORAGE_KEY = "optifeed:offline:outbox:v1";
 export const OUTBOX_CHANGED_EVENT = "optifeed:outbox-changed";
+/** Automatic attempts before an item is parked as `failed` for a manual retry. */
+export const OUTBOX_MAX_ATTEMPTS = 3;
+/**
+ * How long a replay may hold an item before another replay can reclaim it.
+ * Covers a tab that was closed or crashed mid-send. The server's idempotency
+ * key still makes the retry safe.
+ */
+export const OUTBOX_CLAIM_TTL_MS = 2 * 60_000;
 
 const DB_NAME = "optifeed-offline-outbox";
 const DB_VERSION = 1;
 const STORE = "queue";
-const MAX_ATTEMPTS = 3;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -100,6 +110,7 @@ function normalizeRecord(value: unknown): StoredOutboxRecord | null {
 		status: isItemStatus(value.status) ? value.status : "pending",
 		lastError: typeof value.lastError === "string" ? value.lastError : undefined,
 		idempotencyKey: typeof value.idempotencyKey === "string" ? value.idempotencyKey : undefined,
+		claimedAt: typeof value.claimedAt === "string" ? value.claimedAt : undefined,
 	};
 }
 
@@ -190,7 +201,7 @@ export async function enqueueFeedCommand(_command?: unknown): Promise<FeedComman
 	return { queued: false, code: "feed_commands_never_queued" };
 }
 
-async function upsertRecord(record: StoredOutboxRecord): Promise<void> {
+async function upsertRecord(record: StoredOutboxRecord, notify = true): Promise<void> {
 	if (hasIndexedDb()) {
 		try {
 			const db = await openDb();
@@ -209,7 +220,7 @@ async function upsertRecord(record: StoredOutboxRecord): Promise<void> {
 	const items = readFallback().filter((item) => item.id !== record.id);
 	items.push(record);
 	writeFallback(items);
-	notifyChanged();
+	if (notify) notifyChanged();
 }
 
 async function readDbItems(): Promise<StoredOutboxRecord[]> {
@@ -277,6 +288,41 @@ export async function removeOutboxItem(id: string): Promise<void> {
 	notifyChanged();
 }
 
+/**
+ * A claim is only valid for `OUTBOX_CLAIM_TTL_MS`. After that, a replay that
+ * died mid-send cannot strand the item forever.
+ */
+export function isOutboxClaimActive(
+	record: Pick<StoredOutboxRecord, "claimedAt">,
+	now = Date.now(),
+): boolean {
+	if (!record.claimedAt) return false;
+	const claimedAt = Date.parse(record.claimedAt);
+	if (Number.isNaN(claimedAt)) return false;
+	return now - claimedAt < OUTBOX_CLAIM_TTL_MS;
+}
+
+/**
+ * Claim one item for this replay. Returns the freshest record when the claim
+ * was taken, or `null` when another replay already owns it (or it is gone).
+ *
+ * Replays already serialise through a Web Lock; the per-item marker is the
+ * durable half of that guard, so even a double drain (two timers, a remount,
+ * a reload during a send) cannot submit the same sample twice. Reads and
+ * writes are not atomic across tabs, but a lost race still cannot duplicate
+ * the row: the server keys the sample on `clientEventId`.
+ */
+export async function claimOutboxItem(id: string): Promise<OutboxItem | null> {
+	const record = (await listOutboxRecords()).find((entry) => entry.id === id);
+	if (!record || !isBiomassOutboxItem(record)) return null;
+	if (record.status !== "pending") return null;
+	if (isOutboxClaimActive(record)) return null;
+
+	const claimed: StoredOutboxRecord = { ...record, claimedAt: new Date().toISOString() };
+	await upsertRecord(claimed, false);
+	return isBiomassOutboxItem(claimed) ? claimed : null;
+}
+
 async function updateItem(
 	id: string,
 	patch: (item: StoredOutboxRecord) => StoredOutboxRecord,
@@ -292,8 +338,10 @@ export async function markOutboxAttempt(id: string, error: string): Promise<void
 		return {
 			...item,
 			attempts,
-			status: attempts >= MAX_ATTEMPTS ? "failed" : "pending",
+			status: attempts >= OUTBOX_MAX_ATTEMPTS ? "failed" : "pending",
 			lastError: error,
+			// The attempt is over: a later flush (timer or manual) may retry it.
+			claimedAt: undefined,
 		};
 	});
 }
@@ -305,6 +353,7 @@ export async function markOutboxConflict(id: string, error: string): Promise<voi
 		attempts: item.attempts + 1,
 		status: "conflict",
 		lastError: error,
+		claimedAt: undefined,
 	}));
 }
 
@@ -315,6 +364,7 @@ export async function resetOutboxItem(id: string): Promise<void> {
 		attempts: 0,
 		status: "pending",
 		lastError: undefined,
+		claimedAt: undefined,
 	}));
 }
 

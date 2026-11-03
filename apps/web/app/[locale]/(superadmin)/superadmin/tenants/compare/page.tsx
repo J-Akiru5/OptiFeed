@@ -236,7 +236,12 @@ export default async function TenantComparisonPage({
 								</h2>
 								<p className="text-[11px] text-[#3D5568] dark:text-gray-400">{t("legend")}</p>
 
-								<TableFrame label={t("tableLabel")} columns={columns} minWidth="min-w-[64rem]">
+								<TableFrame
+									className="hidden md:block"
+									label={t("tableLabel")}
+									columns={columns}
+									minWidth="min-w-[64rem]"
+								>
 									{comparison.rows.map((row) => {
 										const RowIcon = ICON[row.state];
 										return (
@@ -360,7 +365,7 @@ function BestValue({
 			{children}
 			<span
 				className={cn(
-					"rounded-full bg-[#E8F5EC] px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#1E7B34]",
+					"rounded-full bg-console-ok-surface px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-console-ok-content",
 				)}
 			>
 				{label}

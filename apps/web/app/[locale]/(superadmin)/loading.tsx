@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 const SKELETON_CARDS = ["c1", "c2", "c3", "c4"];
 
 const block =
-	"animate-pulse rounded-2xl border border-gray-200 dark:border-[#24304A] bg-white dark:bg-[#111A2C] motion-reduce:animate-none";
+	"animate-pulse rounded-2xl border border-console-border bg-console-surface motion-reduce:animate-none";
 
 /**
  * Route-level skeleton for the platform console. It mirrors the real overview
@@ -18,8 +18,8 @@ export default async function SuperadminLoading() {
 			<output className="sr-only">{t("message")}</output>
 
 			<div className="space-y-2">
-				<div className="h-8 w-56 max-w-full animate-pulse rounded-lg bg-gray-200 motion-reduce:animate-none" />
-				<div className="h-4 w-80 max-w-full animate-pulse rounded bg-gray-200 motion-reduce:animate-none" />
+				<div className="h-8 w-56 max-w-full animate-pulse rounded-lg bg-console-border-strong motion-reduce:animate-none" />
+				<div className="h-4 w-80 max-w-full animate-pulse rounded bg-console-border-strong motion-reduce:animate-none" />
 			</div>
 
 			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

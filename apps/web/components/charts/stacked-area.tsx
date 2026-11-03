@@ -71,9 +71,9 @@ export function StackedArea({
 			stack.sources.map((key, index) => ({
 				key,
 				label: seriesLabels[key] ?? key,
-				color: seriesColor(index),
+				color: seriesColor(index, theme.dark),
 			})),
-		[stack.sources, seriesLabels],
+		[stack.sources, seriesLabels, theme.dark],
 	);
 
 	const visible = series.filter((entry) => !hidden.has(entry.key));

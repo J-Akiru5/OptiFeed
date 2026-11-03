@@ -153,9 +153,9 @@ export function Treemap({
 	const total = leaves.reduce((sum, leaf) => sum + leaf.value, 0);
 	const isEmpty = leaves.length === 0 || total <= 0;
 
-	// Every palette colour is dark enough for white text in the light theme; in
-	// the dark theme the near-white tooltip text is the matching foreground.
-	const leafText = theme.dark ? theme.tooltipText : theme.tooltipBg;
+	// The tile text is the contrasting surface colour: white on the dark light-theme
+	// tiles, the dark tooltip surface on the lifted dark-theme tiles.
+	const leafText = theme.tooltipBg;
 
 	const renderTile = (node: TreemapNode): ReactElement => {
 		// The root rectangle covers the whole plot; the top-level organizations
@@ -169,7 +169,7 @@ export function Treemap({
 		if (width <= 0 || height <= 0) return <g />;
 
 		const leaf = !node.children || node.children.length === 0;
-		const fill = seriesColor(topLevelIndex(node));
+		const fill = seriesColor(topLevelIndex(node), theme.dark);
 		const clipId = `${chartId}-tile-${idPart(node.tooltipIndex ?? String(node.index))}`;
 		const name = String(node.name ?? "");
 		const value = formatChartNumber(Number(node.value) || 0, unit);

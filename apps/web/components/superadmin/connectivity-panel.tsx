@@ -22,8 +22,14 @@ import { Activity, Percent, Radio } from "lucide-react";
  */
 
 const CHART_WIDTH = 720;
-const CHART_HEIGHT = 168;
-const PADDING = { top: 10, right: 8, bottom: 22, left: 36 };
+/**
+ * The plot box, in CSS pixels. The SVG draws in this coordinate space and is
+ * stretched horizontally only (`preserveAspectRatio="none"`), so the bars use
+ * the full width while the axis text stays HTML at a fixed 10 px. A viewBox that
+ * also scaled its own text made a 9 px label ~4 px wide at 390 px (#631).
+ */
+const PLOT_HEIGHT = 144;
+const PADDING = { top: 8, right: 2, bottom: 8, left: 2 };
 const GRID_LINES = [0, 50, 100] as const;
 
 export interface ConnectivityPanelProps {
@@ -82,10 +88,10 @@ export function ConnectivityPanel({ data, t, locale }: ConnectivityPanelProps) {
 	return (
 		<section aria-label={t("sectionLabel")} className="space-y-3">
 			<div className="flex items-center gap-2">
-				<Activity className="h-4 w-4 text-[#E85A2A] dark:text-[#FF8A5C]" aria-hidden="true" />
-				<h2 className="text-lg font-black text-[#0A3D62] dark:text-slate-100">{t("title")}</h2>
+				<Activity className="h-4 w-4 text-console-accent" aria-hidden="true" />
+				<h2 className="text-lg font-black text-console-content">{t("title")}</h2>
 			</div>
-			<p className="max-w-3xl text-sm text-[#3D5568] dark:text-slate-400">
+			<p className="max-w-3xl text-sm text-console-content-muted">
 				{t("description", {
 					activeWindowDays: number(data.activeWindowDays),
 					days: number(data.windowDays.length),
@@ -122,93 +128,113 @@ export function ConnectivityPanel({ data, t, locale }: ConnectivityPanelProps) {
 
 			<MonitorPanel title={t("trendTitle")} description={t("trendDescription")} meta={meta}>
 				{!hasStoredDays ? (
-					<p className="py-6 text-center text-sm font-bold text-[#3D5568] dark:text-slate-400">
+					<p className="py-6 text-center text-sm font-bold text-console-content-muted">
 						{t("trendEmpty")}
 					</p>
 				) : !hasBars ? (
-					<p className="py-6 text-center text-sm font-bold text-[#3D5568] dark:text-slate-400">
+					<p className="py-6 text-center text-sm font-bold text-console-content-muted">
 						{t("trendNoShare")}
 					</p>
 				) : (
 					<>
-						<div role="img" aria-label={summary}>
-							<svg
-								viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-								className="h-44 w-full"
+						<div role="img" aria-label={summary} className="flex gap-2">
+							{/* The axis text is HTML, not SVG: a viewBox scales its own text
+							    down with the plot, which made a 9 px label ~4 px wide at
+							    390 px (#631). */}
+							<div
 								aria-hidden="true"
+								className="relative w-8 shrink-0 text-[10px] font-bold leading-none text-console-content-muted"
+								style={{ height: PLOT_HEIGHT }}
 							>
-								{GRID_LINES.map((line) => {
-									const y = shareY(line);
-									return (
-										<g key={line}>
+								{GRID_LINES.map((line) => (
+									<span
+										key={line}
+										className="absolute right-0 -translate-y-1/2 tabular-nums"
+										style={{ top: shareY(line) }}
+									>
+										{line}%
+									</span>
+								))}
+							</div>
+
+							<div className="min-w-0 flex-1">
+								<svg
+									viewBox={`0 0 ${CHART_WIDTH} ${PLOT_HEIGHT}`}
+									preserveAspectRatio="none"
+									className="block w-full"
+									style={{ height: PLOT_HEIGHT }}
+									aria-hidden="true"
+								>
+									{GRID_LINES.map((line) => {
+										const y = shareY(line);
+										return (
 											<line
+												key={line}
 												x1={PADDING.left}
 												x2={CHART_WIDTH - PADDING.right}
 												y1={y}
 												y2={y}
-												className="stroke-[#E6ECE9] dark:stroke-[#24304A]"
+												className="stroke-console-border"
 												strokeWidth={1}
 											/>
-											<text
-												x={PADDING.left - 6}
-												y={y + 3}
-												textAnchor="end"
-												className="fill-[#3D5568] text-[9px] font-bold dark:fill-slate-400"
+										);
+									})}
+
+									{plottable.map((point) => {
+										const index = data.windowDays.indexOf(point.day);
+										if (index < 0) return null;
+										const barWidth = Math.max(2, slot - 2);
+										const x = PADDING.left + index * slot + (slot - barWidth) / 2;
+										const y = shareY(point.onlineSharePct);
+										return (
+											<rect
+												key={point.day}
+												x={x}
+												y={y}
+												width={barWidth}
+												height={Math.max(0, PLOT_HEIGHT - PADDING.bottom - y)}
+												rx={1}
+												className="fill-console-accent"
 											>
-												{line}%
-											</text>
-										</g>
-									);
-								})}
+												<title>
+													{t("dayTooltip", {
+														day: point.day,
+														share: number(point.onlineSharePct, 1),
+														devices: number(point.devicesReporting),
+														minutes: number(point.observedMinutes),
+													})}
+												</title>
+											</rect>
+										);
+									})}
+								</svg>
 
-								{plottable.map((point) => {
-									const index = data.windowDays.indexOf(point.day);
-									if (index < 0) return null;
-									const barWidth = Math.max(2, slot - 2);
-									const x = PADDING.left + index * slot + (slot - barWidth) / 2;
-									const y = shareY(point.onlineSharePct);
-									return (
-										<rect
-											key={point.day}
-											x={x}
-											y={y}
-											width={barWidth}
-											height={Math.max(0, CHART_HEIGHT - PADDING.bottom - y)}
-											rx={1}
-											className="fill-[#C2410C] dark:fill-[#FF8A5C]"
+								<div
+									aria-hidden="true"
+									className="mt-1 flex justify-between gap-2 text-[10px] font-bold leading-none text-console-content-muted"
+								>
+									{axisDays(data.windowDays).map(({ day, anchor }) => (
+										<span
+											key={day}
+											className={
+												anchor === "start"
+													? "text-left"
+													: anchor === "end"
+														? "text-right"
+														: "text-center"
+											}
 										>
-											<title>
-												{t("dayTooltip", {
-													day: point.day,
-													share: number(point.onlineSharePct, 1),
-													devices: number(point.devicesReporting),
-													minutes: number(point.observedMinutes),
-												})}
-											</title>
-										</rect>
-									);
-								})}
-
-								{axisDays(data.windowDays).map(({ day, index, anchor }) => (
-									<text
-										key={day}
-										x={PADDING.left + (index + 0.5) * slot}
-										y={CHART_HEIGHT - 6}
-										textAnchor={anchor}
-										className="fill-[#3D5568] text-[9px] font-bold dark:fill-slate-400"
-									>
-										{formatDay(day, locale)}
-									</text>
-								))}
-							</svg>
+											{formatDay(day, locale)}
+										</span>
+									))}
+								</div>
+							</div>
 						</div>
-						<p className="mt-2 text-xs font-bold text-[#3D5568] dark:text-slate-400">{summary}</p>
+						<p className="mt-2 text-xs font-bold text-console-content-muted">{summary}</p>
 					</>
 				)}
 
-				<p className="mt-3 text-[11px] leading-snug text-[#3D5568] dark:text-slate-400">
-					{t("utcNote")}
-				</p>
+				<p className="mt-3 text-[11px] leading-snug text-console-content-muted">{t("utcNote")}</p>
 
 				{hasStoredDays && (
 					<table className="sr-only">
@@ -244,7 +270,7 @@ export function ConnectivityPanel({ data, t, locale }: ConnectivityPanelProps) {
 
 /** Bar top for an online share, 0 % at the baseline and 100 % at the top. */
 function shareY(share: number): number {
-	const plotHeight = CHART_HEIGHT - PADDING.top - PADDING.bottom;
+	const plotHeight = PLOT_HEIGHT - PADDING.top - PADDING.bottom;
 	return PADDING.top + (1 - Math.min(100, Math.max(0, share)) / 100) * plotHeight;
 }
 

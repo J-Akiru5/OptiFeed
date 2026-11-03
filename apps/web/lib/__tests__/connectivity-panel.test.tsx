@@ -107,4 +107,32 @@ describe("ConnectivityPanel", () => {
 		expect(html).toContain("<td>60%</td>");
 		expect(html).toContain("<td>90%</td>");
 	});
+
+	it("keeps the axis labels as HTML so they cannot scale to ~4 px at 390 px", () => {
+		const html = render(
+			snapshot({
+				trend: [
+					{
+						day: "2026-11-01",
+						devicesReporting: 4,
+						onlineMinutes: 900,
+						observedMinutes: 1000,
+						gapCount: 0,
+						heartbeatCount: 900,
+						onlineSharePct: 90,
+					},
+				],
+				daysWithoutData: 89,
+			}),
+		);
+
+		// The plot still draws in a fixed coordinate space, but every label is now
+		// text outside it at a fixed 10 px: an SVG text node would be scaled by the
+		// viewBox (9 px → ~4 px in a 318 px pane).
+		expect(html).not.toContain("<text");
+		expect(html).toContain(">100%<");
+		expect(html).toContain(">50%<");
+		expect(html).toContain(">0%<");
+		expect(html).toContain("text-[10px]");
+	});
 });

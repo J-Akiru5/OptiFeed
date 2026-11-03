@@ -78,8 +78,8 @@ export default async function OperationsErrorsPage({
 									aria-current={isActive ? "page" : undefined}
 									className={
 										isActive
-											? "inline-flex min-h-11 items-center rounded-xl bg-[#0A3D62] px-3.5 py-2 text-sm font-bold text-white shadow-sm"
-											: "inline-flex min-h-11 items-center rounded-xl px-3.5 py-2 text-sm font-bold text-[#3D5568] dark:text-slate-400 transition-colors hover:bg-white dark:hover:bg-[#162238] hover:text-[#0A3D62]"
+											? "inline-flex min-h-11 items-center rounded-xl bg-console-accent px-3.5 py-2 text-sm font-bold text-console-accent-foreground shadow-sm"
+											: "inline-flex min-h-11 items-center rounded-xl px-3.5 py-2 text-sm font-bold text-console-content-muted transition-colors hover:bg-console-surface-raised hover:text-console-content"
 									}
 								>
 									{t(`status.${status}`)}

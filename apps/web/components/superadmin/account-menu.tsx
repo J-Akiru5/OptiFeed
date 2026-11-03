@@ -112,7 +112,7 @@ export function SuperadminAccountMenu({
 					src={user.avatarUrl}
 					name={user.displayName}
 					size="md"
-					className="rounded-full bg-[#E85A2A]"
+					className="rounded-full bg-console-accent text-console-accent-foreground"
 				/>
 			</button>
 

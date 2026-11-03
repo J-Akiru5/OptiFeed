@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Mortality is validated against the live count before insert, and harvest defaults to the live count (#764).
+- An empty growth page shows no FCR or ABW value and claims no trend until two reports exist (#752).
+- Farm-facing times and history day filters use Asia/Manila (#753).
+- The import transaction aborts before the 12 s job limit, so a failed job cannot commit later (#758).
+- Demo seeds no longer create contradictory FCR rows, and seed/import telemetry is labelled by dataSource; device registration stamps Farm.id (#709).
+- Crop reminder email gains a plain-text part and PakaonAI branding; the stale invite comment is corrected (#742).
+- Imports now write to the pond captured at request time and reject rows whose pondId/deviceId belongs elsewhere (#743).
+- **A reconnect no longer suppresses the next offline alert or clears the whole pond (#745).** `/api/ingest` wrote a `disconnected` event after advancing `lastSeenAt`, and `device-watch` treats any `disconnected` event newer than `lastSeenAt` as "already alerted", so a feeder that reconnected once and dropped again never alerted. Reconnect now records only the `connected` event, and recovery closes the per-device `offline:<deviceId>` episode instead of a pond-wide clear.
 - Exports keep the newest rows, empty CSVs have headers and a BOM, and the PDF shows the newest FCR reports (#755).
 
 - **Login returns to the page that asked for it (#760).** The proxy now appends the intercepted page as `/login?next=…`, the login form forwards it to `loginWithPassword`, and the action redirects there after authentication. `sanitizePostLoginPath` accepts only a same-origin absolute path (rejecting absolute/protocol-relative URLs, backslashes and the login page itself), and a forced password change still wins over the requested page. Locale prefixes are stripped before `redirect()` re-adds them.
@@ -23,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - Audit events are now export-only, so caller-supplied source, actor and timestamps cannot be imported (#744).
+
+### Added
+
+- Cron schedules are provisioned from environment values and every run writes a CronHeartbeat read by /api/health/cron (#725).
 
 ## [1.52.0] - 2026-11-04
 

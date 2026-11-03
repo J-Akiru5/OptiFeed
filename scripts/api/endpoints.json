@@ -13,6 +13,16 @@
 			"latency": false
 		},
 		{
+			"id": "health-cron",
+			"method": "GET",
+			"path": "/api/health/cron",
+			"shape": "flat",
+			"auth": "none",
+			"level": "L1",
+			"contract": false,
+			"latency": false
+		},
+		{
 			"id": "user-role",
 			"method": "GET",
 			"path": "/api/v1/user-role",

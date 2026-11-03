@@ -21,7 +21,7 @@ vi.mock("@/lib/prisma", () => {
 	// the same spies the assertions inspect.
 	const client = {
 		user: { findUnique: vi.fn() },
-		pond: { findMany: vi.fn() },
+		pond: { findMany: vi.fn(), findFirst: vi.fn() },
 		energyDevice: { findFirst: vi.fn() },
 		biomassLog: { findMany: vi.fn(), createMany: vi.fn() },
 		fishSample: { createMany: vi.fn() },
@@ -74,6 +74,7 @@ describe("fish_samples import enforces biomassLogId ownership (F-004)", () => {
 			role: "ADMIN",
 		} as never);
 		mockRequireWriteAccess.mockResolvedValue(undefined as never);
+		vi.mocked(prisma.pond.findFirst).mockResolvedValue({ id: "pond-1" } as never);
 		mockPondFindMany.mockResolvedValue([
 			{ id: "pond-1", ownerId: "demo-farmer-1", status: "ACTIVE" },
 		] as never);
@@ -95,6 +96,7 @@ describe("fish_samples import enforces biomassLogId ownership (F-004)", () => {
 			expect.objectContaining({
 				where: expect.objectContaining({
 					id: { in: ["log-1", "log-2"] },
+					pondId: "pond-1",
 					pond: { ownerId: "demo-farmer-1" },
 				}),
 			}),

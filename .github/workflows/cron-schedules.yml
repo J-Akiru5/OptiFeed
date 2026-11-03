@@ -1,0 +1,79 @@
+name: Cron schedules
+
+# Manual, environment-gated provisioning of the pg_cron jobs (#725).
+# No push/schedule trigger: an operator runs it from the Actions UI after
+# setting APP_BASE_URL, CRON_SECRET and SUPABASE_DB_URL in the protected
+# `production` environment. It never prints the secret.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Print the generated schedule SQL without connecting
+        type: boolean
+        default: false
+      smoke:
+        description: Call each cron endpoint with the secret after applying
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cron-schedules-production
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: apply cron schedules
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Refuse to run without the environment values
+        env:
+          APP_BASE_URL: ${{ vars.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$APP_BASE_URL" || { echo "APP_BASE_URL is not set in the production environment"; exit 1; }
+          test -n "$CRON_SECRET" || { echo "CRON_SECRET is not set in the production environment"; exit 1; }
+          test -n "$SUPABASE_DB_URL" || { echo "SUPABASE_DB_URL is not set in the production environment"; exit 1; }
+
+      - name: Apply the schedules
+        env:
+          APP_BASE_URL: ${{ vars.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DIRECT_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            pnpm --filter web cron:apply -- --dry-run
+          else
+            pnpm --filter web cron:apply
+          fi
+
+      - name: Smoke-call the endpoints
+        if: ${{ inputs.dry_run == false && inputs.smoke == true }}
+        env:
+          APP_BASE_URL: ${{ vars.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: pnpm --filter web cron:smoke

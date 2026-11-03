@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
 import { type DeviceHealthView, deviceNeedsAttention } from "@/lib/device-health-model";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, HelpCircle, ShieldAlert } from "lucide-react";
@@ -69,9 +69,9 @@ export function HealthNotice({
 	// #624: a failed health read is not a healthy feeder. Say so, and say when
 	// the last successful read was when this process knows.
 	if (health.unavailable) {
-		const checked = formatDateTimeLocal(health.unavailable.checkedAt, tDates);
+		const checked = formatFarmDateTime(health.unavailable.checkedAt, tDates);
 		const last = health.unavailable.lastSuccessAt
-			? formatDateTimeLocal(health.unavailable.lastSuccessAt, tDates)
+			? formatFarmDateTime(health.unavailable.lastSuccessAt, tDates)
 			: null;
 
 		return (
@@ -101,8 +101,8 @@ export function HealthNotice({
 	const refusal = health.lastRefusal;
 	if (!attention && !refusal) return null;
 
-	const since = health.since ? formatDateTimeLocal(health.since, tDates) : null;
-	const refusalAt = refusal ? formatDateTimeLocal(refusal.at, tDates) : null;
+	const since = health.since ? formatFarmDateTime(health.since, tDates) : null;
+	const refusalAt = refusal ? formatFarmDateTime(refusal.at, tDates) : null;
 	const reasonKey = refusal ? REFUSAL_REASON_KEYS[refusal.reason] : undefined;
 	const sourceKey = refusal?.source ? REFUSAL_SOURCE_KEYS[refusal.source] : undefined;
 

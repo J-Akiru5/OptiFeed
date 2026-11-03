@@ -252,6 +252,7 @@ describe("the real route tree", () => {
 		// A reviewer sees exactly which routes may skip a guard.
 		expect([...PUBLIC_ROUTES.keys()].sort()).toEqual([
 			"[...fallback]/route.ts",
+			"health/cron/route.ts",
 			"health/route.ts",
 			"reports/route.ts",
 		]);

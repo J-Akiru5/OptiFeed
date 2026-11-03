@@ -127,7 +127,7 @@ import { getAdminOverview } from "@/lib/actions/admin-overview";
 import { hasPermission } from "@/lib/auth/permissions";
 import { formatDateTimeLocal } from "@/lib/date-local";
 
-const FIXTURE_DATE = new Date("2026-07-08T16:19:00");
+const FIXTURE_DATE = new Date("2026-07-08T04:19:00.000Z");
 
 function dateLabels(): (key: string) => string {
 	const messages = JSON.parse(readFileSync(join(__dirname, "../../messages/en.json"), "utf8")) as {

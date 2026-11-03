@@ -24,7 +24,8 @@ interface FcrRequestSnapshot {
 }
 
 interface FcrCalculatorProps {
-	latestFcr: number;
+	/** Null when no stored or derived FCR exists yet (#752). */
+	latestFcr: number | null;
 	/** The pond this card is shown for; the action never guesses. */
 	pondId: string;
 	/** Pond fish count, prefilled so the farmer does not retype it. */
@@ -191,7 +192,11 @@ export function FcrCalculator({
 					<p className="text-xs text-[#3D5568] dark:text-gray-400">{t("desc")}</p>
 					<p className="mt-1 text-[11px] font-semibold text-[#3D5568] dark:text-gray-400">
 						<TermInfo
-							label={latestFcr > 0 ? t("usingFcr", { fcr: latestFcr.toFixed(2) }) : t("noFcr")}
+							label={
+								latestFcr !== null && latestFcr > 0
+									? t("usingFcr", { fcr: latestFcr.toFixed(2) })
+									: t("noFcr")
+							}
 							hint={tCommon("terminology.aboutFcr")}
 							description={tCommon("terminology.fcr")}
 						/>

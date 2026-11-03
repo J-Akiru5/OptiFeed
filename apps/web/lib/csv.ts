@@ -32,8 +32,12 @@ export function escapeFormulaInjection(value: string): string {
 	return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
 }
 
-export function toCsvString(rows: CsvRow[]): string {
-	if (rows.length === 0) return "";
+export function toCsvString(rows: CsvRow[], fields?: string[]): string {
+	if (rows.length === 0) {
+		// An empty export still needs a header row: a 0-byte file cannot be
+		// opened as a template or re-imported (#755).
+		return fields && fields.length > 0 ? Papa.unparse({ fields, data: [] }) : "";
+	}
 	const escaped = rows.map((row) => {
 		const next: CsvRow = {};
 		for (const [key, value] of Object.entries(row)) {

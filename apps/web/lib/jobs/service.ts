@@ -235,9 +235,11 @@ async function executeJob(job: BackgroundJob): Promise<void> {
 				type: ExportableType;
 				csvData: string;
 				idempotencyKey?: string | null;
+				pondId?: string | null;
 			};
 			const result = await confirmImport(job.ownerId, payload.type, payload.csvData, {
 				idempotencyKey: payload.idempotencyKey,
+				pondId: payload.pondId,
 			});
 			await completeJob(job, null, { importedCount: result.importedCount });
 			return;

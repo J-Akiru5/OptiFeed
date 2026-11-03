@@ -97,6 +97,15 @@ describe("POST /api/import-prepare guards", () => {
 		expect((await POST(upload({ type: "biomass_logs", file: csvFile("") }))).status).toBe(400);
 	});
 
+	it("rejects audit-event imports, which are export-only (#744)", async () => {
+		const res = await POST(
+			upload({ type: "audit_events", file: csvFile("eventType,source\nfeed_dispensed,system") }),
+		);
+
+		expect(res.status).toBe(400);
+		expect((await res.json()).error.message).toBe("Invalid type");
+	});
+
 	it("refuses macro workbooks and other extensions", async () => {
 		const macro = await POST(upload({ type: "biomass_logs", file: csvFile("x", "x.xlsm") }));
 		const text = await POST(upload({ type: "biomass_logs", file: csvFile("x", "x.txt") }));

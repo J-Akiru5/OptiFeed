@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { formatDateTimeLocal, formatFarmDateTime, formatWallClockTime } from "../date-local";
+import {
+	farmDateOnly,
+	formatDateTimeLocal,
+	formatFarmDateTime,
+	formatWallClockTime,
+	manilaDayRange,
+} from "../date-local";
 
 describe("formatDateTimeLocal", () => {
 	const mockTranslator = (key: string): string => {
@@ -119,5 +125,25 @@ describe("formatWallClockTime", () => {
 		expect(formatWallClockTime(16, 5, mockTranslator)).toBe("4:05 PM");
 		expect(formatWallClockTime(0, 30, mockTranslator)).toBe("12:30 AM");
 		expect(formatWallClockTime(12, 0, mockTranslator)).toBe("12:00 PM");
+	});
+});
+
+describe("farmDateOnly", () => {
+	it("returns the Manila date for an instant stored on the previous UTC day", () => {
+		// 00:30 on 2026-10-28 PHT is 2026-10-27T16:30Z.
+		expect(farmDateOnly(new Date("2026-10-27T16:30:00.000Z"))).toBe("2026-10-28");
+	});
+
+	it("returns the same date at Manila noon", () => {
+		expect(farmDateOnly(new Date("2026-10-27T04:00:00.000Z"))).toBe("2026-10-27");
+	});
+});
+
+describe("manilaDayRange", () => {
+	it("wraps the Manila day in UTC instants", () => {
+		// 2026-10-28 00:00 PHT == 2026-10-27T16:00Z.
+		const { start, end } = manilaDayRange(Date.parse("2026-10-27T16:30:00.000Z"));
+		expect(start.toISOString()).toBe("2026-10-27T16:00:00.000Z");
+		expect(end.toISOString()).toBe("2026-10-28T16:00:00.000Z");
 	});
 });

@@ -50,6 +50,14 @@ vi.mock("@/lib/auth/tenant-admin", () => ({ requireTenantAdmin: vi.fn() }));
 vi.mock("@/lib/auth/org-scope", () => ({ resolveOrgScope: vi.fn() }));
 vi.mock("@/lib/auth/session", () => ({ buildPondEmail: vi.fn(), getCurrentUser: vi.fn() }));
 vi.mock("@/lib/auth/session-cache", () => ({ invalidateFarm: vi.fn() }));
+const stepUp = vi.hoisted(() => ({ withStepUp: vi.fn() }));
+vi.mock("@/lib/auth/step-up", () => ({
+	withStepUp: stepUp.withStepUp,
+	isStepUpRequiredError: (error: unknown) =>
+		typeof error === "object" &&
+		error !== null &&
+		(error as { code?: unknown }).code === "step_up_required",
+}));
 vi.mock("@/lib/auth/password", () => ({
 	passwordErrorMessage: vi.fn(),
 	validatePassword: vi.fn(),
@@ -91,6 +99,8 @@ beforeEach(() => {
 	mockGetCurrentUser.mockResolvedValue(ACTOR);
 	mockRevealLimit.mockResolvedValue({ success: true, remaining: 9 });
 	db.deviceStateEvent.create.mockResolvedValue({});
+	stepUp.withStepUp.mockReset();
+	stepUp.withStepUp.mockImplementation(async (action: () => Promise<unknown>) => action());
 });
 
 describe("revealDeviceToken audit trail", () => {
@@ -189,5 +199,21 @@ describe("revealDeviceToken tenant gate", () => {
 		expect(db.energyDevice.findFirst.mock.calls[0][0].where.pondId).toEqual({
 			in: orgAScope.pondIds,
 		});
+	});
+});
+
+describe("revealDeviceToken step-up (#720)", () => {
+	it("refuses before reading or auditing the credential when step-up is missing", async () => {
+		stepUp.withStepUp.mockRejectedValueOnce(
+			Object.assign(new Error("Re-enter your password to continue."), {
+				code: "step_up_required",
+			}),
+		);
+
+		const result = await revealDeviceToken("dev-a1");
+
+		expect(result).toMatchObject({ success: false, code: "step_up_required" });
+		expect(db.energyDevice.findFirst).not.toHaveBeenCalled();
+		expect(db.deviceStateEvent.create).not.toHaveBeenCalled();
 	});
 });

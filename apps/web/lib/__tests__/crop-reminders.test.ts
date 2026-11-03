@@ -94,7 +94,9 @@ beforeEach(() => {
 	mockCycle.findMany.mockResolvedValue([CYCLE] as never);
 	mockPond.findMany.mockResolvedValue([POND] as never);
 	mockBiomass.groupBy.mockResolvedValue([] as never);
-	mockUser.findMany.mockResolvedValue([{ farmId: "owner-1", email: "owner@example.com" }] as never);
+	mockUser.findMany.mockResolvedValue([
+		{ farmId: "owner-1", contactEmail: "owner@example.com" },
+	] as never);
 	mockReminderLog.findMany.mockResolvedValue([] as never);
 	mockReminderLog.update.mockResolvedValue({} as never);
 	mockPondEvent.findMany.mockResolvedValue([] as never);
@@ -425,10 +427,10 @@ describe("email configuration and recipients", () => {
 
 	it("groups and deduplicates recipients by pond owner", () => {
 		const grouped = collectRecipientsByOwner([
-			{ farmId: "owner-1", email: "owner@example.com" },
-			{ farmId: "owner-1", email: "OWNER@example.com" },
-			{ farmId: "owner-1", email: "admin@example.com" },
-			{ farmId: "owner-2", email: "other@example.com" },
+			{ farmId: "owner-1", contactEmail: "owner@example.com" },
+			{ farmId: "owner-1", contactEmail: "OWNER@example.com" },
+			{ farmId: "owner-1", contactEmail: "admin@example.com" },
+			{ farmId: "owner-2", contactEmail: "other@example.com" },
 		]);
 		expect(grouped.get("owner-1")).toEqual(["owner@example.com", "admin@example.com"]);
 		expect(grouped.get("owner-2")).toEqual(["other@example.com"]);

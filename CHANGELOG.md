@@ -9,6 +9,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.53.0] - 2026-11-04
+
+### Fixed
+
+- **Recovery links work, and a login returns you where you were going (#741, #760).** A reset link now redeems the hashed token server-side and establishes the session before redirecting, and login honours the requested deep link after validating it as same-origin with loop and backslash guards.
+- **Revoked permissions actually disable the controls (#750).** Write capability is the AND of write authority and the held permission, so the schedule page, control room and hardware settings no longer offer actions the server would refuse.
+- **Farm-facing dates are Manila time, not UTC or the runtime's local time (#753).** Filters and labels derive from the existing Manila day helper instead of the browser clock.
+- **An empty growth dataset no longer renders 0.00 FCR and a downward trend (#752).** No data reads as no data.
+- **Notifications behave** — inbox rows keep their stored link and every category has a label (#746), episode escalations appear in realtime (#747), pond alert settings are presented as the owner/admin control they are (#748), a later outage is no longer suppressed after a reconnect (#767), and the reminder email no longer goes to the synthetic pond address (#742).
+- **Imports cannot write into the wrong pond, and a failed job cannot commit (#743, #758, #774, #781).** The target pond is pinned at request time, the transaction rolls back before the job is marked failed, and the audit events are export-only.
+- **Deleting or demoting a member no longer strands their farm's ponds (#765 follow-up).**
+- **The session cookie is Secure, SameSite=Lax and 30 days, not 400 (#717).**
+- **Revealing a device token requires step-up (#720).** The action returns a typed `step_up_required` and the UI opens the existing dialog.
+- **Public pages** — placeholder copy and mojibake corrected, a localized 404 added (#761), the report dialog can be cancelled while sending (#759), and white-on-brand CTAs moved onto the AA-safe orange (#756).
+- **A11y** — dialogs and notification surfaces announce via proper dialog and live-region semantics (#757).
+- **Jobs** — exports keep the newest rows and empty CSVs are usable (#755).
+- **Hiligaynon is declared a partial locale with a coverage gate (#762)** rather than silently rendering English.
+- **A zero-length feeding window is rejected and unsaved edits warn (#763).**
+- **The controller's Feed Now asks for confirmation and is disabled on a fallow pond (#749).**
+- **The demo seed no longer contradicts itself (#709, #779).**
+- **Cron schedules are provisioned as code with heartbeats (#725, #796).**
+
+### Changed
+
+- **The admin user badge reads the membership role, not the legacy column (#754).**
+- **`import` pins its target pond and the audit trail stops duplicating import events (#743, #744).**
+
+### Security
+
+- **Device-token reveals now require a fresh step-up check (#720).** `revealDeviceToken` wraps the scoped read and its audit row in `withStepUp`, so a stolen tenant-admin session cannot drain every device credential without re-entering the password. The action returns the typed `step_up_required` code and the devices UI opens the shared `StepUpDialog` then retries the same call. `lib/supabase/admin.ts` now imports `server-only` (new `server-only` dependency) so a client import fails at build time instead of shipping a service-role path. Tokens are still stored in plaintext and only a hash is used for lookup; encryption-at-rest remains open on #720.
+- **Session cookies are Secure and expire after 30 days instead of 400 (#717).** `sessionCookieOptions()` now drives both the server and browser Supabase clients, so a refresh by either one writes the same flags: `Secure` in production, `SameSite=Lax`, `path=/` and a 30-day `maxAge`. `HttpOnly` is deliberately still absent because `createBrowserClient` reads `document.cookie` for Realtime and client sign-out; setting it now would silently break those flows. The CSP still allows inline scripts. Both remaining halves need the staged work described on #717.
+### Fixed
+
+- Mortality is validated against the live count before insert, and harvest defaults to the live count (#764).
+- An empty growth page shows no FCR or ABW value and claims no trend until two reports exist (#752).
+- Farm-facing times and history day filters use Asia/Manila (#753).
+- The import transaction aborts before the 12 s job limit, so a failed job cannot commit later (#758).
+- Demo seeds no longer create contradictory FCR rows, and seed/import telemetry is labelled by dataSource; device registration stamps Farm.id (#709).
+- Crop reminder email gains a plain-text part and PakaonAI branding; the stale invite comment is corrected (#742).
+- Imports now write to the pond captured at request time and reject rows whose pondId/deviceId belongs elsewhere (#743).
+- **A reconnect no longer suppresses the next offline alert or clears the whole pond (#745).** `/api/ingest` wrote a `disconnected` event after advancing `lastSeenAt`, and `device-watch` treats any `disconnected` event newer than `lastSeenAt` as "already alerted", so a feeder that reconnected once and dropped again never alerted. Reconnect now records only the `connected` event, and recovery closes the per-device `offline:<deviceId>` episode instead of a pond-wide clear.
+- Exports keep the newest rows, empty CSVs have headers and a BOM, and the PDF shows the newest FCR reports (#755).
+
+- **Login returns to the page that asked for it (#760).** The proxy now appends the intercepted page as `/login?next=…`, the login form forwards it to `loginWithPassword`, and the action redirects there after authentication. `sanitizePostLoginPath` accepts only a same-origin absolute path (rejecting absolute/protocol-relative URLs, backslashes and the login page itself), and a forced password change still wins over the requested page. Locale prefixes are stripped before `redirect()` re-adds them.
+
+### Security
+
+- Audit events are now export-only, so caller-supplied source, actor and timestamps cannot be imported (#744).
+
+### Added
+
+- Cron schedules are provisioned from environment values and every run writes a CronHeartbeat read by /api/health/cron (#725).
+
 ## [1.52.0] - 2026-11-04
 
 ### Fixed
@@ -23,9 +76,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Audit events can no longer be imported, so their provenance cannot be forged (#744).** The CSV/workbook import accepted `audit_events` and wrote the caller's `source`, `actorId`, `metadata` and `createdAt` straight into `DeviceStateEvent`, letting a tenant writer insert a backdated system or token event attributed to another user. `audit_events` is now export-only: the prepare, prepare-template and import-job routes reject it, the import dialog no longer offers it, and `confirmImport` refuses it before opening a transaction. Reviewing the audit trail by export is unchanged.
 - **A password reset now needs the proof carried by the recovery link (#718).** `completePasswordReset` previously accepted any authenticated session, so a stolen or shared session could set a permanent password without knowing the current one. The reset request now mints a 15-minute HMAC-SHA256 proof whose `jti` is stored in a new additive `PasswordResetToken` table, puts it in the Supabase recovery `redirectTo`, and the action verifies the signature, expiry and user binding before atomically consuming the proof. A missing, forged, expired, replayed or other-user proof returns `reset_link` and does not touch the password.
 - **A farm-wide failure burst no longer locks every farmer out (#721).** The per-(farm, IP) five-attempt hard lock is unchanged. The farm-wide counter still raises one security notification at ten failures in fifteen minutes, but it no longer writes or reads a farm-wide lock, so two source IPs cannot hold a farm offline. The accepted tradeoff is that distributed guessing below the per-pair lock is not stopped by a farm-wide gate.
 - **Client-IP trust and reset-link origins now fail closed (#732).** `TRUSTED_PROXY_HOPS` (default 1, clamped to 1..10) selects the address that many entries from the right; a shorter chain or invalid selected entry returns `null` instead of trusting a client-written value. Password-reset audit rows now use that parser, and a non-production deployment with neither `NEXT_PUBLIC_BASE_URL` nor `NEXT_PUBLIC_SITE_URL` mints no link and sends no email instead of pointing at production. The reset request still returns the same anti-enumeration answer and records the configuration failure.
+- **A recovery link now establishes the session before the reset form (#741).** The emailed URL targets `/{locale}/auth/confirm`, which redeems Supabase's `hashed_token` server-side with `verifyOtp`, writes the `@supabase/ssr` cookies and then redirects to `/reset-password` carrying the #718 proof. A non-recovery hash, a failed redemption, a missing proof or an unknown locale lands on the existing expired state and never forwards a usable proof. The reset form still requires the signed single-use proof; no database change.
 
 ### Changed
 
@@ -45,6 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Controls follow their action's permission gate (#750).** The schedule page, dashboard control room and hardware settings now pass `control_feeder` / `manage_schedule` capabilities (write authority AND the held permission) to the client controls, matching the server's `requireWriteAccess` + `requirePermission` order. A revoked permission disables the affected controls instead of leaving an enabled button that the action refuses. `view_dashboard` / `view_reports` are not enforced here; that read-surface decision needs the legacy-account question answered first.
 - **A repeated import confirm no longer imports the dataset twice (#723).** The synchronous route accepts an `Idempotency-Key` header and the queued `import_confirm` job carries it; without one, a stable sha256 of `type + csvData` is used so existing clients are protected too. A replay returns the first result, a failed import leaves the key unconsumed for a retry, and two concurrent confirms resolve to one winner. Adds the additive migration `20261104110000_import_idempotency` (one new table, no data change).
 - **Export artifacts are capped at 25 MB and downloads no longer make a second copy (#728).** A job whose generated file exceeds the cap now fails with a readable message instead of risking an out-of-memory kill, and the download route returns 413 for an oversized stored artifact before loading it. The route serves the stored bytes directly and reports `Content-Length` from those bytes.
 - **A failed device poll now returns 503 instead of a fake 200 idle (#724).** `GET /api/feed-command` and `GET /api/schedule-sync` answered 200 with `feed_requested: false` / a default schedule whenever the database or a handler threw. The ESP32 read that as a successful poll and stopped retrying, so a pending feed expired undelivered while monitoring reported a healthy device. Both catches now return `503` with `Retry-After: 5`, which the firmware already retries on its 5 s loop; a genuinely empty queue still returns 200. The feed-command route also builds its firmware config before claiming the request, so a failure cannot mark a real feed `dispatched` and lose it.

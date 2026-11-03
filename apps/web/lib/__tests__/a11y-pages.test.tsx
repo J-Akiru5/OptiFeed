@@ -163,7 +163,13 @@ vi.mock("@/lib/auth/org-scope", () => ({
 
 vi.mock("@/lib/auth/permissions", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("@/lib/auth/permissions")>();
-	return { ...actual, hasPermission: vi.fn(async () => true) };
+	return {
+		...actual,
+		hasPermission: vi.fn(async () => true),
+		getCurrentPermissions: vi.fn(
+			async () => new Set(["view_dashboard", "control_feeder", "manage_schedule"]),
+		),
+	};
 });
 
 vi.mock("@/lib/pond-selection", () => ({

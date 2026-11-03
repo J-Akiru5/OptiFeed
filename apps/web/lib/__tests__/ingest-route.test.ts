@@ -483,15 +483,45 @@ describe("POST /api/ingest — heartbeat dedup and thinning (1.4)", () => {
 		mockEnergyDevice.findUnique.mockResolvedValue({
 			...DEVICE,
 			lastSeenAt: new Date(Date.now() - 16 * 60 * 1000),
+			pondId: "pond-1",
 		} as never);
 		mockFeedEvent.findFirst.mockResolvedValue(null as never);
 
 		const res = await POST(ingestRequest(heartbeatBody("hb-reconnect")));
 		expect(res.status).toBe(204);
-		const connectedCalls = mockDeviceStateEvent.create.mock.calls.filter(
-			([arg]) => (arg as { data: { eventType: string } }).data.eventType === "connected",
+		const eventWrites = mockDeviceStateEvent.create.mock.calls.map(
+			([arg]) => (arg as { data: { eventType: string } }).data.eventType,
 		);
-		expect(connectedCalls).toHaveLength(1);
+		expect(eventWrites.filter((type) => type === "connected")).toHaveLength(1);
+		// #745: the reconnect must not write a `disconnected` row. Device-watch
+		// uses that event type as its per-outage dedup marker, so one reconnect
+		// used to suppress the next outage.
+		expect(eventWrites).not.toContain("disconnected");
+	});
+
+	it("closes only the reconnected device's offline episode (#745)", async () => {
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			lastSeenAt: new Date(Date.now() - 16 * 60 * 1000),
+			pondId: "pond-1",
+		} as never);
+		mockFeedEvent.findFirst.mockResolvedValue(null as never);
+
+		const res = await POST(ingestRequest(heartbeatBody("hb-reconnect-scope")));
+		expect(res.status).toBe(204);
+
+		// closeEpisode targets the stable per-device key. A pond-wide clear
+		// matched `{ pondId, category: "connectivity" }` and recovered the other
+		// feeders in the pond along with this one.
+		const connectivityClears = mockNotification.updateMany.mock.calls.filter(
+			([arg]) => (arg as { where?: { episodeKey?: string } }).where?.episodeKey === "offline:dev-1",
+		);
+		expect(connectivityClears).toHaveLength(1);
+		expect(mockNotification.updateMany).not.toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: expect.objectContaining({ pondId: "pond-1", category: "connectivity" }),
+			}),
+		);
 	});
 
 	it("records a new reported firmware version once, without a schema column", async () => {

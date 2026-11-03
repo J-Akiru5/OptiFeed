@@ -1,10 +1,11 @@
 import { redirect } from "@/i18n/routing";
 import { getVerifiedSession } from "@/lib/auth/verify-session";
 import prisma from "@/lib/prisma";
-import type { User, UserRole } from "@prisma/client";
+import type { MemberRole, User, UserRole } from "@prisma/client";
 import { getLocale } from "next-intl/server";
 import { cache } from "react";
 import { ActionDeniedError } from "./action-denial";
+import { canManagePondAlerts as resolveCanManagePondAlerts } from "./notification-alerts";
 import { resolveWriteAuthority } from "./write-access";
 
 /**
@@ -254,6 +255,48 @@ export async function canWrite(): Promise<boolean> {
 	if (await isViewingAs()) return false;
 	return authority.allowed;
 }
+
+/**
+ * True when the current user may change the pond-wide alert settings (#748).
+ *
+ * The profile form writes one `Pond.notificationPrefs` row for every recipient,
+ * so it is an owner/admin control, not a personal preference. Reads the same
+ * membership chain as `canWrite` and applies the pure policy in
+ * `./notification-alerts`; the profile page and the server action both call
+ * this, so the disabled toggles and the server cannot disagree.
+ */
+export const canManagePondAlertSettings = cache(async (): Promise<boolean> => {
+	const user = await getCurrentUser();
+	if (!user) return false;
+
+	const ownerId = await getCurrentPondOwnerIdSafe();
+	const memberships = await prisma.membership.findMany({
+		where: { userId: user.id, revokedAt: null },
+		select: { orgId: true, role: true },
+	});
+
+	let activeRoles: MemberRole[] = [];
+	if (memberships.length > 0) {
+		// Organization.status gates the whole tenant, matching the write-authority
+		// chain: a SUSPENDED organization grants no admin authority.
+		const orgIds = [...new Set(memberships.map((membership) => membership.orgId))];
+		const activeOrgs = await prisma.organization.findMany({
+			where: { id: { in: orgIds }, status: "ACTIVE" },
+			select: { id: true },
+		});
+		const activeOrgIds = new Set(activeOrgs.map((org) => org.id));
+		activeRoles = memberships
+			.filter((membership) => activeOrgIds.has(membership.orgId))
+			.map((membership) => membership.role);
+	}
+
+	return resolveCanManagePondAlerts({
+		isPondOwner: ownerId !== null && user.farmId === ownerId,
+		activeMembershipRoles: activeRoles,
+		hasAnyMembership: memberships.length > 0,
+		legacyRole: user.role,
+	});
+});
 
 /**
  * Get all ponds owned by the current user.

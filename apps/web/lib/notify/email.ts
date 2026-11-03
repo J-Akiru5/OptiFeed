@@ -66,6 +66,7 @@ export async function sendReminderEmail(
 				to: input.to,
 				subject: buildSubject(input),
 				html: buildHtml(input, link),
+				text: buildText(input, link),
 			}),
 			EMAIL_TIMEOUT_MS,
 		);
@@ -90,6 +91,27 @@ function singleLine(value: string): string {
 }
 
 /**
+ * Plain-text alternative. Some clients and deliverability checks see only this
+ * part, so it repeats every fact the HTML carries (#742).
+ */
+function buildText(input: ReminderEmailInput, link: string): string {
+	const lines = [
+		`PakaonAI - ${input.timingLabel}`,
+		"",
+		`${input.eventLabel} reminder for ${input.pondName}.`,
+		`Cycle: ${input.cycleLabel ?? "Grow-out cycle"}`,
+		`Date: ${input.dateLabel}`,
+		`Status: ${input.timingLabel}`,
+		"",
+		`Open the harvest calendar: ${link}`,
+		"",
+		"You are receiving this because harvest or sampling reminders are enabled for this pond.",
+		"Change them in Settings > Profile > Notification Preferences.",
+	];
+	return lines.join("\n");
+}
+
+/**
  * Simple branded HTML. Every value is escaped; the caller never passes markup.
  */
 function buildHtml(input: ReminderEmailInput, link: string): string {
@@ -109,7 +131,7 @@ function buildHtml(input: ReminderEmailInput, link: string): string {
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
             <tr>
               <td style="background:#1E7B34;padding:20px 24px;color:#ffffff;">
-                <div style="font-size:13px;letter-spacing:1px;text-transform:uppercase;opacity:.85;">OptiFeed</div>
+                <div style="font-size:13px;letter-spacing:1px;text-transform:uppercase;opacity:.85;">PakaonAI</div>
                 <div style="font-size:22px;font-weight:bold;margin-top:4px;">${timing}</div>
               </td>
             </tr>

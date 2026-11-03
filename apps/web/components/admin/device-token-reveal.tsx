@@ -1,8 +1,9 @@
 "use client";
 
+import { StepUpDialog } from "@/components/superadmin/step-up-dialog";
 import { revealDeviceToken } from "@/lib/actions/admin";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 interface DeviceTokenRevealProps {
 	deviceId: string;
@@ -27,6 +28,8 @@ function isRedirectError(error: unknown): boolean {
  * the admin table receives only display fields and this component asks the
  * server for the credential when the button is pressed. It lives in component
  * state only — never in the URL, localStorage or a server-rendered payload.
+ * The server also requires a fresh step-up check; a `step_up_required` answer
+ * opens the shared dialog and retries this same request (#720).
  */
 export function DeviceTokenReveal({ deviceId, deviceLabel }: DeviceTokenRevealProps) {
 	const t = useTranslations("dashboard.adminDevices");
@@ -34,6 +37,8 @@ export function DeviceTokenReveal({ deviceId, deviceLabel }: DeviceTokenRevealPr
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
+	const [stepUpOpen, setStepUpOpen] = useState(false);
+	const retryRef = useRef<(() => void) | null>(null);
 
 	async function handleReveal() {
 		if (token) {
@@ -57,6 +62,14 @@ export function DeviceTokenReveal({ deviceId, deviceLabel }: DeviceTokenRevealPr
 				// The server sends a stable code because the message itself is
 				// localized here, in the admin's current locale.
 				setError(t("tokenRateLimited"));
+			} else if (result.code === "step_up_required") {
+				// The credential needs a fresh password check. Open the shared
+				// dialog and retry the same call once it succeeds; the password
+				// never leaves that component.
+				retryRef.current = () => {
+					void handleReveal();
+				};
+				setStepUpOpen(true);
 			} else {
 				setError(result.error);
 			}
@@ -82,48 +95,60 @@ export function DeviceTokenReveal({ deviceId, deviceLabel }: DeviceTokenRevealPr
 	}
 
 	return (
-		<div className="flex min-w-[11rem] flex-col items-start gap-2" data-help="device-token">
-			<button
-				type="button"
-				onClick={handleReveal}
-				disabled={loading}
-				aria-expanded={token !== null}
-				aria-controls={`device-token-${deviceId}`}
-				aria-label={`${token ? t("hideToken") : t("showToken")} — ${deviceLabel}`}
-				className="rounded-xl border border-[#0A3D62]/20 px-3 py-2 text-xs font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:opacity-50 dark:border-gray-600 dark:text-[#8fc0ea] dark:hover:bg-gray-800 dark:focus-visible:outline-[#8fc0ea]"
-			>
-				{loading ? t("loading") : token ? t("hideToken") : t("showToken")}
-			</button>
-
-			{token && (
-				<div
-					id={`device-token-${deviceId}`}
-					className="w-full rounded-xl border border-[#0A3D62]/15 bg-[#F4F7F6] p-2.5 dark:border-gray-700 dark:bg-gray-800"
+		<>
+			<div className="flex min-w-[11rem] flex-col items-start gap-2" data-help="device-token">
+				<button
+					type="button"
+					onClick={handleReveal}
+					disabled={loading}
+					aria-expanded={token !== null}
+					aria-controls={`device-token-${deviceId}`}
+					aria-label={`${token ? t("hideToken") : t("showToken")} — ${deviceLabel}`}
+					className="rounded-xl border border-[#0A3D62]/20 px-3 py-2 text-xs font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] disabled:opacity-50 dark:border-gray-600 dark:text-[#8fc0ea] dark:hover:bg-gray-800 dark:focus-visible:outline-[#8fc0ea]"
 				>
-					<p className="text-[10px] font-black tracking-wider text-[#3D5568] uppercase dark:text-gray-300">
-						{t("tokenColumn")}
-					</p>
-					<code className="mt-1 block font-mono text-[11px] font-bold break-all text-[#0A3D62] dark:text-gray-100">
-						{token}
-					</code>
-					<button
-						type="button"
-						onClick={handleCopy}
-						className="mt-2 rounded-lg border border-[#0A3D62]/20 bg-white px-2.5 py-1 text-[10px] font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-gray-600 dark:bg-gray-900 dark:text-[#8fc0ea] dark:hover:bg-gray-700 dark:focus-visible:outline-[#8fc0ea]"
-					>
-						{copied ? t("copied") : t("copy")}
-					</button>
-					<p className="mt-2 text-[10px] leading-snug text-[#3D5568] dark:text-gray-400">
-						{t("tokenWarning")}
-					</p>
-				</div>
-			)}
+					{loading ? t("loading") : token ? t("hideToken") : t("showToken")}
+				</button>
 
-			{error && (
-				<p role="alert" className="text-[11px] font-bold text-[#C42B3A] dark:text-red-300">
-					{error}
-				</p>
-			)}
-		</div>
+				{token && (
+					<div
+						id={`device-token-${deviceId}`}
+						className="w-full rounded-xl border border-[#0A3D62]/15 bg-[#F4F7F6] p-2.5 dark:border-gray-700 dark:bg-gray-800"
+					>
+						<p className="text-[10px] font-black tracking-wider text-[#3D5568] uppercase dark:text-gray-300">
+							{t("tokenColumn")}
+						</p>
+						<code className="mt-1 block font-mono text-[11px] font-bold break-all text-[#0A3D62] dark:text-gray-100">
+							{token}
+						</code>
+						<button
+							type="button"
+							onClick={handleCopy}
+							className="mt-2 rounded-lg border border-[#0A3D62]/20 bg-white px-2.5 py-1 text-[10px] font-black text-[#0A3D62] transition-colors hover:bg-[#F4F7F6] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-gray-600 dark:bg-gray-900 dark:text-[#8fc0ea] dark:hover:bg-gray-700 dark:focus-visible:outline-[#8fc0ea]"
+						>
+							{copied ? t("copied") : t("copy")}
+						</button>
+						<p className="mt-2 text-[10px] leading-snug text-[#3D5568] dark:text-gray-400">
+							{t("tokenWarning")}
+						</p>
+					</div>
+				)}
+
+				{error && (
+					<p role="alert" className="text-[11px] font-bold text-[#C42B3A] dark:text-red-300">
+						{error}
+					</p>
+				)}
+			</div>
+
+			<StepUpDialog
+				open={stepUpOpen}
+				actionLabel={t("showToken")}
+				onClose={() => setStepUpOpen(false)}
+				onVerified={() => {
+					setStepUpOpen(false);
+					retryRef.current?.();
+				}}
+			/>
+		</>
 	);
 }

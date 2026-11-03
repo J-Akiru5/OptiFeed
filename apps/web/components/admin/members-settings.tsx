@@ -12,7 +12,7 @@ import {
 } from "@/lib/actions/admin";
 import type { TenantMemberOrgOption, TenantMemberRow } from "@/lib/actions/admin";
 import { MEMBER_ROLES, isMemberRole } from "@/lib/auth/member-rules";
-import { formatDateTimeLocal } from "@/lib/date-local";
+import { formatFarmDateTime } from "@/lib/date-local";
 import type { MemberRole } from "@prisma/client";
 import { Check, Copy, KeyRound, Loader2, Pencil, ShieldCheck, UserPlus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -735,7 +735,7 @@ export function MembersSettings({
 												<td className="px-4 py-3">{renderPermissions(member)}</td>
 
 												<td className="px-4 py-3 text-xs whitespace-nowrap text-[#3D5568] dark:text-gray-400">
-													{formatDateTimeLocal(new Date(member.joinedAt), tDates).fullDate}
+													{formatFarmDateTime(new Date(member.joinedAt), tDates).fullDate}
 												</td>
 
 												<td className="px-4 py-3">{renderRevoke(member, isPending)}</td>
@@ -788,7 +788,7 @@ export function MembersSettings({
 									<div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-2 dark:border-gray-800">
 										<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
 											{t("columnJoined")}:{" "}
-											{formatDateTimeLocal(new Date(member.joinedAt), tDates).fullDate}
+											{formatFarmDateTime(new Date(member.joinedAt), tDates).fullDate}
 										</p>
 										{renderRevoke(member, isPending)}
 									</div>

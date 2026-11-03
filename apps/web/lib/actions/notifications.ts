@@ -1,6 +1,10 @@
 "use server";
 
-import { getCurrentPondOwnerId, requireWriteAccess } from "@/lib/auth/session";
+import {
+	canManagePondAlertSettings,
+	getCurrentPondOwnerId,
+	requireWriteAccess,
+} from "@/lib/auth/session";
 import { type NotificationPrefs, formatZodError, notificationPrefsSchema } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import type { InputJsonValue } from "@prisma/client/runtime/library";
@@ -197,6 +201,14 @@ export async function updateNotificationPrefs(
 ): Promise<{ success: boolean; error?: string }> {
 	try {
 		await requireWriteAccess();
+		// The row is shared by every alert recipient of the pond (#748), so a
+		// write-access OPERATOR must not be able to silence it for the owner.
+		if (!(await canManagePondAlertSettings())) {
+			return {
+				success: false,
+				error: "Only the pond owner or an admin can change pond alert settings.",
+			};
+		}
 		const parsed = notificationPrefsSchema.safeParse(prefs);
 		if (!parsed.success) {
 			return { success: false, error: formatZodError(parsed.error) };

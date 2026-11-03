@@ -1,3 +1,4 @@
+import { manilaDayRange } from "@/lib/date-local";
 import { FEED_EVENT_SOURCES } from "@/lib/feed-sources";
 
 const FEED_SOURCES = FEED_EVENT_SOURCES;
@@ -14,7 +15,8 @@ export interface QueryFilters {
  *
  * - An exact source token ("scheduled" | "dashboard" | "button") filters by
  *   that feed source.
- * - Any parseable date filters the UTC calendar day (from 00:00 to 24:00).
+ * - Any parseable date filters the Asia/Manila calendar day, not the UTC day
+ *   (an 00:30 PHT record is stored on the previous UTC date).
  * - Anything else yields no filter.
  */
 export function parseQueryFilters(query: string): QueryFilters {
@@ -27,10 +29,6 @@ export function parseQueryFilters(query: string): QueryFilters {
 	const parsed = new Date(q);
 	if (Number.isNaN(parsed.getTime())) return {};
 
-	const gte = new Date(parsed);
-	gte.setUTCHours(0, 0, 0, 0);
-	const lt = new Date(gte);
-	lt.setUTCDate(lt.getUTCDate() + 1);
-
-	return { recordedBetween: { gte, lt } };
+	const { start, end } = manilaDayRange(parsed.getTime());
+	return { recordedBetween: { gte: start, lt: end } };
 }

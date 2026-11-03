@@ -75,7 +75,7 @@ function setup(
 	);
 	mocks.tx.cropCycle.findUnique.mockResolvedValue({ stockingCount: 300 });
 	mocks.tx.mortalityLog.create.mockResolvedValue({ id: "m-1" });
-	mocks.tx.mortalityLog.aggregate.mockResolvedValue({ _sum: { count: overrides.deadSoFar ?? 15 } });
+	mocks.tx.mortalityLog.aggregate.mockResolvedValue({ _sum: { count: overrides.deadSoFar ?? 0 } });
 	mocks.tx.energyDevice.findFirst.mockResolvedValue(
 		overrides.device === undefined ? { id: DEVICE } : overrides.device,
 	);
@@ -148,7 +148,7 @@ describe("saveMortalityLog", () => {
 	});
 
 	it("falls back to Pond.population when no active cycle exists", async () => {
-		setup({ cycle: null, deadSoFar: 40 });
+		setup({ cycle: null, deadSoFar: 0 });
 
 		const result = await saveMortalityLog(form({ count: "40" }));
 
@@ -156,6 +156,16 @@ describe("saveMortalityLog", () => {
 		expect(result.live).toEqual({ stocked: 300, dead: 40, live: 260, source: "legacy_population" });
 		const data = mocks.tx.mortalityLog.create.mock.calls[0][0].data;
 		expect(data.cropCycleId).toBeUndefined();
+	});
+
+	it("refuses a count larger than the live count before creating the row (#764)", async () => {
+		setup({ deadSoFar: 290 });
+
+		const result = await saveMortalityLog(form({ count: "15" }));
+
+		expect(result).toEqual({ success: false, error: "count_exceeds_live" });
+		expect(mocks.tx.mortalityLog.create).not.toHaveBeenCalled();
+		expect(mocks.tx.deviceStateEvent.create).not.toHaveBeenCalled();
 	});
 
 	it("rejects an oversized reason string instead of writing it", async () => {
@@ -195,6 +205,6 @@ describe("saveMortalityLog mortality window (#430)", () => {
 		const result = await saveMortalityLog(form());
 
 		expect(mocks.tx.cropCycle.findUnique).not.toHaveBeenCalled();
-		expect(result.live).toEqual({ stocked: 300, dead: 5, live: 295, source: "crop_cycle" });
+		expect(result.live).toEqual({ stocked: 300, dead: 20, live: 280, source: "crop_cycle" });
 	});
 });

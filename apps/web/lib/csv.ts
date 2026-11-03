@@ -9,6 +9,23 @@ export type ExportableType =
 	| "notifications"
 	| "audit_events";
 
+/**
+ * The datasets a user may upload through the import routes.
+ *
+ * `audit_events` is export-only (#744): its `source`, `actorId` and `createdAt`
+ * are the audit trail's provenance, so accepting them from a file lets a tenant
+ * writer forge a system event, attribute it to another actor, or backdate it.
+ * The export stays available for review.
+ */
+export const IMPORTABLE_TYPES: readonly ExportableType[] = [
+	"biomass_logs",
+	"fish_samples",
+	"feed_events",
+	"fcr_reports",
+	"feed_level_logs",
+	"notifications",
+] as const;
+
 export const EXPORT_LABELS: Record<ExportableType, string> = {
 	biomass_logs: "Biomass Logs",
 	fish_samples: "Fish Samples",
@@ -32,8 +49,12 @@ export function escapeFormulaInjection(value: string): string {
 	return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
 }
 
-export function toCsvString(rows: CsvRow[]): string {
-	if (rows.length === 0) return "";
+export function toCsvString(rows: CsvRow[], fields?: string[]): string {
+	if (rows.length === 0) {
+		// An empty export still needs a header row: a 0-byte file cannot be
+		// opened as a template or re-imported (#755).
+		return fields && fields.length > 0 ? Papa.unparse({ fields, data: [] }) : "";
+	}
 	const escaped = rows.map((row) => {
 		const next: CsvRow = {};
 		for (const [key, value] of Object.entries(row)) {

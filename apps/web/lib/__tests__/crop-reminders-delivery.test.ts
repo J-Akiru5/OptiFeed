@@ -112,7 +112,9 @@ beforeEach(() => {
 	mockCycle.findMany.mockResolvedValue([CYCLE] as never);
 	mockPond.findMany.mockResolvedValue([POND] as never);
 	mockBiomass.groupBy.mockResolvedValue([] as never);
-	mockUser.findMany.mockResolvedValue([{ farmId: "owner-1", email: "owner@example.com" }] as never);
+	mockUser.findMany.mockResolvedValue([
+		{ farmId: "owner-1", contactEmail: "owner@example.com" },
+	] as never);
 	mockReminderLog.findMany.mockResolvedValue([] as never);
 	mockReminderLog.update.mockResolvedValue({} as never);
 	mockPondEvent.findMany.mockResolvedValue([] as never);
@@ -369,12 +371,12 @@ describe("recipient grouping", () => {
 	it("skips blank addresses and returns an empty map when nobody is reachable", () => {
 		expect(
 			collectRecipientsByOwner([
-				{ farmId: "owner-1", email: null },
-				{ farmId: "owner-1", email: "   " },
+				{ farmId: "owner-1", contactEmail: null },
+				{ farmId: "owner-1", contactEmail: "   " },
 			]),
 		).toEqual(new Map());
 		expect(
-			collectRecipientsByOwner([{ farmId: "owner-1", email: "  owner@example.com  " }]).get(
+			collectRecipientsByOwner([{ farmId: "owner-1", contactEmail: "  owner@example.com  " }]).get(
 				"owner-1",
 			),
 		).toEqual(["owner@example.com"]);
@@ -571,8 +573,10 @@ describe("processCropReminders delivery", () => {
 		});
 	});
 
-	it("counts a harvest email as skipped when the owner has no address", async () => {
-		mockUser.findMany.mockResolvedValue([] as never);
+	it("counts a harvest email as skipped when the owner has no deliverable address", async () => {
+		// #742: the login address is synthetic (`...@pond.optifeed.local`);
+		// only contactEmail is mailable. An account without one is skipped.
+		mockUser.findMany.mockResolvedValue([{ farmId: "owner-1", contactEmail: null }] as never);
 		const sendEmail = vi.fn().mockResolvedValue({ ok: true });
 
 		const summary = await processCropReminders({

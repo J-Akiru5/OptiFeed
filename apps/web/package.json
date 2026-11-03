@@ -23,6 +23,8 @@
 		"test:e2e:smoke": "playwright test --config=playwright.smoke.config.ts",
 		"seed:dev": "tsx prisma/seed-dev.ts",
 		"seed:tenant-b": "tsx scripts/seed-tenant-b.ts",
+		"cron:apply": "node scripts/ops/apply-cron-schedules.mjs",
+		"cron:health": "node scripts/ops/check-cron-health.mjs",
 		"manage-user": "tsx prisma/manage-users.ts",
 		"platform-admin": "tsx scripts/platform-admin.ts"
 	},

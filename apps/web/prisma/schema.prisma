@@ -1002,6 +1002,17 @@ model PlatformSetting {
   updatedAt   DateTime @updatedAt
 }
 
+/// Last successful/failed run of each pg_cron-driven endpoint (#725). The
+/// external monitor polls `/api/health/cron`, which reads these rows; a missing
+/// or stale row means the schedule stopped calling the app.
+model CronHeartbeat {
+  name       String   @id
+  lastRunAt  DateTime
+  lastStatus String // "ok" | "error"
+  lastError  String?
+  updatedAt  DateTime @updatedAt
+}
+
 /// Per-organization settings (issue #190). One row per org, created on first save;
 /// readers fall back to these defaults when the row is missing.
 model OrgSetting {

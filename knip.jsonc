@@ -32,7 +32,10 @@
 				// components/pwa/pwa-register.tsx and asserted by
 				// lib/__tests__/pwa-service-worker.test.ts. It is not an ES module
 				// and has no importer.
-				"public/sw.js"
+				"public/sw.js",
+				// Reached only through the vitest.config.ts alias for `server-only`;
+				// no module imports it by name and Next's build never uses it.
+				"test/server-only-mock.ts"
 			],
 			// A symbol exported only for use inside its own file is not dead: the
 			// export is redundant, not the code. Reporting it would bury the real

@@ -8,6 +8,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * and pin both the escalation and the acknowledgement/resolution silence.
  */
 
+// #757 gave the provider translated dismiss labels; both lanes now ship together.
+vi.mock("next-intl", async () => {
+	const { createTranslator } = await import("./helpers/messages");
+	return { useTranslations: (namespace: string) => createTranslator(namespace) };
+});
+
 vi.mock("@/components/assistant/mascot", () => ({
 	Mascot: () => <span data-testid="mascot" />,
 }));

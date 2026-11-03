@@ -149,7 +149,7 @@ export default async function AdminUsersPage({
 												className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black tracking-wider uppercase ${badge.bg} ${badge.text}`}
 											>
 												<Icon aria-hidden="true" className="h-3 w-3" />
-												{roleLabel(user.role)}
+												{roleLabel(displayRole)}
 											</span>
 										</AdminTd>
 										<AdminTd className="text-xs whitespace-nowrap text-[#3D5568] dark:text-gray-400">

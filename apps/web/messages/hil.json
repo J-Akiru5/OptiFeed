@@ -321,7 +321,7 @@
 		"views3": "FCR trend: cumulative feed against biomass gained",
 		"hardwareTitle": "Hardware",
 		"hardwareDesc": "Low-cost, locally replaceable parts.",
-		"feederModelLabel": "Study feeder ? 3D nga modelo",
+		"feederModelLabel": "Study feeder — 3D nga modelo",
 		"feederAlt": "Transparent nga studio render sang study feeder: klarong hopper jar, controller enclosure, motor kag auger outlet.",
 		"feederCaption": "Gin-render halin sa 3D nga modelo sang study feeder. Research prototype; indi live nga reading.",
 		"hwColPart": "Component",
@@ -471,6 +471,7 @@
 			"optional": "Opsyonal",
 			"submit": "Ipadala ang report",
 			"sending": "Ginapadala…",
+			"retry": "Tilawi liwat",
 			"success": "Salamat — nabaton na ang report mo.",
 			"error": "Wala maipadala ang report. Tilawi liwat.",
 			"rateLimited": "Sobra ka damo nga report halin sa device nga ini. Tilawi sa ulihi."
@@ -2475,6 +2476,7 @@
 			"acknowledged": "Gin-acknowledge",
 			"actionError": "Indi ma-update ang notipikasyon. Tilawi liwat.",
 			"alert": "Alerto",
+			"dismissNotification": "Isira ang notipikasyon",
 			"auditLink": "Audit",
 			"openLink": "Bukas",
 			"receivedAt": "Natanggap",
@@ -3148,7 +3150,8 @@
 		"tryAgain": "Sulayi liwat",
 		"notFoundTitle": "Wala nakita ang pahina",
 		"notFoundDesc": "Ang pahina nga ginapangita mo wala nagaluntad.",
-		"backToDashboard": "Balik sa Dashboard"
+		"backToDashboard": "Balik sa Dashboard",
+		"backToHome": "Balik sa Home"
 	},
 	"dates": {
 		"months": {

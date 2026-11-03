@@ -153,7 +153,7 @@ function ProfileMenu({
 		>
 			<div className="flex items-start justify-between gap-3 border-b border-gray-100 pb-4 dark:border-gray-700">
 				<div className="flex items-center gap-3">
-					<div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#E85A2A] text-lg font-black text-white">
+					<div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--ofd-cta)] text-lg font-black text-white">
 						<UserAvatar
 							src={avatarUrl}
 							name={userDisplayName}
@@ -390,7 +390,7 @@ export function HeaderActions({
 				ref={profileButtonRef}
 				type="button"
 				onClick={() => setShowProfileMenu((v) => !v)}
-				className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-[#E85A2A] text-sm font-extrabold text-white shadow-sm transition hover:bg-[#f06d42] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+				className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-[var(--ofd-cta)] text-sm font-extrabold text-white shadow-sm transition hover:bg-[var(--ofd-cta-hover)] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
 				aria-label={tAccount("open")}
 				aria-expanded={showProfileMenu}
 			>
@@ -473,7 +473,7 @@ export function CompactHeaderActions({
 				ref={profileButtonRef}
 				type="button"
 				onClick={() => setShowProfileMenu((v) => !v)}
-				className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-[#E85A2A] text-sm font-extrabold text-white shadow-sm transition hover:bg-[#f06d42] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+				className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-[var(--ofd-cta)] text-sm font-extrabold text-white shadow-sm transition hover:bg-[var(--ofd-cta-hover)] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
 				aria-label={tAccount("open")}
 				aria-expanded={showProfileMenu}
 			>

@@ -40,6 +40,14 @@ vi.mock("@/lib/rate-limit", () => ({
 	checkDeviceTokenRevealRateLimit: vi.fn(async () => ({ success: true, remaining: 9 })),
 }));
 
+vi.mock("@/lib/auth/step-up", () => ({
+	withStepUp: async (action: () => Promise<unknown>) => action(),
+	isStepUpRequiredError: (error: unknown) =>
+		typeof error === "object" &&
+		error !== null &&
+		(error as { code?: unknown }).code === "step_up_required",
+}));
+
 import { revealDeviceToken } from "@/lib/actions/admin";
 import {
 	addTenantDevice,

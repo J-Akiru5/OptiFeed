@@ -27,11 +27,12 @@ import {
 import { isPlatformAdminActive } from "@/lib/auth/platform-admin";
 import { buildPondEmail, getCurrentUser } from "@/lib/auth/session";
 import { invalidateFarm } from "@/lib/auth/session-cache";
-import { isStepUpRequiredError, withStepUp } from "@/lib/auth/step-up";
+import { withStepUp } from "@/lib/auth/step-up";
 import { TENANT_ADMIN_ROLES, requireTenantAdmin } from "@/lib/auth/tenant-admin";
 import { getSignedAvatarUrls } from "@/lib/avatars";
 import { contactEmailRuleError, setContactEmail } from "@/lib/contact-email-update";
 import { parseDeviceLabelIds } from "@/lib/device-label-selection";
+import { deviceTokenRevealFailure, readAndAuditDeviceToken } from "@/lib/devices/device-token";
 import {
 	dailyCapSchema,
 	feedingRatePctSchema,
@@ -1679,42 +1680,18 @@ export async function revealDeviceToken(deviceId: string): Promise<RevealDeviceT
 	}
 
 	try {
-		const device = await withStepUp(async () => {
-			const found = await prisma.energyDevice.findFirst({
-				// `in: []` matches nothing, so a caller with no admin membership gets
-				// the same "not found" answer as a device from another tenant.
-				// A PENDING/REJECTED device is not revealable: its token exists but
-				// must stay hidden until an org admin approves the unit.
-				where: { id: deviceId, pondId: { in: scope.pondIds }, approvalStatus: "APPROVED" },
-				select: { token: true, mac: true, label: true },
-			});
-			if (!found) return null;
-
-			await prisma.deviceStateEvent.create({
-				data: {
-					deviceId,
-					eventType: "token_revealed",
-					source: "user",
-					// The credential itself is deliberately absent: the audit trail
-					// records who looked, not what they saw.
-					actorId: actor.id,
-				},
-			});
-
-			return found;
-		});
+		const device = await withStepUp(() =>
+			readAndAuditDeviceToken({
+				deviceId,
+				pondIds: scope.pondIds,
+				actorId: actor.id,
+			}),
+		);
 
 		if (!device) return { success: false, error: "Device not found in your organization." };
 		return { success: true, token: device.token, mac: device.mac, label: device.label };
 	} catch (e) {
-		if (isStepUpRequiredError(e)) {
-			return { success: false, error: e.message, code: "step_up_required" };
-		}
-		console.error(
-			"[admin] revealDeviceToken error:",
-			e instanceof Error ? e.message : "unknown error",
-		);
-		return { success: false, error: "Failed to load the device token." };
+		return deviceTokenRevealFailure(e);
 	}
 }
 

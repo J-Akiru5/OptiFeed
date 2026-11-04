@@ -87,10 +87,15 @@ describe("farmer bottom bar (E26)", () => {
 
 	it("keeps the bar out of the way of the page content padding token", () => {
 		// `.ofd-main` and the bar share one height token, so content is never
-		// hidden behind the bar (see app/globals.css).
-		expect(readFileSync(join(__dirname, "../../app/globals.css"), "utf8")).toContain(
-			"calc(var(--ofd-bottom-nav-h) + env(safe-area-inset-bottom)",
-		);
+		// hidden behind the bar (see app/globals.css). The floating monitoring
+		// HUD sits in the same band, so its height is reserved as well (#880).
+		const mainRule =
+			/\.ofd-main \{[^}]*\}/.exec(
+				readFileSync(join(__dirname, "../../app/globals.css"), "utf8"),
+			)?.[0] ?? "";
+		expect(mainRule).toContain("var(--ofd-bottom-nav-h)");
+		expect(mainRule).toContain("var(--ofd-hud-h)");
+		expect(mainRule).toContain("env(safe-area-inset-bottom)");
 	});
 
 	it("marks whichever tab the reader is on", () => {

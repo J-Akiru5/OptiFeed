@@ -153,6 +153,12 @@
 	--ofd-band-ink: #ffffff;
 	--ofd-band-ink-muted: rgba(255, 255, 255, 0.72);
 	--ofd-bottom-nav-h: 4.5rem;
+	/*
+	 * The floating monitoring HUD (#575) sits 0.5rem above the bottom bar. Its
+	 * 3rem body plus that gap is what the pane has to reserve below the bar, or
+	 * the last rows can never be scrolled out from under it (#880).
+	 */
+	--ofd-hud-h: 3.5rem;
 
 	/* Layout tokens — bottom-right FAB cluster (help + chat assistant) */
 	--ofd-fab-size: var(--ofd-touch-min);
@@ -401,11 +407,20 @@
 }
 
 /*
- * Page content clears the fixed bottom bar plus the device safe area, so the
- * last row is never hidden behind it on a phone with a home indicator.
+ * Page content clears the fixed bottom bar, the floating monitoring HUD above
+ * it, and the device safe area, so the last row is never hidden behind them on
+ * a phone with a home indicator. The HUD is opaque and sits over the scrolling
+ * pane, so without its height here the final rows could not be scrolled into
+ * view at all (#880). Above `lg` the HUD is hidden and the pane falls back to
+ * `--ofd-main-pad-y` below.
  */
 .ofd-main {
-	padding-bottom: calc(var(--ofd-bottom-nav-h) + env(safe-area-inset-bottom) + 1.5rem);
+	padding-bottom: calc(
+		var(--ofd-bottom-nav-h) +
+		var(--ofd-hud-h) +
+		env(safe-area-inset-bottom) +
+		1.5rem
+	);
 }
 
 @media (min-width: 64rem) {

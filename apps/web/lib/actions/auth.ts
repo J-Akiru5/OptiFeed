@@ -87,7 +87,9 @@ export async function loginWithPassword(
 		try {
 			landing = await getPostLoginDestination(normalizedFarmId, data.user.id);
 		} catch (dbError) {
-			reportError(dbError, { action: "loginWithPassword.landing", farmId });
+			// Fallback only: the login still succeeds and lands on /dashboard, so this
+			// is not page-worthy. It is recorded because the destination lookup is broken.
+			reportError(dbError, { action: "loginWithPassword.landing", farmId }, "WARNING");
 		}
 
 		// #760: return to the page the proxy intercepted, but never override a
@@ -106,7 +108,9 @@ export async function loginWithPassword(
 		) {
 			throw error;
 		}
-		reportError(error, { action: "loginWithPassword", farmId });
+		// Any unexpected failure here means sign-in itself is broken for everyone,
+		// with no human watching the request. That is page-worthy.
+		reportError(error, { action: "loginWithPassword", farmId }, "CRITICAL");
 		return { error: "service" };
 	}
 }

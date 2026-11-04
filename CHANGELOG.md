@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.55.0] - 2026-11-04
+
+### Added
+
+- **The grow-out cycle cascades its dates and tolerates empty input (#826).** Editing the stocking date no longer moves the harvest date; the period re-derives from the pair and is clamped to the 30-365 rails, snapping back on blur and on save so the field can never show a value that will not be saved. Empty text falls back to the pair, then the last usable value, then the documented 135 default - never `NaN`, never a date derived from an empty string. This also fixes a live crash: clearing the stocking date called `daysBetween("")`, which threw.
+
+### Fixed
+
+- **Forms no longer lose typed values on the 30-second refresh (#825, #830, #831).** `DashboardLiveRefresh` replaces server props with new arrays and objects every 30 seconds by design. The growth-cycle and harvest forms now key their reset effects on a stable identity, the calendar keeps the operator's pond/type selection instead of re-hydrating from stale URL parameters, and the live hopper distance adopts the server snapshot by **timestamp** rather than object identity, so a polled reading and a captured calibration value survive the refresh. Each carries a test that fails when the fix is reverted.
+- **Every organization in the feed-dispensed treemap has its own colour (#835).** The fill was read from Recharts' `node.index`/`tooltipIndex`, which made every organization's first pond resolve to palette slot 0 - all orange. The colour is now stamped on the datum from its top-level position and inherited by its ponds, with an explicit override supported.
+
+### Changed
+
+- **The redundant superadmin scope banner is gone (#834).** The sticky `GLOBAL SUPERADMIN` strip duplicated the sidebar and the page heading; it and its URL-crumb helper, CSS and locale strings are removed. The sidebar active item, page `<h1>`, mobile header band and skip link remain.
+- **The project-layer agent rules are tracked in git (#821)** with an explicit precedence table, and the deployment allowlist is enforced by `scripts/ops/deployment-policy.mjs` inside `quality`.
+
 ### Fixed
 
 - **Each organization in the "Feed dispensed by organization" treemap now gets its own colour (#835).** Tile fill was derived from Recharts' internal node index and tooltip path, so a node at depth 1, or a leaf whose path lookup missed, resolved to palette slot 0 — orange — and a multi-organization chart could paint entirely in that one colour. Colour is now stamped onto the datum from its top-level position (palette per theme), inherited by its ponds, and an explicit `color` overrides it; the renderer no longer reads Recharts internals. No data or schema change.

@@ -228,7 +228,7 @@ Removing a member ends their access to this organization. Their own farm and log
 account deletion or disable to end those.
 
 - Revocation stamps `Membership.revokedAt`; it does not delete the `User`, the login, the member's
-  `Farm`, or their ponds.
+  `Farm`, or their ponds. The ponds are reassigned instead (see below).
 - `resolveOrgScope()` and `resolveMemberOrgScope()` fail closed to an empty scope, so the revoked
   member loses organization-wide reads, the tenant `/admin` console, and org calendar visibility.
 - `canWrite()` / `requireWriteAccess()` deny writes because the account still has a membership row
@@ -237,10 +237,41 @@ account deletion or disable to end those.
   keeps read access to their own farm data. That is intentional: an organization membership is a
   collaboration grant, not ownership of the person's farm.
 - Account deletion/disable is the separate operation that ends the login and own-farm access.
-- Follow-up [#808](https://github.com/J-Akiru5/OptiFeed/issues/808) tracks the remaining
-  org-ownership edge case: ponds that an organization relies on may be owned by a member's farm, so
-  revoking that member can silently remove those ponds from the remaining admins' scope. Decide
-  whether to transfer those ponds first or block revocation until ownership is resolved.
+- Ponds on the member's farm do **not** go with them — see the next section.
+
+#### Ponds on a revoked member's farm (#808)
+
+A pond's only ownership stamp is `Pond.ownerId` (the owner's `User.farmId`) plus `Pond.farmId` (the
+`Farm` row). The organization scope is derived from its members, so a pond on a member's farm is
+inside the org only while that membership is active. Revocation used to drop those ponds out of
+every remaining admin's view without transferring or archiving them.
+
+The decision recorded on #808 is **reassign to the organization**, in the same transaction as the
+revocation, on both revocation paths (`revokeMember` and the platform console's
+`revokeOrgMembership`):
+
+- The ponds move to the organization's **anchor farm**: the highest-role *other* active member,
+  with the longest-standing membership breaking ties inside a role (OWNER → ADMIN → OPERATOR →
+  VIEWER). In practice that is the organization's primary owner. Role comes first because the
+  receiver has to manage the ponds, not just see them; age only orders members of the same role, so
+  the answer never depends on read order. The member being revoked is always excluded.
+- There is no dedicated organization-owned farm: `Farm.ownerId` is a required unique reference to
+  `User.farmId`, so an org-level farm would need a login-less account. Reusing an active member's
+  farm keeps the ponds inside the org scope with no schema change.
+- No new column is needed. Changing `Pond.ownerId` and `Pond.farmId` **is** the ownership transfer,
+  and the `record_pond_ownership_event` trigger records it in `PondOwnershipHistory` as
+  `TRANSFERRED`.
+- Every pond write gate compares `Pond.ownerId` with the caller's `User.farmId`, so the revoked
+  member no longer owns — and cannot write — those ponds after the move. They still keep their own
+  login and farm, as above.
+- Archived ponds move too: they are part of the org scope, so leaving them behind would be the same
+  disappearance.
+- When no other active member remains (only the platform console can revoke the last member) there
+  is no farm to receive the ponds and nobody left to see them, so nothing moves.
+
+Account deletion and disable are account-ending operations, not membership changes, and keep their
+own semantics: deletion removes the member's ponds with the rest of their subtree, and disable bans
+the login and is reversible. They are outside this decision.
 
 ## Managing grants and revocations
 

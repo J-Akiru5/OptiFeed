@@ -1878,7 +1878,7 @@
 			"viewOnly": "Tan-aw lamang",
 			"revokeButton": "Bawion",
 			"confirmRevoke": "Bawion sa organisasyon",
-			"revokeScope": "Ginabawi ang miyembro sa organisasyon. Ang iya kaugalingon nga uma kag login magapabilin; gamita ang pagtangtang ukon pag-disable sang account agud tapuson ini.",
+			"revokeScope": "Ginabawi ang miyembro sa organisasyon. Ang mga pond sa iya uma mabalhin sa uma sang tag-iya sang organisasyon; ang iya kaugalingon nga login magapabilin.",
 			"revokeSuccess": "Ginbawi ang pagkamembri.",
 			"revokeError": "Indi mabawi ang pagkamembri. Tilawi liwat.",
 			"roleSuccess": "Na-update ang papel.",

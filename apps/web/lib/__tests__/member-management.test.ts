@@ -4,6 +4,7 @@ const { db, tx } = vi.hoisted(() => {
 	const tx = {
 		membership: { count: vi.fn(), update: vi.fn() },
 		membershipPermission: { deleteMany: vi.fn(), findUnique: vi.fn(), upsert: vi.fn() },
+		user: { findUnique: vi.fn() },
 	};
 	const db = {
 		membership: { findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), update: vi.fn() },
@@ -24,6 +25,9 @@ vi.mock("@/lib/auth/tenant-admin", () => ({
 	TENANT_ADMIN_ROLES: ["OWNER", "ADMIN"],
 }));
 vi.mock("@/lib/auth/org-scope", () => ({ resolveOrgScope: vi.fn() }));
+// The org-pond reassignment is covered end-to-end by org-pond-revocation.test.ts;
+// this suite pins the membership rules, so the transfer is stubbed out.
+vi.mock("@/lib/auth/org-pond-ownership", () => ({ transferOrgPondsOnRevoke: vi.fn() }));
 vi.mock("@/lib/auth/session", () => ({
 	buildPondEmail: vi.fn((farmId: string) => `${farmId}@pond.optifeed.local`),
 	getCurrentUser: vi.fn(),
@@ -109,6 +113,7 @@ beforeEach(() => {
 	db.$transaction.mockImplementation(async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx));
 	tx.membership.count.mockResolvedValue(2);
 	tx.membership.update.mockResolvedValue({});
+	tx.user.findUnique.mockResolvedValue({ farmId: "farm-target" });
 });
 
 describe("tenant member guards", () => {

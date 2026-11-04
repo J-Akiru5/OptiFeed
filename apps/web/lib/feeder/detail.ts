@@ -4,6 +4,7 @@ import { faultsFromMask, parseDeviceHealthReport } from "@/lib/device-health-mod
 import { HOPPER_SENSOR_FAULT, resolveHopperSensorOffline } from "@/lib/device-hopper";
 import { resolveRssiDbm } from "@/lib/device-status";
 import { MACHINE_FEED_SOURCES } from "@/lib/feed-figures";
+import { IN_FLIGHT_FEED_STATUSES } from "@/lib/feed/commands";
 import { type FeederStatus, feederStatus } from "@/lib/feeder/feeder-parts";
 import prisma from "@/lib/prisma";
 import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
@@ -60,6 +61,12 @@ export interface FeederDeviceDetail {
 	lastFedAt: Date | null;
 	lastFedGrams: number | null;
 	status: FeederStatus;
+	/**
+	 * A feed request is still `pending` or `dispatched` for this unit (#731).
+	 * The viewer polls faster while it is true, so the dispense and the new
+	 * hopper level land without a manual refresh.
+	 */
+	pendingFeedRequest: boolean;
 }
 
 export async function getDeviceDetail(
@@ -110,15 +117,23 @@ export async function getDeviceDetail(
 	});
 	if (!device?.pond) return null;
 
-	const latestFeed = await prisma.feedEvent.findFirst({
-		where: {
-			deviceId: device.id,
-			eventType: "feed_dispensed",
-			source: { in: [...MACHINE_FEED_SOURCES] },
-		},
-		orderBy: { receivedAt: "desc" },
-		select: { receivedAt: true, grams: true },
-	});
+	const [latestFeed, pendingFeed] = await Promise.all([
+		prisma.feedEvent.findFirst({
+			where: {
+				deviceId: device.id,
+				eventType: "feed_dispensed",
+				source: { in: [...MACHINE_FEED_SOURCES] },
+			},
+			orderBy: { receivedAt: "desc" },
+			select: { receivedAt: true, grams: true },
+		}),
+		// #731: one indexed read on (deviceId, status). It decides the poll cadence,
+		// so it has to be the queue's own state rather than a client guess.
+		prisma.feedRequest.findFirst({
+			where: { deviceId: device.id, status: { in: [...IN_FLIGHT_FEED_STATUSES] } },
+			select: { id: true },
+		}),
+	]);
 
 	const policy = await getDeviceStatusPolicy();
 	const diag = (device.diag as Record<string, unknown> | null) ?? null;
@@ -155,6 +170,7 @@ export async function getDeviceDetail(
 		lastFedAt: latestFeed?.receivedAt ?? null,
 		lastFedGrams: latestFeed?.grams ?? null,
 		status,
+		pendingFeedRequest: pendingFeed !== null,
 		sensorOffline: resolveHopperSensorOffline({
 			deviceOffline: status === "offline",
 			levelUpdatedAt: device.feedLevelUpdatedAt,

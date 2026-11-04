@@ -40,8 +40,9 @@ export default async function LargeScreenPage({
 					<h1 className="mt-1 truncate text-3xl font-black lg:text-4xl">{detail.label}</h1>
 					{/*
 					 * No status here on purpose (#666): the viewer below owns the live
-					 * status badge and refreshes it every 15 s. A second, server-rendered
-					 * copy would contradict it after the feeder changes state.
+					 * status badge and refreshes it on the adaptive device poll
+					 * (#731). A second, server-rendered copy would contradict it after
+					 * the feeder changes state.
 					 */}
 				</div>
 				<Link
@@ -69,6 +70,7 @@ export default async function LargeScreenPage({
 					initialFirmwareVersion={detail.firmwareVersion}
 					initialFeedLevelUpdatedAt={detail.feedLevelUpdatedAt?.toISOString() ?? null}
 					initialSensorOffline={detail.sensorOffline}
+					initialPendingFeedRequest={detail.pendingFeedRequest}
 					staleAfterMs={detail.staleAfterMs}
 					kiosk
 				/>

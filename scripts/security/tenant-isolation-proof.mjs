@@ -80,7 +80,11 @@ async function privilegedCounts(farmId) {
 			WHERE p."ownerId" = ${farmId}
 		`,
 	]);
-	return { ponds: ponds[0].count, feedEvents: feedEvents[0].count, notifications: notifications[0].count };
+	return {
+		ponds: ponds[0].count,
+		feedEvents: feedEvents[0].count,
+		notifications: notifications[0].count,
+	};
 }
 
 async function appCounts(farmId) {
@@ -90,7 +94,8 @@ async function appCounts(farmId) {
 			const ponds = await tx.$queryRaw`SELECT count(*)::int AS count FROM "Pond"`;
 			const feedEvents = await tx.$queryRaw`SELECT count(*)::int AS count FROM "FeedEvent"`;
 			const notifications = await tx.$queryRaw`SELECT count(*)::int AS count FROM "Notification"`;
-			const crossTenant = await tx.$queryRaw`SELECT count(*)::int AS count FROM "Pond" WHERE "ownerId" = ${farmId === farmA ? farmB : farmA}`;
+			const crossTenant =
+				await tx.$queryRaw`SELECT count(*)::int AS count FROM "Pond" WHERE "ownerId" = ${farmId === farmA ? farmB : farmA}`;
 			return {
 				ponds: ponds[0].count,
 				feedEvents: feedEvents[0].count,

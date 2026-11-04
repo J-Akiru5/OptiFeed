@@ -962,6 +962,34 @@ DECLARE
     before_g numeric;
     after_g numeric;
 BEGIN
+    -- 0. Refuse a partial match. Each repair is either the audited full set or
+    --    a no-op because a previous run/batch already applied it. A different
+    --    count means the data drifted; stop rather than commit half a repair.
+    SELECT count(*) INTO n FROM reconcile_709_seed_ids;
+    IF n NOT IN (0, 112) THEN
+        RAISE EXCEPTION 'count guard: seed tagging matched % row(s), expected 0 or 112', n;
+    END IF;
+
+    SELECT count(*) INTO n FROM reconcile_709_import_ids;
+    IF n NOT IN (0, 66) THEN
+        RAISE EXCEPTION 'count guard: import tagging matched % row(s), expected 0 or 66', n;
+    END IF;
+
+    SELECT count(*) INTO n FROM reconcile_709_rtc_pre;
+    IF n NOT IN (0, 3) THEN
+        RAISE EXCEPTION 'count guard: rtcOk repair matched % row(s), expected 0 or 3', n;
+    END IF;
+
+    SELECT count(*) INTO n FROM reconcile_709_level_inserted;
+    IF n NOT IN (0, 192) THEN
+        RAISE EXCEPTION 'count guard: level backfill inserted % row(s), expected 0 or 192', n;
+    END IF;
+
+    SELECT count(*) INTO n FROM reconcile_709_handfed_plan;
+    IF n NOT IN (0, 66) THEN
+        RAISE EXCEPTION 'count guard: hand_fed merge matched % farm day(s), expected 0 or 66', n;
+    END IF;
+
     -- 1. Exactly one hand_fed row per Asia/Manila farm day.
     SELECT count(*) INTO n
     FROM (

@@ -110,6 +110,14 @@ Expected totals afterwards:
 | `hand_fed` rows | 66 (one per day) | 66 |
 | `hand_fed` grams | 6,138 g (unchanged) | 6,138 g |
 
+The final assertion block also **refuses a partial match**: the seed tag must
+match 0 or 112 rows, the import tag 0 or 66, the RTC repair 0 or 3, the level
+backfill 0 or 192, and the `hand_fed` merge 0 or 66 farm days. A different count
+means the data drifted from the audited state; the transaction aborts rather
+than committing half a repair. If the guard fires, inspect the count in the
+error, adjust the expectation deliberately, and re-review — do not widen it
+silently.
+
 ### 1. `hand_fed`: one row per farm day
 
 `lib/feed-figures.ts`, `lib/pond-charts.ts` and `lib/chat/context.ts` all treat

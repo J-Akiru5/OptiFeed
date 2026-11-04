@@ -41,6 +41,14 @@ import { HealthNotice } from "@/components/feeder/health-notice";
 import { DashboardSnapshot } from "@/components/pwa/dashboard-snapshot";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
+import {
+	biomassSamplesInWindow,
+	computeFcrFromLogs,
+	feedGivenKgInWindow,
+	loadStoredFcrAssessments,
+	resolveFcrDisplay,
+	verifiedFcrValue,
+} from "@/lib/analytics/fcr";
 import { getCurrentPermissions, writeCapabilities } from "@/lib/auth/permissions";
 import { canWrite, getCurrentUser } from "@/lib/auth/session";
 import { computeCalibrationDrift } from "@/lib/calibration/drift";
@@ -100,7 +108,7 @@ function first(value: string | string[] | undefined): string | undefined {
 export default async function DashboardHomePage({ searchParams }: DashboardHomePageProps) {
 	const params = await searchParams;
 	const waterRange = parseWaterTempRange(first(params.water));
-	const [t, tBtn, tHist, tPred, tHarvest, tDates, tCommon, writeAccess, currentUser, pond] =
+	const [t, tBtn, tHist, tPred, tHarvest, tDates, tCommon, tFcr, writeAccess, currentUser, pond] =
 		await Promise.all([
 			getTranslations("dashboard.home"),
 			getTranslations("button"),
@@ -109,6 +117,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 			getTranslations("dashboard.harvest.summary"),
 			getTranslations("dates"),
 			getTranslations("dashboard.common"),
+			getTranslations("dashboard.fcrProvenance"),
 			canWrite(),
 			getCurrentUser(),
 			getActivePond({
@@ -176,9 +185,11 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 				take: 5,
 				include: { fishSamples: { select: { id: true } } },
 			}),
+			// Newest first: the rail tile shows the latest report, and the
+			// provenance assessment expects that order (#875).
 			prisma.fcrReport.findMany({
 				where: { pondId: pond.id },
-				orderBy: { periodEnd: "asc" },
+				orderBy: { periodEnd: "desc" },
 				take: 5,
 			}),
 			prisma.cropCycle.findFirst({
@@ -284,7 +295,35 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 	const mortalityPct = mortalityRatePct(liveCount.dead, liveCount.stocked);
 	const mortalityPctLabel = mortalityPct === null ? "—" : `${mortalityPct.toFixed(1)}%`;
 
-	const latestFcr = fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : 0.0;
+	// Issue #875: FCR is computed from this pond's feed and biomass logs. Only
+	// when that is impossible does a stored report appear, and then the tile
+	// says so instead of presenting an imported number as measured.
+	const fcrWindow = activeCycle
+		? { cycleId: activeCycle.id, from: activeCycle.stockingDate, to: null }
+		: { cycleId: null, from: null, to: null };
+	const [fcrFeedGivenKg, fcrSamples] = await Promise.all([
+		feedGivenKgInWindow(pond.id, fcrWindow),
+		biomassSamplesInWindow(pond.id, fcrWindow),
+	]);
+	const computedFcr = computeFcrFromLogs(fcrFeedGivenKg, fcrSamples, liveCount);
+	const storedFcrAssessments = await loadStoredFcrAssessments(pond.id, fcrReports, {
+		deviceIds,
+	});
+	const fcrDisplay = resolveFcrDisplay(computedFcr.fcr, storedFcrAssessments);
+	const latestFcr = fcrDisplay?.value ?? null;
+	// Predictions only consume a value the logs reproduce.
+	const predictionFcr = verifiedFcrValue(fcrDisplay);
+	// A contradiction is the strongest signal, so the short label keeps it
+	// even when a coverage reason is listed first.
+	const primaryFcrReason = fcrDisplay?.unverifiedReasons.includes("stored-contradicts-totals")
+		? "stored-contradicts-totals"
+		: fcrDisplay?.unverifiedReasons[0];
+	const fcrTileDetail =
+		fcrDisplay?.source === "stored"
+			? primaryFcrReason
+				? tFcr(`short.${primaryFcrReason}`)
+				: tFcr("storedVerifiedShort")
+			: t("fcrTag");
 	const cycleContext = activeCycle ? toPredictionCycleContext(activeCycle, todayDateOnly()) : null;
 
 	// The advisor is surfaced on the home page so it is not hidden behind the
@@ -295,7 +334,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
 		population: pond.population,
 		avgWeightKg: latestBiomass?.avgWeightKg ?? null,
-		latestFcr: fcrReports.length > 0 ? latestFcr : null,
+		latestFcr: predictionFcr,
 		currentGrams: energyDevice?.gramsPerFeeding ?? null,
 		hopperCapacityG: energyDevice?.hopperCapacityG ?? null,
 		dailyCapG: energyDevice?.dailyCapG ?? null,
@@ -407,7 +446,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		waterTempUpdatedAt: energyDevice?.waterTempUpdatedAt?.toISOString() ?? null,
 		population: livePopulation ?? 0,
 		avgWeightG: latestBiomass ? latestBiomass.avgWeightKg * 1000 : null,
-		latestFcr: fcrReports.length > 0 ? latestFcr : null,
+		latestFcr: predictionFcr,
 		nextFeedingTime: isPaused ? null : nextFeedingTimeStr,
 		nextFeedingVolumeG: pond.isFallow ? 0 : nextFeedingVolumeG,
 		daysUntilSample,
@@ -950,8 +989,8 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 												description={tCommon("terminology.fcr")}
 											/>
 										}
-										value={fcrReports.length > 0 ? latestFcr.toFixed(2) : "—"}
-										detail={t("fcrTag")}
+										value={latestFcr === null ? "—" : latestFcr.toFixed(2)}
+										detail={fcrTileDetail}
 										icon={Sparkles}
 										href="/dashboard/growth"
 									/>

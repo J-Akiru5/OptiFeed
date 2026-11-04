@@ -818,7 +818,11 @@
 			"suggestedRate": "Iminumungkahing Rate ng Pagpapakain",
 			"perMeal": "Bawat pagkain: {grams} g",
 			"usingFcr": "Ginagamit ang pinakabago mong FCR: {fcr}",
-			"noFcr": "Wala pang ulat ng FCR - ginagamit ang 1.5 reference."
+			"noFcr": "Wala pang FCR na mabeberipika mula sa iyong mga log. Mag-log ng pakain at hindi bababa sa dalawang biomass sample.",
+			"usingComputedFcr": "Ginagamit ang FCR na kinakalkula mula sa iyong mga log: {fcr}",
+			"usingStoredFcr": "Ginagamit ang nakaimbak na FCR na beripikado ng mga log: {fcr}",
+			"storedUnverified": "Nakaimbak na FCR {fcr} — hindi beripikado ng mga log",
+			"storedUnverifiedHint": "Hindi magagamit ang halagang ito sa pag-compute ng feed. Mag-log ng pakain at hindi bababa sa dalawang biomass sample, pagkatapos ay kalkulahin muli."
 		},
 		"harvest": {
 			"cycleForm": {
@@ -2322,7 +2326,18 @@
 				"APPROVED": "Aprubado",
 				"PENDING": "Pending",
 				"REJECTED": "Tinanggihan"
-			}
+			},
+			"fcrStoredFeed": "Nakaimbak na kabuuang pakain",
+			"fcrStoredGain": "Nakaimbak na paglaki ng biomass",
+			"fcrCoverage": "Saklaw ng log",
+			"fcrCoverageValue": "{feedEvents} feed event · {biomassSamples} biomass sample",
+			"fcrContradiction": "Ang nakaimbak na ratio {fcr} ay kontra sa sarili nitong total: {feed} kg pakain ÷ {gain} kg paglaki = {expected}.",
+			"fcrVerified": "Beripikado laban sa mga log ng pakain at biomass para sa panahong ito.",
+			"fcrIntegrityTitle": "Integridad ng datos ng FCR",
+			"fcrIntegrityCount": "Mga nakaimbak na ulat na kontra ang ratio sa sarili nilang total: {count}",
+			"fcrIntegrityRow": "{period}: nakaimbak {fcr}, ang total ay nagpapahiwatig ng {expected}",
+			"fcrNotComputable": "hindi makalkula",
+			"fcrIntegrityHint": "Pinapanatili ang mga row na ito ayon sa naitala. Ang mga bagong FCR ay kinakalkula mula sa mga log ng pakain at biomass at hindi ginagamit ang mga ito."
 		},
 		"adminPondDelete": {
 			"back": "Bumalik sa pond",
@@ -2788,6 +2803,22 @@
 			"minutesAgo": "{count}m ang nakalipas",
 			"hoursAgo": "{count}h ang nakalipas",
 			"daysAgo": "{count}d ang nakalipas"
+		},
+		"fcrProvenance": {
+			"badge": "Nakaimbak na ulat",
+			"verified": "Tugma ang nakaimbak na halagang ito sa mga log ng pakain at biomass para sa panahong ito.",
+			"historyCaption": "Ang mga bar na may * ay nakaimbak na ulat na hindi maulit ng mga log; hindi ito sukat.",
+			"storedVerifiedShort": "Nakaimbak · tugma sa log",
+			"short": {
+				"no-feed-logs": "Nakaimbak · walang feed log",
+				"no-biomass-samples": "Nakaimbak · kulang sa sample",
+				"stored-contradicts-totals": "Nakaimbak · kontra sa total"
+			},
+			"reasons": {
+				"no-feed-logs": "Walang log ng pakain na sumasaklaw sa panahong ito.",
+				"no-biomass-samples": "Kulang sa dalawang biomass sample ang panahong ito, kaya hindi muling makalkula ang paglaki.",
+				"stored-contradicts-totals": "Kontra ang nakaimbak na halaga sa sarili nitong kabuuang pakain at biomass."
+			}
 		}
 	},
 	"chat": {

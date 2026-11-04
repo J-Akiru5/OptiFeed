@@ -7,10 +7,12 @@ import { PondStatusToggle } from "@/components/admin/pond-status-toggle";
 import { DeviceSignalReading } from "@/components/device-signal";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { FeederHero } from "@/components/feeder/feeder-hero";
+import { FcrProvenanceNote, type FcrProvenanceText } from "@/components/growth/fcr-provenance";
 import { Link } from "@/i18n/routing";
 import { adminUpdateDeviceDailyCap } from "@/lib/actions/admin";
 import { getTenantRegistrationOptions } from "@/lib/actions/device-registration";
 import { getPondDetail } from "@/lib/actions/ponds";
+import { loadStoredFcrAssessments } from "@/lib/analytics/fcr";
 import { hasPermission } from "@/lib/auth/permissions";
 import { daysBetween, todayDateOnly, utcDateToDateOnly } from "@/lib/crop-cycle/dates";
 import { formatDateTimeLocal } from "@/lib/date-local";
@@ -59,13 +61,14 @@ export default async function PondDetailPage({
 	params: Promise<{ pondId: string }>;
 }) {
 	const { pondId } = await params;
-	const [detail, canClaim, canManage, t, tCommon, tDates, statusPolicy] = await Promise.all([
+	const [detail, canClaim, canManage, t, tCommon, tDates, tFcr, statusPolicy] = await Promise.all([
 		getPondDetail(pondId),
 		hasPermission("claim_feeder"),
 		hasPermission("manage_farms_ponds"),
 		getTranslations("dashboard.adminPondDetail"),
 		getTranslations("dashboard.adminCommon"),
 		getTranslations("dates"),
+		getTranslations("dashboard.fcrProvenance"),
 		getDeviceStatusPolicy(),
 	]);
 
@@ -76,6 +79,27 @@ export default async function PondDetailPage({
 	const cycle = pond.cropCycles[0] ?? null;
 	const biomass = pond.biomassLogs[0] ?? null;
 	const fcr = pond.fcrReports[0] ?? null;
+
+	// Issue #875: the stored report is shown to an admin with the evidence that
+	// decides whether it is reproducible. A row that contradicts its own totals
+	// is a data-integrity signal, not a number to quietly drop, so the recent
+	// history is checked and every contradiction is listed with its implied
+	// ratio. The rows themselves are never rewritten or deleted.
+	const fcrAssessments = await loadStoredFcrAssessments(pond.id, pond.fcrReports);
+	const fcrAssessment = fcrAssessments[0] ?? null;
+	const fcrContradictions = fcrAssessments.filter((assessment) => assessment.contradictsTotals);
+	const fcrExpectedFromTotals =
+		fcr && fcr.biomassGainKg > 0 ? fcr.totalFeedKg / fcr.biomassGainKg : null;
+	const fcrProvenance: FcrProvenanceText | null = fcrAssessment?.verified
+		? null
+		: fcrAssessment
+			? {
+					title: tFcr("badge"),
+					messages: fcrAssessment.reasons.map((reason) => tFcr(`reasons.${reason}`)),
+					tone: fcrAssessment.contradictsTotals ? "danger" : "warning",
+				}
+			: null;
+
 	const ownerName = pond.owner?.displayName || pond.owner?.email || pond.ownerId;
 	const labelsPath = "/admin/devices/labels";
 	const cycleDay = cycle
@@ -249,14 +273,72 @@ export default async function PondDetailPage({
 							{t("fcrTitle")}
 						</h2>
 						{fcr ? (
-							<dl className="mt-3 grid grid-cols-2 gap-3">
-								<Field label={t("fcrValue")}>{fcr.fcrValue.toFixed(2)}</Field>
-								<Field label={t("fcrPeriod")}>
-									{`${formatDateTimeLocal(fcr.periodStart, tDates).fullDate} – ${
-										formatDateTimeLocal(fcr.periodEnd, tDates).fullDate
-									}`}
-								</Field>
-							</dl>
+							<>
+								<dl className="mt-3 grid grid-cols-2 gap-3">
+									<Field label={t("fcrValue")}>{fcr.fcrValue.toFixed(2)}</Field>
+									<Field label={t("fcrPeriod")}>
+										{`${formatDateTimeLocal(fcr.periodStart, tDates).fullDate} – ${
+											formatDateTimeLocal(fcr.periodEnd, tDates).fullDate
+										}`}
+									</Field>
+									<Field label={t("fcrStoredFeed")}>{fcr.totalFeedKg.toFixed(2)} kg</Field>
+									<Field label={t("fcrStoredGain")}>{fcr.biomassGainKg.toFixed(2)} kg</Field>
+									<Field label={t("fcrCoverage")}>
+										{t("fcrCoverageValue", {
+											feedEvents: fcrAssessment?.coverage.feedEvents ?? 0,
+											biomassSamples: fcrAssessment?.coverage.biomassSamples ?? 0,
+										})}
+									</Field>
+								</dl>
+								{fcrAssessment?.contradictsTotals && fcrExpectedFromTotals !== null && (
+									<p className="mt-2 text-xs font-bold text-red-700 dark:text-red-400">
+										{t("fcrContradiction", {
+											fcr: fcr.fcrValue.toFixed(2),
+											feed: fcr.totalFeedKg.toFixed(2),
+											gain: fcr.biomassGainKg.toFixed(2),
+											expected: fcrExpectedFromTotals.toFixed(2),
+										})}
+									</p>
+								)}
+								{fcrProvenance && <FcrProvenanceNote text={fcrProvenance} />}
+								{fcrAssessment?.verified && (
+									<p className="mt-2 text-xs font-bold text-green-700 dark:text-green-400">
+										{t("fcrVerified")}
+									</p>
+								)}
+								{fcrContradictions.length > 0 && (
+									<div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-500/30 dark:bg-red-500/10">
+										<p className="text-[10px] font-black tracking-wider text-red-800 uppercase dark:text-red-200">
+											{t("fcrIntegrityTitle")}
+										</p>
+										<p className="mt-1 text-xs font-semibold text-red-900 dark:text-red-100">
+											{t("fcrIntegrityCount", { count: fcrContradictions.length })}
+										</p>
+										<ul className="mt-2 space-y-1 text-[11px] text-red-900 dark:text-red-100">
+											{fcrContradictions.map((assessment) => {
+												const implied =
+													assessment.report.biomassGainKg > 0
+														? assessment.report.totalFeedKg / assessment.report.biomassGainKg
+														: null;
+												return (
+													<li key={assessment.report.id}>
+														{t("fcrIntegrityRow", {
+															period: formatDateTimeLocal(assessment.report.periodEnd, tDates)
+																.fullDate,
+															fcr: assessment.report.fcrValue.toFixed(2),
+															expected:
+																implied === null ? t("fcrNotComputable") : implied.toFixed(2),
+														})}
+													</li>
+												);
+											})}
+										</ul>
+										<p className="mt-2 text-[11px] text-red-800 dark:text-red-200">
+											{t("fcrIntegrityHint")}
+										</p>
+									</div>
+								)}
+							</>
 						) : (
 							<p className="mt-2 text-sm text-[#3D5568] dark:text-gray-400">{t("fcrEmpty")}</p>
 						)}

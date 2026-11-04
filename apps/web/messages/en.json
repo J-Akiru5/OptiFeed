@@ -2587,14 +2587,18 @@
 			"suggestedRate": "Suggested Feeding Rate",
 			"perMeal": "Per meal: {grams} g",
 			"usingFcr": "Uses your latest FCR: {fcr}",
-			"noFcr": "No FCR report yet - using the 1.5 reference.",
+			"noFcr": "No FCR can be verified from your logs yet. Log feed and at least two biomass samples.",
 			"setAsTarget": "Set as growth target",
 			"settingTarget": "Saving target...",
 			"targetSaved": "Growth target saved: {weight} kg at harvest.",
 			"targetSavedShort": "Saved target: {weight} kg at harvest.",
 			"targetError": "Could not save the growth target.",
 			"targetHint": "Saves this weight as the active cycle's harvest target. The feed recommendation adapts inside the 10% / 15-day limit.",
-			"targetNeedsCycle": "Start a grow-out cycle before setting a growth target."
+			"targetNeedsCycle": "Start a grow-out cycle before setting a growth target.",
+			"usingComputedFcr": "Uses the FCR computed from your logs: {fcr}",
+			"usingStoredFcr": "Uses a log-verified stored FCR: {fcr}",
+			"storedUnverified": "Stored FCR {fcr} — not verified by logs",
+			"storedUnverifiedHint": "This value cannot size a feed request. Log feed and at least two biomass samples, then calculate again."
 		},
 		"importExport": {
 			"export": "Export Data",
@@ -2936,7 +2940,18 @@
 				"APPROVED": "Approved",
 				"PENDING": "Pending",
 				"REJECTED": "Rejected"
-			}
+			},
+			"fcrStoredFeed": "Stored feed total",
+			"fcrStoredGain": "Stored biomass gain",
+			"fcrCoverage": "Log coverage",
+			"fcrCoverageValue": "{feedEvents} feed events · {biomassSamples} biomass samples",
+			"fcrContradiction": "The stored ratio {fcr} disagrees with its own totals: {feed} kg feed ÷ {gain} kg gain = {expected}.",
+			"fcrVerified": "Verified against the feed and biomass logs for this period.",
+			"fcrIntegrityTitle": "FCR data integrity",
+			"fcrIntegrityCount": "Stored reports whose ratio contradicts their own totals: {count}",
+			"fcrIntegrityRow": "{period}: stored {fcr}, totals imply {expected}",
+			"fcrNotComputable": "not computable",
+			"fcrIntegrityHint": "These rows are preserved as recorded. New FCR values are computed from feed and biomass logs and never use them."
 		},
 		"adminPondDelete": {
 			"back": "Back to pond",
@@ -3214,6 +3229,22 @@
 			"minutesAgo": "{count}m ago",
 			"hoursAgo": "{count}h ago",
 			"daysAgo": "{count}d ago"
+		},
+		"fcrProvenance": {
+			"badge": "Stored report",
+			"verified": "This stored value matches the feed and biomass logs for its period.",
+			"historyCaption": "Bars marked * are stored reports the logs cannot reproduce; they are not measurements.",
+			"storedVerifiedShort": "Stored · matches logs",
+			"short": {
+				"no-feed-logs": "Stored · no feed logs",
+				"no-biomass-samples": "Stored · too few samples",
+				"stored-contradicts-totals": "Stored · contradicts totals"
+			},
+			"reasons": {
+				"no-feed-logs": "No feed logs cover this period.",
+				"no-biomass-samples": "Fewer than two biomass samples cover this period, so the gain cannot be recomputed.",
+				"stored-contradicts-totals": "The stored value contradicts its own feed and biomass totals."
+			}
 		}
 	},
 	"errors": {

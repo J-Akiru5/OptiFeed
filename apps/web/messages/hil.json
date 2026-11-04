@@ -2587,14 +2587,18 @@
 			"suggestedRate": "Ginasugyot nga Rate sang Pagpakaon",
 			"perMeal": "Kada pakaon: {grams} g",
 			"usingFcr": "Ginagamit ang pinakabag-o nga FCR: {fcr}",
-			"noFcr": "Wala pa FCR report - 1.5 nga reference ang ginagamit.",
+			"noFcr": "Wala pa FCR nga ma-verify halin sa imo mga log. Mag-log sang feed kag labing menos duha ka biomass sample.",
 			"setAsTarget": "I-set bilang growth target",
 			"settingTarget": "Gina-save ang target...",
 			"targetSaved": "Na-save ang growth target: {weight} kg sa ani.",
 			"targetSavedShort": "Na-save nga target: {weight} kg sa ani.",
 			"targetError": "Indi ma-save ang growth target.",
 			"targetHint": "I-save ini nga timbang bilang harvest target sang active nga cycle. Ang rekomendasyon sa pagpakaon maga-adjust sa sulod sang 10% / 15 ka adlaw nga limit.",
-			"targetNeedsCycle": "Mag-start sang grow-out cycle antes mag-set sang growth target."
+			"targetNeedsCycle": "Mag-start sang grow-out cycle antes mag-set sang growth target.",
+			"usingComputedFcr": "Ginagamit ang FCR nga na-compute halin sa imo mga log: {fcr}",
+			"usingStoredFcr": "Ginagamit ang naka-save nga FCR nga na-verify sang mga log: {fcr}",
+			"storedUnverified": "Naka-save nga FCR {fcr} — wala ma-verify sang mga log",
+			"storedUnverifiedHint": "Indi ni ma-gamit sa pag-compute sang feed. Mag-log sang feed kag labing menos duha ka biomass sample, dayon i-calculate liwat."
 		},
 		"importExport": {
 			"export": "I-export ang Datos",
@@ -2936,7 +2940,18 @@
 				"APPROVED": "Aprubado",
 				"PENDING": "Nagahulat",
 				"REJECTED": "Ginsikway"
-			}
+			},
+			"fcrStoredFeed": "Naka-save nga total nga feed",
+			"fcrStoredGain": "Naka-save nga biomass gain",
+			"fcrCoverage": "Coverage sang logs",
+			"fcrCoverageValue": "{feedEvents} feed event · {biomassSamples} biomass sample",
+			"fcrContradiction": "Ang naka-save nga ratio {fcr} indi nagatugma sa kaugalingon nga total: {feed} kg feed ÷ {gain} kg gain = {expected}.",
+			"fcrVerified": "Na-verify batok sa feed kag biomass logs para sa sini nga periodo.",
+			"fcrIntegrityTitle": "Integridad sang datos sang FCR",
+			"fcrIntegrityCount": "Mga naka-save nga report nga ang ratio indi nagatugma sa kaugalingon nga total: {count}",
+			"fcrIntegrityRow": "{period}: naka-save {fcr}, ang total nagapakita sang {expected}",
+			"fcrNotComputable": "indi ma-compute",
+			"fcrIntegrityHint": "Ginapreserba ini nga mga row suno sa na-rekord. Ang bag-o nga FCR ginakompute halin sa feed kag biomass logs kag indi ginagamit ini."
 		},
 		"adminPondDelete": {
 			"back": "Balik sa punong",
@@ -3214,6 +3229,22 @@
 			"minutesAgo": "{count}m ang nakaligad",
 			"hoursAgo": "{count}h ang nakaligad",
 			"daysAgo": "{count}d ang nakaligad"
+		},
+		"fcrProvenance": {
+			"badge": "Naka-save nga report",
+			"verified": "Nagatugma ang naka-save nga numero sa feed kag biomass logs para sa sini nga periodo.",
+			"historyCaption": "Ang mga bar nga may * amo ang naka-save nga reports nga indi ma-reproduce sang logs; indi ini medida.",
+			"storedVerifiedShort": "Naka-save · nagatugma sa logs",
+			"short": {
+				"no-feed-logs": "Naka-save · wala feed log",
+				"no-biomass-samples": "Naka-save · kulang sample",
+				"stored-contradicts-totals": "Naka-save · kontra sa total"
+			},
+			"reasons": {
+				"no-feed-logs": "Wala sing feed log nga naga-cover sa sini nga periodo.",
+				"no-biomass-samples": "Kulang sa duha ka biomass sample ang sini nga periodo, gani indi ma-compute liwat ang pagtubo.",
+				"stored-contradicts-totals": "Ang naka-save nga numero indi nagatugma sa kaugalingon niya nga total nga feed kag biomass."
+			}
 		}
 	},
 	"errors": {

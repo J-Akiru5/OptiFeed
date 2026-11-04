@@ -237,6 +237,7 @@ model ReminderLog {
 
   @@index([pondId, kind])
   @@index([cropCycleId])
+  @@index([sentAt])
 }
 
 model Device {
@@ -330,6 +331,7 @@ model FeedLevelLog {
   farmId       String? // immutable ownership stamp — no FK by design (survives farm lifecycle)
 
   @@index([deviceId, recordedAt])
+  @@index([recordedAt])
   @@index([farmId])
 }
 
@@ -1062,6 +1064,7 @@ model WaterTempLog {
   device     EnergyDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
   @@index([deviceId, recordedAt])
+  @@index([recordedAt])
   @@index([farmId])
 }
 

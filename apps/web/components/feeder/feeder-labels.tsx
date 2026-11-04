@@ -2,11 +2,11 @@
 
 import {
 	FEEDER_LABEL_SLOTS,
+	type FeederLabelId,
 	type FeederLabelSlot,
 	projectFeederAnchors,
 } from "@/lib/feeder/feeder-label-layout";
 import {
-	type FeederComponentId,
 	type FeederComponentReading,
 	type FeederStatus,
 	feederComponentStatus,
@@ -15,15 +15,35 @@ import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
+/** Visual tone for the two telemetry hotspots; mirrors the bottom strip. */
+export type FeederLabelTone = "live" | "paused" | "muted";
+
+/**
+ * One semantic hotspot fed by the same strings the bottom strip renders (#820).
+ * The component name comes from the shared catalogue; the value and status are
+ * already-localized strings from the viewer so there is no second data source.
+ */
+export interface FeederLabelExtra {
+	value: string;
+	status: string;
+	tone: FeederLabelTone;
+}
+
 export interface FeederLabelsProps {
 	status: FeederStatus;
 	level: number | null;
+	/** The unit is reachable but its ultrasonic sensor is not answering (#810). */
+	sensorOffline?: boolean;
 	active: boolean;
+	/** RTC health, mirroring the bottom strip (#820). */
+	rtc?: FeederLabelExtra;
+	/** Water-temperature value and health, mirroring the bottom strip (#820). */
+	waterTemp?: FeederLabelExtra;
 }
 
 export const FEEDER_COMPONENT_STATUS_ID = "feeder-component-status";
 
-type LabelTone = "live" | "active" | "paused" | "muted";
+type LabelTone = FeederLabelTone | "active";
 type ViewerTranslate = (key: string) => string;
 
 interface CardBox {
@@ -55,17 +75,35 @@ const UNDERSTROKE_COLOR = "#061520";
 const LEADER_COLOR = "rgba(255, 255, 255, 0.45)";
 const TEXT_SHADOW = "0 1px 2px rgba(3, 12, 20, 0.55)";
 
-const COMPONENT_NAME_KEYS: Record<FeederComponentId, string> = {
+const COMPONENT_NAME_KEYS: Record<FeederLabelId, string> = {
 	hopper: "componentHopper",
 	sensor: "componentSensor",
 	controller: "componentController",
 	motor: "componentMotor",
 	auger: "componentAuger",
 	outlet: "componentOutlet",
+	rtc: "componentRtc",
+	waterTemp: "componentWaterTemp",
 };
 
 /** Fixed slots are art-directed; only the stagger follows their visual order. */
 const VISUAL_SLOTS = [...FEEDER_LABEL_SLOTS].sort((a, b) => a.top - b.top);
+
+/**
+ * Screen-reader order: the six physical parts keep the readings order, with
+ * RTC inserted after the controller and water temperature after the outlet
+ * (#820). The visible overlay uses the art-directed slot order instead.
+ */
+const ACCESSIBLE_ORDER: readonly FeederLabelId[] = [
+	"hopper",
+	"sensor",
+	"controller",
+	"rtc",
+	"motor",
+	"auger",
+	"outlet",
+	"waterTemp",
+];
 
 const LABEL_STYLES = `
 @keyframes ofd-feeder-iso-label-in {
@@ -144,7 +182,11 @@ function offlineState(): LabelState {
 function readingState(reading: FeederComponentReading): LabelState {
 	switch (reading.id) {
 		case "hopper":
+			if (reading.state === "live") return liveState();
+			if (reading.state === "lastKnown") return lastKnownState();
+			return noReadingState();
 		case "sensor":
+			if (reading.state === "offline") return offlineState();
 			if (reading.state === "live") return liveState();
 			if (reading.state === "lastKnown") return lastKnownState();
 			return noReadingState();
@@ -177,6 +219,8 @@ function readingValue(reading: FeederComponentReading, t: ViewerTranslate): stri
 		case "hopper":
 			return reading.percent === null ? "—" : `${reading.percent}%`;
 		case "sensor":
+			// #810: an offline sensor is not "Reading". Only a live sensor says so.
+			if (reading.state === "offline") return "—";
 			return reading.percent === null ? "—" : t("componentReading");
 		case "controller":
 			return reading.state === "online" ? t("componentOnline") : "—";
@@ -192,11 +236,34 @@ function readingValue(reading: FeederComponentReading, t: ViewerTranslate): stri
 	}
 }
 
+/**
+ * RTC and water temperature are readings rather than physical parts, so they
+ * have no `FeederComponentReading`. Their value/status arrive pre-localized
+ * from the viewer; a missing extra falls back to the shared "No reading" word.
+ */
+function extraLabelContent(
+	id: "rtc" | "waterTemp",
+	extra: FeederLabelExtra | undefined,
+	t: ViewerTranslate,
+): FeederLabelContent {
+	const tone = extra?.tone ?? "muted";
+
+	return {
+		name: t(COMPONENT_NAME_KEYS[id]),
+		value: extra?.value ?? "—",
+		status: extra?.status ?? t("componentNoReading"),
+		wordTone: tone,
+		dotTone: tone,
+		valueActive: false,
+	};
+}
+
 function buildLabelContents(
 	readings: readonly FeederComponentReading[],
 	t: ViewerTranslate,
-): Record<FeederComponentId, FeederLabelContent> {
-	const contents = {} as Record<FeederComponentId, FeederLabelContent>;
+	extras: Pick<FeederLabelsProps, "rtc" | "waterTemp"> = {},
+): Record<FeederLabelId, FeederLabelContent> {
+	const contents = {} as Record<FeederLabelId, FeederLabelContent>;
 
 	for (const reading of readings) {
 		const state = readingState(reading);
@@ -210,6 +277,9 @@ function buildLabelContents(
 		};
 	}
 
+	contents.rtc = extraLabelContent("rtc", extras.rtc, t);
+	contents.waterTemp = extraLabelContent("waterTemp", extras.waterTemp, t);
+
 	return contents;
 }
 
@@ -218,10 +288,10 @@ function clampToStage(value: number, maximum: number): number {
 }
 
 function sameCardBoxes(
-	current: Partial<Record<FeederComponentId, CardBox>>,
-	next: Partial<Record<FeederComponentId, CardBox>>,
+	current: Partial<Record<FeederLabelId, CardBox>>,
+	next: Partial<Record<FeederLabelId, CardBox>>,
 ): boolean {
-	const ids = Object.keys(next) as FeederComponentId[];
+	const ids = Object.keys(next) as FeederLabelId[];
 	if (ids.length !== Object.keys(current).length) return false;
 	return ids.every((id) => {
 		const a = current[id];
@@ -292,15 +362,22 @@ function FeederLabelCard({
  * Presentational ISO callouts: fixed-slot text, one leader per projected model
  * anchor and a decorative SVG layer. It never intercepts orbit, hover or focus.
  */
-export function FeederLabels({ status, level, active }: FeederLabelsProps): ReactElement | null {
+export function FeederLabels({
+	status,
+	level,
+	sensorOffline = false,
+	active,
+	rtc,
+	waterTemp,
+}: FeederLabelsProps): ReactElement | null {
 	const t = useTranslations("dashboard.feederViewer");
 	const overlayRef = useRef<HTMLDivElement | null>(null);
-	const cardRefs = useRef<Partial<Record<FeederComponentId, HTMLDivElement | null>>>({});
+	const cardRefs = useRef<Partial<Record<FeederLabelId, HTMLDivElement | null>>>({});
 	const [stage, setStage] = useState({ width: 0, height: 0 });
-	const [cardBoxes, setCardBoxes] = useState<Partial<Record<FeederComponentId, CardBox>>>({});
+	const [cardBoxes, setCardBoxes] = useState<Partial<Record<FeederLabelId, CardBox>>>({});
 
 	const measureCards = useCallback(() => {
-		const next: Partial<Record<FeederComponentId, CardBox>> = {};
+		const next: Partial<Record<FeederLabelId, CardBox>> = {};
 
 		for (const slot of VISUAL_SLOTS) {
 			const card = cardRefs.current[slot.id];
@@ -354,8 +431,8 @@ export function FeederLabels({ status, level, active }: FeederLabelsProps): Reac
 
 	if (!active) return null;
 
-	const readings = feederComponentStatus({ status, level });
-	const contents = buildLabelContents(readings, t);
+	const readings = feederComponentStatus({ status, level, sensorOffline });
+	const contents = buildLabelContents(readings, t, { rtc, waterTemp });
 	const anchors = projectFeederAnchors(stage.width, stage.height);
 	const visibleSlots = VISUAL_SLOTS.filter((slot) => anchors[slot.id].visible);
 	const hasStage = stage.width > 0 && stage.height > 0;
@@ -451,30 +528,32 @@ export function FeederLabels({ status, level, active }: FeederLabelsProps): Reac
 /**
  * The semantic component summary. It is visually hidden at every width and is
  * referenced by the stage's `aria-describedby`; the visual ISO callouts are
- * `aria-hidden` so the six readings are announced once, in physical order.
+ * `aria-hidden` so each reading is announced once. The six physical parts keep
+ * their readings order, with RTC after the controller and water temperature
+ * after the outlet (#820).
  */
 export function FeederComponentStatusList({
 	status,
 	level,
+	sensorOffline = false,
 	active,
+	rtc,
+	waterTemp,
 }: FeederLabelsProps): ReactElement | null {
 	const t = useTranslations("dashboard.feederViewer");
 
 	if (!active) return null;
 
-	const readings = feederComponentStatus({ status, level });
-	const contents = buildLabelContents(readings, t);
+	const readings = feederComponentStatus({ status, level, sensorOffline });
+	const contents = buildLabelContents(readings, t, { rtc, waterTemp });
 
 	return (
 		<dl id={FEEDER_COMPONENT_STATUS_ID} data-testid="feeder-component-status" className="sr-only">
-			{readings.map((reading) => {
-				const content = contents[reading.id];
+			{ACCESSIBLE_ORDER.map((id) => {
+				const content = contents[id];
 
 				return (
-					<div
-						key={reading.id}
-						className="flex min-h-12 flex-col justify-center gap-0.5 px-2.5 py-2"
-					>
+					<div key={id} className="flex min-h-12 flex-col justify-center gap-0.5 px-2.5 py-2">
 						<dt
 							className="text-[10px] font-extrabold leading-[1.2] tracking-[0.14em] uppercase"
 							style={{ color: NAME_COLOR }}

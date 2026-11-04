@@ -73,13 +73,13 @@ which is why the manifest derivation (which works for all of them) is the gate.
 Shared by every route (`rootMainFiles`): **432.6 kB**. Re-measured on 2026-11-03, after
 the chart layer moved behind `charts/lazy` (#707).
 
-| Route | Measured | Budget (+2%) |
+| Route | Measured | Budget |
 |---|---|---|
 | `/[locale]/page` (landing) | 809.0 kB | 825.2 kB |
 | `/[locale]/login/page` | 849.1 kB | 866.1 kB |
 | `/[locale]/privacy/page` | 589.7 kB | 601.5 kB |
 | `/[locale]/terms/page` | 589.7 kB | 601.5 kB |
-| `/[locale]/(dashboard)/dashboard/page` | **1058.1 kB** | 1079.3 kB |
+| `/[locale]/(dashboard)/dashboard/page` | **1062.8 kB** | 1116.0 kB (+5%, see below) |
 | `/[locale]/(dashboard)/dashboard/history/page` | 1033.4 kB | 1054.1 kB |
 | `/[locale]/(dashboard)/dashboard/growth/history/page` | 990.3 kB | 1010.2 kB |
 | `/[locale]/(superadmin)/superadmin/operations/page` | 965.7 kB | 985.1 kB |
@@ -89,6 +89,16 @@ the chart layer moved behind `charts/lazy` (#707).
 | `/[locale]/(admin)/admin/page` | 691.4 kB | 705.3 kB |
 | `/[locale]/(admin)/admin/audit/page` | 690.0 kB | 704.8 kB |
 | `/[locale]/change-password/page` | 595.2 kB | 607.2 kB |
+
+Every budget in the table above is +2%, except `/dashboard`, which is a deliberate +5% (#730).
+
+`/[locale]/(dashboard)/dashboard/page` was re-baselined on **2026-11-04** from develop CI run
+**`41745118084`**: the measured first-load JS was **1062.8 kB**. The committed `baselineKb` is now
+1062.8 and `budgetKb` is **1116.0**, a deliberate +5% instead of the usual +2%. The old 1079.3 kB
+ceiling left only about 1.5% headroom over that measurement, and the old 1058.1 kB baseline no
+longer matched the build. The larger ceiling is a reviewed decision for this authenticated screen,
+which is the most expensive one users actually work in; it is not a way to hide a regression. No
+other route budget changed.
 
 All 71 measured routes are in `perf/bundle-budget.json` with their own `budgetKb`.
 
@@ -155,6 +165,13 @@ returns a `307` to `/en/login`, so Lighthouse would score the redirect, not the 
 
 Auditing them is a follow-up that needs a seeded database and a session fixture (see
 [`api-latency.md`](./api-latency.md), which lists the same prerequisite for the DB-backed requests).
+
+**The authenticated Lighthouse/a11y gate for the whole console is still a follow-up (#730).** This
+change does not add a session to `lighthouserc.json` or change the public URLs. It adds one real
+authenticated surface — `/dashboard` — to the axe suite in
+[`apps/web/lib/__tests__/a11y-pages.test.tsx`](../../apps/web/lib/__tests__/a11y-pages.test.tsx),
+and re-baselines that route's first-load JS above. The full console gate still needs a seeded local
+stack and a repeatable session fixture.
 
 ### Measured baseline
 

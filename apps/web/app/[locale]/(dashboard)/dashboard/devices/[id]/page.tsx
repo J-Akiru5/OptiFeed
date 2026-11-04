@@ -70,6 +70,7 @@ export default async function DeviceDetailPage({
 					initialSignalDbm={detail.signalDbm}
 					initialFirmwareVersion={detail.firmwareVersion}
 					initialFeedLevelUpdatedAt={detail.feedLevelUpdatedAt?.toISOString() ?? null}
+					initialSensorOffline={detail.sensorOffline}
 					staleAfterMs={detail.staleAfterMs}
 				/>
 

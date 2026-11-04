@@ -68,6 +68,7 @@ export default async function LargeScreenPage({
 					initialSignalDbm={detail.signalDbm}
 					initialFirmwareVersion={detail.firmwareVersion}
 					initialFeedLevelUpdatedAt={detail.feedLevelUpdatedAt?.toISOString() ?? null}
+					initialSensorOffline={detail.sensorOffline}
 					staleAfterMs={detail.staleAfterMs}
 					kiosk
 				/>

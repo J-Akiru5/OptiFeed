@@ -94,22 +94,47 @@ describe("feeder viewer geometry", () => {
 });
 
 describe("feeder viewer component status", () => {
-	function summary(status: FeederStatus, level: number | null) {
-		return feederComponentStatus({ status, level }).map(({ id, state, percent }) => [
+	function summary(status: FeederStatus, level: number | null, sensorOffline = false) {
+		return feederComponentStatus({ status, level, sensorOffline }).map(({ id, state, percent }) => [
 			id,
 			state,
 			percent,
 		]);
 	}
 
-	it("keeps the last hopper reading while every component is offline", () => {
+	it("keeps the last hopper reading while the sensor reads offline", () => {
 		expect(summary("offline", 30)).toEqual([
 			["hopper", "lastKnown", 30],
-			["sensor", "lastKnown", 30],
+			["sensor", "offline", 30],
 			["controller", "offline", null],
 			["motor", "offline", null],
 			["auger", "offline", null],
 			["outlet", "offline", null],
+		]);
+	});
+
+	it("reports an offline sensor without a reading as offline, not as no reading", () => {
+		expect(summary("offline", null).slice(0, 2)).toEqual([
+			["hopper", "noReading", null],
+			["sensor", "offline", null],
+		]);
+	});
+
+	it("marks the hopper last known when only the online sensor is faulted", () => {
+		expect(summary("idle", 30, true).slice(0, 2)).toEqual([
+			["hopper", "lastKnown", 30],
+			["sensor", "offline", 30],
+		]);
+		expect(summary("idle", null, true).slice(0, 2)).toEqual([
+			["hopper", "noReading", null],
+			["sensor", "offline", null],
+		]);
+	});
+
+	it("leaves a healthy online sensor live", () => {
+		expect(summary("idle", 30).slice(0, 2)).toEqual([
+			["hopper", "live", 30],
+			["sensor", "live", 30],
 		]);
 	});
 
@@ -145,11 +170,12 @@ describe("feeder viewer component status", () => {
 	});
 
 	it("has no hopper reading when the level is missing, online or offline", () => {
-		for (const status of ["idle", "offline"] as const) {
-			const [hopper, sensor] = summary(status, null);
-			expect(hopper).toEqual(["hopper", "noReading", null]);
-			expect(sensor).toEqual(["sensor", "noReading", null]);
-		}
+		const [onlineHopper, onlineSensor] = summary("idle", null);
+		expect(onlineHopper).toEqual(["hopper", "noReading", null]);
+		expect(onlineSensor).toEqual(["sensor", "noReading", null]);
+
+		const [offlineHopper] = summary("offline", null);
+		expect(offlineHopper).toEqual(["hopper", "noReading", null]);
 	});
 
 	it("clamps the reported hopper percentage", () => {

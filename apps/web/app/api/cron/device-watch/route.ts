@@ -14,8 +14,16 @@ import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
 import {
 	deleteExpiredPondSettingsDrafts,
+	deleteOldAssistantActions,
+	deleteOldCalibrationRuns,
 	deleteOldDeviceStateEvents,
+	deleteOldFeedLevelLogs,
 	deleteOldHeartbeatEvents,
+	deleteOldIssueReports,
+	deleteOldNotifications,
+	deleteOldPlatformAuditLogs,
+	deleteOldReminderLogs,
+	deleteOldWaterTempLogs,
 } from "@/lib/retention";
 import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 import {
@@ -174,6 +182,19 @@ export const GET = withApi(
 			// DeviceStateEvent audit trail: 180 days, one batch per run, and never
 			// a row for a pond with an open alert or a reconciliation in progress.
 			const deviceStateEventsDeleted = await deleteOldDeviceStateEvents();
+			// #726: telemetry and PII retention. Same contract as the jobs above:
+			// one bounded batch per table per run, oldest first, sequential so the
+			// function stays inside its own time budget.
+			const waterTempLogsDeleted = await deleteOldWaterTempLogs();
+			const feedLevelLogsDeleted = await deleteOldFeedLevelLogs();
+			// Closed notifications only: an open alert is never removed.
+			const notificationsDeleted = await deleteOldNotifications();
+			const calibrationRunsDeleted = await deleteOldCalibrationRuns();
+			const assistantActionsDeleted = await deleteOldAssistantActions();
+			// Resolved reports only: an open report is never removed.
+			const issueReportsDeleted = await deleteOldIssueReports();
+			const reminderLogsDeleted = await deleteOldReminderLogs();
+			const platformAuditLogsDeleted = await deleteOldPlatformAuditLogs();
 
 			// #725: the heartbeat is what /api/health/cron reads. Record only
 			// after every section finished, so a partial run is not reported ok.
@@ -189,6 +210,14 @@ export const GET = withApi(
 				errorEventsDeleted,
 				draftsDeleted,
 				deviceStateEventsDeleted,
+				waterTempLogsDeleted,
+				feedLevelLogsDeleted,
+				notificationsDeleted,
+				calibrationRunsDeleted,
+				assistantActionsDeleted,
+				issueReportsDeleted,
+				reminderLogsDeleted,
+				platformAuditLogsDeleted,
 			});
 		} catch (error) {
 			reportError(error, { route: "cron/device-watch" });

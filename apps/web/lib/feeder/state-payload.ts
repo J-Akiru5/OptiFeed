@@ -20,6 +20,8 @@ export interface FeederStatePayload {
 	feedLevelCm: number | null;
 	/** When the hopper level was measured, for the stale/age treatment. */
 	feedLevelUpdatedAt: string | null;
+	/** The unit is reachable but its ultrasonic sensor is not answering (#810). */
+	sensorOffline: boolean;
 	hopperCapacityG: number | null;
 	gramsPerFeeding: number;
 	/** Fresh Wi-Fi signal, or null when the stored reading is stale/absent. */
@@ -48,6 +50,7 @@ export function toStatePayload(detail: FeederDeviceDetail): FeederStatePayload {
 		feedLevelPercent: detail.feedLevelPercent,
 		feedLevelCm: detail.feedLevelCm,
 		feedLevelUpdatedAt: iso(detail.feedLevelUpdatedAt),
+		sensorOffline: detail.sensorOffline,
 		hopperCapacityG: detail.hopperCapacityG,
 		gramsPerFeeding: detail.gramsPerFeeding,
 		signalDbm: detail.signalDbm,

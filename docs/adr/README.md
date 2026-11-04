@@ -16,7 +16,7 @@ operational index).
 
 | ADR | Decision | Status | Date |
 | --- | --- | --- | --- |
-| [0001](./0001-deployment-model.md) | Only `staging` and `main` deploy; `develop` is CI-only; one production database | Accepted | 2026-10-26 |
+| [0001](./0001-deployment-model.md) | Only `staging` and `main` deploy; `develop` is CI-only; previews require Deployment Protection; one production database | Accepted, reconfirmed 2026-11-04 | 2026-10-26 |
 | [0002](./0002-json-bridges-before-defense.md) | New per-entity settings live in JSON bridges, not new columns, until after the capstone defense | Accepted, temporary | 2026-10-25 |
 | [0003](./0003-first-party-error-capture.md) | First-party error capture in our database instead of an external service | Accepted | 2026-10-29 |
 | [0004](./0004-supply-chain-policy.md) | Production-dependency audit gated at high with an expiring allowlist and range-safe overrides | Accepted | 2026-10-29 |

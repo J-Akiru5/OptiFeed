@@ -95,10 +95,33 @@ export interface FeederComponentReading {
 	percent: number | null;
 }
 
-/** The hopper and its lid sensor share the level-derived state. */
-function levelComponentState(status: FeederStatus, percent: number | null): FeederComponentState {
+/**
+ * The hopper keeps the level-derived state: live, last known, or no reading.
+ * A faulted ultrasonic sensor makes the stored level a last-known value even
+ * while the rest of the unit is online (#810).
+ */
+function levelComponentState(
+	status: FeederStatus,
+	percent: number | null,
+	sensorOffline: boolean,
+): FeederComponentState {
 	if (percent === null) return "noReading";
-	return status === "offline" ? "lastKnown" : "live";
+	return status === "offline" || sensorOffline ? "lastKnown" : "live";
+}
+
+/**
+ * #810: the ultrasonic sensor is Offline whenever the unit is down or the
+ * sensor itself is not answering. Unlike the hopper it has no "last known"
+ * state: the level is the sensor's last reading, and an offline sensor is not
+ * a live one.
+ */
+function sensorComponentState(
+	status: FeederStatus,
+	percent: number | null,
+	sensorOffline: boolean,
+): FeederComponentState {
+	if (status === "offline" || sensorOffline) return "offline";
+	return levelComponentState(status, percent, false);
 }
 
 function controllerComponentState(status: FeederStatus): FeederComponentState {
@@ -123,20 +146,25 @@ function outletComponentState(status: FeederStatus): FeederComponentState {
 
 /**
  * Describe every part of the feeder for the status labels.
- * Offline feeders keep the last hopper reading instead of dropping it.
+ * A feeder whose unit or ultrasonic sensor is down keeps the last hopper
+ * reading and marks it Last known. The sensor itself reads Offline instead of
+ * Last known, because an offline sensor is not measuring (#574, #810).
  */
 export function feederComponentStatus({
 	status,
 	level,
+	sensorOffline = false,
 }: {
 	status: FeederStatus;
 	level: number | null;
+	/** The unit is reachable but its ultrasonic sensor is not answering (#574). */
+	sensorOffline?: boolean;
 }): FeederComponentReading[] {
 	const percent = clampLevel(level);
-	const levelState = levelComponentState(status, percent);
+	const levelState = levelComponentState(status, percent, sensorOffline);
 	return [
 		{ id: "hopper", state: levelState, percent },
-		{ id: "sensor", state: levelState, percent },
+		{ id: "sensor", state: sensorComponentState(status, percent, sensorOffline), percent },
 		{ id: "controller", state: controllerComponentState(status), percent: null },
 		{ id: "motor", state: motorComponentState(status), percent: null },
 		{ id: "auger", state: motorComponentState(status), percent: null },
@@ -182,6 +210,15 @@ export const CAMERA_PRESETS = {
 } as const;
 
 export type CameraPreset = keyof typeof CAMERA_PRESETS;
+
+/**
+ * #820: the ISO overlay follows the camera pose, not only the selected preset.
+ * Unlocking the camera keeps the labels; the first orbit/pan/zoom after unlock
+ * hides them until Reset view or ISO restores the pose.
+ */
+export function shouldShowFeederLabels(preset: CameraPreset, cameraMoved: boolean): boolean {
+	return preset === "iso" && !cameraMoved;
+}
 
 export const CAMERA_PRESET_LABELS: Record<CameraPreset, string> = {
 	iso: "presetIso",

@@ -442,25 +442,30 @@ export function MembersSettings({
 		return (
 			<>
 				{revokeConfirm === member.membershipId ? (
-					<div className="flex flex-wrap gap-1.5">
-						<button
-							type="button"
-							onClick={() => handleRevoke(member)}
-							disabled={isPending}
-							aria-busy={isPending}
-							className={`inline-flex min-h-11 items-center justify-center gap-1 rounded-xl bg-[#C42B3A] px-3 text-xs font-black text-white hover:bg-[#a92330] disabled:opacity-60 ${focusRing}`}
-						>
-							{isPending && <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />}
-							{t("confirmRevoke")}
-						</button>
-						<button
-							type="button"
-							onClick={() => setRevokeConfirm(null)}
-							disabled={isPending}
-							className={`inline-flex min-h-11 items-center justify-center rounded-xl bg-white px-3 text-xs font-black text-[#3D5568] ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-60 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-800 ${focusRing}`}
-						>
-							{t("cancel")}
-						</button>
+					<div className="max-w-[17rem] space-y-2">
+						<p className="text-[11px] font-medium leading-4 text-[#3D5568] dark:text-gray-400">
+							{t("revokeScope")}
+						</p>
+						<div className="flex flex-wrap gap-1.5">
+							<button
+								type="button"
+								onClick={() => handleRevoke(member)}
+								disabled={isPending}
+								aria-busy={isPending}
+								className={`inline-flex min-h-11 items-center justify-center gap-1 rounded-xl bg-[#C42B3A] px-3 text-xs font-black text-white hover:bg-[#a92330] disabled:opacity-60 ${focusRing}`}
+							>
+								{isPending && <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />}
+								{t("confirmRevoke")}
+							</button>
+							<button
+								type="button"
+								onClick={() => setRevokeConfirm(null)}
+								disabled={isPending}
+								className={`inline-flex min-h-11 items-center justify-center rounded-xl bg-white px-3 text-xs font-black text-[#3D5568] ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-60 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-600 dark:hover:bg-gray-800 ${focusRing}`}
+							>
+								{t("cancel")}
+							</button>
+						</div>
 					</div>
 				) : (
 					<button

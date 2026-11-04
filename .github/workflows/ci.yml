@@ -102,6 +102,13 @@ jobs:
         if: steps.green.outputs.cache-hit != 'true'
         run: pnpm security:overrides
 
+      # D7: this repository deploys main + staging, not the global main +
+      # develop default. The check also asserts that the deployment document
+      # shows the same allowlist, so config and policy cannot drift apart.
+      - name: Deployment policy drift
+        if: steps.green.outputs.cache-hit != 'true'
+        run: pnpm deploy:check && node --test scripts/ops/__tests__/deployment-policy-drift.test.mjs
+
       - name: Generate Prisma client
         if: steps.green.outputs.cache-hit != 'true'
         run: pnpm --filter web prisma:generate

@@ -759,11 +759,19 @@
 					"offlineDetail": "Wala nakapadala sang heartbeat ang {device}.",
 					"lowHopperTitle": "Mababa ang hopper: {percent}%",
 					"lowHopperDetail": "Pun-a antes sang masunod nga pagpakaon.",
+					"rtcTitle": "Indi husto ang orasan sang feeder",
+					"rtcDetail": "Mahimo nga indi husto ang oras sang mga naka-iskedyul nga pagpakaon asta ma-set ang orasan sang device.",
+					"pendingCommandTitle": "Naghulat ang feed command",
+					"pendingCommandDetail": "Ginahulat pa sang unit nga kumpirmahon ang katapusan nga feed command.",
 					"recalibrationTitle": "Lapaw na sa {days} ka adlaw ang recalibration",
 					"recalibrationDetail": "Maghimo sang target check agod husto ang grams.",
 					"driftTitle": "Posible nga drift: {percent}% ang diperensya",
 					"driftDetail": "Indi magkasugot ang nagwa nga grams kag ang pagbuhos sang hopper sa nagligad nga 7 ka adlaw.",
-					"openHardware": "Buksan ang seting sang hardware"
+					"openHardware": "Buksan ang seting sang hardware",
+					"openFeedSettings": "Buksan ang seting sang pagpakaon",
+					"openSchedule": "Buksan ang iskedyul",
+					"openScheduleCalibration": "I-set ang oras sang device",
+					"openCalibration": "Buksan ang calibration"
 				},
 				"charts": {
 					"feedTitle": "Pagpakaon kada adlaw",

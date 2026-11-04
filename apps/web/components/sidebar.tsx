@@ -1,5 +1,6 @@
 "use client";
 
+import { SidebarAlerts } from "@/components/dashboard/alerts/sidebar-alerts";
 import { SidebarCollapseToggle, useSidebarCollapse } from "@/components/sidebar-collapse";
 import { MonitoringCard } from "@/components/status/monitoring-card";
 import type { MonitoringConnection, MonitoringHealth } from "@/components/status/monitoring-status";
@@ -121,6 +122,10 @@ export function Sidebar({
 			</nav>
 
 			<div className="mt-auto space-y-4">
+				{/* #819: actionable alerts sit above the monitoring card, at the
+				    bottom of the rail, so the dashboard body no longer grows. */}
+				<SidebarAlerts collapsed={collapsed} />
+
 				{/* #575: one card for the hopper reading, connection state and
 				    fault/safe-mode line. The whole card opens the hopper chart (#286). */}
 				{showHopperWidget && (

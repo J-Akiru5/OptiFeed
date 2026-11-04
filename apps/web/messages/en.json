@@ -759,11 +759,19 @@
 					"offlineDetail": "{device} has not sent a heartbeat.",
 					"lowHopperTitle": "Hopper low: {percent}%",
 					"lowHopperDetail": "Refill before the next feeding.",
+					"rtcTitle": "Feeder clock is out of date",
+					"rtcDetail": "Scheduled feeds can run at the wrong time until the device clock is set.",
+					"pendingCommandTitle": "Feed command is waiting",
+					"pendingCommandDetail": "The unit has not confirmed the last feed command yet.",
 					"recalibrationTitle": "Recalibration overdue by {days} days",
 					"recalibrationDetail": "Run a target check so the dispensed grams stay accurate.",
 					"driftTitle": "Possible calibration drift: {percent}% off",
 					"driftDetail": "Dispensed grams and the hopper drop disagree over the last 7 days.",
-					"openHardware": "Open hardware settings"
+					"openHardware": "Open hardware settings",
+					"openFeedSettings": "Open feed settings",
+					"openSchedule": "Open the schedule",
+					"openScheduleCalibration": "Set the device time",
+					"openCalibration": "Open calibration"
 				},
 				"charts": {
 					"feedTitle": "Feed per day",

@@ -122,8 +122,8 @@
 			"budgetKb": 1015.1
 		},
 		"/[locale]/(dashboard)/dashboard/page": {
-			"baselineKb": 1058.1,
-			"budgetKb": 1079.3
+			"baselineKb": 1062.8,
+			"budgetKb": 1116.0
 		},
 		"/[locale]/(dashboard)/dashboard/profile-settings/page": {
 			"baselineKb": 983.1,

@@ -206,7 +206,15 @@ export function AdvisorSummary({
 	);
 }
 
-/** One compact stat in the rail. The FCR tile links to the growth page. */
+/**
+ * One compact stat in the rail. The FCR tile links to the growth page.
+ *
+ * `label` may be a `<TermInfo>` trigger, which is a button. The label is
+ * deliberately a sibling of the link, not a child: a button inside an anchor is
+ * a nested interactive control (axe `nested-interactive`, serious) and makes
+ * focus behaviour ambiguous. The value stays the link, so the tile still
+ * navigates.
+ */
 export function StatTile({
 	label,
 	value,
@@ -228,47 +236,58 @@ export function StatTile({
 	 * sits right-aligned. The wrappers are plain blocks, which leaves the
 	 * desktop stacking order label → value → detail untouched.
 	 */
-	const body = (
-		<>
-			<div className="flex items-center justify-between gap-2 max-xl:min-w-0 max-xl:flex-1 max-xl:justify-start">
-				<span className="text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
-					{label}
-				</span>
-				{Icon && (
-					<Icon
-						aria-hidden="true"
-						className="h-3.5 w-3.5 shrink-0 text-[#0A3D62] dark:text-[#8fc0ea]"
-					/>
-				)}
-			</div>
-			<div className="max-xl:min-w-0 max-xl:text-right">
-				<p className="mt-0.5 truncate text-sm font-black text-[#0A3D62] dark:text-gray-100">
-					{value}
+	const labelRow = (
+		<div className="flex items-center justify-between gap-2 max-xl:min-w-0 max-xl:flex-1 max-xl:justify-start">
+			<span className="text-[9px] font-black uppercase tracking-wider text-[#3D5568] dark:text-gray-400">
+				{label}
+			</span>
+			{Icon && (
+				<Icon
+					aria-hidden="true"
+					className="h-3.5 w-3.5 shrink-0 text-[#0A3D62] dark:text-[#8fc0ea]"
+				/>
+			)}
+		</div>
+	);
+
+	const valueBlock = (
+		<div className="max-xl:min-w-0 max-xl:text-right">
+			<p className="mt-0.5 truncate text-sm font-black text-[#0A3D62] dark:text-gray-100">
+				{value}
+			</p>
+			{detail && (
+				<p className="truncate text-[9px] font-semibold text-[#3D5568] dark:text-gray-500">
+					{detail}
 				</p>
-				{detail && (
-					<p className="truncate text-[9px] font-semibold text-[#3D5568] dark:text-gray-500">
-						{detail}
-					</p>
-				)}
-			</div>
-		</>
+			)}
+		</div>
 	);
 
 	const classes = cn(
 		"block min-w-0 rounded-xl border border-gray-100 bg-[#F7F9F8] p-2.5 transition-colors max-xl:flex max-xl:min-h-11 max-xl:items-center max-xl:justify-between max-xl:gap-3 max-xl:rounded-none max-xl:border-0 max-xl:border-b max-xl:border-[#E6ECE9] max-xl:bg-transparent max-xl:p-0 max-xl:py-3 dark:border-gray-700/60 dark:bg-gray-800/60 dark:max-xl:border-gray-800 dark:max-xl:bg-transparent",
-		href &&
-			"hover:border-[#0A3D62]/20 hover:bg-white focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:hover:bg-gray-800 dark:focus-visible:outline-[#8fc0ea]",
+		href && "hover:border-[#0A3D62]/20 hover:bg-white dark:hover:bg-gray-800",
 		className,
 	);
 
 	if (href) {
 		return (
-			<Link href={href} className={classes}>
-				{body}
-			</Link>
+			<div className={classes}>
+				{labelRow}
+				<Link
+					href={href}
+					className="block min-w-0 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea]"
+				>
+					{valueBlock}
+				</Link>
+			</div>
 		);
 	}
-	return <div className={classes}>{body}</div>;
+	return (
+		<div className={classes}>
+			{labelRow}
+			{valueBlock}
+		</div>
+	);
 }
 
 /** Recent feedings, compacted for the rail. */

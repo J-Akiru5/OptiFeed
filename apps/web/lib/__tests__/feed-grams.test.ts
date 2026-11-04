@@ -6,6 +6,8 @@ vi.mock("@/lib/prisma", () => ({
 		biomassLog: { findFirst: vi.fn() },
 		energyDevice: { findFirst: vi.fn(), updateMany: vi.fn() },
 		deviceStateEvent: { create: vi.fn() },
+		cropCycle: { findFirst: vi.fn() },
+		mortalityLog: { aggregate: vi.fn() },
 	},
 }));
 
@@ -17,10 +19,14 @@ const mockPond = vi.mocked(prisma.pond);
 const mockBiomassLog = vi.mocked(prisma.biomassLog);
 const mockEnergyDevice = vi.mocked(prisma.energyDevice);
 const mockDeviceStateEvent = vi.mocked(prisma.deviceStateEvent);
+const mockCropCycle = vi.mocked(prisma.cropCycle);
+const mockMortalityLog = vi.mocked(prisma.mortalityLog);
 
 describe("syncDeviceGramsForPond", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockCropCycle.findFirst.mockResolvedValue(null);
+		mockMortalityLog.aggregate.mockResolvedValue({ _sum: { count: 0 } } as never);
 	});
 
 	it("skips the auto-adjust and records why when population is null (N3)", async () => {
@@ -64,6 +70,52 @@ describe("syncDeviceGramsForPond", () => {
 			data: { gramsPerFeeding: 29.63 },
 		});
 		expect(mockDeviceStateEvent.create).not.toHaveBeenCalled();
+	});
+
+	it("derives the dose from the live count after mortality (#709)", async () => {
+		mockPond.findUnique.mockResolvedValue({
+			feedingRatePct: 5,
+			feedsPerDay: 2,
+			population: 300,
+		} as never);
+		mockBiomassLog.findFirst.mockResolvedValue({ avgWeightKg: 0.140267 } as never);
+		mockEnergyDevice.findFirst.mockResolvedValue({
+			id: "device-1",
+			gramsPerSecond: 4,
+			dailyCapG: 5000,
+			hopperCapacityG: 7000,
+		} as never);
+		mockMortalityLog.aggregate.mockResolvedValue({ _sum: { count: 15 } } as never);
+
+		const result = await syncDeviceGramsForPond("pond-1");
+
+		// 285 live x 140.267 g x 5% / 2 = 999.40 g (999.41 after the project's
+		// two-decimal daily rounding), not 300 x ... = 1,052 g.
+		expect(result).toBe(999.41);
+		expect(mockEnergyDevice.updateMany).toHaveBeenCalledWith({
+			where: { pondId: "pond-1" },
+			data: { gramsPerFeeding: 999.41 },
+		});
+	});
+
+	it("subtracts mortality from an explicit stock override (#709)", async () => {
+		mockPond.findUnique.mockResolvedValue({
+			feedingRatePct: 5,
+			feedsPerDay: 2,
+			population: 86,
+		} as never);
+		mockBiomassLog.findFirst.mockResolvedValue({ avgWeightKg: 0.140267 } as never);
+		mockEnergyDevice.findFirst.mockResolvedValue({
+			id: "device-1",
+			gramsPerSecond: 4,
+			dailyCapG: 5000,
+			hopperCapacityG: 7000,
+		} as never);
+		mockMortalityLog.aggregate.mockResolvedValue({ _sum: { count: 15 } } as never);
+
+		const result = await syncDeviceGramsForPond("pond-1", { population: 300 });
+
+		expect(result).toBe(999.41);
 	});
 
 	it("uses an explicit config override over the pond row", async () => {

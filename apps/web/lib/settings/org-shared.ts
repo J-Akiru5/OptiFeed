@@ -1,4 +1,9 @@
 import { MEMBER_ROLES, isMemberRole } from "@/lib/auth/member-rules";
+import {
+	type GrowthDefaults,
+	orgGrowthColumns,
+	sanitizeGrowthDefaults,
+} from "@/lib/growth/defaults";
 import type { DeviceRegistrationMode, MemberRole } from "@prisma/client";
 
 /**
@@ -28,6 +33,17 @@ export type OrgSettings = {
 	missedFeedingAlerts: boolean;
 	alertRoles: MemberRole[];
 	deviceRegistration: DeviceRegistrationMode;
+	/**
+	 * Farm grow-out defaults (#826 part 2 / #828). `null` means "not set": the
+	 * documented constant in `lib/growth/defaults.ts` applies and the cycle form
+	 * labels it "System default". Stored as nullable columns so an owner can
+	 * clear a value instead of silently freezing the current number.
+	 */
+	defaultGrowOutDays: number | null;
+	defaultTargetHarvestWeightG: number | null;
+	defaultExpectedSurvivalPct: number | null;
+	defaultStockingAvgWeightG: number | null;
+	densityAdvisoryPerM2: number | null;
 };
 
 /** Schema defaults (`prisma/schema.prisma` → model OrgSetting). */
@@ -38,6 +54,11 @@ export const ORG_SETTINGS_DEFAULTS: OrgSettings = {
 	missedFeedingAlerts: true,
 	alertRoles: ["OWNER", "ADMIN"],
 	deviceRegistration: "ADMIN_APPROVAL",
+	defaultGrowOutDays: null,
+	defaultTargetHarvestWeightG: null,
+	defaultExpectedSurvivalPct: null,
+	defaultStockingAvgWeightG: null,
+	densityAdvisoryPerM2: null,
 };
 
 /** Bounds for the settings form and the action's zod schema. */
@@ -58,6 +79,31 @@ export function isDeviceRegistrationMode(value: unknown): value is DeviceRegistr
 
 /** Partial row shape accepted from Prisma or a test double. */
 export type OrgSettingRow = Partial<OrgSettings> | null | undefined;
+
+/** The organization columns that hold the farm grow-out defaults. */
+export type OrgGrowthColumns = {
+	defaultGrowOutDays?: unknown;
+	defaultTargetHarvestWeightG?: unknown;
+	defaultExpectedSurvivalPct?: unknown;
+	defaultStockingAvgWeightG?: unknown;
+	densityAdvisoryPerM2?: unknown;
+};
+
+/**
+ * Read the five growth columns into the resolver's short field names.
+ *
+ * Malformed or out-of-range values become `null` (inherit the documented
+ * constant); they are never clamped into a number the owner did not set.
+ */
+export function growthDefaultsFromOrgRow(row: OrgGrowthColumns | null | undefined): GrowthDefaults {
+	return sanitizeGrowthDefaults({
+		growOutDays: row?.defaultGrowOutDays,
+		targetHarvestWeightG: row?.defaultTargetHarvestWeightG,
+		expectedSurvivalPct: row?.defaultExpectedSurvivalPct,
+		stockingAvgWeightG: row?.defaultStockingAvgWeightG,
+		densityAdvisoryPerM2: row?.densityAdvisoryPerM2,
+	});
+}
 
 function numberOr(value: unknown, fallback: number): number {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -94,6 +140,7 @@ export function mergeOrgSettings(row: OrgSettingRow): OrgSettings {
 		deviceRegistration: isDeviceRegistrationMode(row?.deviceRegistration)
 			? row.deviceRegistration
 			: ORG_SETTINGS_DEFAULTS.deviceRegistration,
+		...orgGrowthColumns(growthDefaultsFromOrgRow(row)),
 	};
 }
 
@@ -162,5 +209,6 @@ export function normalizeOrgDefaults(value: unknown): OrgSettings {
 		deviceRegistration: isDeviceRegistrationMode(source.deviceRegistration)
 			? source.deviceRegistration
 			: ORG_SETTINGS_DEFAULTS.deviceRegistration,
+		...orgGrowthColumns(growthDefaultsFromOrgRow(source)),
 	};
 }

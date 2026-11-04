@@ -2,7 +2,7 @@
 
 import { resolveOrgScope } from "@/lib/auth/org-scope";
 import { getCurrentPermissions } from "@/lib/auth/permissions";
-import { isCurrentPlatformAdmin } from "@/lib/auth/require-platform-admin";
+import { isCurrentPlatformAdminMfaSatisfied } from "@/lib/auth/require-platform-admin";
 import { getCurrentPondOwnerIdSafe, getCurrentUser } from "@/lib/auth/session";
 import { getTenantAdminState } from "@/lib/auth/tenant-admin";
 import { getViewAsState } from "@/lib/auth/view-as";
@@ -27,7 +27,8 @@ import type { Prisma } from "@prisma/client";
  *   - farmer       → their own farm (`getCurrentPondOwnerIdSafe`, view-as aware)
  *   - tenant admin → the administered organizations (`resolveOrgScope`)
  *   - platform     → every tenant (`requirePlatformAdmin` gates the console;
- *                    the grant is re-checked here, never trusted from the UI)
+ *                    the grant and the second factor are re-checked here, never
+ *                    trusted from the UI)
  *
  * Entities are deliberately small and cheap to match:
  *   ponds (name), feeder devices (label / MAC), members (name / email),
@@ -91,7 +92,7 @@ async function resolveContext(): Promise<SearchContext | null> {
 	if (!user) return null;
 
 	const [isPlatform, viewAs, tenantState, permissions] = await Promise.all([
-		isCurrentPlatformAdmin(),
+		isCurrentPlatformAdminMfaSatisfied(),
 		getViewAsState(),
 		getTenantAdminState(),
 		getCurrentPermissions(),

@@ -40,6 +40,7 @@ under those exact names.
 | Lighthouse budgets | `lighthouse budgets` | Public-page scores and resource budgets |
 | Firmware | `compile` | Path-filtered to `firmware/**`; a PR that does not touch firmware never reports it |
 | Maintainability | `dead-code`, `complexity` | Maintainability budgets, not correctness |
+| Uptime | `uptime probe` | Scheduled production probe (#729); never runs on pull requests and is deliberately not a merge gate |
 
 The four non-path-filtered workflows run on every pull request into `develop`,
 `staging` and `main`, so they are suitable required checks. `Firmware` is

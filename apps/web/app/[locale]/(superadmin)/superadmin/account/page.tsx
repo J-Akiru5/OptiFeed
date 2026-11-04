@@ -1,7 +1,9 @@
 import { LogoutButton } from "@/components/LogoutButton";
 import { ChangePasswordForm } from "@/components/change-password-form";
 import { AvatarUpload } from "@/components/profile/avatar-upload";
+import { MfaSettings } from "@/components/superadmin/mfa-settings";
 import { Card, MetaPair, PageHeader, SectionTitle } from "@/components/superadmin/ui";
+import { listTotpFactors } from "@/lib/auth/mfa";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
 import { canWrite, requirePasswordChanged } from "@/lib/auth/session";
 import { getSignedAvatarUrls } from "@/lib/avatars";
@@ -24,6 +26,7 @@ export default async function SuperadminAccountPage() {
 		getSignedAvatarUrls([{ id: currentUser.id, avatarPath: currentUser.avatarPath }]),
 		canWrite(),
 	]);
+	const mfaFactors = await listTotpFactors();
 
 	const displayName = currentUser.displayName ?? currentUser.farmId;
 	const email = currentUser.contactEmail ?? currentUser.email;
@@ -59,6 +62,15 @@ export default async function SuperadminAccountPage() {
 				<SectionTitle title={t("password")} description={t("passwordDesc")} />
 				<div className="mt-4 max-w-md">
 					<ChangePasswordForm />
+				</div>
+			</Card>
+
+			{/* #719: optional TOTP. The factor lives in Supabase Auth; this card only
+			    shows metadata and forwards the one-time secret from enrol(). */}
+			<Card>
+				<SectionTitle title={t("mfa")} description={t("mfaDesc")} />
+				<div className="p-5">
+					<MfaSettings factors={mfaFactors} />
 				</div>
 			</Card>
 

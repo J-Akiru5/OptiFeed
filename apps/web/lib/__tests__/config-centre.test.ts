@@ -59,6 +59,13 @@ const ORG_DEFAULTS = {
 	missedFeedingAlerts: false,
 	alertRoles: ["OWNER", "OPERATOR"] as ("OWNER" | "ADMIN" | "OPERATOR" | "VIEWER")[],
 	deviceRegistration: "SELF_REGISTER" as const,
+	// #828: no platform-wide growth defaults; each farm sets its own and these
+	// nulls keep the documented constants as the last resort.
+	defaultGrowOutDays: null,
+	defaultTargetHarvestWeightG: null,
+	defaultExpectedSurvivalPct: null,
+	defaultStockingAvgWeightG: null,
+	densityAdvisoryPerM2: null,
 };
 
 beforeEach(() => {

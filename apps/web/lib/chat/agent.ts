@@ -3,6 +3,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { daysBetween, isValidDateOnly, todayDateOnly } from "@/lib/crop-cycle/dates";
 import { cropCycleInputSchema } from "@/lib/crop-cycle/schema";
 import type { GrowthPlan } from "@/lib/growth-plan";
+import { SYSTEM_GROWTH_DEFAULTS } from "@/lib/growth/defaults";
 import { formatZodError } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import type { ChatContext } from "./context";
@@ -149,14 +150,14 @@ Return ONLY a JSON object, no markdown, no prose outside it.
 Allowed shapes:
 1. {"kind":"answer"} — the user is asking a question or just chatting. Do not answer it; the normal chat will handle it.
 2. {"kind":"clarify","reply":"..."} — the request is an action but required information is missing or ambiguous. Ask for the smallest missing set. Reply in ${lang}.
-3. {"kind":"create_crop_cycle","args":{"label":"...","stockingDate":"YYYY-MM-DD","stockingCount":5000,"stockingAvgWeightG":10,"targetHarvestDate":"YYYY-MM-DD","targetHarvestWeightG":330,"expectedSurvivalPct":85}} — start a full grow-out cycle. Omit label if the user did not give one.
-4. {"kind":"update_crop_cycle","args":{"cycleId":"...","label":"...","stockingDate":"YYYY-MM-DD","stockingCount":5000,"stockingAvgWeightG":10,"targetHarvestDate":"YYYY-MM-DD","targetHarvestWeightG":330,"expectedSurvivalPct":85}} — edit the active cycle. Include only fields the user wants to change plus cycleId.
+3. {"kind":"create_crop_cycle","args":{"label":"...","stockingDate":"YYYY-MM-DD","stockingCount":5000,"stockingAvgWeightG":10,"targetHarvestDate":"YYYY-MM-DD","targetHarvestWeightG":330,"expectedSurvivalPct":${SYSTEM_GROWTH_DEFAULTS.expectedSurvivalPct}}} — start a full grow-out cycle. Omit label if the user did not give one.
+4. {"kind":"update_crop_cycle","args":{"cycleId":"...","label":"...","stockingDate":"YYYY-MM-DD","stockingCount":5000,"stockingAvgWeightG":10,"targetHarvestDate":"YYYY-MM-DD","targetHarvestWeightG":330,"expectedSurvivalPct":${SYSTEM_GROWTH_DEFAULTS.expectedSurvivalPct}}} — edit the active cycle. Include only fields the user wants to change plus cycleId.
 5. {"kind":"apply_growth_plan","args":{}} — apply the next safe feeding adjustment. Include grams only when the user explicitly asks for a specific amount.
 
 Rules:
 - Use YYYY-MM-DD dates. Resolve relative dates ("next month", "May 15") from today.
 - Never invent a stocking count, target weight, stocking weight or date. If one is required and the user did not provide it, use clarify.
-- For "set our grow-out cycle on these dates", the required fields are stockingDate, targetHarvestDate, stockingCount and targetHarvestWeightG. Stocking weight and survival are optional; survival defaults to 85.
+- For "set our grow-out cycle on these dates", the required fields are stockingDate, targetHarvestDate, stockingCount and targetHarvestWeightG. Stocking weight and survival are optional; survival defaults to ${SYSTEM_GROWTH_DEFAULTS.expectedSurvivalPct}.
 - If a cycle is already active, use update_crop_cycle, not create_crop_cycle.
 - If the user asks to change the target or dates, use update_crop_cycle.
 - If the user asks whether they are on track, use answer (the normal chat has the plan data).
@@ -235,7 +236,8 @@ async function buildCreatePreview(
 	const stockingCount = intArg(args.stockingCount);
 	const targetHarvestWeightG = numberArg(args.targetHarvestWeightG);
 	const stockingAvgWeightG = numberArg(args.stockingAvgWeightG);
-	const expectedSurvivalPct = numberArg(args.expectedSurvivalPct) ?? 85;
+	const expectedSurvivalPct =
+		numberArg(args.expectedSurvivalPct) ?? SYSTEM_GROWTH_DEFAULTS.expectedSurvivalPct;
 
 	const missing: string[] = [];
 	if (!stockingDate || !isValidDateOnly(stockingDate)) missing.push("stocking date (YYYY-MM-DD)");
@@ -294,7 +296,8 @@ async function buildCreatePreview(
 				stockingCount: parsed.data.stockingCount,
 				stockingAvgWeightG: parsed.data.stockingAvgWeightG ?? null,
 				targetHarvestWeightG: parsed.data.targetHarvestWeightG ?? 0,
-				expectedSurvivalPct: parsed.data.expectedSurvivalPct ?? 85,
+				expectedSurvivalPct:
+					parsed.data.expectedSurvivalPct ?? SYSTEM_GROWTH_DEFAULTS.expectedSurvivalPct,
 				areaM2: params.areaM2,
 			}),
 			args: parsed.data as unknown as Record<string, unknown>,

@@ -8,6 +8,7 @@ import {
 	updatePondEvent,
 } from "@/lib/actions/pond-event";
 import { daysBetween, isValidDateOnly } from "@/lib/crop-cycle/dates";
+import { SYSTEM_GROWTH_DEFAULTS } from "@/lib/growth/defaults";
 import { z } from "zod";
 import type { AssistantActionDefinition, AssistantExecuteResult, AssistantToolId } from "../types";
 import { activePondOrError, fail, num, str } from "./shared";
@@ -363,7 +364,9 @@ export const recordsActions = {
 				targetHarvestWeightG:
 					typeof payload.targetHarvestWeightG === "number" ? payload.targetHarvestWeightG : null,
 				expectedSurvivalPct:
-					typeof payload.expectedSurvivalPct === "number" ? payload.expectedSurvivalPct : 85,
+					typeof payload.expectedSurvivalPct === "number"
+						? payload.expectedSurvivalPct
+						: SYSTEM_GROWTH_DEFAULTS.expectedSurvivalPct,
 				notes: null,
 			});
 			return result.success

@@ -6,15 +6,18 @@ import {
 	DashboardSection,
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
+import { PondGrowthDefaultsForm } from "@/components/settings/pond-growth-defaults-form";
 import { hasPermission } from "@/lib/auth/permissions";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
+import { loadPondGrowthDefaultsForPond } from "@/lib/growth/defaults-loader";
 import { parsePondProfile } from "@/lib/pond-profile";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
+
 import { buildPondDeviceConstraints } from "@/lib/settings/pond-conflicts";
-import { Settings, SlidersHorizontal, User } from "lucide-react";
+import { Settings, SlidersHorizontal, Sprout, User } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export default async function PondSettingsPage() {
@@ -59,6 +62,14 @@ export default async function PondSettingsPage() {
 		getFeedingLimits(),
 	]);
 	const profile = parsePondProfile(pond.notificationPrefs);
+
+	// #828: the pond override form needs both layers: what the pond stores and
+	// what it would inherit from the farm (organization defaults) today.
+	const growthDefaults = await loadPondGrowthDefaultsForPond({
+		id: pond.id,
+		ownerId: pond.ownerId,
+		farmId: pond.farmId,
+	});
 
 	// The form shows the pond's derived grams beside the feeder's real limits,
 	// and every conflict links to the exact device setting (#371).
@@ -106,6 +117,19 @@ export default async function PondSettingsPage() {
 					avgWeightKg={latestBiomass?.avgWeightKg ?? null}
 					device={device}
 					savedPerMealG={savedPerMealG}
+				/>
+			</DashboardSection>
+
+			<DashboardSection
+				title={t("growthDefaultsSectionTitle")}
+				description={t("growthDefaultsSectionDesc")}
+				icon={Sprout}
+			>
+				<PondGrowthDefaultsForm
+					pondId={pond.id}
+					override={growthDefaults.override}
+					farm={growthDefaults.farm}
+					canWrite={writeAccess}
 				/>
 			</DashboardSection>
 

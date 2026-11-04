@@ -2,7 +2,10 @@ import { actorContext, requestOrigin } from "@/lib/actions/platform/audit";
 import { fail } from "@/lib/api/envelope";
 import { ApiError, badRequest, forbidden, rateLimited, unauthorized } from "@/lib/api/errors";
 import { withApi } from "@/lib/api/instrumentation";
-import { isCurrentPlatformAdmin } from "@/lib/auth/require-platform-admin";
+import {
+	isCurrentPlatformAdmin,
+	isCurrentPlatformAdminMfaSatisfied,
+} from "@/lib/auth/require-platform-admin";
 import { getCurrentUser, getVerifiedSession } from "@/lib/auth/session";
 import { STEP_UP_REQUIRED_CODE, isStepUpRequiredError, requireStepUp } from "@/lib/auth/step-up";
 import { isViewingAs } from "@/lib/auth/view-as";
@@ -40,6 +43,9 @@ export const POST = withApi(
 		}
 		if (!(await isCurrentPlatformAdmin())) {
 			return fail(forbidden("Platform access is required."));
+		}
+		if (!(await isCurrentPlatformAdminMfaSatisfied())) {
+			return fail(forbidden("Platform access requires a completed two-factor check."));
 		}
 		if (await isViewingAs()) {
 			return fail(

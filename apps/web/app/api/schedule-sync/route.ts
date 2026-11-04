@@ -218,7 +218,7 @@ export const GET = withApi(
 				...deviceConfig(device),
 			});
 		} catch (error) {
-			reportError(error, { route: "schedule-sync", deviceId: device?.id ?? deviceId });
+			reportError(error, { route: "schedule-sync", deviceId: device?.id ?? deviceId }, "ERROR");
 			// #724: a database/handler failure is not "no schedule change". A 200
 			// default here told the firmware the poll succeeded, so it never
 			// retried and a pending command could be missed. 503 keeps the

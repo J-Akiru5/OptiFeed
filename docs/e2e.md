@@ -152,14 +152,16 @@ The release QA pass keeps two focused specs in the normal `e2e/` directory:
 - `e2e/qa-release-critical.spec.ts` — login/protected redirect, schedule
   persistence, biomass save + growth visibility, a real ingest-driven
   notification, and farmer/platform-console boundaries.
-- `e2e/qa-accessibility.spec.ts` — axe checks on the four public pages and the
-  authenticated dashboard, plus the QA-20 CTA contrast regression.
+- `e2e/qa-accessibility.spec.ts` — axe checks on the four public pages, the
+  authenticated dashboard and the Calendar & Harvest screen, plus the QA-20 CTA
+  contrast regression.
 
 They run as part of `pnpm test:e2e`, so the normal `e2e` CI job covers them on
-every pull request to `develop`. Use the focused script while iterating:
+every pull request to `develop`. Use the focused scripts while iterating:
 
 ```bash
-pnpm --filter web test:e2e:qa
+pnpm --filter web test:e2e:qa    # both release QA specs
+pnpm --filter web test:e2e:a11y  # the accessibility spec only
 ```
 
 The specs are serial like the rest of the suite and clean up the `e2e-` rows
@@ -167,10 +169,76 @@ they create. The axe spec disables the generic color-contrast rule so it does
 not mask other findings; the dedicated CTA contrast test pins the known QA-20
 fix.
 
+### Authenticated accessibility run
+
+The authenticated part of the axe spec logs in once as the seeded `e2e-` farmer
+and audits two screens against the real stack, hydrated client components and
+production CSS:
+
+| URL | Why it is in scope |
+|---|---|
+| `/en/dashboard` | The control room every operator lands on |
+| `/en/dashboard/calendar` | The dense Calendar & Harvest screen (`/dashboard/harvest` redirects here) |
+
+The hard assertion is zero **critical** violations, the same boundary the other
+axe tests use. Each page's violation ids are grouped by impact, written to
+`apps/web/test-results/a11y-summary.json` and printed into the job summary, so
+minor/serious findings are visible without failing the build. That is
+report-only calibration data until the first CI runs show what this fixture
+actually renders; the static-markup gate in
+`apps/web/lib/__tests__/a11y-pages.test.tsx` already holds serious/critical at
+zero on the dashboard, hardware and admin pages.
+
+`ci.yml` runs the spec as its own step in the `e2e` job
+(`pnpm --filter web test:e2e:a11y`), before the full suite, so a violation is
+attributed to that step. **No required check was changed.** The context that
+would have to become required is `e2e (local supabase stack)`, which also gates
+the whole stateful Playwright suite and costs roughly ten minutes; the narrower
+alternative is to promote this step into its own job with its own context. That
+is an owner decision, not a config change made here.
+
 ## Coverage gate
 
-The unit suite is measured on `apps/web/lib` only, with
-`@vitest/coverage-v8` (pinned to the vitest version) and thresholds in
-`apps/web/vitest.config.ts`. CI runs `pnpm --filter web test:coverage`; the
-thresholds are a ratchet — raise them, never lower them. `pnpm test` still runs
-the same tests without coverage when you are iterating.
+The unit suite is measured on `apps/web/app`, `apps/web/components` and
+`apps/web/lib` with `@vitest/coverage-v8` (pinned to the vitest version) and
+per-directory thresholds in `apps/web/vitest.config.ts`. CI runs
+`pnpm --filter web test:coverage`; the thresholds are a ratchet — raise them,
+never lower them. `pnpm test` still runs the same tests without coverage when you
+are iterating.
+
+`app/` is the measured page, layout and route-handler surface (including
+`app/api/**`, the security-sensitive handlers), `components/` is the rendered UI
+and `lib/` is the logic underneath. Tests are the only exclusion. No directory is
+hidden from the denominator.
+
+Measured on `develop` on 2026-11-04 (#730), four observations (local Windows, two
+CI artifacts — runs `41801236208` and `41803115053` — and a local run on the
+rebase base `9db7eb5`), enforced below the lowest of them:
+
+| Directory | Lines | Statements | Functions | Branches |
+|---|---|---|---|---|
+| `app/` | 66.89 / 66.40 → **65.0** | 65.79 / 65.29 → **63.9** | 58.57 / 57.79 → **56.4** | 53.64 → **52.5** |
+| `components/` | 55.14 → **54.5** | 53.58 → **52.9** | 51.31 → **50.7** | 53.42 → **52.8** |
+| `lib/` | 92.27 / 92.38 → **91.6** | 90.28 / 90.39 → **89.6** | 92.44 / 92.54 → **91.8** | 82.67 / 82.79 → **82.0** |
+| whole map (reference only) | 76.53 | 75.13 | 72.53 | 68.15 |
+
+The whole-map row is not a threshold: a blended number would let a `lib/` gain
+hide an `app/` regression. Each directory is enforced on its own, and a new
+directory added to `coverage.include` needs its own threshold block in the same
+change.
+
+`components/` and `lib/` are stable across runs, so their floors sit 0.6-0.7pp
+under the lowest observation. `app/` is not: the same suite reported
+57.79-58.57 functions across runs (including one tree measured twice), because
+v8 attributes different source ranges to a module depending on load/mock order
+(`lib/ops/cron-heartbeat.ts` reported 15 lines in one run and 48 in the other,
+of a 48-line file). A 0.6pp `app/` floor failed on CI with no code change, so
+those floors sit 1.4pp under the lowest observation — still far below what a
+real regression costs (a new untested ~100-line page moves `app/` by about
+3.7pp). Tighten them once that reporting instability is fixed, rather than
+papering over it.
+
+`app/` and `components/` start lower than `lib/` because most of their coverage
+arrives through tests in `lib/__tests__/` that render real pages, not because
+they are exempt; the floors exist to stop the number falling, and rise as the
+suite grows.

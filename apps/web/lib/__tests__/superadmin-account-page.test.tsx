@@ -53,6 +53,12 @@ vi.mock("@/components/profile/avatar-upload", async () => {
 			react.createElement("div", { "data-testid": "avatar-upload" }, name),
 	};
 });
+vi.mock("@/components/superadmin/mfa-settings", async () => {
+	const react = await import("react");
+	return {
+		MfaSettings: () => react.createElement("div", { "data-testid": "mfa-settings" }),
+	};
+});
 
 import SuperadminAccountPage from "@/app/[locale]/(superadmin)/superadmin/account/page";
 import { createTranslator } from "./helpers/messages";
@@ -87,16 +93,18 @@ describe("SuperadminAccountPage", () => {
 		expect(html).toContain(t("identity"));
 	});
 
-	it("offers the avatar, password and session surfaces", async () => {
+	it("offers the avatar, password, two-factor and session surfaces", async () => {
 		mocks.requirePasswordChanged.mockResolvedValue(USER);
 
 		const html = renderToStaticMarkup(await SuperadminAccountPage());
 
 		expect(html).toContain(t("avatar"));
 		expect(html).toContain(t("password"));
+		expect(html).toContain(t("mfa"));
 		expect(html).toContain(t("session"));
 		expect(html).toContain('data-testid="avatar-upload"');
 		expect(html).toContain('data-testid="password-form"');
+		expect(html).toContain('data-testid="mfa-settings"');
 		expect(html).toContain("sign-out-stub");
 	});
 

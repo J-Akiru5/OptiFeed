@@ -27,6 +27,53 @@ function optionalNumber(value: string): number | null {
 	return Number.isFinite(parsed) ? parsed : null;
 }
 
+/**
+ * Whole grow-out days from a raw input value. `null` while the field is empty
+ * (#825) so clearing it never coerces to `0`; the saved span still comes from
+ * the date pair.
+ */
+function parseGrowOutDays(value: string): number | null {
+	if (value.trim() === "") return null;
+	const parsed = Math.round(Number(value));
+	return Number.isFinite(parsed) ? parsed : null;
+}
+
+/** Grow-out rails, mirrored from `cropCycleInputSchema` (min 30 / max 365). */
+const MIN_GROW_OUT_DAYS = 30;
+const MAX_GROW_OUT_DAYS = 365;
+/**
+ * #826: documented fallback for an emptied grow-out field when the date pair
+ * cannot supply one. Matches `DEFAULT_GROW_OUT_DAYS` in `lib/actions/ponds.ts`
+ * and the new-cycle default below.
+ */
+const DEFAULT_GROW_OUT_DAYS = 135;
+
+/** Whole days from `start` to `end`, or `null` when either date is unusable. */
+function growOutSpan(start: string, end: string): number | null {
+	if (!isValidDateOnly(start) || !isValidDateOnly(end)) return null;
+	return daysBetween(start, end);
+}
+
+/**
+ * #826: the grow-out period a date pair can actually save. Both actions
+ * recompute `growOutDays` from the dates (`crop-cycle.ts` create/update), so a
+ * negative or >365 span is not representable — `null` means "keep the last
+ * usable period / fall back to the default".
+ */
+function usableGrowOutSpan(start: string, end: string): number | null {
+	const span = growOutSpan(start, end);
+	return span === null || span < MIN_GROW_OUT_DAYS || span > MAX_GROW_OUT_DAYS ? null : span;
+}
+
+/**
+ * #826 (owner decision 4): a saved `null` means "not set" and must render
+ * empty, so a later save cannot resurrect the old global literal. New cycles
+ * still start from that literal until per-farm defaults land (#828).
+ */
+function numberField(value: number | null | undefined, fallback: string): string {
+	return value === null || value === undefined ? fallback : String(value);
+}
+
 export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle }: CycleFormProps) {
 	const t = useTranslations("dashboard.harvest.cycleForm");
 	const router = useRouter();
@@ -42,15 +89,18 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 	const [stockingAvgWeightG, setStockingAvgWeightG] = useState(
 		cycle?.stockingAvgWeightG ? String(cycle.stockingAvgWeightG) : "",
 	);
-	const [growOutDays, setGrowOutDays] = useState(cycle?.growOutDays ?? 135);
+	// Raw input text, not a number: an emptied field must stay empty (#825).
+	const [growOutDays, setGrowOutDays] = useState(
+		String(cycle?.growOutDays ?? DEFAULT_GROW_OUT_DAYS),
+	);
 	const [targetHarvestDate, setTargetHarvestDate] = useState(
-		cycle?.targetHarvestDate ?? addDays(today, 135),
+		cycle?.targetHarvestDate ?? addDays(today, DEFAULT_GROW_OUT_DAYS),
 	);
 	const [targetHarvestWeightG, setTargetHarvestWeightG] = useState(
-		cycle?.targetHarvestWeightG ? String(cycle.targetHarvestWeightG) : "250",
+		numberField(cycle?.targetHarvestWeightG, cycle ? "" : "250"),
 	);
 	const [expectedSurvivalPct, setExpectedSurvivalPct] = useState(
-		cycle?.expectedSurvivalPct ? String(cycle.expectedSurvivalPct) : "85",
+		numberField(cycle?.expectedSurvivalPct, cycle ? "" : "85"),
 	);
 	const [notes, setNotes] = useState(cycle?.notes ?? "");
 	const [error, setError] = useState<string | null>(null);
@@ -64,9 +114,22 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 	const confirmTitleId = useId();
 	const confirmDescId = useId();
 	const [isPending, startTransition] = useTransition();
+	/**
+	 * #825: `DashboardLiveRefresh` re-deserialises the RSC payload every 30 s and
+	 * on tab refocus, so `ponds` arrives as a new array while the dialog stays
+	 * open. Initialise once per form identity — (cycle, initial pond) — instead
+	 * of once per prop identity, and forget it on close so reopening resets.
+	 */
+	const initialisedFor = useRef<string | null>(null);
 
 	useEffect(() => {
-		if (!open) return;
+		if (!open) {
+			initialisedFor.current = null;
+			return;
+		}
+		const key = `${cycle?.id ?? "new"}:${initialPondId}`;
+		if (initialisedFor.current === key) return;
+		initialisedFor.current = key;
 		setPondId(cycle?.pondId ?? initialPondId);
 		setLabel(cycle?.label ?? "");
 		setStockingDate(cycle?.stockingDate ?? today);
@@ -76,12 +139,10 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 			),
 		);
 		setStockingAvgWeightG(cycle?.stockingAvgWeightG ? String(cycle.stockingAvgWeightG) : "");
-		setGrowOutDays(cycle?.growOutDays ?? 135);
-		setTargetHarvestDate(cycle?.targetHarvestDate ?? addDays(today, 135));
-		setTargetHarvestWeightG(
-			cycle?.targetHarvestWeightG ? String(cycle.targetHarvestWeightG) : "250",
-		);
-		setExpectedSurvivalPct(cycle?.expectedSurvivalPct ? String(cycle.expectedSurvivalPct) : "85");
+		setGrowOutDays(String(cycle?.growOutDays ?? DEFAULT_GROW_OUT_DAYS));
+		setTargetHarvestDate(cycle?.targetHarvestDate ?? addDays(today, DEFAULT_GROW_OUT_DAYS));
+		setTargetHarvestWeightG(numberField(cycle?.targetHarvestWeightG, cycle ? "" : "250"));
+		setExpectedSurvivalPct(numberField(cycle?.expectedSurvivalPct, cycle ? "" : "85"));
 		setNotes(cycle?.notes ?? "");
 		setError(null);
 		setPendingSavedWeightG(null);
@@ -94,12 +155,17 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 		confirmRef.current?.focus();
 	}, [pendingSavedWeightG]);
 
-	const span =
-		isValidDateOnly(stockingDate) && isValidDateOnly(targetHarvestDate)
-			? daysBetween(stockingDate, targetHarvestDate)
-			: 0;
-	const dateRangeInvalid = span < 30 || span > 365;
-	const stockingFuture = daysBetween(stockingDate, today) < -7;
+	const span = growOutSpan(stockingDate, targetHarvestDate) ?? 0;
+	const dateRangeInvalid = span < MIN_GROW_OUT_DAYS || span > MAX_GROW_OUT_DAYS;
+	// #826: `daysBetween` throws on an unusable date, and a cleared date input
+	// is a normal state while the operator edits. Treat it as "not future".
+	const stockingFuture = isValidDateOnly(stockingDate) && daysBetween(stockingDate, today) < -7;
+	const harvestMin = isValidDateOnly(stockingDate)
+		? addDays(stockingDate, MIN_GROW_OUT_DAYS)
+		: undefined;
+	const harvestMax = isValidDateOnly(stockingDate)
+		? addDays(stockingDate, MAX_GROW_OUT_DAYS)
+		: undefined;
 	const projectedKg =
 		Number(stockingCount) > 0 && Number(targetHarvestWeightG) > 0
 			? (Number(stockingCount) *
@@ -124,27 +190,65 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 			? stockingCountNumber / (areaM2 * averageDepthM)
 			: null;
 
+	/**
+	 * #826 (owner decision 3): the harvest date is the operator's anchor.
+	 * Moving the stocking date re-derives the grow-out period from the pair
+	 * instead of shifting the harvest date by the same number of days.
+	 */
 	const onStockingDateChange = (value: string) => {
 		setStockingDate(value);
-		if (isValidDateOnly(value) && growOutDays >= 30) {
-			setTargetHarvestDate(addDays(value, growOutDays));
-		}
+		const days = usableGrowOutSpan(value, targetHarvestDate);
+		if (days !== null) setGrowOutDays(String(days));
 	};
 
+	/**
+	 * Typing a usable period still moves the harvest date — that is the job of
+	 * this field. An empty or out-of-range entry moves nothing: the harvest
+	 * date stays put and the field snaps back to the pair on blur, so it never
+	 * shows a value that would not be saved.
+	 */
 	const onGrowOutDaysChange = (value: string) => {
-		const days = Math.round(Number(value));
-		if (!Number.isFinite(days)) return;
-		setGrowOutDays(days);
-		if (isValidDateOnly(stockingDate) && days >= 30) {
+		setGrowOutDays(value);
+		const days = parseGrowOutDays(value);
+		if (
+			isValidDateOnly(stockingDate) &&
+			days !== null &&
+			days >= MIN_GROW_OUT_DAYS &&
+			days <= MAX_GROW_OUT_DAYS
+		) {
 			setTargetHarvestDate(addDays(stockingDate, days));
 		}
 	};
 
+	/**
+	 * #826: an out-of-range pair keeps the last usable period instead of
+	 * showing a negative or >365 number. The date-range error stays visible and
+	 * blocks the save until one of the dates is corrected.
+	 */
 	const onHarvestDateChange = (value: string) => {
 		setTargetHarvestDate(value);
-		if (isValidDateOnly(value) && isValidDateOnly(stockingDate)) {
-			setGrowOutDays(daysBetween(stockingDate, value));
+		const days = usableGrowOutSpan(stockingDate, value);
+		if (days !== null) setGrowOutDays(String(days));
+	};
+
+	/**
+	 * #826: leave the grow-out field showing exactly what the date pair will
+	 * save. An emptied field falls back to the pair, then to the last usable
+	 * value, then to the documented default — it never becomes `NaN` and never
+	 * builds a date from empty text.
+	 */
+	const snapGrowOutDays = () => {
+		const usable = usableGrowOutSpan(stockingDate, targetHarvestDate);
+		if (usable !== null) {
+			setGrowOutDays(String(usable));
+			return;
 		}
+		const current = parseGrowOutDays(growOutDays);
+		if (current !== null && current >= MIN_GROW_OUT_DAYS && current <= MAX_GROW_OUT_DAYS) {
+			setGrowOutDays(String(current));
+			return;
+		}
+		setGrowOutDays(String(DEFAULT_GROW_OUT_DAYS));
 	};
 
 	/** Validate the form and return the payload, or show the existing error. */
@@ -173,6 +277,9 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 			stockingDate,
 			stockingCount: Math.round(Number(stockingCount)),
 			stockingAvgWeightG: optionalNumber(stockingAvgWeightG),
+			// #826: the field mirrors this span (the actions recompute it the
+			// same way), and `submit` snaps the field to it first, so the value
+			// shown is always the value sent.
 			growOutDays: span,
 			targetHarvestDate,
 			targetHarvestWeightG: optionalNumber(targetHarvestWeightG),
@@ -201,6 +308,8 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 	};
 
 	const submit = () => {
+		// #826: commit the displayed grow-out period with the dates it describes.
+		snapGrowOutDays();
 		const input = buildInput();
 		if (!input) return;
 
@@ -340,10 +449,11 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 						</span>
 						<input
 							type="number"
-							min={30}
-							max={365}
+							min={MIN_GROW_OUT_DAYS}
+							max={MAX_GROW_OUT_DAYS}
 							value={growOutDays}
 							onChange={(event) => onGrowOutDaysChange(event.target.value)}
+							onBlur={snapGrowOutDays}
 							className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-2.5 text-sm font-semibold text-[#0A3D62] focus:border-[#E85A2A] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
 						/>
 					</label>
@@ -354,6 +464,8 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 						<input
 							type="date"
 							value={targetHarvestDate}
+							min={harvestMin}
+							max={harvestMax}
 							onChange={(event) => onHarvestDateChange(event.target.value)}
 							className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-2.5 text-sm font-semibold text-[#0A3D62] focus:border-[#E85A2A] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
 						/>

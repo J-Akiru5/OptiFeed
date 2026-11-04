@@ -1887,6 +1887,8 @@
 			"componentMotor": "Motor",
 			"componentAuger": "Auger",
 			"componentOutlet": "Outlet",
+			"componentRtc": "Real time clock",
+			"componentWaterTemp": "Water temperature",
 			"componentLive": "Live",
 			"componentLastKnown": "Last known",
 			"componentOnline": "Online",
@@ -3426,11 +3428,6 @@
 				"commandCenter": "Command Center",
 				"ecosystem": "Ecosystem Management",
 				"platformControl": "Platform Control"
-			},
-			"scope": {
-				"label": "Console scope",
-				"global": "Global superadmin",
-				"organization": "Organization {name}"
 			}
 		},
 		"loading": {

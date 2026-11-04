@@ -92,16 +92,21 @@ export function HopperCalibrationForm({
 	const [isPending, startTransition] = useTransition();
 
 	// #659: the raw distance is device-reported; the two reference fields are
-	// what the operator writes. Showing both is the point of the card. The
-	// snapshot is memoised so a keystroke does not re-seed the polled value with
-	// the older server render.
+	// what the operator writes. Showing both is the point of the card.
+	//
+	// #831: the snapshot is keyed on primitives, not on the `Date` instance.
+	// `router.refresh()` re-deserialises the payload every 30 s, so a new `Date`
+	// arrives even when the reading is unchanged; a `Date` dependency rebuilt
+	// this memo on every payload. `HopperLiveDistance` then keeps the newer
+	// polled value by timestamp, so the reading no longer snaps back.
+	const feedLevelUpdatedAtIso = feedLevelUpdatedAt ? feedLevelUpdatedAt.toISOString() : null;
 	const liveReading: HopperDistanceSnapshot = useMemo(
 		() => ({
 			cm: feedLevelCm,
 			percent: feedLevelPercent,
-			updatedAt: feedLevelUpdatedAt ? feedLevelUpdatedAt.toISOString() : null,
+			updatedAt: feedLevelUpdatedAtIso,
 		}),
-		[feedLevelCm, feedLevelPercent, feedLevelUpdatedAt],
+		[feedLevelCm, feedLevelPercent, feedLevelUpdatedAtIso],
 	);
 
 	// "Capture" writes the reading that is on screen into a reference field, so

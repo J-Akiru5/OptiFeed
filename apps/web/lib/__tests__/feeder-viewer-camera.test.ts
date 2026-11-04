@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
 	CAMERA_MAX_DISTANCE,
 	CAMERA_MIN_DISTANCE,
@@ -7,7 +9,11 @@ import {
 	FITTED_CAMERA_DISTANCE,
 	parseCameraLocked,
 } from "@/components/feeder/feeder-viewer";
-import { CAMERA_PRESETS, type CameraPreset } from "@/lib/feeder/feeder-parts";
+import {
+	CAMERA_PRESETS,
+	type CameraPreset,
+	shouldShowFeederLabels,
+} from "@/lib/feeder/feeder-parts";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -29,6 +35,43 @@ describe("feeder camera lock", () => {
 
 	it("unlocks only on an explicit false", () => {
 		expect(parseCameraLocked("false")).toBe(false);
+	});
+});
+
+describe("feeder ISO overlay visibility", () => {
+	it("keeps the overlay while the unlocked camera is still at the ISO pose", () => {
+		// #820: unlocking the camera is not movement; only orbit/pan/zoom is.
+		expect(shouldShowFeederLabels("iso", false)).toBe(true);
+	});
+
+	it("hides the overlay on the first orbit, pan or zoom after unlock", () => {
+		expect(shouldShowFeederLabels("iso", true)).toBe(false);
+	});
+
+	it("hides the overlay for every non-ISO preset", () => {
+		for (const preset of ["front", "left", "right", "rear", "top"] as const) {
+			expect(shouldShowFeederLabels(preset, false), preset).toBe(false);
+			expect(shouldShowFeederLabels(preset, true), preset).toBe(false);
+		}
+	});
+
+	it("restores the overlay after Reset view or ISO clears the moved flag", () => {
+		// resetView() and the ISO button both set preset "iso" and clear the
+		// moved flag, so the same helper covers the restored state.
+		expect(shouldShowFeederLabels("iso", false)).toBe(true);
+	});
+});
+
+describe("feeder overlay camera wiring", () => {
+	const source = readFileSync(join(__dirname, "../../components/feeder/feeder-viewer.tsx"), "utf8");
+
+	it("hides on actual camera control, not on pointer-down", () => {
+		// `onStart` is camera-controls `controlstart`, which fires on pointer-down
+		// even for a bare click. `onControl` fires from the drag path only.
+		expect(source).toMatch(/\bonControl=\{/);
+		expect(source).not.toMatch(/\bonStart=\{/);
+		// Wheel dolly never emits `controlstart`, so it keeps its own handler.
+		expect(source).toMatch(/\bonWheel=\{/);
 	});
 });
 

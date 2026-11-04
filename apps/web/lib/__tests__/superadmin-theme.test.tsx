@@ -54,7 +54,6 @@ const tokenOnlyFiles = [
 	"components/superadmin-sidebar.tsx",
 	"components/superadmin/dialog-shell.tsx",
 	"components/superadmin/dialog-theme.ts",
-	"components/superadmin/scope-banner.tsx",
 	"components/superadmin/step-up-dialog.tsx",
 	"components/superadmin/ui.tsx",
 	"components/superadmin/monitor/sections/command-center-layout.tsx",

@@ -101,8 +101,6 @@ const REQUIRED = [
 	"superadmin.shell.shortNav.organizations",
 	"superadmin.shell.groups.commandCenter",
 	"superadmin.shell.groups.platformControl",
-	"superadmin.shell.scope.global",
-	"superadmin.shell.scope.organization",
 	"superadmin.shell.nav.operations",
 	"superadmin.shell.shortNav.operations",
 	"superadmin.operations.health.title",
@@ -160,8 +158,6 @@ function walk(dir: string, out: string[] = []): string[] {
  * Presentational files that receive every string as a prop, or that hold only
  * classes and design tokens. `dialog-theme.ts` has no copy of its own (#321);
  * it is still scanned for retired literals and hard-coded attributes.
- * `scope-banner.tsx` takes its crumb labels and its accessible name as props
- * from the layout banner and the organization page, which translate them.
  */
 const PROPS_ONLY = new Set([
 	"ui.tsx",
@@ -182,7 +178,6 @@ const PROPS_ONLY = new Set([
 	// frame holds the controlled chart range and has no copy at all.
 	"command-center-charts.tsx",
 	"command-center-range.tsx",
-	"scope-banner.tsx",
 	"status-bands.tsx",
 ]);
 

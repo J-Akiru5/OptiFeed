@@ -197,16 +197,13 @@ record(
 	"deploy.yml deleted (Vercel Git integration deploys)",
 	!existsSync(".github/workflows/deploy.yml"),
 );
-const vercelCfg = JSON.parse(read(`${web}/vercel.json`) || "{}");
-const deploymentEnabled = vercelCfg?.git?.deploymentEnabled ?? {};
+const deploymentPolicy = sh("node scripts/ops/deployment-policy.mjs");
 record(
-	"Vercel deployments restricted to staging and main (develop never deploys)",
-	deploymentEnabled["*"] === false &&
-		deploymentEnabled["**"] === false &&
-		deploymentEnabled.staging === true &&
-		deploymentEnabled.main === true &&
-		deploymentEnabled.develop !== true,
-	JSON.stringify(deploymentEnabled),
+	"deployment policy is main + staging and matches the document (D7)",
+	deploymentPolicy.status === 0,
+	deploymentPolicy.status === 0
+		? ""
+		: (deploymentPolicy.stderr || deploymentPolicy.stdout).trim().split("\n").slice(-1)[0],
 );
 record("CI workflow never deploys", !read(".github/workflows/ci.yml").includes("vercel deploy"));
 record("device-watch cron route exists", existsSync(`${web}/app/api/cron/device-watch/route.ts`));

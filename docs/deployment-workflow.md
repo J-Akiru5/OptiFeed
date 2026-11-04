@@ -1,7 +1,8 @@
 # OptiFeed — Branch, CI and Deployment Workflow
 
-Last verified: 2026-10-31. Deployment policy changed 2026-10-26 (section 1) and
-was reconciled across the repository on 2026-10-31 (#323).
+Last verified: 2026-11-04. Deployment policy set 2026-10-26 (section 1),
+reconciled across the repository on 2026-10-31 (#323), and reconfirmed by the
+owner on 2026-11-04: the repository allowlist is authoritative (D7).
 
 This document is the operational contract for how code reaches staging and
 production. `CONTRIBUTING.md` covers the day-to-day developer workflow; this
@@ -14,8 +15,14 @@ statement of which branches deploy. `CONTRIBUTING.md`, `README.md`,
 `HANDOFF.md`, `docs/vercel-deployment-checklist.md` and the agent mission rules
 in `docs/missions/` point here instead of restating the matrix. If another
 document disagrees, this one wins: fix the other document, do not fork the
-policy. Repository policy also overrides the global agent rule that `develop`
-deployments are pre-authorized; mission decision D7 records that override.
+policy.
+
+**Owner decision D7 (2026-10-26, reconfirmed 2026-11-04).** OptiFeed deploys
+`main` + `staging` and nothing else. The global OpenCode deployment-governance
+default (`main` + `develop`) does **not** apply to this repository: `develop` is
+validation-only, and `staging` is a deployment branch. Mission decision D7
+records the override, and the repository configuration in
+`apps/web/vercel.json` is authoritative.
 
 Container deployment (`Dockerfile`, `docker-compose.yml`, environment matrix) is
 documented separately in [`docs/operations/deployment.md`](./operations/deployment.md);
@@ -38,8 +45,10 @@ feature/* ──PR──▶ develop ──PR──▶ staging ──PR + Jeff─
                              staging preview      production deploy
 ```
 
-**Decision (Jeff, 2026-10-26): only `staging` and `main` deploy**, to reduce
-deployment cost.
+**Decision (Jeff, 2026-10-26, reconfirmed 2026-11-04): only `staging` and
+`main` deploy**, to reduce deployment cost. This is decision **D7**. Do not
+"fix" the repository to match the global `main` + `develop` default: the owner
+has confirmed that the repository policy wins.
 
 - `develop` stays the reconciliation branch but does **not** deploy. It is
   validated by CI only. Agents never deploy `develop` by any route (Vercel Git
@@ -89,10 +98,41 @@ Consequences:
 - Pull requests from work branches get **no** preview deployment. This is
   intentional: preview deployments inherit production credentials (section 6),
   so they are not a safe review surface. Re-enable them only after
-  Preview-scoped credentials are isolated.
+  Preview-scoped credentials are isolated. Deployment Protection is necessary
+  but not sufficient: it gates who can open the deployment, it does not isolate
+  the data.
 - Pushes to `staging` and `main` deploy. Pushes to `develop` do not.
 - `staging` runs in Vercel's **Preview** environment and `main` in
   **Production**; both carry the production credentials listed in section 6.
+
+### 2.1 Deployment Protection is required for preview deployments
+
+The `staging` deployment is a preview that runs with production credentials and
+the production database (section 6). Its URL must therefore not be a public,
+anonymous application surface. **Vercel Deployment Protection is a required
+control, not optional hardening.**
+
+- **Scope:** Preview deployments (this includes `staging`). Production (`main`)
+  must stay publicly reachable.
+- **Path:** Vercel Dashboard → project `opti-feed-web` → **Settings** →
+  **Deployment Protection**.
+- **Enable:** Vercel Authentication (or an equivalent owner-approved protection
+  mode) for Preview deployments, then save the change.
+- **Verify:** from a logged-out or incognito browser, opening the `staging`
+  deployment URL prompts for Vercel authentication instead of rendering the
+  app. Opening the production URL still serves the app without a Vercel login.
+- **Bypass tokens:** if automation needs a protection-bypass token, store it in
+  Vercel or GitHub secrets. Never commit it.
+
+**This control cannot be verified from the repository.** `apps/web/vercel.json`
+controls which branches deploy, not who can open a deployment. The drift check
+asserts that this requirement stays documented; only the owner can confirm the
+dashboard setting and the logged-out behaviour. A passing `vercel.json` check is
+not evidence that protection is enabled.
+
+Deployment Protection gates access; it does **not** isolate data. The shared
+database decision in section 6 stands, and a protected preview still writes
+production records.
 
 Two honest caveats:
 
@@ -116,7 +156,8 @@ Triggers:
 
 Steps: pnpm install (`--frozen-lockfile`, whose guarded root `postinstall`
 generates the Prisma client when the schema is present) → security-override
-check → Prisma client generation → Prisma schema validation → Biome lint →
+check → deployment-policy drift check (`scripts/ops/deployment-policy.mjs` plus
+its tests) → Prisma client generation → Prisma schema validation → Biome lint →
 TypeScript typecheck → Vitest unit tests → API-route authentication gate →
 `next build` with dummy credentials.
 
@@ -130,9 +171,17 @@ Guarantees:
 - Pull-request runs are cancelled when superseded; integration and deployment
   branch runs always finish so their result is a trustworthy gate.
 
+The `quality` job also runs the deployment-policy drift check
+(`scripts/ops/deployment-policy.mjs` and
+`scripts/ops/__tests__/deployment-policy-drift.test.mjs`). It fails when
+`apps/web/vercel.json` stops being exactly `main` + `staging`, or when this
+document's allowlist block disagrees with the config. It does not need a new
+required check: it runs inside `quality`.
+
 Not covered by the `quality` job (run manually when relevant): Playwright
-end-to-end specs (need a database and a running server) and Vercel project
-configuration. The container image (`Dockerfile` / `docker-compose.yml`) has its
+end-to-end specs (need a database and a running server) and Vercel **dashboard**
+settings such as Deployment Protection and environment variables. The container
+image (`Dockerfile` / `docker-compose.yml`) has its
 own build-only workflow, `.github/workflows/docker.yml`: `docker build` with the
 Dockerfile's default arguments, no push and no secrets. Firmware compilation has
 its own `Firmware` workflow (`.github/workflows/firmware.yml`): it runs on
@@ -367,6 +416,8 @@ so the human rule stands: no agent promotes `main` without that authorization.
 | `staging` deploys (preview) | **Verified 2026-10-31** | `apps/web/vercel.json` `deploymentEnabled.staging = true`; promote #395 (`e11f762`, v1.34.1) built a Ready preview |
 | `main` deploys (production) | **Verified 2026-10-31** | Production promote #397 (`cc876e1`, v1.34.1) built a Ready production deployment; `/api/health` ok, `/en/privacy` read 1.34.1 |
 | `staging` build skips migrations | Verified | Deployment log: `[migrate] skipped (VERCEL_ENV=preview)` |
+| Allowlist matches this document | **Guarded in CI** | `scripts/ops/deployment-policy.mjs` runs inside `quality` and asserts the exact `git.deploymentEnabled` set (`main`/`staging` true, `*`/`**` false, every other branch false) plus this document's block |
+| Deployment Protection on previews | **Required — not verifiable from the repository** | Dashboard-only control: Vercel → project `opti-feed-web` → Settings → Deployment Protection → Vercel Authentication for Preview (section 2.1). The owner must enable and verify it |
 | Production approval gate | Configured on GitHub | `main` protection: PR required, 1 approval, `quality`, admins enforced |
 | CI validates PRs into `develop`/`staging`/`main` | Verified | PR #50 `quality` pass; PR #51 `quality` pass |
 | CI validates pushes to `develop`/`staging`/`main` | Verified | Runs 39537076187 and 39538117781, both pass |
@@ -384,11 +435,16 @@ promotion record contradict them; the history remains in Git.
 
 ## 11. Manual actions that remain with Jeff
 
-1. Command each promotion (section 5.0). An agent may only promote under a
+1. Enable and verify Vercel Deployment Protection for Preview deployments
+   (section 2.1): Project `opti-feed-web` → Settings → Deployment Protection →
+   Vercel Authentication for Preview. Then open the `staging` URL logged out and
+   confirm it asks for a Vercel login while the production URL does not. This is
+   a dashboard setting; the repository cannot verify it.
+2. Command each promotion (section 5.0). An agent may only promote under a
    standing authorization recorded in `docs/missions/`.
-2. Confirm GitHub plan/permissions for required reviewers, if enforcement of a
+3. Confirm GitHub plan/permissions for required reviewers, if enforcement of a
    second human approval on `main` is required beyond the current settings.
-3. Revisit the shared staging/production database decision when real customer
+4. Revisit the shared staging/production database decision when real customer
    data, external users, or paid tenants arrive (section 6).
 
 Completed on 2026-10-21: the three unused CI secrets

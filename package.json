@@ -18,6 +18,7 @@
 		"test": "pnpm --filter web test",
 		"api:check": "node scripts/api/conformance-check.mjs && node scripts/api/auth-check.mjs",
 		"api:live": "node scripts/api/live-check.mjs",
+		"deploy:check": "node scripts/ops/deployment-policy.mjs",
 		"self-check": "node scripts/self-check.mjs",
 		"audit:gate": "node scripts/security/audit-gate.mjs",
 		"security:overrides": "node scripts/security/check-overrides.mjs",

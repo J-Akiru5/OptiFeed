@@ -1,7 +1,9 @@
 # Demo tenant reconciliation — issue #709
 
-**Status:** reviewed script, **not executed**. The orchestrator runs it after a
-full logical backup. Nothing in this directory touches a database by itself.
+**Status:** reviewed script. The 2026-11-04 production attempt rolled back on the
+old absolute guard (`rtcOk repair matched 2 row(s), expected 0 or 3`) and
+committed nothing. This revision derives every guard from the measured state and
+has **not** been executed. The orchestrator runs it after a full logical backup.
 
 **Scope:** `Pond.ownerId = 'demo-farmer-1'` **and**
 `Pond.farmId = 'farm_demo-farmer-1'` (the telemetry ownership stamp, not the
@@ -29,6 +31,49 @@ complete undo log in a `DeviceStateEvent`.
 It is **one transaction**. If any assertion at the end fails, or any statement
 errors, `psql` stops (`ON_ERROR_STOP`) and the transaction is rolled back. A
 failed run changes nothing.
+
+### Measured 2026-11-04 pre-run state
+
+The audit snapshot is stale. On 2026-11-04 08:50Z the pre-run verification
+measured the following on production; the run then correctly refused on the old
+absolute guard (`rtcOk repair matched 2 row(s), expected 0 or 3`) and the runner
+issued `ROLLBACK`. Nothing was committed.
+
+| Metric | Audit 2026-11-03 expected | Measured 2026-11-04 pre-run |
+| --- | ---: | ---: |
+| `hand_fed` rows | 132 over 66 days | **132** |
+| `hand_fed` rows minus distinct farm days | 0 | **66** |
+| `hand_fed` grams | 6,138 | **42,046** |
+| Missing `FeedLevelLog` farm days | 48 | **11** |
+| `FeedLevelLog` distinct days (audit span) | 77 | **66** |
+| Year-2000 rows with `rtcOk = true` | 3 | **2** |
+| Year-2000 rows preserved | 3 | **2** |
+| `FcrReport` identity violations | 0 | **4** |
+| `demo-pond-001` retired | 1 | **0** |
+| `demo-pond-001` pending commands | 0 | **1** |
+| `demo-pond-001` device dose `<> 1500` | 0 | **1** |
+| `FeedEvent` seed-tagged | 112 | **112** |
+| `FeedEvent` import-tagged | 66 | **132** |
+| `FeedEvent` device rows | 312 | **252** |
+| Audit marker rows | 1 | **0** |
+| Total `FeedEvent` rows | 490/506 | **512** |
+| `FeedEvent` synthetic rows | not mentioned | **16** |
+
+Consequences for this script:
+
+- Absolute counts are **not** guards. Every expectation is derived inside the
+  transaction and the guard compares the actual effect to that derived set.
+- The `hand_fed` total is 42,046 g, so the per-row grams are no longer a uniform
+  46.5 g. The survivor rule folds the **measured day total** into the earliest
+  row; the invariant is that the tenant total is unchanged.
+- The 16 `synthetic` rows are the W5 fill from the 2026-11-04 batch. They are
+  not `hand_fed`. If one matches the 1,500 g seed shape, the script still leaves
+  it alone: the seed update targets only rows whose current `dataSource` is
+  `device`. The dry run prints `synthetic_matching_seed_shape` so this is
+  visible; the rows are not retagged.
+- The 4 FCR identity violations are measured and recorded, not repaired; see §4.4.
+- The pre-run measurement was made with the old `verify.sql`. Use the new
+  read-only `dry-run.sql` for the next pre-flight; it asserts nothing.
 
 ---
 
@@ -60,13 +105,24 @@ aborts the run safely instead of waiting indefinitely.
 ## 3. How to run
 
 ```powershell
-# 1. Backup first (see section 7 for the full command).
-# 2. Reconcile (one transaction; prints the mutation log, then asserts, then commits).
+# 1. Dry run first (read-only; prints every derived count the guards will use).
+psql "$env:DIRECT_URL" -v ON_ERROR_STOP=1 -f scripts/ops/demo-reconcile/dry-run.sql
+
+# 2. Backup (see section 7 for the full command).
+# 3. Reconcile (one transaction; prints the mutation log, then asserts, then commits).
 psql "$env:DIRECT_URL" -v ON_ERROR_STOP=1 -f scripts/ops/demo-reconcile/reconcile.sql
 
-# 3. Verify (read-only; first result set is PASS/FAIL/INFO).
+# 4. Verify (read-only; first result set is PASS/FAIL/INFO).
 psql "$env:DIRECT_URL" -v ON_ERROR_STOP=1 -f scripts/ops/demo-reconcile/verify.sql
 ```
+
+The dry run is the pre-flight. It changes nothing and prints the measured state
+plus the derived expectation for each mutation (hand_fed survivor updates and
+deletes, missing level days and planned inserts, RTC matches, untagged seed and
+import rows, G9 rows, FCR violations, marker count). Compare those numbers with
+the table in §4 before running the transaction. The 2026-11-04 08:50Z pre-run
+was measured with the old `verify.sql`; `dry-run.sql` is the read-only
+replacement for that pre-flight and does not assert.
 
 The reconcile script prints `reconcile_709_log` **before** the assertions, so a
 rollback still shows what it attempted. A successful run prints it again and
@@ -81,49 +137,69 @@ written at most once. The log reports `0` for each of those steps.
 
 ## 4. What it changes, in order
 
-The script's sections are numbered the same way. `first run` is the audited
-state at filing (556 FeedEvents, 667 level rows, 132 hand_fed over 66 days);
-`already patched` is the state after the 2026-11-04 batch described on the
-issue (572 FeedEvents, 859 level rows, provenance already tagged).
+The script's sections are numbered the same way. The numbers below are the
+**measured production pre-run state at 2026-11-04 08:50Z**, not the stale
+2026-11-03 audit snapshot. The tenant has been used since the audit, so absolute
+row counts are no longer valid guards; the script derives every expectation
+inside the transaction. See §5 for the measured-state table.
 
-| # | Mutation (search the script for the step text) | First run | Already patched | Re-run |
-| --- | --- | ---: | ---: | ---: |
-| 1a | `UPDATE "FeedEvent" SET grams = <day total>` — the surviving `hand_fed` row | 66 | 66 | 0 |
-| 1b | `DELETE FROM "FeedEvent"` — the duplicate `hand_fed` rows of the same farm day | 66 | 66 | 0 |
-| 2 | `INSERT INTO "FeedLevelLog"` — modelled readings for days with no reading | 192 | 0 (192 already present) | 0 |
-| 3 | `UPDATE "FeedEvent" SET "rtcOk" = false` — the three 2000-01-01 heartbeats | 3 | 3 | 0 |
-| 4 | **No `FcrReport` mutation.** Six rows inspected and marked stale in the audit marker | 0 | 0 | 0 |
-| 5a | `UPDATE "Pond"` — `demo-pond-001` renamed, archived, fallow | 1 | 1 | 0 |
-| 5b | `UPDATE "EnergyDevice"` — the seed pond's dose set to the recorded 1,500 g, paused | 1 | 1 | 0 |
-| 5c | `UPDATE "ScheduleCommand"` — the pending command failed closed | 1 | 1 | 0 |
-| 6a | `UPDATE "FeedEvent" SET "dataSource" = 'seed'` — the 112 seed fixtures | 112 | 0 (already `seed`) | 0 |
-| 6b | `UPDATE "FeedEvent" SET "dataSource" = 'import'` — the surviving hand-fed rows | 66 | 0 (already `import`) | 0 |
-| 7 | `INSERT INTO "DeviceStateEvent"` — one audit marker with the undo log | 1 | 1 | 0 |
+| # | Mutation (search the script for the step text) | Measured 2026-11-04 (derived) | Re-run |
+| --- | --- | ---: | ---: |
+| 1a | `UPDATE "FeedEvent" SET grams = <day total>` — the surviving `hand_fed` row | 66 multi-row days; only survivors whose grams differ are updated | 0 |
+| 1b | `DELETE FROM "FeedEvent"` — the duplicate `hand_fed` rows of the same farm day | 66 | 0 |
+| 2 | `INSERT INTO "FeedLevelLog"` — modelled readings for days with no reading | 11 missing days × 4 = 44 | 0 |
+| 3 | `UPDATE "FeedEvent" SET "rtcOk" = false` — the 2000-01-01 heartbeats | 2 matched at transaction start | 0 |
+| 4 | **No `FcrReport` mutation.** Six rows inspected; 4 identity violations recorded in the marker | 0 | 0 |
+| 5a | `UPDATE "Pond"` — `demo-pond-001` renamed, archived, fallow | 1 | 0 |
+| 5b | `UPDATE "EnergyDevice"` — the seed pond's dose set to the recorded 1,500 g, paused | 1 | 0 |
+| 5c | `UPDATE "ScheduleCommand"` — the pending command failed closed | 1 | 0 |
+| 6a | `UPDATE "FeedEvent" SET "dataSource" = 'seed'` — untagged seed fixtures | 0 (112 already `seed`) | 0 |
+| 6b | `UPDATE "FeedEvent" SET "dataSource" = 'import'` — untagged hand-fed survivors | 0 (132 already `import`; 66 survive the merge) | 0 |
+| 7 | `INSERT INTO "DeviceStateEvent"` — one audit marker with the undo log | 1 | 0 |
 
-Expected totals afterwards:
+Expected totals afterwards (measured state):
 
-| Table | First run | Already patched |
-| --- | ---: | ---: |
-| `FeedEvent` | 490 (556 − 66) | 506 (572 − 66) |
-| `FeedLevelLog` | 859 (667 + 192) | 859 |
-| `FcrReport` | 6 (unchanged) | 6 (unchanged) |
-| `hand_fed` rows | 66 (one per day) | 66 |
-| `hand_fed` grams | 6,138 g (unchanged) | 6,138 g |
+| Table | After the repair |
+| --- | ---: |
+| `FeedEvent` | 446 (512 − 66) |
+| `FeedEvent` split | device 252 / import 66 / seed 112 / synthetic 16 |
+| `FeedLevelLog` | current total + 44 (the dry run prints the current total) |
+| `FcrReport` | 6 (unchanged; 4 identity violations, not repaired) |
+| `hand_fed` rows | 66 (one per day) |
+| `hand_fed` grams | 42,046 g (preserved by the merge) |
+| year-2000 rows | 2 preserved, 0 with `rtcOk = true` |
 
-The final assertion block also **refuses a partial match**: the seed tag must
-match 0 or 112 rows, the import tag 0 or 66, the RTC repair 0 or 3, the level
-backfill 0 or 192, and the `hand_fed` merge 0 or 66 farm days. A different count
-means the data drifted from the audited state; the transaction aborts rather
-than committing half a repair. If the guard fires, inspect the count in the
-error, adjust the expectation deliberately, and re-review — do not widen it
-silently.
+The final assertion block is **relational, not absolute**. It asserts:
+
+- `hand_fed`: zero duplicate `(device, farm day)` groups; surviving rows equal
+  the distinct farm-day count; tenant grams preserved within 1 mg (floating-point
+  sums are not associative).
+- `FeedLevelLog`: the plan is exactly four rows per missing farm day; every
+  planned day now has a reading; zero days in the active span remain empty.
+- RTC: repaired count equals the start-of-transaction match count; zero matching
+  rows still have `rtcOk = true`.
+- Provenance: the update count equals the derived target set; zero rows in the
+  seed-shaped or hand-fed set still say `dataSource = 'device'`.
+- `demo-pond-001`: retired, no pending/sent command, feeder dose 1500 and paused.
+- Exactly one audit marker; every inserted level row is inside the tenant and
+  0-100 %.
+- FCR: the measured identity-violation count is a `RAISE NOTICE`, not an
+  exception. The rows are deliberately not repaired; aborting on them would make
+  a correct run impossible.
+
+The run that rolled back on `rtcOk repair matched 2 row(s), expected 0 or 3`
+would now pass: the guard compares repaired (2) to matched (2), then proves zero
+matching rows are still trusted. Any statement whose effect differs from its
+derived expectation still aborts the transaction.
 
 ### 1. `hand_fed`: one row per farm day
 
 `lib/feed-figures.ts`, `lib/pond-charts.ts` and `lib/chat/context.ts` all treat
-one `hand_fed` row as a whole day. The import wrote two half-day rows per day
-(08:00 and 16:00 Asia/Manila): 132 rows over 66 days. The sums were right; the
-row count and every per-row plot were doubled.
+one `hand_fed` row as a whole day. The import wrote two rows per day (08:00 and
+16:00 Asia/Manila): the measured 2026-11-04 state is 132 rows over 66 days and
+42,046 g. The per-row grams are not uniform 46.5 g values any more, so the
+survivor rule must fold the **measured day total** into the survivor rather than
+keep one arbitrary half. The row count and every per-row plot were doubled.
 
 **Survivor rule:** the row with the earliest `receivedAt` in the Asia/Manila
 farm day, lowest `id` as a tie-break. Its `grams` becomes the **sum** of every
@@ -134,7 +210,8 @@ original timestamp — no time is invented.
 
 The merge is per `(deviceId, farm day)`, so two ponds are never folded together
 just because the import used the same calendar day. The script asserts the
-total hand_fed mass before and after is identical.
+tenant total hand_fed mass is preserved within 1 mg (the sums are floating
+point, so the tolerance is deliberate).
 
 ### 2. `FeedLevelLog`: the hopper model
 
@@ -163,8 +240,9 @@ under the same relation.
 
 - **Cadence:** four readings per missing farm day, at 01:00, 07:00, 13:00 and
   19:00 Asia/Manila, stored as the naive UTC the schema uses (17:00/23:00 UTC
-  the previous date, 05:00/11:00 UTC on the day). 48 days × 4 = 192 rows, the
-  same count the issue records.
+  the previous date, 05:00/11:00 UTC on the day). The measured 2026-11-04 state
+  had **11 missing days**, so this run plans **44** rows (11 × 4), not the 48
+  days / 192 rows the stale audit expected.
 - **Anchor:** the latest reading before each reading instant. A gap at the very
   start of the history has no anchor and starts at 100 % of the first day;
   that fallback is stated, not hidden.
@@ -174,34 +252,42 @@ under the same relation.
   already has a reading — real, imported or an earlier synthetic batch — is
   never rewritten. The script fills holes; it does not overwrite history.
 
-> **Important:** if the 2026-11-04 batch already inserted its 192 synthetic
-> readings, this step inserts **0** and the missing-day check still passes. The
-> model is then not exercised against production by this run. The script
-> deliberately does not rewrite another operator's rows. If that earlier series
-> is later found inconsistent, it needs its own reviewed delete/replace; the
-> audit marker's `levelLogIds` only lists rows **this** run inserted.
+> **Important:** the plan is derived from the days that have **zero** readings
+> at the moment the transaction starts. The measured 2026-11-04 state had 11
+> holes; an earlier batch may have filled some days, in which case only the
+> remaining holes are planned. A day that already has a reading — real, imported
+> or an earlier synthetic batch — is never rewritten. If a prior series is later
+> found inconsistent, it needs its own reviewed delete/replace; the audit
+> marker's `levelLogIds` only lists rows **this** run inserted.
 
-### 3. The three `2000-01-01` heartbeats
+### 3. The `2000-01-01` heartbeats
 
 **Decision: set `rtcOk = false` and keep the rows.** Do not invent a time; do
 not delete them.
 
-`seed.ts` / `seed-dev.ts` never write heartbeat rows, so these are real device
-heartbeats from an ESP32 whose RTC had not been set. `2000-01-01` is the unset
-clock epoch (9,799 days before the data), not a fixture. Deleting them would
-destroy the only evidence that the device booted without a clock. The issue's
-own Expected item says "Fix `rtcOk`", not "delete".
+The audit saw three; the measured 2026-11-04 pre-run state has **two** rows with
+a 2000-01-01 timestamp, both with `rtcOk = true`. The count is drift-prone (the
+tenant has been used since the audit), so the guard compares the repaired count
+to the rows that match at transaction start and then proves zero matching rows
+are still trusted. `seed.ts` / `seed-dev.ts` never write heartbeat rows, so
+these are real device heartbeats from an ESP32 whose RTC had not been set.
+`2000-01-01` is the unset clock epoch (9,799 days before the data), not a
+fixture. Deleting them would destroy the only evidence that the device booted
+without a clock. The issue's own Expected item says "Fix `rtcOk`", not "delete".
 
 Any replacement timestamp would be fabricated. `rtcOk = false` is the field
 that tells every consumer the device time is untrustworthy. This is why
 `verify.sql` checks **0 year-2000 rows with `rtcOk = true`** and reports the
-**3 preserved rows** separately. A literal "0 rows with a year-2000 timestamp"
-would require deleting real telemetry; that is not what the evidence supports.
+**measured preserved count** separately (2 on 2026-11-04; 3 in the audit). A
+literal "0 rows with a year-2000 timestamp" would require deleting real
+telemetry; that is not what the evidence supports.
 
 ### 4. `FcrReport`: decide, do not invent
 
-**The six rows are not rewritten.** Recomputing them from the logs is
-arithmetically impossible for the periods that matter:
+**The six rows are not rewritten.** The measured 2026-11-04 state has **4
+identity violations** in those six rows; that is now part of the evidence, not
+a reason to abort. Recomputing them from the logs is arithmetically impossible
+for the periods that matter:
 
 - three periods predate the `Pond` row and have **0 kg** of `FeedEvent` and no
   `BiomassLog` in the window, so feed / gain is `0 / 0`;
@@ -221,9 +307,16 @@ printing them. This script records the staleness durably:
   "issue": 709,
   "kind": "demo-history-reconcile",
   "fcrStale": true,
-  "fcrReports": [ { "id": "...", "totalFeedKg": 150.5, "feedEventKgInWindow": 0, "biomassLogsInWindow": 0, "computableFromLogs": false, ... } ]
+  "fcrIdentityViolations": 4,
+  "fcrReports": [ { "id": "...", "totalFeedKg": 150.5, "feedEventKgInWindow": 0, "biomassLogsInWindow": 0, "computableFromLogs": false, "identityViolation": true, ... } ]
 }
 ```
+
+The reconcile script raises a `NOTICE` with the measured count (4 on 2026-11-04)
+instead of aborting. `verify.sql` reports the same count as `INFO` with the note
+"not repaired by design"; it never `FAIL`s on the FCR contradiction. That is
+intentional: the rows are left for the owner's decision, so a correct run must
+not be blocked by them.
 
 **Known limitation, stated plainly:** until a follow-up adds a stale flag and a
 reader filter (or switches the FCR page to the computed path, #453), the FCR
@@ -269,13 +362,18 @@ configuration to the history is the smaller, reversible repair.
 
 ### 6. `FeedEvent.dataSource`: seed and import are not device telemetry
 
-G7: all 556 demo FeedEvents were `dataSource = 'device'`, including 112 seed
-rows at exactly 1,500 g and the 132 imported hand_fed rows.
+G7 at filing: all 556 demo FeedEvents were `dataSource = 'device'`, including
+112 seed rows at exactly 1,500 g and the 132 imported hand_fed rows. The
+**measured 2026-11-04 state is 512 FeedEvents**: 112 already `seed`, 132 already
+`import`, 252 `device`, and 16 `synthetic`. The seed and import updates are
+therefore **0 rows** on the measured state; the guards still prove that zero
+rows in each derived set remain untagged.
 
-| Rule | Rows | Why it is safe |
-| --- | ---: | --- |
-| Seed: a `feed_dispensed` row at exactly 1,500 g whose linked `FeedRequest` is also 1,500 g, `completed`, and `createdAt = FeedEvent.receivedAt` | 112 | This is exactly how `seed.ts` and `seed-dev.ts` build their fixtures (request per event, same timestamp). It selects 56 + 56 without guessing from the amount alone. |
-| Import: every surviving `hand_fed` row | 66 | The merge already removed the duplicate half-day rows. The deletion is the row-count correction; this is the label. |
+| Rule | Set | Target on 2026-11-04 | Why it is safe |
+| --- | ---: | ---: | --- |
+| Seed: a `feed_dispensed` row at exactly 1,500 g whose linked `FeedRequest` is also 1,500 g, `completed`, and `createdAt = FeedEvent.receivedAt` | 112 | **0** (all already `seed`) | This is exactly how `seed.ts` and `seed-dev.ts` build their fixtures (request per event, same timestamp). It selects 56 + 56 without guessing from the amount alone. |
+| Import: every surviving `hand_fed` row | 132 pre-merge / 66 post-merge | **0** (all already `import`) | The merge removes the duplicate rows. The deletion is the row-count correction; this is the label. |
+| Synthetic: `dataSource = 'synthetic'` rows | 16 | **left alone** | The 2026-11-04 W5 fill. They are not `hand_fed`; if any matches the 1,500 g seed shape, the seed update still does not touch it because the target is only `dataSource = 'device'`. The dry run prints `synthetic_feed_events_total` and `synthetic_matching_seed_shape`; do not silently retag them. |
 
 Nothing in the app filters on `dataSource` today (checked across `lib/**/*.ts`),
 so these tags **do not hide** demo history from any screen. They make a future
@@ -293,33 +391,40 @@ for the demo tenant's labelled rows.
 
 ## 5. Verification
 
-`verify.sql` is read-only. Its first result set is `PASS` / `FAIL` / `INFO`:
+`verify.sql` is read-only. Its first result set is `PASS` / `FAIL` / `INFO`.
+`PASS`/`FAIL` is reserved for genuine post-repair invariants; drift-prone
+absolute counts are `INFO` and carry the audit snapshot and the measured
+2026-11-04 pre-run value. Run `dry-run.sql` before the repair; `verify.sql` is a
+set of post-conditions.
 
-| Check | Expected |
-| --- | --- |
-| `hand_fed` rows | 66 (audit: 132 rows / 66 days) |
-| `hand_fed` rows minus distinct farm days | 0 |
-| `hand_fed` grams | 6,138 g (INFO; audit 132 × 46.5 g) |
-| Missing level days in the active demo span | 0 |
-| Distinct level days | 77 (INFO) |
-| Year-2000 timestamps with `rtcOk = true` | 0 |
-| Year-2000 rows preserved | 3 (INFO) |
-| `FcrReport` rows | 6 (INFO) |
-| `FcrReport.fcrValue <> totalFeedKg / biomassGainKg` | 0 |
-| `FcrReport` rows with `biomassGainKg <= 0` | 0 |
-| `hand_fed` rows still `dataSource = device` | 0 |
-| Seed-shaped rows still `dataSource = device` | 0 |
-| `FeedEvent` seed rows tagged | 112 |
-| `FeedEvent` import rows tagged | 66 (after the merge) |
-| `FeedEvent` device rows remaining | 312 (INFO; real telemetry) |
-| `demo-pond-001` status `ACTIVE` | 0 |
-| `demo-pond-001` retired (name + `ARCHIVED` + fallow) | 1 |
-| `demo-pond-001` pending/sent commands | 0 |
-| `demo-pond-001` devices with `gramsPerFeeding <> 1500` | 0 |
-| Demo rows with a null/wrong `farmId` | 0 |
-| Audit marker rows (issue 709) | 1 |
-| Level rows inserted by this run | 0–192 (INFO) |
-| Inserted level rows outside 0–100 % or the tenant | 0 |
+| Check | Kind | Expected |
+| --- | --- | --- |
+| `hand_fed` duplicate `(device, farm day)` groups | PASS/FAIL | 0 |
+| `hand_fed` rows equal distinct farm days | PASS/FAIL | equal |
+| `hand_fed` grams preserved (marker before = after = current) | PASS/FAIL | equal within 1 mg |
+| Missing level days in the active demo span | PASS/FAIL | 0 |
+| Year-2000 timestamps with `rtcOk = true` | PASS/FAIL | 0 |
+| Audit marker rows (issue 709) | PASS/FAIL | 1 |
+| Seed-shaped rows still `dataSource = device` | PASS/FAIL | 0 |
+| `hand_fed` rows still `dataSource = device` | PASS/FAIL | 0 |
+| Demo rows with a null/wrong `farmId` | PASS/FAIL | 0 |
+| `demo-pond-001` status `ACTIVE` | PASS/FAIL | 0 |
+| `demo-pond-001` retired (name + `ARCHIVED` + fallow) | PASS/FAIL | 1 present |
+| `demo-pond-001` pending/sent commands | PASS/FAIL | 0 |
+| `demo-pond-001` devices with `gramsPerFeeding <> 1500` | PASS/FAIL | 0 |
+| Inserted level rows outside 0-100 % or the tenant | PASS/FAIL | 0 |
+| RTC repaired count equals start-of-transaction matches | PASS/FAIL | equal (marker) |
+| Level inserted rows equal 4 per missing day at run start | PASS/FAIL | equal (marker) |
+| `hand_fed` rows | INFO | audit 66; measured pre-run 132 |
+| `hand_fed` grams | INFO | audit 6,138; measured pre-run 42,046 |
+| Distinct level days | INFO | audit 77; measured pre-run 66 (+11 filled) |
+| Year-2000 rows preserved | INFO | audit 3; measured pre-run 2 |
+| `FcrReport` rows | INFO | audit 6 |
+| `FcrReport` identity violations | INFO | measured 4; **not repaired by design** |
+| `FcrReport` rows with `biomassGainKg <= 0` | INFO | measured; **not repaired** |
+| Seed-tagged / import-tagged / device / synthetic rows | INFO | 112 / 132 pre-merge, 66 post / 252 / 16 |
+| Level rows inserted by this run | INFO | 44 (11 x 4) |
+| Missing level days at run start | INFO | 11 |
 
 It then prints two evidence sets:
 
@@ -418,6 +523,15 @@ already tagged provenance or inserted the level rows, those lists are empty and
 the batch's changes are not reversed here; the backup is still the full
 rollback.
 
+Marker shape (all under `metadata`): `handFed.gramsBefore/After`,
+`handFed.survivors/deleted`, `levelLogIds`, `level.missingDaysBefore`,
+`level.insertedRows`, `rtcOk.matched`, `rtcOk.repaired`, `rtcOk.rows`,
+`g9PreImage`, `provenance.seedTotal/importTotal/seedEventIds/importEventIds/currentSplit`,
+`fcrIdentityViolations`, `fcrReports`, `appliedAtUtc`. The
+`provenance.seedEventIds` / `importEventIds` arrays are the rows **this run**
+retagged (0 on the measured 2026-11-04 state); the `seedTotal` / `importTotal`
+values are the full derived sets.
+
 ```sql
 -- A helper scope, repeated so every reverse statement is tenant-scoped:
 --   "deviceId" IN (
@@ -448,7 +562,7 @@ AND l."deviceId" IN (
 UPDATE "FeedEvent" e
 SET "rtcOk" = (x.r ->> 'previous')::boolean
 FROM (
-    SELECT jsonb_array_elements(metadata -> 'rtcOk') AS r
+    SELECT jsonb_array_elements(metadata -> 'rtcOk' -> 'rows') AS r
     FROM "DeviceStateEvent"
     WHERE "eventType" = 'data_imported'
       AND "farmId" = 'farm_demo-farmer-1'
@@ -591,15 +705,23 @@ The `FcrReport` rows were not changed, so there is nothing to undo there.
       `Pond.ownerId = 'demo-farmer-1' AND Pond.farmId = 'farm_demo-farmer-1'`.
 - [ ] There is no `TRUNCATE`, `DROP`, `ALTER`, `CREATE TABLE` (only
       `CREATE TEMP TABLE`), and no unscoped `DELETE`/`UPDATE`.
-- [ ] The only `DELETE` is the 66 duplicate `hand_fed` rows, scoped by device
-      and farm day; the total grams assertion proves nothing was lost.
+- [ ] No absolute count guard remains. Every guard derives its expectation from
+      the transaction state: hand_fed duplicates 0, rows = distinct days, grams
+      preserved; level 4 per missing day and 0 missing; rtc repaired = matched
+      and 0 trusted; seed/import updated = target set and 0 untagged; marker 1.
+- [ ] The only `DELETE` is the duplicate `hand_fed` rows (66 measured), scoped by
+      device and farm day; the grams-preserved assertion proves nothing was lost.
 - [ ] The level backfill only fills days with **zero** readings; it never
       rewrites a day that already has one.
-- [ ] The FCR rows are not rewritten or deleted; the marker records why.
+- [ ] The 16 `synthetic` rows are left alone (neither seed nor import).
+- [ ] The FCR rows are not rewritten or deleted; 4 measured identity violations
+      are a `NOTICE` in the script and `INFO` in verification, never `FAIL`.
 - [ ] The year-2000 rows are kept with `rtcOk = false`; the check is
       `rtcOk = true` count = 0, not row count = 0.
 - [ ] The provenance tags only affect demo devices and do not change any
       reader's filter.
-- [ ] The marker is idempotent (`NOT EXISTS`) and contains the undo log.
+- [ ] The marker is idempotent (`NOT EXISTS`) and contains the undo log
+      (`handFed.gramsBefore/After`, `levelLogIds`, `rtcOk.rows`, `g9PreImage`).
+- [ ] `dry-run.sql` was run first and its derived counts were reviewed.
 - [ ] The backup in §7 was taken and verified **before** the run.
 - [ ] L1 is a code follow-up, not part of this script.

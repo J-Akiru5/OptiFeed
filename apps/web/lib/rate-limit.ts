@@ -74,6 +74,14 @@ export function checkStepUpRateLimit(userId: string) {
 	return checkRateLimit(`rl:stepup:${userId}`, 5, 5 * 60_000, false);
 }
 
+// TOTP verification at sign-in and on MFA management: 10 codes per 5 minutes
+// per IP (#719). A six-digit code is a small space, so the bucket is a real
+// control, not politeness. Keyed on the IP because the MFA step runs before the
+// app has an authenticated identity; fail-closed for the same reason as login.
+export function checkMfaRateLimit(ip: string) {
+	return checkRateLimit(`rl:mfa:${ip}`, 10, 5 * 60_000, false);
+}
+
 // Password-reset request limit: 3 requests per 10 minutes per IP. Fail-closed.
 //
 // Each request can make Supabase generate and email a recovery link, so this

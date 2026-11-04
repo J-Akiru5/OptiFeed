@@ -7,6 +7,7 @@
 | [`authz-review.md`](./authz-review.md) | The authorization model, every guard helper, where it is applied, and the defects found while checking |
 | [`csp-review.md`](./csp-review.md) | Which Content-Security-Policy is actually enforced, what it blocks, and the one directive it is missing |
 | [`supply-chain.md`](./supply-chain.md) | Dependency-audit gate, allowlist policy and Dependabot (I-62) |
+| [`mfa.md`](./mfa.md) | Optional TOTP for platform admins: enrolment, sign-in challenge, recovery and what is deliberately not built (#719) |
 
 Disclosure policy, supported versions and safe harbour: [`SECURITY.md`](../../SECURITY.md).
 Backups, RPO/RTO and retention: [`../operations/backup-and-recovery.md`](../operations/backup-and-recovery.md).

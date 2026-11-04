@@ -203,7 +203,8 @@ export function pendingApprovalState(pending: number | null): BandState {
 }
 
 /**
- * MFA is not shipped yet (plan decision N2 / M3C.7), so "no admin enrolled" is
+ * TOTP MFA shipped as an **optional** platform-admin feature (#719), and
+ * enforcement is a separate decision. "No admin enrolled" therefore stays
  * `unknown`: the console cannot claim the platform is protected *or* that it is
  * exposed. Once at least one admin has enrolled, an unenrolled admin is a real
  * gap and the fact becomes `degraded`.

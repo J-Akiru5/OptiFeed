@@ -3,7 +3,7 @@
 import { OptiFeedLogo } from "@/components/OptiFeedLogo";
 import { useTheme } from "@/components/theme-provider";
 import { Link, usePathname, useRouter } from "@/i18n/routing";
-import { loginWithPassword } from "@/lib/actions/auth";
+import { completeMfaLogin, loginWithPassword } from "@/lib/actions/auth";
 import { DPO_EMAIL, LEGAL_PUBLISHED } from "@/lib/legal/config";
 import { clearOfflineData } from "@/lib/offline/db";
 import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
@@ -73,21 +73,46 @@ export default function LoginPage() {
 	const [fieldErrors, setFieldErrors] = useState<{ farmId?: string; password?: string }>({});
 	const [isPending, startTransition] = useTransition();
 	const [isLocalePending, startLocaleTransition] = useTransition();
+	const [mfaRequired, setMfaRequired] = useState(false);
+	const [mfaCode, setMfaCode] = useState("");
+	const [mfaError, setMfaError] = useState<string | null>(null);
+	const [isMfaPending, startMfaTransition] = useTransition();
 	const farmIdRef = useRef<HTMLInputElement>(null);
 	const passwordRef = useRef<HTMLInputElement>(null);
+	const mfaCodeRef = useRef<HTMLInputElement>(null);
 
 	// The proxy no longer redirects authenticated users away from /login (its
 	// optimistic cookie check cannot distinguish a valid session from an
 	// expired one without a network refresh, which raced and looped). A single
-	// client-side getUser() is safe here — one call, no parallel middleware
-	// invocations — so already-logged-in visitors still land on the dashboard.
+	// client-side assurance-level read is safe here — it uses the stored
+	// session, so already-logged-in visitors still land on the dashboard.
+	//
+	// #719: a session that owes a TOTP code must stay on this page. Redirecting
+	// it to /dashboard would bounce off the platform-admin gate and back here.
 	useEffect(() => {
 		clearDashboardSnapshot();
 		void clearOfflineData();
 		const supabase = createClient();
-		supabase.auth.getUser().then(({ data: { user } }) => {
-			if (user) router.replace("/dashboard");
-		});
+		void (async () => {
+			try {
+				const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+				if (data?.nextLevel === "aal2" && data.currentLevel !== "aal2") {
+					setMfaRequired(true);
+					return;
+				}
+				// Any other live session (aal1 with no factor, or aal2) is done.
+				if (data?.nextLevel) {
+					router.replace("/dashboard");
+					return;
+				}
+				const {
+					data: { user },
+				} = await supabase.auth.getUser();
+				if (user) router.replace("/dashboard");
+			} catch {
+				// A stale or unreadable session leaves the normal form in place.
+			}
+		})();
 
 		const storedFarmId = readStoredFarmId();
 		if (storedFarmId) {
@@ -99,6 +124,10 @@ export default function LoginPage() {
 			farmIdRef.current?.focus({ preventScroll: true });
 		}
 	}, [router]);
+
+	useEffect(() => {
+		if (mfaRequired) mfaCodeRef.current?.focus({ preventScroll: true });
+	}, [mfaRequired]);
 
 	const clearServerError = () => {
 		if (error) setError(null);
@@ -140,6 +169,15 @@ export default function LoginPage() {
 					? null
 					: new URLSearchParams(window.location.search).get("next");
 			const result = await loginWithPassword(farmId, password, requestedNext ?? undefined);
+			if (result && "mfaRequired" in result) {
+				// Correct password, second step outstanding. Keep the AAL1 session;
+				// completeMfaLogin() promotes it once the code checks out.
+				setPassword("");
+				setMfaCode("");
+				setMfaError(null);
+				setMfaRequired(true);
+				return;
+			}
 			if (result?.error === "locked") {
 				const minutes = result.secondsRemaining ? Math.ceil(result.secondsRemaining / 60) : 15;
 				setError(t("errorLocked", { minutes }));
@@ -152,6 +190,50 @@ export default function LoginPage() {
 				setPassword("");
 				passwordRef.current?.focus();
 			}
+		});
+	};
+
+	const handleMfaSubmit = (event: FormEvent) => {
+		event.preventDefault();
+		setMfaError(null);
+
+		startMfaTransition(async () => {
+			// Keep the proxy's ?next= across the second step, exactly like the
+			// password step, so a deep link survives the MFA challenge.
+			const requestedNext =
+				typeof window === "undefined"
+					? null
+					: new URLSearchParams(window.location.search).get("next");
+			const result = await completeMfaLogin(mfaCode, requestedNext ?? undefined);
+			if (result?.error === "invalid") {
+				setMfaError(t("mfaErrorInvalid"));
+				setMfaCode("");
+				mfaCodeRef.current?.focus();
+			} else if (result?.error === "rate_limited") {
+				setMfaError(t("mfaErrorRateLimited"));
+			} else if (result?.error === "unsupported") {
+				setMfaError(t("mfaErrorUnsupported"));
+			} else if (result?.error) {
+				setMfaError(t("mfaErrorService"));
+			}
+		});
+	};
+
+	// Abandoning the second step must not leave a half-authenticated session
+	// behind. Local sign-out clears the cookies; the account stays intact and
+	// can sign in again (including after an operator removes the factor).
+	const handleUseAnotherAccount = () => {
+		startMfaTransition(async () => {
+			try {
+				await createClient().auth.signOut({ scope: "local" });
+			} catch {
+				// Still reset the form: the next load re-checks the session.
+			}
+			setMfaRequired(false);
+			setMfaCode("");
+			setMfaError(null);
+			setPassword("");
+			router.refresh();
 		});
 	};
 
@@ -281,161 +363,254 @@ export default function LoginPage() {
 							id="login-heading"
 							className="mt-3 text-[27px] font-semibold leading-[1.15] tracking-[-0.03em] text-[#0A2E47] dark:text-white"
 						>
-							{t("heading")}
+							{mfaRequired ? t("mfaHeading") : t("heading")}
 						</h1>
 						<p className="mt-2 text-[13.5px] leading-5 text-slate-500 dark:text-slate-400">
-							{t("subheading")}
+							{mfaRequired ? t("mfaSubheading") : t("subheading")}
 						</p>
 
-						<form noValidate onSubmit={handleSubmit} className="mt-8 space-y-5">
-							<div>
-								<label
-									htmlFor="farmId"
-									className="mb-1.5 block text-[13px] font-medium text-[#0A2E47] dark:text-slate-200"
-								>
-									{t("farmIdLabel")}
-								</label>
-								<input
-									ref={farmIdRef}
-									id="farmId"
-									name="farmId"
-									type="text"
-									autoComplete="username"
-									autoCapitalize="none"
-									autoCorrect="off"
-									spellCheck={false}
-									enterKeyHint="next"
-									value={farmId}
-									onChange={(e) => {
-										setFarmId(e.target.value);
-										if (fieldErrors.farmId) {
-											setFieldErrors((prev) => ({ ...prev, farmId: undefined }));
-										}
-										clearServerError();
-									}}
-									aria-invalid={Boolean(fieldErrors.farmId)}
-									aria-describedby={fieldErrors.farmId ? "farmId-error" : undefined}
-									className={cn(inputBase, fieldErrors.farmId ? inputError : inputBorder)}
-									placeholder={t("farmIdPlaceholder")}
-								/>
-								{fieldErrors.farmId && (
-									<p id="farmId-error" className="mt-1.5 text-xs text-[#D92D20] dark:text-red-400">
-										{fieldErrors.farmId}
-									</p>
-								)}
-							</div>
-
-							<div>
-								<div className="mb-1.5 flex items-baseline justify-between gap-3">
+						{mfaRequired ? (
+							<form noValidate onSubmit={handleMfaSubmit} className="mt-8 space-y-5">
+								<div>
 									<label
-										htmlFor="password"
-										className="text-[13px] font-medium text-[#0A2E47] dark:text-slate-200"
+										htmlFor="mfaCode"
+										className="mb-1.5 block text-[13px] font-medium text-[#0A2E47] dark:text-slate-200"
 									>
-										{t("passwordLabel")}
+										{t("mfaCodeLabel")}
 									</label>
-									<span className="text-[11px] text-slate-500 dark:text-slate-400">
-										{t("passwordHint")}
-									</span>
-								</div>
-								<div className="relative">
 									<input
-										ref={passwordRef}
-										id="password"
-										name="password"
-										type={showPassword ? "text" : "password"}
-										autoComplete="current-password"
+										ref={mfaCodeRef}
+										id="mfaCode"
+										name="mfaCode"
+										type="text"
+										inputMode="numeric"
+										autoComplete="one-time-code"
 										autoCapitalize="none"
 										autoCorrect="off"
 										spellCheck={false}
-										maxLength={72}
+										maxLength={6}
+										pattern="[0-9]*"
 										enterKeyHint="go"
-										value={password}
+										value={mfaCode}
 										onChange={(e) => {
-											setPassword(e.target.value);
-											if (fieldErrors.password) {
-												setFieldErrors((prev) => ({ ...prev, password: undefined }));
+											setMfaCode(e.target.value);
+											if (mfaError) setMfaError(null);
+										}}
+										aria-describedby="mfaCode-desc"
+										className={cn(
+											inputBase,
+											inputBorder,
+											"text-center text-[20px] tracking-[0.4em]",
+										)}
+										placeholder={t("mfaCodePlaceholder")}
+									/>
+									<p
+										id="mfaCode-desc"
+										className="mt-1.5 text-xs text-slate-500 dark:text-slate-400"
+									>
+										{t("mfaCodeDesc")}
+									</p>
+								</div>
+
+								{mfaError && (
+									<div
+										role="alert"
+										className="flex gap-2.5 rounded-lg border border-red-200 bg-red-50 px-3.5 py-3 text-[12.5px] leading-5 text-red-800 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-200"
+									>
+										<AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+										<p>{mfaError}</p>
+									</div>
+								)}
+
+								<button
+									type="submit"
+									disabled={isMfaPending || mfaCode.replace(/\s+/g, "").length !== 6}
+									className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[var(--ofd-cta)] px-4 text-[14.5px] font-semibold text-white shadow-[0_1px_2px_rgba(10,46,71,0.15)] transition-colors hover:bg-[var(--ofd-cta-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#E85A2A]/25 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-[var(--ofd-cta)] dark:hover:bg-[#F16B3D]"
+								>
+									{isMfaPending ? (
+										<>
+											<Loader2 className="size-4 animate-spin" aria-hidden="true" />
+											{t("mfaSubmitting")}
+										</>
+									) : (
+										t("mfaSubmit")
+									)}
+								</button>
+
+								<button
+									type="button"
+									onClick={handleUseAnotherAccount}
+									disabled={isMfaPending}
+									className="w-full rounded-md text-center text-[12.5px] font-medium text-[#0A3D62] underline decoration-[#0A3D62]/25 underline-offset-2 transition-colors hover:text-[#E85A2A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]/40 dark:text-[#8EC5EF] dark:decoration-[#8EC5EF]/25 dark:hover:text-[#FF8A5C]"
+								>
+									{t("mfaUseAnother")}
+								</button>
+
+								<p className="flex items-start gap-2 text-[11.5px] leading-4 text-slate-500 dark:text-slate-400">
+									<ShieldCheck className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+									{t("mfaHelp")}
+								</p>
+							</form>
+						) : (
+							<form noValidate onSubmit={handleSubmit} className="mt-8 space-y-5">
+								<div>
+									<label
+										htmlFor="farmId"
+										className="mb-1.5 block text-[13px] font-medium text-[#0A2E47] dark:text-slate-200"
+									>
+										{t("farmIdLabel")}
+									</label>
+									<input
+										ref={farmIdRef}
+										id="farmId"
+										name="farmId"
+										type="text"
+										autoComplete="username"
+										autoCapitalize="none"
+										autoCorrect="off"
+										spellCheck={false}
+										enterKeyHint="next"
+										value={farmId}
+										onChange={(e) => {
+											setFarmId(e.target.value);
+											if (fieldErrors.farmId) {
+												setFieldErrors((prev) => ({ ...prev, farmId: undefined }));
 											}
 											clearServerError();
 										}}
-										aria-invalid={Boolean(fieldErrors.password)}
-										aria-describedby={
-											fieldErrors.password ? "password-help password-error" : "password-help"
-										}
-										className={cn(
-											inputBase,
-											"pr-12 text-[15px]",
-											fieldErrors.password ? inputError : inputBorder,
-										)}
+										aria-invalid={Boolean(fieldErrors.farmId)}
+										aria-describedby={fieldErrors.farmId ? "farmId-error" : undefined}
+										className={cn(inputBase, fieldErrors.farmId ? inputError : inputBorder)}
+										placeholder={t("farmIdPlaceholder")}
 									/>
-									<button
-										type="button"
-										onClick={() => setShowPassword((visible) => !visible)}
-										aria-label={showPassword ? t("hidePassword") : t("showPassword")}
-										aria-pressed={showPassword}
-										className="absolute inset-y-0 right-1 my-auto flex size-9 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-[#0A3D62] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]/40 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
-									>
-										{showPassword ? (
-											<EyeOff className="size-[17px]" aria-hidden="true" />
-										) : (
-											<Eye className="size-[17px]" aria-hidden="true" />
-										)}
-									</button>
+									{fieldErrors.farmId && (
+										<p
+											id="farmId-error"
+											className="mt-1.5 text-xs text-[#D92D20] dark:text-red-400"
+										>
+											{fieldErrors.farmId}
+										</p>
+									)}
 								</div>
-								<p id="password-help" className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-									{t("passwordDesc")}
-								</p>
-								{fieldErrors.password && (
-									<p id="password-error" className="mt-1 text-xs text-[#D92D20] dark:text-red-400">
-										{fieldErrors.password}
+
+								<div>
+									<div className="mb-1.5 flex items-baseline justify-between gap-3">
+										<label
+											htmlFor="password"
+											className="text-[13px] font-medium text-[#0A2E47] dark:text-slate-200"
+										>
+											{t("passwordLabel")}
+										</label>
+										<span className="text-[11px] text-slate-500 dark:text-slate-400">
+											{t("passwordHint")}
+										</span>
+									</div>
+									<div className="relative">
+										<input
+											ref={passwordRef}
+											id="password"
+											name="password"
+											type={showPassword ? "text" : "password"}
+											autoComplete="current-password"
+											autoCapitalize="none"
+											autoCorrect="off"
+											spellCheck={false}
+											maxLength={72}
+											enterKeyHint="go"
+											value={password}
+											onChange={(e) => {
+												setPassword(e.target.value);
+												if (fieldErrors.password) {
+													setFieldErrors((prev) => ({ ...prev, password: undefined }));
+												}
+												clearServerError();
+											}}
+											aria-invalid={Boolean(fieldErrors.password)}
+											aria-describedby={
+												fieldErrors.password ? "password-help password-error" : "password-help"
+											}
+											className={cn(
+												inputBase,
+												"pr-12 text-[15px]",
+												fieldErrors.password ? inputError : inputBorder,
+											)}
+										/>
+										<button
+											type="button"
+											onClick={() => setShowPassword((visible) => !visible)}
+											aria-label={showPassword ? t("hidePassword") : t("showPassword")}
+											aria-pressed={showPassword}
+											className="absolute inset-y-0 right-1 my-auto flex size-9 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-[#0A3D62] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]/40 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+										>
+											{showPassword ? (
+												<EyeOff className="size-[17px]" aria-hidden="true" />
+											) : (
+												<Eye className="size-[17px]" aria-hidden="true" />
+											)}
+										</button>
+									</div>
+									<p
+										id="password-help"
+										className="mt-1.5 text-xs text-slate-500 dark:text-slate-400"
+									>
+										{t("passwordDesc")}
 									</p>
-								)}
-								<p className="mt-2 text-right">
-									<Link
-										href="/forgot-password"
-										className="text-[12.5px] font-medium text-[#0A3D62] underline decoration-[#0A3D62]/25 underline-offset-2 transition-colors hover:text-[#E85A2A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]/40 dark:text-[#8EC5EF] dark:decoration-[#8EC5EF]/25 dark:hover:text-[#FF8A5C]"
-									>
-										{t("forgotPassword")}
-									</Link>
-								</p>
-							</div>
-
-							{error && (
-								<div
-									role="alert"
-									className="flex gap-2.5 rounded-lg border border-red-200 bg-red-50 px-3.5 py-3 text-[12.5px] leading-5 text-red-800 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-200"
-								>
-									<AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-									<p>{error}</p>
+									{fieldErrors.password && (
+										<p
+											id="password-error"
+											className="mt-1 text-xs text-[#D92D20] dark:text-red-400"
+										>
+											{fieldErrors.password}
+										</p>
+									)}
+									<p className="mt-2 text-right">
+										<Link
+											href="/forgot-password"
+											className="text-[12.5px] font-medium text-[#0A3D62] underline decoration-[#0A3D62]/25 underline-offset-2 transition-colors hover:text-[#E85A2A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]/40 dark:text-[#8EC5EF] dark:decoration-[#8EC5EF]/25 dark:hover:text-[#FF8A5C]"
+										>
+											{t("forgotPassword")}
+										</Link>
+									</p>
 								</div>
-							)}
 
-							<label className="flex cursor-pointer items-start gap-2.5 select-none">
-								<input
-									type="checkbox"
-									checked={rememberFarmId}
-									onChange={(e) => setRememberFarmId(e.target.checked)}
-									className="mt-0.5 size-4 shrink-0 cursor-pointer rounded border-[#C9D4D0] accent-[#0A3D62] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]/40 focus-visible:ring-offset-2 dark:border-white/20 dark:accent-[#FF8A5C] dark:focus-visible:ring-offset-[#0B1117]"
-								/>
-								<span className="text-[12.5px] leading-5 text-slate-500 dark:text-slate-400">
-									{t("rememberFarmId")}
-								</span>
-							</label>
-
-							<button
-								type="submit"
-								disabled={isPending}
-								className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[var(--ofd-cta)] px-4 text-[14.5px] font-semibold text-white shadow-[0_1px_2px_rgba(10,46,71,0.15)] transition-colors hover:bg-[var(--ofd-cta-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#E85A2A]/25 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-[var(--ofd-cta)] dark:hover:bg-[#F16B3D]"
-							>
-								{isPending ? (
-									<>
-										<Loader2 className="size-4 animate-spin" aria-hidden="true" />
-										{t("submitting")}
-									</>
-								) : (
-									t("submit")
+								{error && (
+									<div
+										role="alert"
+										className="flex gap-2.5 rounded-lg border border-red-200 bg-red-50 px-3.5 py-3 text-[12.5px] leading-5 text-red-800 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-200"
+									>
+										<AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+										<p>{error}</p>
+									</div>
 								)}
-							</button>
-						</form>
+
+								<label className="flex cursor-pointer items-start gap-2.5 select-none">
+									<input
+										type="checkbox"
+										checked={rememberFarmId}
+										onChange={(e) => setRememberFarmId(e.target.checked)}
+										className="mt-0.5 size-4 shrink-0 cursor-pointer rounded border-[#C9D4D0] accent-[#0A3D62] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85A2A]/40 focus-visible:ring-offset-2 dark:border-white/20 dark:accent-[#FF8A5C] dark:focus-visible:ring-offset-[#0B1117]"
+									/>
+									<span className="text-[12.5px] leading-5 text-slate-500 dark:text-slate-400">
+										{t("rememberFarmId")}
+									</span>
+								</label>
+
+								<button
+									type="submit"
+									disabled={isPending}
+									className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[var(--ofd-cta)] px-4 text-[14.5px] font-semibold text-white shadow-[0_1px_2px_rgba(10,46,71,0.15)] transition-colors hover:bg-[var(--ofd-cta-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#E85A2A]/25 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-[var(--ofd-cta)] dark:hover:bg-[#F16B3D]"
+								>
+									{isPending ? (
+										<>
+											<Loader2 className="size-4 animate-spin" aria-hidden="true" />
+											{t("submitting")}
+										</>
+									) : (
+										t("submit")
+									)}
+								</button>
+							</form>
+						)}
 
 						{LEGAL_PUBLISHED ? (
 							<p className="mt-4 text-center text-[11.5px] leading-5 text-slate-500 dark:text-slate-400">

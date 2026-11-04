@@ -1,6 +1,6 @@
 {
 	"name": "optifeed",
-	"version": "1.55.1",
+	"version": "1.56.0",
 	"private": true,
 	"type": "module",
 	"packageManager": "pnpm@10.33.3",
@@ -22,6 +22,7 @@
 		"self-check": "node scripts/self-check.mjs",
 		"audit:gate": "node scripts/security/audit-gate.mjs",
 		"security:overrides": "node scripts/security/check-overrides.mjs",
+		"security:tenant-proof": "node scripts/security/tenant-isolation-proof.mjs",
 		"dead-code": "knip",
 		"complexity": "pnpm --filter web complexity",
 		"perf:bundle": "node scripts/perf/bundle-budget.mjs",

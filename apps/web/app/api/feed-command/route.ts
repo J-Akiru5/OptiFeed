@@ -202,7 +202,7 @@ export const GET = withApi(
 				config,
 			});
 		} catch (error) {
-			reportError(error, { route: "feed-command", deviceId: device?.id ?? deviceId });
+			reportError(error, { route: "feed-command", deviceId: device?.id ?? deviceId }, "ERROR");
 			// #724: an infrastructure failure is not an idle queue. Answering 200
 			// with `feed_requested: false` made the firmware treat the poll as
 			// successful and stop retrying, so a pending feed expired undelivered

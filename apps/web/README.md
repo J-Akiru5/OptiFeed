@@ -30,7 +30,8 @@ Key env vars (full list in `apps/web/.env.example`):
 |---|---|
 | `DATABASE_URL` / `DIRECT_URL` | Supabase Postgres (direct URL for migrations) |
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | Supabase Auth |
-| `CRON_SECRET` | Bearer secret for `/api/cron/device-watch` and `/api/cron/crop-watch` (the pg_cron SQL files) |
+| `CRON_SECRET` | Bearer secret for every `/api/cron/*` route (pg_cron) |
+| `ALERT_WEBHOOK_URL` | Optional provider-neutral operator pager (#729); unset means no external paging |
 | `RESEND_API_KEY` / `REMINDER_FROM_EMAIL` | Harvest/sampling reminder email (optional; in-app only until all email vars are set) |
 | `RESET_FROM_EMAIL` | Sender for the password-reset email (optional; falls back to `INVITE_FROM_EMAIL`) |
 | `NEXT_PUBLIC_BASE_URL` | Absolute links in alerts/exports and reminder emails |
@@ -39,10 +40,12 @@ Key env vars (full list in `apps/web/.env.example`):
 | `GEMINI_API_KEY` | Gemini fallback when the primary provider fails |
 | `E2E_ALLOWED_DB_HOST` | Playwright guard: e2e only runs against this DB host |
 
-Alerts are **in-app only** — a `Notification` row is the source of truth. E-mail
-is a best-effort extra (Resend) for crop reminders, invitations and password
-resets. There is no Telegram variable and no Telegram client: the platform does
-not use Telegram ([ADR-0007](../../docs/adr/0007-no-telegram.md)).
+Tenant alerts are **in-app only** — a `Notification` row is the source of truth.
+E-mail is a best-effort extra (Resend) for crop reminders, invitations and
+password resets. There is no Telegram variable and no Telegram client: the
+platform does not use Telegram ([ADR-0007](../../docs/adr/0007-no-telegram.md)).
+The optional operator pager (`ALERT_WEBHOOK_URL`) is a separate platform-level
+channel; it is off unless configured and never receives tenant notification data.
 
 ## Commands (repo root)
 

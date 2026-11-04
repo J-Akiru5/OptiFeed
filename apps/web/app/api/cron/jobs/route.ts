@@ -10,6 +10,10 @@ export const dynamic = "force-dynamic";
 
 export const GET = withApi(
 	withCronAuth(async (request) => {
+		// Start marker before the queue claim. A worker killed by the 15 s wrapper
+		// budget leaves `running`, which the dead-man's switch reports as "started,
+		// never finished" instead of "never ran".
+		await recordCronHeartbeat("background-jobs", "running");
 		const { searchParams } = new URL(request.url);
 		const max = Math.min(20, Math.max(1, Number(searchParams.get("max") ?? 5) || 5));
 		try {
@@ -22,7 +26,7 @@ export const GET = withApi(
 			await recordCronHeartbeat("background-jobs", "ok");
 			return ok(result);
 		} catch (error) {
-			reportError(error, { route: "cron/jobs" });
+			reportError(error, { route: "cron/jobs" }, "CRITICAL");
 			await recordCronHeartbeat("background-jobs", "error", error);
 			throw error;
 		}

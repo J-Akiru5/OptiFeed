@@ -13,15 +13,22 @@ export const dynamic = "force-dynamic";
  * Idempotent by `ReminderLog.dedupeKey`: a rerun skips every reminder that was
  * already recorded. Email is best-effort; a provider failure is stored on the
  * log and retried on later runs without failing the route.
+ *
+ * The `running` marker is written before the work starts, not after it. pg_net
+ * aborts at 8 s and `withApi` guards at 8 s; when the reminder pass is slower
+ * than that the wrapper answers 504 and this handler never reaches its `ok` or
+ * `catch` statement. A completion-only heartbeat therefore cannot distinguish
+ * "slow" from "never scheduled" — the exact production failure on 2026-11-04.
  */
 export const GET = withApi(
 	withCronAuth(async () => {
+		await recordCronHeartbeat("crop-watch", "running");
 		try {
 			const summary = await processCropReminders();
 			await recordCronHeartbeat("crop-watch", "ok");
 			return ok(summary);
 		} catch (error) {
-			reportError(error, { route: "cron/crop-watch" });
+			reportError(error, { route: "cron/crop-watch" }, "CRITICAL");
 			await recordCronHeartbeat("crop-watch", "error", error);
 			return Response.json({ error: "Internal Error" }, { status: 500 });
 		}

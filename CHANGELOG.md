@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Release QA E2E coverage is now part of CI.** The suite covers the critical authenticated flows from the 2026-11-04 pass and axe checks on the public pages and dashboard, including the QA-20 contrast regression. `pnpm test:e2e:qa` runs the focused pair; the normal `pnpm test:e2e` and its CI job include them.
+
 ### Changed
 
 - **Deployment policy is recorded as `main` + `staging` and guarded against drift (D7).** The promotion chain remains `develop` → `staging` → `main`; `develop` is validation-only, matching `apps/web/vercel.json`, and the global `main` + `develop` deployment default does not apply to this repository. Vercel Deployment Protection is now documented as a required control for preview deployments, and `scripts/ops/deployment-policy.mjs` (run inside the existing `quality` job) fails if the config, the deployment document and the documented allowlist diverge.

@@ -89,6 +89,7 @@ const FOREIGN_KEYS: Record<string, { column: string; table: string; nullable?: b
 		{ column: "userId", table: "User" },
 		{ column: "deviceId", table: "EnergyDevice", nullable: true },
 	],
+	PondGrowthOverride: [{ column: "pondId", table: "Pond" }],
 	FeedingEvent: [{ column: "deviceId", table: "Device" }],
 	FeedEvent: [{ column: "deviceId", table: "EnergyDevice" }],
 	FeedRequest: [{ column: "deviceId", table: "EnergyDevice" }],

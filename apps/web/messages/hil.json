@@ -1453,7 +1453,7 @@
 				"densityValue": "{density} isda/m²",
 				"densityValueDepth": "{density} isda/m³",
 				"densityNoArea": "Idugang ang area sang punong sa Settings para makita ang stocking density.",
-				"densityHigh": "Labaw sa 20/m² advisory — i-check ang aeration.",
+				"densityHigh": "Labaw sa {density}/m² nga advisory — susiha ang aeration.",
 				"growOutDays": "Adlaw sang pagpatubo",
 				"harvestDate": "Target nga petsa sang ani",
 				"stockingWeight": "Timbang sang ginbutang (g)",
@@ -1479,7 +1479,11 @@
 				"targetConflictReplaceClearHint": "Limpyohan ang target sang calculator kag ang target sang siklo.",
 				"targetConflictKeep": "Tipigan ang target sang calculator",
 				"targetConflictKeepHint": "Tipigan ang {saved} g bilang target sang plano. Ibalik ang target sang siklo sa {saved} g.",
-				"targetConflictCancel": "I-cancel"
+				"targetConflictCancel": "I-cancel",
+				"sourcePond": "Pond override",
+				"sourceFarm": "Farm default",
+				"sourceSystem": "System default",
+				"defaultsHint": "Ang bag-ong cycle naga-gamit sang pond override, sunod ang farm default, sunod ang system default."
 			},
 			"harvestForm": {
 				"title": "I-record ang ani",
@@ -1670,6 +1674,25 @@
 				"invalidNumber": "Magbutang sang numero.",
 				"deviceDailyCeiling": "Kinahanglan sang punong ang {pond} kada adlaw, sobra sa takda sang device nga {device} kada adlaw.",
 				"deviceRelayTime": "Ang isa ka lamesa {pond}, mas malawig sa {device} nga kaya sang feeder sa isa ka relay window."
+			},
+			"growthDefaultsSectionTitle": "Mga default sang pagtubo",
+			"growthDefaultsSectionDesc": "I-override ang mga default sang farm para sa sini nga pond.",
+			"growthDefaults": {
+				"pondTitle": "Mga default sang pagtubo sa pond",
+				"pondDesc": "Ang blangko nga field nagapanubli sang farm default.",
+				"growOutDaysLabel": "Mga adlaw sang grow-out",
+				"targetWeightLabel": "Target nga bug-at sa harvest (g)",
+				"survivalLabel": "Ginapaabot nga survival (%)",
+				"stockingWeightLabel": "Bug-at sang stocking (g)",
+				"densityLabel": "Advisory sa densidad (isda/m²)",
+				"inheritPlaceholder": "Panubli",
+				"inheritsFarm": "Nagapanubli sang farm default: {value}",
+				"inheritsSystem": "Nagapanubli sang system default: {value}",
+				"inheritsNone": "Wala sang default — magapabilin nga blangko ang field.",
+				"hint": "Ang override para sa bag-ong cycle sa sini nga pond lamang. Ang existing nga cycle nagapabilin sang mga value nga na-save.",
+				"save": "I-save ang mga default",
+				"saving": "Gina-save…",
+				"saved": "Na-save ang mga default sang pond."
 			}
 		},
 		"profileSettings": {
@@ -2998,7 +3021,21 @@
 				"ADMIN": "Admin",
 				"OPERATOR": "Operator",
 				"VIEWER": "Viewer"
-			}
+			},
+			"growthDefaultsTitle": "Mga default sang pagtubo",
+			"growthDefaultsDesc": "Mga value nga ginagamit sang bag-ong grow-out cycle kon wala sang override ang pond.",
+			"growOutDaysLabel": "Mga adlaw sang grow-out",
+			"growOutDaysHint": "30 hasta 365 ka adlaw. Kon blangko, 135 ang gamiton.",
+			"targetWeightLabel": "Target nga bug-at sa harvest (g)",
+			"targetWeightHint": "Kon blangko, 250 g ang gamiton.",
+			"survivalLabel": "Ginapaabot nga survival (%)",
+			"survivalHint": "Kon blangko, 85 % ang gamiton.",
+			"stockingWeightLabel": "Bug-at sang stocking (g)",
+			"stockingWeightHint": "Opsyonal. Kon blangko, wala sang system value.",
+			"densityLabel": "Advisory sa densidad (isda/m²)",
+			"densityHint": "Kon labaw sa sini nga densidad, may paandam sa aeration ang cycle form. Kon blangko, 20/m².",
+			"growthDefaultsHint": "Order sang resolution: pond override → farm default → system default. Kon klaruhon ang field, mabalik sa sunod nga layer.",
+			"noSystemDefault": "Wala sang default"
 		},
 		"adminBackup": {
 			"title": "Backup",

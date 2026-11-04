@@ -158,7 +158,7 @@ afterEach(() => {
 });
 
 describe("admin settings page structure", () => {
-	it("renders one page title, three labelled sections and three card headings", async () => {
+	it("renders one page title, the labelled sections and every card heading", async () => {
 		const host = parseHtml(
 			renderToStaticMarkup(await AdminSettingsPage({ searchParams: Promise.resolve({}) })),
 		);
@@ -173,6 +173,7 @@ describe("admin settings page structure", () => {
 			"Default Feeding Rate",
 			"Notification Settings",
 			"Device Registration",
+			"Growth defaults",
 		]);
 
 		// Every section landmark is named by its own heading, never by a repeated
@@ -192,7 +193,7 @@ describe("admin settings page structure", () => {
 		expect(new Set(titles).size).toBe(titles.length);
 	});
 
-	it("lays the three settings cards out 1 / 2 / 3 across without a two-column desktop", async () => {
+	it("lays the settings cards out 1 / 2 / 3 across without a two-column desktop", async () => {
 		const host = parseHtml(
 			renderToStaticMarkup(await AdminSettingsPage({ searchParams: Promise.resolve({}) })),
 		);
@@ -208,7 +209,7 @@ describe("admin settings page structure", () => {
 		expect(grid?.className).toContain("sm:grid-cols-2");
 		expect(grid?.className).toContain("xl:grid-cols-3");
 		expect(grid?.className).not.toContain("xl:grid-cols-2");
-		expect(grid?.children).toHaveLength(3);
+		expect(grid?.children).toHaveLength(4);
 		for (const card of grid?.children ?? []) {
 			expect(card.className).toContain("h-full");
 		}

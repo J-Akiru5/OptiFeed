@@ -50,6 +50,7 @@ export const EXPORT_TABLES = [
 	"EnergyDevice",
 	"DeviceConnectivityDaily",
 	"PondSettingsDraft",
+	"PondGrowthOverride",
 	"FeedingEvent",
 	"FeedEvent",
 	"FeedRequest",
@@ -109,6 +110,7 @@ export const PRIMARY_KEYS = {
 	EnergyDevice: "id",
 	DeviceConnectivityDaily: "id",
 	PondSettingsDraft: "id",
+	PondGrowthOverride: "pondId",
 	FeedingEvent: "id",
 	FeedEvent: "id",
 	FeedRequest: "id",
@@ -155,6 +157,7 @@ export const FOREIGN_KEYS = {
 	Device: [{ column: "pondId", table: "Pond", target: "id" }],
 	EnergyDevice: [{ column: "pondId", table: "Pond", target: "id", nullable: true }],
 	DeviceConnectivityDaily: [{ column: "deviceId", table: "EnergyDevice", target: "id" }],
+	PondGrowthOverride: [{ column: "pondId", table: "Pond", target: "id" }],
 	PondSettingsDraft: [
 		{ column: "pondId", table: "Pond", target: "id" },
 		{ column: "userId", table: "User", target: "id" },

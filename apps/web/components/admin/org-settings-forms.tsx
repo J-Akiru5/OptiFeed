@@ -4,6 +4,7 @@ import { adminField, adminHint, adminLabel, adminSurface } from "@/components/ad
 import { useRouter } from "@/i18n/routing";
 import { updateOrgSettings } from "@/lib/actions/org-settings";
 import { MEMBER_ROLES } from "@/lib/auth/member-rules";
+import { GROWTH_DEFAULT_BOUNDS, SYSTEM_GROWTH_DEFAULTS } from "@/lib/growth/defaults";
 import {
 	ORG_DEFAULT_FEEDING_RATE_MAX,
 	ORG_DEFAULT_FEEDING_RATE_MIN,
@@ -14,7 +15,7 @@ import {
 	type OrgSettings,
 } from "@/lib/settings/org-shared";
 import type { MemberRole } from "@prisma/client";
-import { Bell, Gauge, Router } from "lucide-react";
+import { Bell, Gauge, Router, Sprout } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { toast } from "sonner";
@@ -321,6 +322,166 @@ export function NotificationSettingsForm({
 					</div>
 				</fieldset>
 
+				<div className="mt-auto">
+					<SaveButton loading={saving} label={t("save")} pendingLabel={t("saving")} />
+				</div>
+			</form>
+		</Card>
+	);
+}
+
+/** Blank input clears the value (inherit the documented constant). */
+function numberOrNull(raw: string): number | null {
+	if (raw.trim() === "") return null;
+	const parsed = Number(raw);
+	return Number.isFinite(parsed) ? parsed : null;
+}
+
+function textOrEmpty(value: number | null): string {
+	return value === null ? "" : String(value);
+}
+
+/**
+ * Farm grow-out defaults (#826 part 2 / #828).
+ *
+ * These are the values a new grow-out cycle starts from when the pond has no
+ * override. Every field is nullable: blank means "not set" and the documented
+ * constant in `lib/growth/defaults.ts` applies, which the placeholder names.
+ */
+export function GrowthDefaultsForm({
+	orgId,
+	settings,
+	canManage,
+}: {
+	orgId: string;
+	settings: OrgSettings;
+	canManage: boolean;
+}) {
+	const { save, saving, error, t } = useSettingsSave(orgId, !canManage);
+	const [growOutDays, setGrowOutDays] = useState(textOrEmpty(settings.defaultGrowOutDays));
+	const [targetWeight, setTargetWeight] = useState(
+		textOrEmpty(settings.defaultTargetHarvestWeightG),
+	);
+	const [survival, setSurvival] = useState(textOrEmpty(settings.defaultExpectedSurvivalPct));
+	const [stockingWeight, setStockingWeight] = useState(
+		textOrEmpty(settings.defaultStockingAvgWeightG),
+	);
+	const [density, setDensity] = useState(textOrEmpty(settings.densityAdvisoryPerM2));
+
+	function onSubmit(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		void save({
+			defaultGrowOutDays: numberOrNull(growOutDays),
+			defaultTargetHarvestWeightG: numberOrNull(targetWeight),
+			defaultExpectedSurvivalPct: numberOrNull(survival),
+			defaultStockingAvgWeightG: numberOrNull(stockingWeight),
+			densityAdvisoryPerM2: numberOrNull(density),
+		});
+	}
+
+	return (
+		<Card
+			icon={<Sprout className={iconClass} />}
+			title={t("growthDefaultsTitle")}
+			description={t("growthDefaultsDesc")}
+			anchor="setting-org-growth-defaults"
+		>
+			<form onSubmit={onSubmit} className="flex flex-1 flex-col gap-4">
+				{error && <ErrorNote message={error} />}
+				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+					<div>
+						<label htmlFor="defaultGrowOutDays" className={adminLabel}>
+							{t("growOutDaysLabel")}
+						</label>
+						<input
+							id="defaultGrowOutDays"
+							name="defaultGrowOutDays"
+							type="number"
+							min={GROWTH_DEFAULT_BOUNDS.growOutDays.min}
+							max={GROWTH_DEFAULT_BOUNDS.growOutDays.max}
+							value={growOutDays}
+							placeholder={String(SYSTEM_GROWTH_DEFAULTS.growOutDays)}
+							onChange={(event) => setGrowOutDays(event.target.value)}
+							disabled={!canManage || saving}
+							className={adminField}
+						/>
+						<p className={adminHint}>{t("growOutDaysHint")}</p>
+					</div>
+					<div>
+						<label htmlFor="defaultTargetHarvestWeightG" className={adminLabel}>
+							{t("targetWeightLabel")}
+						</label>
+						<input
+							id="defaultTargetHarvestWeightG"
+							name="defaultTargetHarvestWeightG"
+							type="number"
+							min={GROWTH_DEFAULT_BOUNDS.targetHarvestWeightG.min}
+							max={GROWTH_DEFAULT_BOUNDS.targetHarvestWeightG.max}
+							value={targetWeight}
+							placeholder={String(SYSTEM_GROWTH_DEFAULTS.targetHarvestWeightG)}
+							onChange={(event) => setTargetWeight(event.target.value)}
+							disabled={!canManage || saving}
+							className={adminField}
+						/>
+						<p className={adminHint}>{t("targetWeightHint")}</p>
+					</div>
+					<div>
+						<label htmlFor="defaultExpectedSurvivalPct" className={adminLabel}>
+							{t("survivalLabel")}
+						</label>
+						<input
+							id="defaultExpectedSurvivalPct"
+							name="defaultExpectedSurvivalPct"
+							type="number"
+							min={GROWTH_DEFAULT_BOUNDS.expectedSurvivalPct.min}
+							max={GROWTH_DEFAULT_BOUNDS.expectedSurvivalPct.max}
+							value={survival}
+							placeholder={String(SYSTEM_GROWTH_DEFAULTS.expectedSurvivalPct)}
+							onChange={(event) => setSurvival(event.target.value)}
+							disabled={!canManage || saving}
+							className={adminField}
+						/>
+						<p className={adminHint}>{t("survivalHint")}</p>
+					</div>
+					<div>
+						<label htmlFor="defaultStockingAvgWeightG" className={adminLabel}>
+							{t("stockingWeightLabel")}
+						</label>
+						<input
+							id="defaultStockingAvgWeightG"
+							name="defaultStockingAvgWeightG"
+							type="number"
+							min={GROWTH_DEFAULT_BOUNDS.stockingAvgWeightG.min}
+							max={GROWTH_DEFAULT_BOUNDS.stockingAvgWeightG.max}
+							step="0.1"
+							value={stockingWeight}
+							placeholder={t("noSystemDefault")}
+							onChange={(event) => setStockingWeight(event.target.value)}
+							disabled={!canManage || saving}
+							className={adminField}
+						/>
+						<p className={adminHint}>{t("stockingWeightHint")}</p>
+					</div>
+					<div>
+						<label htmlFor="densityAdvisoryPerM2" className={adminLabel}>
+							{t("densityLabel")}
+						</label>
+						<input
+							id="densityAdvisoryPerM2"
+							name="densityAdvisoryPerM2"
+							type="number"
+							min={GROWTH_DEFAULT_BOUNDS.densityAdvisoryPerM2.min}
+							max={GROWTH_DEFAULT_BOUNDS.densityAdvisoryPerM2.max}
+							value={density}
+							placeholder={String(SYSTEM_GROWTH_DEFAULTS.densityAdvisoryPerM2)}
+							onChange={(event) => setDensity(event.target.value)}
+							disabled={!canManage || saving}
+							className={adminField}
+						/>
+						<p className={adminHint}>{t("densityHint")}</p>
+					</div>
+				</div>
+				<p className={adminHint}>{t("growthDefaultsHint")}</p>
 				<div className="mt-auto">
 					<SaveButton loading={saving} label={t("save")} pendingLabel={t("saving")} />
 				</div>

@@ -13,6 +13,7 @@ import { calendarCapability } from "@/lib/calendar/capability";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { serialiseCycle } from "@/lib/crop-cycle/serialise";
 import type { PondOption } from "@/lib/crop-cycle/types";
+import { loadPondGrowthDefaultContexts } from "@/lib/growth/defaults-loader";
 import { parsePondGrowthTarget, parsePondProfile } from "@/lib/pond-profile";
 import prisma from "@/lib/prisma";
 import { CalendarDays } from "lucide-react";
@@ -60,6 +61,7 @@ export default async function AdminCalendarPage() {
 						name: true,
 						isFallow: true,
 						population: true,
+						ownerId: true,
 						notificationPrefs: true,
 					},
 				})
@@ -122,6 +124,7 @@ export default async function AdminCalendarPage() {
 		serialiseCycle(cycle, deadByCycle.get(cycle.id) ?? 0),
 	);
 	const activeCycleIdByPond = new Map(activeCycles.map((cycle) => [cycle.pondId, cycle.id]));
+	const growthContexts = await loadPondGrowthDefaultContexts(ponds);
 	const pondOptions: PondOption[] = ponds.map((pond) => {
 		const profile = parsePondProfile(pond.notificationPrefs);
 		const savedTarget = parsePondGrowthTarget(pond.notificationPrefs);
@@ -137,6 +140,7 @@ export default async function AdminCalendarPage() {
 				savedTarget && activeCycleId !== null && savedTarget.cycleId === activeCycleId
 					? savedTarget.targetWeightG
 					: null,
+			growthDefaults: growthContexts.get(pond.id)?.resolved,
 		};
 	});
 	const activeCycle = activeCycles.find((cycle) => cycle.pondId === ponds[0].id) ?? null;

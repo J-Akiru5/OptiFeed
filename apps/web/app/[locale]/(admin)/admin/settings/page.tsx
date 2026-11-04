@@ -5,6 +5,7 @@ import { MembersSettings } from "@/components/admin/members-settings";
 import {
 	DefaultFeedingRateForm,
 	DeviceRegistrationForm,
+	GrowthDefaultsForm,
 	NotificationSettingsForm,
 } from "@/components/admin/org-settings-forms";
 import { Pagination } from "@/components/ui/pagination";
@@ -62,6 +63,7 @@ export default async function AdminSettingsPage({
 					<DefaultFeedingRateForm orgId={orgId ?? ""} settings={settings} canManage={canEdit} />
 					<NotificationSettingsForm orgId={orgId ?? ""} settings={settings} canManage={canEdit} />
 					<DeviceRegistrationForm orgId={orgId ?? ""} settings={settings} canManage={canEdit} />
+					<GrowthDefaultsForm orgId={orgId ?? ""} settings={settings} canManage={canEdit} />
 				</div>
 			</AdminSection>
 

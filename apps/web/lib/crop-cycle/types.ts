@@ -1,3 +1,5 @@
+import type { ResolvedGrowthDefaults } from "@/lib/growth/defaults";
+
 export interface CropCycleDto {
 	id: string;
 	pondId: string;
@@ -31,4 +33,10 @@ export interface PondOption {
 	 * ACTIVE cycle. `null` means the cycle form must save without asking.
 	 */
 	savedTargetWeightG: number | null;
+	/**
+	 * Pond override → farm default → documented constant (#828), resolved on
+	 * the server. Absent on older payloads and in tests; the form then falls
+	 * back to the constants, exactly like a fresh install.
+	 */
+	growthDefaults?: ResolvedGrowthDefaults;
 }

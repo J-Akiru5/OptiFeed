@@ -1453,7 +1453,7 @@
 				"densityValue": "{density} fish/m²",
 				"densityValueDepth": "{density} fish/m³",
 				"densityNoArea": "Add pond area in Settings to see stocking density.",
-				"densityHigh": "Above 20/m² advisory — check aeration.",
+				"densityHigh": "Above {density}/m² advisory — check aeration.",
 				"growOutDays": "Grow-out days",
 				"harvestDate": "Target harvest date",
 				"stockingWeight": "Stocking weight (g)",
@@ -1479,7 +1479,11 @@
 				"targetConflictReplaceClearHint": "Clear the calculator target and the cycle target.",
 				"targetConflictKeep": "Keep calculator target",
 				"targetConflictKeepHint": "Keep {saved} g as the plan target. The cycle target is set back to {saved} g.",
-				"targetConflictCancel": "Cancel"
+				"targetConflictCancel": "Cancel",
+				"sourcePond": "Pond override",
+				"sourceFarm": "Farm default",
+				"sourceSystem": "System default",
+				"defaultsHint": "New cycles start from the pond override, then the farm default, then the system default."
 			},
 			"harvestForm": {
 				"title": "Record harvest",
@@ -1670,6 +1674,25 @@
 				"invalidNumber": "Enter a number.",
 				"deviceDailyCeiling": "The pond needs {pond}/day, above the device ceiling of {device}/day.",
 				"deviceRelayTime": "One meal is {pond}, longer than the {device} the feeder can run in one relay window."
+			},
+			"growthDefaultsSectionTitle": "Growth defaults",
+			"growthDefaultsSectionDesc": "Override the farm's grow-out defaults for this pond.",
+			"growthDefaults": {
+				"pondTitle": "Pond growth defaults",
+				"pondDesc": "Blank fields inherit the farm default.",
+				"growOutDaysLabel": "Grow-out days",
+				"targetWeightLabel": "Target harvest weight (g)",
+				"survivalLabel": "Expected survival (%)",
+				"stockingWeightLabel": "Stocking weight (g)",
+				"densityLabel": "Density advisory (fish/m²)",
+				"inheritPlaceholder": "Inherit",
+				"inheritsFarm": "Inherits farm default: {value}",
+				"inheritsSystem": "Inherits system default: {value}",
+				"inheritsNone": "No default — the field stays empty.",
+				"hint": "Overrides apply to new cycles on this pond only. Existing cycles keep the values they were saved with.",
+				"save": "Save defaults",
+				"saving": "Saving…",
+				"saved": "Pond growth defaults saved."
 			}
 		},
 		"profileSettings": {
@@ -2998,7 +3021,21 @@
 				"ADMIN": "Admin",
 				"OPERATOR": "Operator",
 				"VIEWER": "Viewer"
-			}
+			},
+			"growthDefaultsTitle": "Growth defaults",
+			"growthDefaultsDesc": "Values a new grow-out cycle starts from when a pond has no override.",
+			"growOutDaysLabel": "Grow-out days",
+			"growOutDaysHint": "Between 30 and 365 days. Blank uses 135.",
+			"targetWeightLabel": "Target harvest weight (g)",
+			"targetWeightHint": "Blank uses 250 g.",
+			"survivalLabel": "Expected survival (%)",
+			"survivalHint": "Blank uses 85 %.",
+			"stockingWeightLabel": "Stocking weight (g)",
+			"stockingWeightHint": "Optional. Blank leaves the field empty; there is no system value.",
+			"densityLabel": "Density advisory (fish/m²)",
+			"densityHint": "Above this stocking density the cycle form shows an aeration warning. Blank uses 20/m².",
+			"growthDefaultsHint": "Resolution order: pond override → farm default → system default. Clearing a field falls back to the next layer.",
+			"noSystemDefault": "No default"
 		},
 		"adminBackup": {
 			"title": "Backup",

@@ -6,7 +6,7 @@ import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import type { CropCycleDto } from "@/lib/crop-cycle/types";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Modal } from "./modal";
 
@@ -27,9 +27,25 @@ export function HarvestForm({ open, onClose, onSaved, cycle }: HarvestFormProps)
 	const [notes, setNotes] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [isPending, startTransition] = useTransition();
+	/**
+	 * #825: `router.refresh()` rebuilds `cycle` through `cycleForPond`, so the
+	 * object identity changes while the dialog is open. Initialise per cycle
+	 * identity instead, and forget it on close so reopening resets.
+	 */
+	const initialisedFor = useRef<string | null>(null);
 
 	useEffect(() => {
-		if (!open || !cycle) return;
+		if (!open) {
+			initialisedFor.current = null;
+			return;
+		}
+		if (!cycle) {
+			initialisedFor.current = null;
+			return;
+		}
+		const key = cycle.id;
+		if (initialisedFor.current === key) return;
+		initialisedFor.current = key;
 		setActualDate(todayDateOnly());
 		setWeightKg("");
 		// #764: harvest defaults to the live count after mortality, not the

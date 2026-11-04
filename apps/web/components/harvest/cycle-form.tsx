@@ -27,6 +27,17 @@ function optionalNumber(value: string): number | null {
 	return Number.isFinite(parsed) ? parsed : null;
 }
 
+/**
+ * Whole grow-out days from a raw input value. `null` while the field is empty
+ * (#825) so clearing it never coerces to `0`; the saved span still comes from
+ * the date pair.
+ */
+function parseGrowOutDays(value: string): number | null {
+	if (value.trim() === "") return null;
+	const parsed = Math.round(Number(value));
+	return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle }: CycleFormProps) {
 	const t = useTranslations("dashboard.harvest.cycleForm");
 	const router = useRouter();
@@ -42,7 +53,8 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 	const [stockingAvgWeightG, setStockingAvgWeightG] = useState(
 		cycle?.stockingAvgWeightG ? String(cycle.stockingAvgWeightG) : "",
 	);
-	const [growOutDays, setGrowOutDays] = useState(cycle?.growOutDays ?? 135);
+	// Raw input text, not a number: an emptied field must stay empty (#825).
+	const [growOutDays, setGrowOutDays] = useState(String(cycle?.growOutDays ?? 135));
 	const [targetHarvestDate, setTargetHarvestDate] = useState(
 		cycle?.targetHarvestDate ?? addDays(today, 135),
 	);
@@ -64,9 +76,22 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 	const confirmTitleId = useId();
 	const confirmDescId = useId();
 	const [isPending, startTransition] = useTransition();
+	/**
+	 * #825: `DashboardLiveRefresh` re-deserialises the RSC payload every 30 s and
+	 * on tab refocus, so `ponds` arrives as a new array while the dialog stays
+	 * open. Initialise once per form identity — (cycle, initial pond) — instead
+	 * of once per prop identity, and forget it on close so reopening resets.
+	 */
+	const initialisedFor = useRef<string | null>(null);
 
 	useEffect(() => {
-		if (!open) return;
+		if (!open) {
+			initialisedFor.current = null;
+			return;
+		}
+		const key = `${cycle?.id ?? "new"}:${initialPondId}`;
+		if (initialisedFor.current === key) return;
+		initialisedFor.current = key;
 		setPondId(cycle?.pondId ?? initialPondId);
 		setLabel(cycle?.label ?? "");
 		setStockingDate(cycle?.stockingDate ?? today);
@@ -76,7 +101,7 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 			),
 		);
 		setStockingAvgWeightG(cycle?.stockingAvgWeightG ? String(cycle.stockingAvgWeightG) : "");
-		setGrowOutDays(cycle?.growOutDays ?? 135);
+		setGrowOutDays(String(cycle?.growOutDays ?? 135));
 		setTargetHarvestDate(cycle?.targetHarvestDate ?? addDays(today, 135));
 		setTargetHarvestWeightG(
 			cycle?.targetHarvestWeightG ? String(cycle.targetHarvestWeightG) : "250",
@@ -100,6 +125,7 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 			: 0;
 	const dateRangeInvalid = span < 30 || span > 365;
 	const stockingFuture = daysBetween(stockingDate, today) < -7;
+	const growOutDaysValue = parseGrowOutDays(growOutDays);
 	const projectedKg =
 		Number(stockingCount) > 0 && Number(targetHarvestWeightG) > 0
 			? (Number(stockingCount) *
@@ -126,16 +152,15 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 
 	const onStockingDateChange = (value: string) => {
 		setStockingDate(value);
-		if (isValidDateOnly(value) && growOutDays >= 30) {
-			setTargetHarvestDate(addDays(value, growOutDays));
+		if (isValidDateOnly(value) && growOutDaysValue !== null && growOutDaysValue >= 30) {
+			setTargetHarvestDate(addDays(value, growOutDaysValue));
 		}
 	};
 
 	const onGrowOutDaysChange = (value: string) => {
-		const days = Math.round(Number(value));
-		if (!Number.isFinite(days)) return;
-		setGrowOutDays(days);
-		if (isValidDateOnly(stockingDate) && days >= 30) {
+		setGrowOutDays(value);
+		const days = parseGrowOutDays(value);
+		if (isValidDateOnly(stockingDate) && days !== null && days >= 30) {
 			setTargetHarvestDate(addDays(stockingDate, days));
 		}
 	};
@@ -143,7 +168,7 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 	const onHarvestDateChange = (value: string) => {
 		setTargetHarvestDate(value);
 		if (isValidDateOnly(value) && isValidDateOnly(stockingDate)) {
-			setGrowOutDays(daysBetween(stockingDate, value));
+			setGrowOutDays(String(daysBetween(stockingDate, value)));
 		}
 	};
 

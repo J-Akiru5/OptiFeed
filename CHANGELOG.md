@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Bounded retention for telemetry and personal data (#726).** `lib/retention.ts` now prunes `WaterTempLog` and `FeedLevelLog` after 365 days, closed `Notification` rows 180 days after resolution, `CalibrationRun` after 730 days, `AssistantAction` after 180 days, resolved `IssueReport` rows 365 days after resolution, `ReminderLog` after 180 days and `PlatformAuditLog` after 730 days. Each sweep removes at most one 5,000-row batch per device-watch run; an open alert or an open report is never deleted. Additive migration `20261104140000_retention_indexes` adds the global `recordedAt`/`sentAt` indexes the sweeps need.
+
+### Changed
+
+- **Retention, PII and erasure are documented, including the unimplemented organization purge (#726).** `docs/privacy/retention.md` records the schedule, the PII inventory (`User.contactEmail`, `IssueReport.email`, `PlatformAuditLog.ip`/`userAgent`) and the owner-mediated access/erasure path. Organization deletion remains a manual owner process: `PENDING_DELETION` and `purgeAfter` exist in the schema but no action sets them and no purge worker exists, so a purge flow (or removal of the unused fields) remains an owner decision. The document also records that the public policy's 90-day audit-log wording does not match the 730-day code window.
 - **Release QA E2E coverage is now part of CI.** The suite covers the critical authenticated flows from the 2026-11-04 pass and axe checks on the public pages and dashboard, including the QA-20 contrast regression. `pnpm test:e2e:qa` runs the focused pair; the normal `pnpm test:e2e` and its CI job include them.
 
 ### Changed

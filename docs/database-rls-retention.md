@@ -138,6 +138,10 @@ command/acknowledgement audit trail used to investigate a dosing incident after
 the fact, and 180 days covers a full production cycle. It is a single constant
 so the policy can be changed in one place.
 
+The full retention schedule, the PII inventory and the subject-access/erasure
+path (including the unimplemented organization purge) are documented in
+[`privacy/retention.md`](./privacy/retention.md).
+
 ### Rows that are never deleted
 
 The sweep keeps a row when either rule applies:

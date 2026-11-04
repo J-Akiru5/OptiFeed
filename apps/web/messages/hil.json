@@ -611,7 +611,13 @@
 			"healthFaults": "{count, plural, one {# aktibo nga fault} other {# aktibo nga fault}}",
 			"healthClear": "Wala sing na-report nga fault",
 			"lastKnownShort": "Huli nga nahibal-an",
-			"summaryLabel": "{status}. Lebel sang hopper {percent}."
+			"summaryLabel": "{status}. Lebel sang hopper {percent}.",
+			"panelTitle": "Kahimtangan sang device",
+			"connection": "Koneksyon",
+			"sensor": "Sensor sang hopper",
+			"sensorOk": "Nagasabat",
+			"faults": "Mga depekto",
+			"close": "Sirad-an"
 		},
 		"feederHero": {
 			"eyebrow": "Live nga pag-monitor",
@@ -2553,6 +2559,8 @@
 			},
 			"filtersTierLabel": "I-filter base sa kahalangan",
 			"filtersCategoryLabel": "I-filter base sa kategorya",
+			"filtersToggle": "Mga filter",
+			"filtersNone": "Wala sang aktibo",
 			"listLabel": "Mga notipikasyon",
 			"categoryHopperLow": "Mababa ang hopper"
 		},
@@ -3109,6 +3117,8 @@
 			"switchFailed": "Indi mabayluan ang punong. Tilawi liwat."
 		},
 		"common": {
+			"themeToDark": "Mag-switch sa dark mode",
+			"themeToLight": "Mag-switch sa light mode",
 			"readOnlyTitle": "Tan-aw lang",
 			"capability": {
 				"edit": "Maka-edit",
@@ -3164,6 +3174,8 @@
 			"openMenu": "Madasig nga mga aksyon",
 			"menuLabel": "Madasig nga menu",
 			"moreLabel": "Dugang nga mga seksyon",
+			"more": "Dugang",
+			"back": "Bumalik",
 			"close": "Sirad-i ang madasig nga menu",
 			"searchLabel": "Pangitaa ang mga pahina kag aksyon",
 			"searchPlaceholder": "Pangitaa ang mga pahina kag aksyon",
@@ -5334,7 +5346,9 @@
 			"accountSettings": "Mga setting sang account",
 			"switchLanguage": "Ilisan ang lengguwahe",
 			"signOut": "Mag-sign out",
-			"userFallback": "Manugamit"
+			"userFallback": "Manugamit",
+			"appearance": "Itsura",
+			"help": "Bulig"
 		}
 	}
 }

@@ -529,7 +529,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 			    the detailed health card for the stacked phone/tablet layout, and
 			    the card itself links to the hardware page where it is fixed. */}
 			{energyDevice && healthNeedsAction && (
-				<div className="px-1 lg:hidden">
+				<div className="lg:hidden">
 					{hardwareHref ? (
 						<Link
 							href={hardwareHref}
@@ -548,39 +548,41 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 			)}
 
 			<ControlRoomLayout>
+				{/* #880: a band like every other stacked section, with the alert as a
+				    rounded card inside it. As a full-bleed red strip the card bled
+				    past the page gutter on a phone and read as a clipped slab. */}
 				{offlineAlert && (
 					<section
 						role="alert"
-						className={cn(
-							CONTROL_ROOM_ORDER.alert,
-							"lg:hidden rounded-2xl bg-[#C42B3A] px-4 py-3 text-white shadow-lg max-lg:rounded-none max-lg:shadow-none",
-						)}
+						className={cn(CONTROL_ROOM_ORDER.alert, "lg:hidden", CONTROL_ROOM_MOBILE_BAND)}
 					>
-						<div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-							<div className="flex items-start gap-3">
-								<div
-									aria-hidden="true"
-									className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 font-black"
+						<div className="rounded-2xl bg-[#C42B3A] px-4 py-3 text-white shadow-lg max-lg:shadow-none">
+							<div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+								<div className="flex items-start gap-3">
+									<div
+										aria-hidden="true"
+										className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 font-black"
+									>
+										!
+									</div>
+									<div>
+										<p className="text-sm font-black md:text-base">
+											{t("criticalTitle", {
+												duration: formatOfflineDuration(energyDevice?.lastSeenAt ?? null),
+											})}
+										</p>
+										<p className="text-xs font-semibold text-white/90">
+											{t("criticalDesc", { device: device.name })}
+										</p>
+									</div>
+								</div>
+								<Link
+									href={offlineAlert.href}
+									className="flex min-h-11 items-center justify-center rounded-2xl bg-white px-4 text-sm font-black text-[#C42B3A] transition hover:bg-white/90 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
 								>
-									!
-								</div>
-								<div>
-									<p className="text-sm font-black md:text-base">
-										{t("criticalTitle", {
-											duration: formatOfflineDuration(energyDevice?.lastSeenAt ?? null),
-										})}
-									</p>
-									<p className="text-xs font-semibold text-white/90">
-										{t("criticalDesc", { device: device.name })}
-									</p>
-								</div>
+									{offlineAlert.linkLabel}
+								</Link>
 							</div>
-							<Link
-								href={offlineAlert.href}
-								className="flex min-h-11 items-center justify-center rounded-2xl bg-white px-4 text-sm font-black text-[#C42B3A] transition hover:bg-white/90 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-							>
-								{offlineAlert.linkLabel}
-							</Link>
 						</div>
 					</section>
 				)}

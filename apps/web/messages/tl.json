@@ -674,6 +674,8 @@
 			"switchFailed": "Hindi mapalitan ang pond. Subukan muli."
 		},
 		"common": {
+			"themeToDark": "Lumipat sa dark mode",
+			"themeToLight": "Lumipat sa light mode",
 			"readOnlyTitle": "Tingnan lang",
 			"capability": {
 				"edit": "Naka-enable ang pag-edit",
@@ -1404,7 +1406,13 @@
 			"healthFaults": "{count, plural, one {# aktibong fault} other {# aktibong fault}}",
 			"healthClear": "Walang naiulat na fault",
 			"lastKnownShort": "Huling alam",
-			"summaryLabel": "{status}. Antas ng hopper {percent}."
+			"summaryLabel": "{status}. Antas ng hopper {percent}.",
+			"panelTitle": "Kalagayan ng device",
+			"connection": "Koneksyon",
+			"sensor": "Sensor ng hopper",
+			"sensorOk": "Tumutugon",
+			"faults": "Mga depekto",
+			"close": "Isara"
 		},
 		"home": {
 			"noData": "Wala pang pond na nakatalaga. Hilingin sa administrator na magtalaga ng isa.",
@@ -2609,6 +2617,8 @@
 			},
 			"filtersTierLabel": "I-filter ayon sa tindi",
 			"filtersCategoryLabel": "I-filter ayon sa kategorya",
+			"filtersToggle": "Mga filter",
+			"filtersNone": "Walang aktibo",
 			"listLabel": "Mga Abiso",
 			"categoryHopperLow": "Mababang hopper"
 		},
@@ -2693,6 +2703,8 @@
 			"openMenu": "Mabilisang aksyon",
 			"menuLabel": "Mabilisang menu",
 			"moreLabel": "Iba pang seksyon",
+			"more": "Higit pa",
+			"back": "Bumalik",
 			"close": "Isara ang mabilisang menu",
 			"searchLabel": "Maghanap ng mga page at aksyon",
 			"searchPlaceholder": "Maghanap ng mga page at aksyon",
@@ -5334,7 +5346,9 @@
 			"accountSettings": "Mga setting ng account",
 			"switchLanguage": "Palitan ang wika",
 			"signOut": "Mag-sign out",
-			"userFallback": "Gumagamit"
+			"userFallback": "Gumagamit",
+			"appearance": "Itsura",
+			"help": "Tulong"
 		}
 	}
 }

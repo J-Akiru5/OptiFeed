@@ -88,3 +88,52 @@ export function useMobilePageTitle(shell: MobileShell): string {
 	const key = pageTitleKey(shell, pathname);
 	return key ? t(key) : "";
 }
+
+/**
+ * The bottom-bar destinations. A phone app bar shows the brand on these and a
+ * back arrow plus the screen title everywhere else, which is the Material
+ * "contextual app bar" pattern: `top` is the root of the shell's navigation.
+ */
+const TOP_LEVEL: Record<MobileShell, readonly string[]> = {
+	farmer: [
+		"/dashboard",
+		"/dashboard/schedule",
+		"/dashboard/log-sample",
+		"/dashboard/notifications",
+	],
+	admin: ["/admin"],
+	platform: ["/superadmin"],
+};
+
+const SHELL_ROOT: Record<MobileShell, string> = {
+	farmer: "/dashboard",
+	admin: "/admin",
+	platform: "/superadmin",
+};
+
+export type MobileRouteInfo = {
+	/** Translated screen title, empty when the route has no label yet. */
+	title: string;
+	/** True on a bottom-bar destination: the bar shows the brand, not a back arrow. */
+	isTopLevel: boolean;
+	/** Where the back arrow goes when there is no history entry to pop. */
+	parentHref: string;
+};
+
+/**
+ * Route context for the mobile app bar.
+ *
+ * Material 3 asks a top app bar to carry the screen identity and the way back;
+ * a phone should not have to repeat a search field on every screen to look like
+ * a desktop header. So the bar renders the brand on the four destinations and
+ * `← <screen title>` on everything below them.
+ */
+export function useMobileRouteInfo(shell: MobileShell): MobileRouteInfo {
+	const pathname = usePathname();
+	const title = useMobilePageTitle(shell);
+	return {
+		title,
+		isTopLevel: TOP_LEVEL[shell].includes(pathname),
+		parentHref: SHELL_ROOT[shell],
+	};
+}

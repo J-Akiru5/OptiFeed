@@ -122,8 +122,10 @@ describe("console theme palette", () => {
 			"utf8",
 		);
 		expect(layout).toContain('from "@/components/dark-mode-toggle"');
-		// One in MobileHeader's children, one in the desktop action bar.
-		expect(layout.split("<DarkModeToggle />").length - 1).toBe(2);
+		// The desktop action bar renders its own; below `lg` the shared mobile band
+		// does (and its dashboard-header test pins that), so one here — passing a
+		// second as band children rendered two toggles side by side.
+		expect(layout.split("<DarkModeToggle />").length - 1).toBe(1);
 	});
 
 	it("keeps a dark variant for every light-only surface utility", () => {

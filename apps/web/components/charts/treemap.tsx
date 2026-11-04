@@ -14,6 +14,8 @@ import {
 export interface TreemapChild {
 	name: string;
 	value: number;
+	/** Tile fill; defaults to the parent organization's colour. */
+	color?: string;
 	/** Recharts carries arbitrary fields through to the content renderer. */
 	[key: string]: unknown;
 }
@@ -23,6 +25,12 @@ export interface TreemapDatum {
 	value: number;
 	/** One nesting level: an organization's ponds, a pond's devices. */
 	children?: TreemapChild[];
+	/**
+	 * Tile fill. Defaults to the palette slot for this top-level datum's
+	 * position (#835), so organizations are distinguishable without relying on
+	 * Recharts' internal node indexes; children inherit it.
+	 */
+	color?: string;
 	[key: string]: unknown;
 }
 
@@ -43,15 +51,35 @@ function safeValue(value: number): number {
 	return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
-function normalizeNodes(nodes: ReadonlyArray<TreemapDatum>): TreemapDatum[] {
-	return nodes.map((node) => ({
-		...node,
-		value: safeValue(node.value),
-		children: node.children?.map((child) => ({
-			...child,
-			value: safeValue(child.value),
-		})),
-	}));
+/** A usable explicit colour, or undefined so the palette slot applies. */
+function explicitColor(value: unknown): string | undefined {
+	return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+}
+
+/**
+ * Normalise values and stamp every tile's fill from the datum (#835).
+ *
+ * Colour used to be derived from Recharts' `node.index`/`tooltipIndex` at paint
+ * time. At depth 1, and on any tooltip-path mismatch, that resolves to the
+ * sibling index — the first pond of every organization is 0 — so a multi-org
+ * dataset could paint entirely in palette slot 0 (orange). Colouring the datum
+ * up front is independent of those internals: a top-level node takes the next
+ * palette slot, its children inherit it, and an explicit `color` wins.
+ */
+function normalizeNodes(nodes: ReadonlyArray<TreemapDatum>, dark: boolean): TreemapDatum[] {
+	return nodes.map((node, index) => {
+		const color = explicitColor(node.color) ?? seriesColor(index, dark);
+		return {
+			...node,
+			color,
+			value: safeValue(node.value),
+			children: node.children?.map((child) => ({
+				...child,
+				color: explicitColor(child.color) ?? color,
+				value: safeValue(child.value),
+			})),
+		};
+	});
 }
 
 /**
@@ -78,13 +106,6 @@ function buildLeafRows(nodes: ReadonlyArray<TreemapDatum>): TreemapLeafRow[] {
 /** Stable SVG id fragment; `tooltipIndex` is Recharts' own path key. */
 function idPart(value: string): string {
 	return value.replace(/[^a-zA-Z0-9_-]/g, "-");
-}
-
-/** The first path segment is the top-level organization. */
-function topLevelIndex(node: TreemapNode): number {
-	if (node.depth <= 1) return node.index;
-	const match = /children\[(\d+)\]/.exec(node.tooltipIndex ?? "");
-	return match ? Number(match[1]) : node.index;
 }
 
 function truncate(label: string, maxCharacters: number): string {
@@ -149,7 +170,7 @@ export function Treemap({
 	const rawId = useId();
 	const chartId = idPart(rawId) || "treemap";
 	const leaves = useMemo(() => buildLeafRows(nodes), [nodes]);
-	const data = useMemo(() => normalizeNodes(nodes), [nodes]);
+	const data = useMemo(() => normalizeNodes(nodes, theme.dark), [nodes, theme.dark]);
 	const total = leaves.reduce((sum, leaf) => sum + leaf.value, 0);
 	const isEmpty = leaves.length === 0 || total <= 0;
 
@@ -169,7 +190,9 @@ export function Treemap({
 		if (width <= 0 || height <= 0) return <g />;
 
 		const leaf = !node.children || node.children.length === 0;
-		const fill = seriesColor(topLevelIndex(node), theme.dark);
+		// The datum carries its colour (#835); fall back to the first palette slot
+		// only for a node that somehow reaches the renderer without one.
+		const fill = explicitColor(node.color) ?? seriesColor(0, theme.dark);
 		const clipId = `${chartId}-tile-${idPart(node.tooltipIndex ?? String(node.index))}`;
 		const name = String(node.name ?? "");
 		const value = formatChartNumber(Number(node.value) || 0, unit);

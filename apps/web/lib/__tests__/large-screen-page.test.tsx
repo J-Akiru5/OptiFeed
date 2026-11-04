@@ -62,6 +62,7 @@ const DETAIL = {
 	isPaused: false,
 	feedLevelPercent: 62,
 	feedLevelUpdatedAt: new Date("2026-11-03T07:57:00.000Z"),
+	sensorOffline: true,
 	hopperCapacityG: 25_000,
 	gramsPerFeeding: 330,
 	pond: { id: "pond-1", name: "Pond 1" },
@@ -107,6 +108,7 @@ describe("large-screen overview (#616)", () => {
 		expect(props?.initialFirmwareVersion).toBe("1.6.0");
 		expect(props?.initialWaterTempC).toBe(27.1);
 		expect(props?.initialFeedLevelUpdatedAt).toBe("2026-11-03T07:57:00.000Z");
+		expect(props?.initialSensorOffline).toBe(true);
 		expect(props?.staleAfterMs).toBe(300_000);
 	});
 

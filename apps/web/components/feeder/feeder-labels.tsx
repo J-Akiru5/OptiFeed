@@ -18,6 +18,8 @@ import { type ReactElement, useCallback, useEffect, useRef, useState } from "rea
 export interface FeederLabelsProps {
 	status: FeederStatus;
 	level: number | null;
+	/** The unit is reachable but its ultrasonic sensor is not answering (#810). */
+	sensorOffline?: boolean;
 	active: boolean;
 }
 
@@ -144,7 +146,11 @@ function offlineState(): LabelState {
 function readingState(reading: FeederComponentReading): LabelState {
 	switch (reading.id) {
 		case "hopper":
+			if (reading.state === "live") return liveState();
+			if (reading.state === "lastKnown") return lastKnownState();
+			return noReadingState();
 		case "sensor":
+			if (reading.state === "offline") return offlineState();
 			if (reading.state === "live") return liveState();
 			if (reading.state === "lastKnown") return lastKnownState();
 			return noReadingState();
@@ -177,6 +183,8 @@ function readingValue(reading: FeederComponentReading, t: ViewerTranslate): stri
 		case "hopper":
 			return reading.percent === null ? "—" : `${reading.percent}%`;
 		case "sensor":
+			// #810: an offline sensor is not "Reading". Only a live sensor says so.
+			if (reading.state === "offline") return "—";
 			return reading.percent === null ? "—" : t("componentReading");
 		case "controller":
 			return reading.state === "online" ? t("componentOnline") : "—";
@@ -292,7 +300,12 @@ function FeederLabelCard({
  * Presentational ISO callouts: fixed-slot text, one leader per projected model
  * anchor and a decorative SVG layer. It never intercepts orbit, hover or focus.
  */
-export function FeederLabels({ status, level, active }: FeederLabelsProps): ReactElement | null {
+export function FeederLabels({
+	status,
+	level,
+	sensorOffline = false,
+	active,
+}: FeederLabelsProps): ReactElement | null {
 	const t = useTranslations("dashboard.feederViewer");
 	const overlayRef = useRef<HTMLDivElement | null>(null);
 	const cardRefs = useRef<Partial<Record<FeederComponentId, HTMLDivElement | null>>>({});
@@ -354,7 +367,7 @@ export function FeederLabels({ status, level, active }: FeederLabelsProps): Reac
 
 	if (!active) return null;
 
-	const readings = feederComponentStatus({ status, level });
+	const readings = feederComponentStatus({ status, level, sensorOffline });
 	const contents = buildLabelContents(readings, t);
 	const anchors = projectFeederAnchors(stage.width, stage.height);
 	const visibleSlots = VISUAL_SLOTS.filter((slot) => anchors[slot.id].visible);
@@ -456,13 +469,14 @@ export function FeederLabels({ status, level, active }: FeederLabelsProps): Reac
 export function FeederComponentStatusList({
 	status,
 	level,
+	sensorOffline = false,
 	active,
 }: FeederLabelsProps): ReactElement | null {
 	const t = useTranslations("dashboard.feederViewer");
 
 	if (!active) return null;
 
-	const readings = feederComponentStatus({ status, level });
+	const readings = feederComponentStatus({ status, level, sensorOffline });
 	const contents = buildLabelContents(readings, t);
 
 	return (

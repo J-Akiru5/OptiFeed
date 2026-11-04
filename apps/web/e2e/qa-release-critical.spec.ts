@@ -39,14 +39,14 @@ test.describe("QA release-critical flows", () => {
 		// The responsive schedule page can expose the same editor slot more than
 		// once before hydration settles; scope every operation to the first
 		// visible editor rather than matching two nodes.
-		const startTime = page.locator("#startTime:visible").first();
-		await expect(startTime).toBeVisible();
-		const original = await startTime.inputValue();
+		const feedingRate = page.locator("#feedingRate:visible").first();
+		await expect(feedingRate).toBeVisible();
 
-		// Change only the window, not the ration: feeds/day changes can trip the
-		// relay-time guard for the seeded device, which is a valid product error
-		// but not the persistence behavior this flow is asserting.
-		await startTime.fill("05:00");
+		// The seed's 3 % ration (6600 g/day) is above both the relay window and
+		// the device's daily ceiling, so any save of the seeded values is
+		// correctly rejected. 1 % is a valid, runnable schedule and lets this
+		// test prove persistence rather than re-testing the safety guard.
+		await feedingRate.fill("1");
 		await page.getByRole("button", { name: "Save Changes" }).first().click();
 
 		await expect(page.getByText("Changes saved!")).toBeVisible({ timeout: 20_000 });
@@ -55,12 +55,7 @@ test.describe("QA release-critical flows", () => {
 		// the sync state must both survive a full server render.
 		await page.reload();
 		await expect(page.getByText("Pending device sync")).toBeVisible();
-		await expect(page.locator("#startTime:visible").first()).toHaveValue("05:00");
-
-		// Leave the fixture in its seeded state for the rest of the serial suite.
-		await page.locator("#startTime:visible").first().fill(original);
-		await page.getByRole("button", { name: "Save Changes" }).first().click();
-		await expect(page.getByText("Changes saved!")).toBeVisible({ timeout: 20_000 });
+		await expect(page.locator("#feedingRate:visible").first()).toHaveValue("1");
 	});
 
 	test("03 — a biomass sample saves and is visible in growth", async ({ page }) => {
@@ -89,7 +84,7 @@ test.describe("QA release-critical flows", () => {
 		await expect(page.getByText(batch, { exact: true }).first()).toBeVisible();
 
 		await page.goto("/en/dashboard/growth");
-		await expect(page.getByText("Latest ABW")).toBeVisible();
+		await expect(page.getByText("Latest ABW").first()).toBeVisible();
 		await expect(page.locator("text=220.0").first()).toBeVisible();
 	});
 

@@ -674,6 +674,8 @@
 			"switchFailed": "Hindi mapalitan ang pond. Subukan muli."
 		},
 		"common": {
+			"themeToDark": "Lumipat sa dark mode",
+			"themeToLight": "Lumipat sa light mode",
 			"readOnlyTitle": "Tingnan lang",
 			"capability": {
 				"edit": "Naka-enable ang pag-edit",

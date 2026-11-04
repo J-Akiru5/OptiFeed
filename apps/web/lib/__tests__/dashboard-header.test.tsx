@@ -19,6 +19,8 @@ const read = (relative: string) => readFileSync(join(webRoot, relative), "utf8")
 
 const layoutSource = read("app/[locale]/(dashboard)/layout.tsx");
 const mobileHeaderSource = read("components/mobile/mobile-header.tsx");
+const darkModeToggleSource = read("components/dark-mode-toggle.tsx");
+const pondSelectorSource = read("components/pond-selector.tsx");
 const bottomNavSource = read("components/bottom-nav.tsx");
 const globalsCss = read("app/globals.css");
 
@@ -85,5 +87,42 @@ describe("phone geometry keeps the notch inset and clears the bottom bar (#572)"
 		expect(mainRule).toContain("var(--ofd-bottom-nav-h)");
 		expect(mainRule).toContain("var(--ofd-hud-h)");
 		expect(mainRule).toContain("env(safe-area-inset-bottom)");
+	});
+});
+
+/**
+ * The band's controls are the only header a phone gets. Before this, the theme
+ * switch lived solely in the desktop row, which is `display: none` below `lg`,
+ * so the toggle rendered at 0 px and a farmer could not change the mode at all.
+ */
+describe("the mobile band carries reachable, uniformly sized controls", () => {
+	it("renders the theme switch in the band, not only in the desktop row", () => {
+		expect(mobileHeaderSource).toContain("<DarkModeToggle className={BAND_PILL} />");
+		expect(mobileHeaderSource).toContain(
+			'import { DarkModeToggle } from "@/components/dark-mode-toggle"',
+		);
+	});
+
+	it("gives every icon control the same 44 px pill", () => {
+		const pill = /const BAND_PILL =\s*\n?\s*"([^"]+)"/.exec(mobileHeaderSource)?.[1] ?? "";
+		expect(pill).toContain("h-11 w-11");
+		expect(pill).toContain("rounded-full");
+	});
+
+	it("accepts the pill without losing the desktop size or the label", () => {
+		// The desktop and superadmin rows render the toggle with no className, so
+		// the default 36 px square has to stay the base of the merge.
+		expect(darkModeToggleSource).toContain("className={cn(");
+		expect(darkModeToggleSource).toContain("flex h-9 w-9");
+		// The label names the action and is translated (en/hil/tl).
+		expect(darkModeToggleSource).toContain("aria-label={label}");
+		expect(darkModeToggleSource).toContain('t("themeToLight")');
+		expect(darkModeToggleSource).toContain('t("themeToDark")');
+	});
+
+	it("gives the pond switcher a 44 px target instead of its text height", () => {
+		// It measured 16 px tall: the widest tap target in the band and the
+		// smallest hit area, which is backwards.
+		expect(pondSelectorSource).toContain("inline-flex min-h-11 max-w-[14rem]");
 	});
 });

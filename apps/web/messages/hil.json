@@ -3109,6 +3109,8 @@
 			"switchFailed": "Indi mabayluan ang punong. Tilawi liwat."
 		},
 		"common": {
+			"themeToDark": "Mag-switch sa dark mode",
+			"themeToLight": "Mag-switch sa light mode",
 			"readOnlyTitle": "Tan-aw lang",
 			"capability": {
 				"edit": "Maka-edit",

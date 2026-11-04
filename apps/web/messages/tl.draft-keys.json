@@ -1018,6 +1018,8 @@
 		"dashboard.common.deviceWeak",
 		"dashboard.common.signalDbm",
 		"dashboard.common.signalLabel",
+		"dashboard.common.themeToDark",
+		"dashboard.common.themeToLight",
 		"dashboard.dataSettings.backToSettings",
 		"dashboard.dataSettings.desc",
 		"dashboard.dataSettings.exportBody",

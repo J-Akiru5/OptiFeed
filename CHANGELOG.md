@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.56.1] - 2026-11-04
+
+### Fixed
+
+- **Organisation ponds no longer vanish when a member is revoked (#808).** On revocation the ponds move to the organisation's anchor farm - the highest-role other active member, with the longest-standing membership breaking ties inside a role - so the remaining admins still see and manage them. No migration was needed: `Pond.ownerId` and `farmId` are the ownership stamp, and the existing trigger records the `TRANSFERRED` row. Both revocation paths are covered, and the test fails on the old code by asserting the ponds disappear from `resolveOrgScope().pondIds`.
+
+### Changed
+
+- **Device polling is adaptive instead of a fixed 5 seconds (#731).** The poll runs fast only while the tab is visible and a feed request is pending; it backs off to 30 seconds when the tab is visible and idle, and stops or slows when the tab is hidden. The interval policy lives in one place with its tiers documented, so a fixed 5-second poll cannot creep back in.
+
 ### Changed
 
 - **Device surfaces poll adaptively instead of on a fixed interval (#731).** The browser used to re-read a device on one hard-coded interval per component (the 3D viewer and the large screen every 15 s, the dashboard's server-rendered device cards every 30 s), whether or not anything was waiting on the unit. A single policy in `apps/web/lib/live/poll-policy.ts` now decides the cadence: 5 s while the tab is visible **and** a feed request is still pending or dispatched, 30 s when the tab is visible and idle, and no timer at all while the tab is hidden — coming back to the tab re-reads immediately. An open viewer therefore drops from 240 to 120 device-state requests per hour at idle, while a feed in flight polls four times faster than before so the dispense and the new hopper level appear without a manual refresh. The firmware poll (two endpoints every 5 s) is unchanged: no protocol change, no firmware change, no new dependency. See `docs/performance/device-polling-scale-plan.md` §9.

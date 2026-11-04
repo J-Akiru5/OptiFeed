@@ -109,6 +109,14 @@ jobs:
         if: steps.green.outputs.cache-hit != 'true'
         run: pnpm deploy:check && node --test scripts/ops/__tests__/deployment-policy-drift.test.mjs
 
+      # AGENTS.md §6: a duplicate 14-digit migration prefix is a hard reject.
+      # The one pair already applied in production is pinned in the check's
+      # allowlist, with the reason, so it can be adopted without rewriting
+      # history; `--strict` fails on it too.
+      - name: Migration ledger
+        if: steps.green.outputs.cache-hit != 'true'
+        run: pnpm migrations:check && node --test scripts/ops/__tests__/migration-ledger.test.mjs
+
       - name: Generate Prisma client
         if: steps.green.outputs.cache-hit != 'true'
         run: pnpm --filter web prisma:generate

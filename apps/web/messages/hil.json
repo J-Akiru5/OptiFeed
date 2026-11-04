@@ -1483,7 +1483,14 @@
 				"sourcePond": "Pond override",
 				"sourceFarm": "Farm default",
 				"sourceSystem": "System default",
-				"defaultsHint": "Ang bag-ong cycle naga-gamit sang pond override, sunod ang farm default, sunod ang system default."
+				"defaultsHint": "Ang bag-ong cycle naga-gamit sang pond override, sunod ang farm default, sunod ang system default.",
+				"suggestionTitle": "Suhestiyon halin sa imo mga natapos nga cycle",
+				"suggestionHint": "Ebidensya, indi awtomatiko. Wala sang mabag-o hasta pinduton mo ang Use.",
+				"suggestionUnnamedCycle": "Wala sang tawag nga cycle",
+				"suggestionSource": "Huli: {cycle} · {pond} · {date}",
+				"suggestionSample": "{count, plural, one {1 ka natapos nga cycle} other {# ka natapos nga cycle}} · range {min}–{max}",
+				"suggestionUse": "Gamita",
+				"suggestionApplied": "Ginamit"
 			},
 			"harvestForm": {
 				"title": "I-record ang ani",

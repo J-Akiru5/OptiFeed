@@ -1,4 +1,5 @@
 import type { ResolvedGrowthDefaults } from "@/lib/growth/defaults";
+import type { GrowthHistorySuggestion } from "@/lib/growth/history";
 
 export interface CropCycleDto {
 	id: string;
@@ -39,4 +40,9 @@ export interface PondOption {
 	 * back to the constants, exactly like a fresh install.
 	 */
 	growthDefaults?: ResolvedGrowthDefaults;
+	/**
+	 * Evidence from this farm's completed cycles (#828). Empty or absent means
+	 * "no suggestion" — the dialog must not invent a number.
+	 */
+	growthSuggestions?: GrowthHistorySuggestion[];
 }

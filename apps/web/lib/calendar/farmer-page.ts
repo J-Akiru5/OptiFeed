@@ -83,6 +83,7 @@ export async function loadFarmerCalendarPageData(): Promise<FarmerCalendarPageDa
 			population: true,
 			notificationPrefs: true,
 			ownerId: true,
+			farmId: true,
 			sampleIntervalDays: true,
 			createdAt: true,
 		},
@@ -134,6 +135,7 @@ export async function loadFarmerCalendarPageData(): Promise<FarmerCalendarPageDa
 					? savedTarget.targetWeightG
 					: null,
 			growthDefaults: growthContexts.get(pond.id)?.resolved,
+			growthSuggestions: growthContexts.get(pond.id)?.suggestions ?? [],
 		};
 	});
 

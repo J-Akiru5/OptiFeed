@@ -3,6 +3,174 @@
 Operational triage for the common failure modes. Roles: ADMIN/OPERATOR can act
 in the dashboard; VIEWER is read-only.
 
+## Alerting, SLOs and on-call (start here if you were paged)
+
+### The honest on-call model
+
+OptiFeed is run by **one owner-operator**, not a team. There is no rota, no
+follow-the-sun handoff and no 24/7 commitment — `SECURITY.md` and
+`docs/operations/backup-and-recovery.md` already state this. The pager added in
+#729 is a signal, not a staffing promise: a page inside 08:00–18:00
+Asia/Manila on weekdays is normally seen quickly; outside those hours it is
+best-effort. Do not write an SLA that implies otherwise.
+
+The external provider was **not chosen** when this was built. The application
+speaks a neutral webhook contract (`ALERT_WEBHOOK_URL`), so Slack, Discord, a
+pager adapter or an automation endpoint can be attached later without a code
+change. Until that variable is set there is **no external page**: the
+`console.error("[obs]", …)` line, `/api/health/cron` and the red `Uptime`
+Actions run are the signal.
+
+### What pages
+
+| Signal | Source | Cadence | Page-worthy because |
+| --- | --- | --- | --- |
+| `[CRITICAL] cron/crop-watch`, `cron/device-watch`, `cron/jobs`, `cron/heartbeat-watch` | `reportError(..., "CRITICAL")` inside the cron route | On failure | The job is unattended; nobody sees a 500 |
+| `cron:<job>:hung` / `:never-run` / `:error` / `:stale` | `/api/cron/heartbeat-watch` reading `CronHeartbeat` | Every 15 min | A dead-man's switch for the schedules themselves |
+| `[CRITICAL][uptime] probe failed` | `.github/workflows/uptime.yml` | Every 15 min | `/api/health`, `/en/login` or `/api/health/cron` is failing |
+| `[CRITICAL] action=loginWithPassword` | `lib/actions/auth.ts` catch-all | On failure | Sign-in is broken for everyone |
+| `[CRITICAL] jobs/worker` | `lib/jobs/service.ts` after the final attempt | On dead-letter | The job has no retry left and the user is waiting |
+
+Everything else is recorded and logged but **does not page**: `ERROR` reports
+from ingest/feed-command/schedule-sync are visible to the caller or self-heal on
+firmware retry; `WARNING` covers fallbacks such as the post-login destination
+lookup. The mapping is in `lib/observability.ts`.
+
+### SLOs (internal targets, not contractual)
+
+Measured by the 15-minute `Uptime` workflow and the heartbeat checks. They are
+review targets, not promises to a customer.
+
+| Objective | Target (rolling 30 days) | Error budget |
+| --- | --- | --- |
+| `GET /api/health` returns 200 | 99.5 % of probes | ≈ 54 min/month |
+| `GET /en/login` returns 200 | 99.5 % of probes | ≈ 54 min/month |
+| `device-watch` heartbeat fresh (≤ 20 min) | 99 % of checks | ≈ 7 h/month |
+| `background-jobs` heartbeat fresh (≤ 15 min) | 99 % of checks | ≈ 7 h/month |
+| `crop-watch` completes once per day (≤ 26 h) | 99 % of days | ≈ 3 days/year |
+| Page attempt after a detected condition | ≤ 15 min (one probe/watcher cycle) | — |
+
+Detection is bounded by the schedule; **delivery** depends on the provider once
+one is chosen. A webhook timeout is logged and consumes that fingerprint's
+cooldown window — the next watcher run retries. Dedup is per process, so two
+warm Vercel instances can each send once; the provider should own final dedupe
+and acknowledgment.
+
+### First three steps by alert type
+
+#### A. `cron/crop-watch`, `cron/device-watch` or `cron/jobs` failed
+
+1. Open the route in the payload (`/api/cron/crop-watch`, etc.) and the Vercel
+   function log around the timestamp; search `[obs]` and the route name.
+2. Open `/superadmin/operations/errors`, filter by route, and read the scrubbed
+   message/stack; check whether the rate is rising or one request failed.
+3. Check the dependency the error names (Postgres/Supabase, Supabase Auth,
+   Resend) and call the route manually with the secret:
+   `curl -i -H "Authorization: Bearer $CRON_SECRET" "$APP_BASE_URL/api/cron/crop-watch"`.
+   A 403 means `CRON_SECRET` is unset or different, not that the job failed.
+
+#### B. Cron is `never-run`, `hung`, `error` or `stale` (`/api/health/cron`)
+
+1. Read the JSON: `state` names the bucket, `lastRunAt`/`lastError` narrow it.
+   `never-run` = no row; `hung` = a `running` start marker older than the budget
+   plus margin; `stale` = a completed run older than the schedule allows.
+2. In Supabase, check `cron.job` (schedule active) and `cron.job_run_details`.
+   `job_run_details` proves pg_net queued the request, **not** that the route
+   finished — see the 2026-11-04 `crop-watch` incident in
+   `docs/ops/cron-schedules.md`.
+3. Run the drift check before touching anything:
+   `pnpm --filter web cron:apply -- --check`. It compares the applied schedule,
+   timeout and active flag with `CRON_JOBS`. Re-apply with `cron:apply` only
+   when the check reports drift; it prints no secret.
+
+#### C. `/api/health` degraded (Uptime workflow)
+
+1. Check the Supabase project status and dashboard for the production project.
+2. Open the Vercel deployment for the current production commit and read the
+   `[health] database probe failed` line; the public body deliberately says only
+   `{"status":"degraded"}`.
+3. Confirm `DATABASE_URL`/`DIRECT_URL` in the Vercel production environment and
+   whether the failure is connection-level or query-level. Recovery is
+   Supabase-side; the app reconnects on its own. See section 3.
+
+#### D. `/en/login` fails but `/api/health` is green
+
+1. `curl -i "$APP_BASE_URL/en/login"` from outside; compare with the Vercel
+   deployment status and build logs.
+2. Check Supabase Auth status and the `NEXT_PUBLIC_SUPABASE_URL` /
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY` values for that environment.
+3. Search `[obs]` for `loginWithPassword`; a `[CRITICAL]` there means the
+   action threw, not that the password was wrong (wrong passwords are `[auth]`
+   lines, not `[obs]`).
+
+#### E. `[CRITICAL]` application error with a route in the payload
+
+1. Open `/superadmin/operations/errors`, find the fingerprint from the payload
+   (`alert.fingerprint`), and read its context/count/last seen.
+2. Correlate with the `[obs]` line in Vercel logs; the `X-Request-Id` from the
+   same request is the join key when the caller supplied one.
+3. Decide whether the route is failing broadly (page stays relevant) or one
+   tenant/request hit an edge case (fix forward, then mark the row resolved in
+   the admin view so recurrence reopens it).
+
+#### F. Background job dead-letter
+
+1. `/superadmin/operations/jobs` — filter `failed`, read `lastError`.
+2. `/api/cron/jobs?max=5` claims work; if the queue is not moving, check the
+   `background-jobs` heartbeat and the same three steps as A.
+3. Requeue only after the cause is understood; an import that may have committed
+   is deliberately not retried automatically (see `failJob`).
+
+### Silencing a noisy alert
+
+There is **no per-fingerprint mute switch in code** — that would be a second
+alerting system. In order of preference:
+
+1. Use the provider's own snooze/mute/acknowledgment once a provider is chosen.
+   This is the intended home for silencing.
+2. If the noise is a degenerate alert loop, raise `ALERT_COOLDOWN_MS` for the
+   deployment (default 10 min, max 24 h). This is a blunt global delay, not a
+   mute; it also delays real pages.
+3. Temporarily remove `ALERT_WEBHOOK_URL` to stop external paging entirely. The
+   logs, `/api/health/cron` and the `Uptime` workflow remain, so nothing is
+   blind — this is the safe "silence everything" switch.
+4. Fix the fingerprint: resolving an `ErrorEvent` row does **not** stop pages.
+   The same error reappearing reopens the row and pages again after the cooldown.
+
+Never delete the cron heartbeat row to silence a stale alert; that converts a
+diagnosable `stale`/`hung` into `never-run`.
+
+### Confirming recovery
+
+- `/api/health` returns `{"status":"ok"}` with HTTP 200.
+- `/en/login` returns HTTP 200.
+- `/api/health/cron` returns 200 and every job `state` is `ok` (or `running`
+  inside its budget); the `summary` arrays are empty.
+- The failed fingerprint has not recurred for one cooldown window and the
+  `Uptime` workflow is green on its next scheduled run.
+- For a cron incident, the next scheduled run writes `ok`; `lastRunAt` moves
+  forward. A `running` row that stays put past the budget means the handler is
+  still hung — do not declare recovery from a start marker alone.
+
+### Wiring the provider (owner action)
+
+1. Create the webhook/channel with the chosen provider.
+2. Set `ALERT_WEBHOOK_URL` in the Vercel **Production** environment (and Preview
+   if preview pages are wanted). It is a secret: never commit it, never log it.
+3. Optionally set the same value as the repository secret `ALERT_WEBHOOK_URL`
+   so the `Uptime` workflow can page too. The workflow's
+   `workflow_dispatch` input `test_alert` sends a synthetic page — use it to
+   prove the wiring end to end.
+4. Optional tuning: `ALERT_COOLDOWN_MS` (600000), `ALERT_TIMEOUT_MS` (3000),
+   `ALERT_RUNBOOK_URL` (this file on `main`).
+5. Re-run the cron provisioning workflow (`cron-schedules.yml`) so
+   `heartbeat-watch` is scheduled; until then it reports `never-run`.
+
+The payload is documented in `apps/web/lib/observability/alert.ts`:
+`{"text": "...", "content": "...", "alert": {severity, fingerprint, route,
+message, context, service, environment, timestamp, runbook}}`. Slack reads
+`text`, Discord reads `content`, and a real pager maps the `alert` object.
+
 ## 1. Feeder is running wild (dosing nonstop or huge doses)
 
 1. **Pause the device** — Dashboard → Settings (or Admin → Devices) → pause.
@@ -31,9 +199,10 @@ in the dashboard; VIEWER is read-only.
   Superadmin → Settings → Device connectivity). The dashboard badge and
   Admin → Devices reflect this.
 - The `/api/cron/device-watch` endpoint (pg_cron every 5 min, H10) raises one
-  CRITICAL connectivity notification per outage. Alerts are in-app only —
-  there is no Telegram channel (ADR-0007), so nobody is paged: check the
-  dashboard alert panel and the notifications page.
+  CRITICAL connectivity notification per outage. Tenant alerts are in-app only
+  (ADR-0007); the platform pager covers *the job stopping*, not an individual
+  device, so one offline feeder does not page the operator. Check the dashboard
+  alert panel and the notifications page.
 - Checklist: power/LED on the ESP32, WiFi credentials in range, device token
   still matches the `EnergyDevice.tokenHash` row (rotate via Admin if
   suspect), and the device's `mac` matches what the firmware reports.

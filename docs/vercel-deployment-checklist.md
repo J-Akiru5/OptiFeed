@@ -15,7 +15,8 @@
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only (lockout checks pre-auth) |
 | `NEXT_PUBLIC_BASE_URL` | Canonical origin for absolute links (also the reminder email link base) |
-| `CRON_SECRET` | Bearer secret for `/api/cron/device-watch` and `/api/cron/crop-watch` |
+| `CRON_SECRET` | Bearer secret for every `/api/cron/*` route (device-watch, crop-watch, jobs, heartbeat-watch) |
+| `ALERT_WEBHOOK_URL` | Optional provider-neutral operator pager (#729); unset means no external page |
 | `RESEND_API_KEY` / `REMINDER_FROM_EMAIL` | Harvest/sampling reminder email (optional; in-app only until set) |
 | `OPENCODE_GO_API_KEY` / `OPENCODE_GO_MODEL` | Chat assistant + feeding prediction (OpenCode Go; model defaults to `deepseek-v4.1-flash`) |
 | `DEMO_PASSWORD` | Seed/e2e scripts only |

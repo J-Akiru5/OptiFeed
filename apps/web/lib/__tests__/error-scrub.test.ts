@@ -48,6 +48,16 @@ describe("scrubText", () => {
 		expect(scrubbed).not.toContain("letmein");
 	});
 
+	it("removes credentials embedded in a connection string", () => {
+		const scrubbed = scrubText(
+			"Prisma failed postgresql://optifeed:hunter2@db.example.com:5432/postgres",
+		);
+
+		expect(scrubbed).not.toContain("hunter2");
+		expect(scrubbed).not.toContain("optifeed:");
+		expect(scrubbed).toContain("postgresql://[redacted]@db.example.com");
+	});
+
 	it("removes e-mail addresses", () => {
 		const scrubbed = scrubText(`No account for ${EMAIL}; invite bounced`);
 

@@ -54,7 +54,9 @@ test.describe("QA release-critical flows", () => {
 		// Pending commands are part of the current schedule, so the value and
 		// the sync state must both survive a full server render.
 		await page.reload();
-		await expect(page.getByText("Pending device sync")).toBeVisible();
+		await expect(
+			page.getByText("Pending device sync").filter({ visible: true }).first(),
+		).toBeVisible();
 		await expect(page.locator("#feedingRate:visible").first()).toHaveValue("0.5");
 	});
 

@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.55.1] - 2026-11-04
+
+### Fixed
+
+- **The hopper level is rounded instead of printed as a raw float (#848).** The 3D viewer showed `71.25105%` in both the ISO label and the hero callout, straight from the stored value. Both sites round to a whole percent, and a test asserts a fractional level renders `71%` and never the raw number.
+- **The public footer shows the published firmware version, not a hardcoded one (#845).** It printed `v1.4.2` from a literal in all three locales while the fleet ran 1.9.0. The landing page now reads the stable channel's manifest through `getFirmwareStatus()` and renders that version, omitting the line entirely when the channel cannot be read rather than showing a stale number.
+
 ### Fixed
 
 - **The landing footer's firmware version comes from the published channel, not a hardcoded string (#845).** It read "Firmware v1.4.2" in all three locales while the fleet was on 1.9.0 and the repository's `FW_VERSION` was already 1.10.0. The page now reads `getFirmwareStatus()` — the signed manifest in the private `firmware` bucket, the same source as the superadmin firmware console — and renders that version through a `{version}` placeholder; when the channel cannot be read the line is omitted rather than showing a stale number. The page body moved to a client component so the server wrapper can supply the value; a five-minute ISR window keeps it static between releases.

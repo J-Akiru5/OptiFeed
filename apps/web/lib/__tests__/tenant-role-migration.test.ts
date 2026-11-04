@@ -64,7 +64,7 @@ describe("tenant app role migration (#711)", () => {
 			"DROP COLUMN",
 			"ALTER COLUMN",
 			"INSERT INTO",
-			"UPDATE \"",
+			'UPDATE "',
 			"UPDATE PUBLIC.",
 		]) {
 			expect(executable, `migration must not contain ${forbidden}`).not.toContain(forbidden);

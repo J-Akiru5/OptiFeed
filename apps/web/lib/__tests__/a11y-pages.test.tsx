@@ -11,6 +11,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
  * here and how:
  *
  *   login            /login, the real client page, rendered in jsdom
+ *   dashboard home   /dashboard, the real authenticated server page with a
+ *                    pond, a feeder, feeding history and the control-room rail
  *   dashboard shell  the shared page shell components every dashboard page uses
  *   growth           the growth-plan card with a full, realistic plan
  *   hardware         /dashboard/settings/hardware, the real server page
@@ -105,6 +107,8 @@ vi.mock("@/lib/actions/calibration", () => ({
 }));
 vi.mock("@/lib/actions/notifications", () => ({ updateNotificationPrefs: vi.fn() }));
 vi.mock("@/lib/actions/password", () => ({ changeOwnPassword: vi.fn() }));
+vi.mock("@/lib/actions/time", () => ({ setDeviceTime: vi.fn() }));
+vi.mock("@/lib/actions/prediction", () => ({ applyPredictedGrams: vi.fn() }));
 vi.mock("@/lib/actions/device-registration", () => ({
 	getTenantRegistrationOptions: vi.fn(async () => ({
 		orgId: "org-1",
@@ -270,9 +274,21 @@ vi.mock("@/lib/prisma", () => ({
 			aggregate: vi.fn(async () => ({ _sum: { grams: 0 } })),
 		},
 		deviceStateEvent: { findFirst: vi.fn(async () => null), findMany: vi.fn(async () => []) },
-		biomassLog: { findFirst: vi.fn(async () => null) },
-		fcrReport: { findFirst: vi.fn(async () => null) },
+		biomassLog: {
+			findFirst: vi.fn(async () => null),
+			findMany: vi.fn(async () => []),
+		},
+		fcrReport: {
+			findFirst: vi.fn(async () => null),
+			findMany: vi.fn(async () => []),
+		},
+		cropCycle: { findFirst: vi.fn(async () => null) },
+		mortalityLog: { aggregate: vi.fn(async () => ({ _sum: { count: 0 } })) },
+		feedRequest: { aggregate: vi.fn(async () => ({ _sum: { grams: 0 } })) },
 		feedLevelLog: { findMany: vi.fn(async () => []) },
+		// The dashboard's chart readers use raw SQL; an empty result keeps every
+		// series on its empty state without inventing rows.
+		$queryRaw: vi.fn(async () => []),
 		user: { findMany: vi.fn(async () => []) },
 		orgSetting: { findUnique: vi.fn(async () => null) },
 		platformSetting: { findUnique: vi.fn(async () => null) },
@@ -287,11 +303,18 @@ vi.mock("@/lib/supabase/server", () => ({
 		auth: { getUser: async () => ({ data: { user: { email: "juan@example.com" } } }) },
 	}),
 }));
-vi.mock("@/lib/offline/db", () => ({ clearOfflineData: vi.fn() }));
-vi.mock("@/lib/pwa/snapshot", () => ({ clearDashboardSnapshot: vi.fn() }));
+vi.mock("@/lib/offline/db", () => ({
+	clearOfflineData: vi.fn(),
+	saveOfflineSnapshot: vi.fn(),
+}));
+vi.mock("@/lib/pwa/snapshot", () => ({
+	clearDashboardSnapshot: vi.fn(),
+	writeDashboardSnapshot: vi.fn(),
+}));
 
 import AdminDevicesPage from "@/app/[locale]/(admin)/admin/devices/page";
 import AdminSettingsPage from "@/app/[locale]/(admin)/admin/settings/page";
+import DashboardHomePage from "@/app/[locale]/(dashboard)/dashboard/page";
 import HardwareSettingsPage from "@/app/[locale]/(dashboard)/dashboard/settings/hardware/page";
 import LoginPage from "@/app/[locale]/login/page";
 import { DashboardContentShell } from "@/components/chat/dashboard-content-shell";
@@ -304,6 +327,7 @@ import {
 import { GrowthPlanCard } from "@/components/growth/GrowthPlanCard";
 import { getDevices, getPendingDevices, listTenantMembers } from "@/lib/actions/admin";
 import { buildGrowthPlan } from "@/lib/growth-plan";
+import prisma from "@/lib/prisma";
 import { Activity, CalendarClock, Scale } from "lucide-react";
 import { expectNoSeriousOrCriticalViolations } from "./helpers/axe";
 
@@ -430,6 +454,76 @@ describe("dashboard page shell", () => {
 		expect(container.querySelectorAll("h2")).toHaveLength(2);
 
 		await expectNoSeriousOrCriticalViolations(container);
+	});
+});
+
+describe("dashboard home page", () => {
+	it("has no serious or critical violations on the real control room", async () => {
+		// One online feeder with fresh hopper, water-temperature and RSSI readings,
+		// one biomass log and one FCR report, so the real page renders its
+		// control room instead of the "no pond" empty state. `Once` keeps the
+		// dashboard rows out of the later page tests in this file.
+		vi.mocked(prisma.energyDevice.findMany).mockResolvedValueOnce([
+			{
+				id: "dev-1",
+				mac: "AA:BB:CC:DD:AB:CD",
+				label: "Feeder 1",
+				rtcOk: true,
+				feederActive: false,
+				isPaused: false,
+				gramsPerFeeding: 500,
+				gramsPerSecond: 12.5,
+				lastSeenAt: new Date(),
+				feedLevelPercent: 62,
+				feedLevelUpdatedAt: new Date(),
+				hopperCapacityG: 7000,
+				dailyCapG: 8000,
+				lastCalibratedAt: new Date("2026-10-01T00:00:00Z"),
+				recalibrationIntervalDays: 30,
+				tempOffsetC: -0.5,
+				minFeedTempC: 24,
+				waterTempC: 28.5,
+				waterTempOk: true,
+				waterTempUpdatedAt: new Date(),
+				wifiRssiDbm: -55,
+				wifiRssiUpdatedAt: new Date(),
+			},
+		] as unknown as Awaited<ReturnType<typeof prisma.energyDevice.findMany>>);
+
+		vi.mocked(prisma.biomassLog.findMany).mockResolvedValueOnce([
+			{
+				id: "bio-1",
+				pondId: "pond-1",
+				recordedAt: new Date("2026-10-26T00:00:00Z"),
+				avgWeightKg: 0.12,
+				sampleCount: 30,
+				fishSamples: [{ id: "sample-1" }],
+			},
+		] as unknown as Awaited<ReturnType<typeof prisma.biomassLog.findMany>>);
+
+		vi.mocked(prisma.fcrReport.findMany).mockResolvedValueOnce([
+			{
+				id: "fcr-1",
+				pondId: "pond-1",
+				fcrValue: 1.5,
+				periodEnd: new Date("2026-10-20T00:00:00Z"),
+			},
+		] as unknown as Awaited<ReturnType<typeof prisma.fcrReport.findMany>>);
+
+		const host = mountStaticPage(
+			renderToStaticMarkup(await DashboardHomePage({ searchParams: Promise.resolve({}) })),
+		);
+
+		// Page data, not just the shared shell: the greeting names the signed-in
+		// user, the next-feeding strip carries the active pond, and the hopper and
+		// controller cards come from the mocked feeder row.
+		expect(host.querySelector("h1")?.textContent).toContain("Nong Juan");
+		expect(host.querySelector("[data-onboard='next-feeding']")).not.toBeNull();
+		expect(host.textContent).toContain("Pond A");
+		expect(host.textContent).toContain("Feeder 1");
+		expect(host.querySelector("[data-help='dashboard-hopper']")).not.toBeNull();
+
+		await expectNoSeriousOrCriticalViolations(host);
 	});
 });
 

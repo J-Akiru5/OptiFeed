@@ -166,6 +166,13 @@ returns a `307` to `/en/login`, so Lighthouse would score the redirect, not the 
 Auditing them is a follow-up that needs a seeded database and a session fixture (see
 [`api-latency.md`](./api-latency.md), which lists the same prerequisite for the DB-backed requests).
 
+**The authenticated Lighthouse/a11y gate for the whole console is still a follow-up (#730).** This
+change does not add a session to `lighthouserc.json` or change the public URLs. It adds one real
+authenticated surface — `/dashboard` — to the axe suite in
+[`apps/web/lib/__tests__/a11y-pages.test.tsx`](../../apps/web/lib/__tests__/a11y-pages.test.tsx),
+and re-baselines that route's first-load JS above. The full console gate still needs a seeded local
+stack and a repeatable session fixture.
+
 ### Measured baseline
 
 Two independent sessions on 2026-10-29, three runs per URL each, same build and config. Medians as LHCI

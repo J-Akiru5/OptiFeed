@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **The dashboard bundle budget is re-baselined (#730).** Develop CI run `41745118084` measured `/dashboard` at **1062.8 kB** first-load JS on 2026-11-04. Its committed budget is now **1116.0 kB**, a deliberate +5% rather than the usual +2%, so the busiest authenticated screen has real headroom while its measurement is recorded; every other route budget is unchanged.
+- **The real dashboard page is now in the axe gate (#730).** `a11y-pages.test.tsx` renders `/dashboard` with a pond and a feeder and asserts zero serious/critical violations, instead of testing only the shared shell. The stat-tile term-info trigger now sits outside the tile link (it was a nested interactive control); that fix is what lets the page pass the gate. The authenticated Lighthouse gate for the whole console remains a follow-up.
 - **Deployment policy is recorded as `main` + `staging` and guarded against drift (D7).** The promotion chain remains `develop` → `staging` → `main`; `develop` is validation-only, matching `apps/web/vercel.json`, and the global `main` + `develop` deployment default does not apply to this repository. Vercel Deployment Protection is now documented as a required control for preview deployments, and `scripts/ops/deployment-policy.mjs` (run inside the existing `quality` job) fails if the config, the deployment document and the documented allowlist diverge.
 
 ## [1.53.1] - 2026-11-04

@@ -36,12 +36,15 @@ test.describe("QA release-critical flows", () => {
 		await login(page);
 		await page.goto("/en/dashboard/schedule");
 
-		const feedsPerDay = page.locator("#feedsPerDay");
+		// The responsive schedule page can expose the same editor slot more than
+		// once before hydration settles; scope every operation to the first
+		// visible editor rather than matching two nodes.
+		const feedsPerDay = page.locator("#feedsPerDay:visible").first();
 		await expect(feedsPerDay).toBeVisible();
 		const original = await feedsPerDay.inputValue();
 
 		await feedsPerDay.fill("4");
-		await page.getByRole("button", { name: "Save Changes" }).click();
+		await page.getByRole("button", { name: "Save Changes" }).first().click();
 
 		await expect(page.getByText("Changes saved!")).toBeVisible({ timeout: 20_000 });
 
@@ -49,11 +52,11 @@ test.describe("QA release-critical flows", () => {
 		// the sync state must both survive a full server render.
 		await page.reload();
 		await expect(page.getByText("Pending device sync")).toBeVisible();
-		await expect(page.locator("#feedsPerDay")).toHaveValue("4");
+		await expect(page.locator("#feedsPerDay:visible").first()).toHaveValue("4");
 
 		// Leave the fixture in its seeded state for the rest of the serial suite.
-		await page.locator("#feedsPerDay").fill(original);
-		await page.getByRole("button", { name: "Save Changes" }).click();
+		await page.locator("#feedsPerDay:visible").first().fill(original);
+		await page.getByRole("button", { name: "Save Changes" }).first().click();
 		await expect(page.getByText("Changes saved!")).toBeVisible({ timeout: 20_000 });
 	});
 
@@ -62,8 +65,11 @@ test.describe("QA release-critical flows", () => {
 		const batch = `qa-release-${Date.now()}`;
 
 		await page.goto("/en/dashboard/log-sample");
-		await page.locator("#weightGrams").fill("250");
-		await page.locator("#lengthCm").fill("25");
+		// Match the existing log-sample E2E fixture values: 250/25 can be
+		// rejected by the ration safety guard, which legitimately hides the
+		// "Feed to dispense per feeding" headline (#751).
+		await page.locator("#weightGrams").fill("220");
+		await page.locator("#lengthCm").fill("24");
 		await page.locator("#sampleCount").fill("20");
 		await page.locator("#batchLabel").fill(batch);
 
@@ -77,7 +83,7 @@ test.describe("QA release-critical flows", () => {
 
 		await page.goto("/en/dashboard/growth");
 		await expect(page.getByText("Latest ABW")).toBeVisible();
-		await expect(page.locator("text=250.0").first()).toBeVisible();
+		await expect(page.locator("text=220.0").first()).toBeVisible();
 	});
 
 	test("04 — a feed notification appears with the exact user-visible text", async ({

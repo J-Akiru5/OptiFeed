@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.54.0] - 2026-11-04
+
+### Added
+
+- **Telemetry and PII now have a retention policy, and organisation deletion purges (#726).** A documented retention window drives a purge job, and deleting an organisation removes its rows instead of leaving them orphaned. Previously the append-only tables grew without bound and a deleted tenant left data behind.
+
+### Fixed
+
+- **An offline or faulted ultrasonic sensor no longer reports a reading (#810).** The viewer shows the sensor as offline and keeps the hopper's last known level, instead of presenting a stale distance as current.
+
+### Changed
+
+- **Membership revocation semantics are documented and pinned (#765).** Revoking a membership ends organisation access and write authority but not the person's own farm, because the dashboard reads `Pond.ownerId` rather than membership. The policy is in `docs/rbac-permissions.md`, the admin UI says what revocation does and does not do, and tests fail if the behaviour drifts.
+- **The deployment policy is recorded as enforced, not advisory (#805).** `scripts/ops/deployment-policy.mjs` runs inside `quality` and fails if `apps/web/vercel.json` or the documented `main` + `staging` allowlist drifts. Deployment Protection remains a dashboard setting and is explicitly unverified from the repository.
+- **Release QA e2e is now part of CI (#816), and the dashboard bundle budget is re-baselined with accessibility coverage (#730/#818).**
+
+### Added
+
+- **Bounded retention for telemetry and personal data (#726).** `lib/retention.ts` now prunes `WaterTempLog` and `FeedLevelLog` after 365 days, closed `Notification` rows 180 days after resolution, `CalibrationRun` after 730 days, `AssistantAction` after 180 days, resolved `IssueReport` rows 365 days after resolution, `ReminderLog` after 180 days and `PlatformAuditLog` after 730 days. Each sweep removes at most one 5,000-row batch per device-watch run; an open alert or an open report is never deleted. Additive migration `20261104140000_retention_indexes` adds the global `recordedAt`/`sentAt` indexes the sweeps need.
+
+### Changed
+
+- **Retention, PII and erasure are documented, including the unimplemented organization purge (#726).** `docs/privacy/retention.md` records the schedule, the PII inventory (`User.contactEmail`, `IssueReport.email`, `PlatformAuditLog.ip`/`userAgent`) and the owner-mediated access/erasure path. Organization deletion remains a manual owner process: `PENDING_DELETION` and `purgeAfter` exist in the schema but no action sets them and no purge worker exists, so a purge flow (or removal of the unused fields) remains an owner decision. The document also records that the public policy's 90-day audit-log wording does not match the 730-day code window.
+- **Release QA E2E coverage is now part of CI.** The suite covers the critical authenticated flows from the 2026-11-04 pass and axe checks on the public pages and dashboard, including the QA-20 contrast regression. `pnpm test:e2e:qa` runs the focused pair; the normal `pnpm test:e2e` and its CI job include them.
+
+### Changed
+
+- **The dashboard bundle budget is re-baselined (#730).** Develop CI run `41745118084` measured `/dashboard` at **1062.8 kB** first-load JS on 2026-11-04. Its committed budget is now **1116.0 kB**, a deliberate +5% rather than the usual +2%, so the busiest authenticated screen has real headroom while its measurement is recorded; every other route budget is unchanged.
+- **The real dashboard page is now in the axe gate (#730).** `a11y-pages.test.tsx` renders `/dashboard` with a pond and a feeder and asserts zero serious/critical violations, instead of testing only the shared shell. The stat-tile term-info trigger now sits outside the tile link (it was a nested interactive control); that fix is what lets the page pass the gate. The authenticated Lighthouse gate for the whole console remains a follow-up.
+- **Deployment policy is recorded as `main` + `staging` and guarded against drift (D7).** The promotion chain remains `develop` → `staging` → `main`; `develop` is validation-only, matching `apps/web/vercel.json`, and the global `main` + `develop` deployment default does not apply to this repository. Vercel Deployment Protection is now documented as a required control for preview deployments, and `scripts/ops/deployment-policy.mjs` (run inside the existing `quality` job) fails if the config, the deployment document and the documented allowlist diverge.
+- **Membership revocation is documented as an organization-access change (#765).** The revoke confirmation now says that removing a member ends their organization access while their own farm and login remain; account deletion or disable is the separate operation that ends those. A regression test pins the post-revocation behavior: empty org scope, denied writes, and own-farm reads still available. The org-pond ownership edge case is tracked in #808.
+
 ## [1.53.1] - 2026-11-04
 
 ### Fixed

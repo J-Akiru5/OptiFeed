@@ -59,6 +59,12 @@ DIRECT_URL=<target direct url> pnpm --filter web exec prisma migrate deploy
   [ADR-0001](adr/0001-deployment-model.md) are authoritative.
 - `staging` therefore runs with production credentials (below); it is a
   production-visible preview, not a sandbox. `develop` never deploys.
+- **Deployment Protection (required):** Preview deployments must be behind
+  Vercel Deployment Protection because they share the production database and
+  credentials. Dashboard: project `opti-feed-web` → **Settings** →
+  **Deployment Protection** → Vercel Authentication for Preview. Verify it from
+  a logged-out browser. This control is dashboard-only and cannot be checked
+  from the repository; see `docs/deployment-workflow.md` §2.1.
 - There is **no** GitHub Actions deploy workflow (`deploy.yml` deleted,
   decision D4). Do not add one, and do not run `vercel deploy` by hand.
 - Promotions (`develop` → `staging` → `main`) are commanded by Jeff, or by the

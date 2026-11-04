@@ -25,6 +25,7 @@ const DETAIL: FeederDeviceDetail = {
 	feedLevelPercent: 62,
 	feedLevelCm: 11.3,
 	feedLevelUpdatedAt: new Date("2026-11-03T07:57:00.000Z"),
+	sensorOffline: false,
 	hopperCapacityG: 25_000,
 	gramsPerFeeding: 330,
 	pond: { id: "pond-1", name: "Pond 1" },
@@ -72,6 +73,11 @@ describe("toStatePayload", () => {
 		expect(payload.feedLevelCm).toBe(11.3);
 
 		expect(toStatePayload({ ...DETAIL, feedLevelCm: null }).feedLevelCm).toBeNull();
+	});
+
+	it("carries the sensor-offline bit the live poll renders (#810)", () => {
+		expect(toStatePayload(DETAIL).sensorOffline).toBe(false);
+		expect(toStatePayload({ ...DETAIL, sensorOffline: true }).sensorOffline).toBe(true);
 	});
 
 	it("keeps the fields the poll already carried", () => {

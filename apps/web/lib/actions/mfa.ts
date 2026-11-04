@@ -55,7 +55,7 @@ async function updateEnrolledAt(userId: string, enrolled: boolean): Promise<void
 	} catch (error) {
 		// Reporting only: the factor is already live in Supabase. A failed
 		// timestamp must not turn a completed enrolment into an error.
-		reportError(error, { action: "mfa.updateEnrolledAt" });
+		reportError(error, { action: "mfa.updateEnrolledAt" }, "WARNING");
 	}
 }
 

@@ -155,4 +155,7 @@ the role, grants and core policies; it is inert for the current `postgres` conne
 - The app is **not switched**. Route handlers and actions must be moved to `withTenant` (or
   `applyTenantContext` inside an existing transaction) before the `DATABASE_URL` change. Platform
   admin paths are excluded from the tenant role.
-- The two-tenant proof and the switch window remain owner-run.
+- `scripts/security/tenant-isolation-proof.mjs` is the read-only two-tenant proof. It compares
+  privileged and `optifeed_app` counts for two farms and fails if a cross-tenant read is non-zero.
+  Run it on a staging copy before the switch. See `docs/security/tenant-isolation-proof.md`.
+- The switch window remains owner-run.

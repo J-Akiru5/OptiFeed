@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `applyGrowthPlanForPond` is no longer a browser-callable server action that trusted the caller's `ownerId`; a static guard test prevents regressions.
 - Device-token reveals are audited and rate limited.
 
+## [Unreleased]
+
+### Added
+
+- **A migration-ledger check in `quality` (#711).** `AGENTS.md` §6 calls a duplicate 14-digit migration prefix a hard reject, and one pair already reached production because nothing enforced it: `20261104130000_cron_heartbeat` and `20261104130000_notification_realtime_publication`, both applied on 2026-11-03. Prisma sorts by name and runs both, and renaming an applied migration afterwards desynchronises `_prisma_migrations`, so the only safe place to catch the next one is before it merges. `scripts/ops/migration-ledger.mjs` scans the migration directories and fails on any shared prefix. The applied pair is pinned in an allowlist with its reason rather than silently ignored, and `--strict` fails on it too so the exception cannot quietly become permanent. Six tests prove both directions, including that a *new* directory reusing a known prefix still fails.
+
 ## [1.57.0] - 2026-11-04
 
 ### Added

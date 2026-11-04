@@ -75,10 +75,10 @@ The decision was recorded as T20 in
   remains deployable (recorded in `docs/deployment-workflow.md` section 2).
 - **The repository rule overrides the global agent governance default.** The
   global rule treats `develop` deployments as pre-authorized; this repository
-  forbids them, and mission decision D7 records the override. Issue #323 was
-  resolved on 2026-10-31 (I-105) by aligning every repository document, the
-  self-check assertion and mission guidance with this ADR; the repository
-  policy is authoritative for this repository.
+  forbids them, and mission decision D7 (recorded in the plan as T20) records
+  that override. Issue #323 was resolved on 2026-10-31 (I-105) by aligning every
+  repository document, the self-check assertion and mission guidance with this
+  ADR; the repository policy is authoritative for this repository.
 
 ### Follow-ups
 

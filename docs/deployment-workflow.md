@@ -15,7 +15,7 @@ statement of which branches deploy. `CONTRIBUTING.md`, `README.md`,
 in `docs/missions/` point here instead of restating the matrix. If another
 document disagrees, this one wins: fix the other document, do not fork the
 policy. Repository policy also overrides the global agent rule that `develop`
-deployments are pre-authorized; mission decision D7 records that override.
+deployments are pre-authorized; mission decision D7 (plan T20) records that override.
 
 Container deployment (`Dockerfile`, `docker-compose.yml`, environment matrix) is
 documented separately in [`docs/operations/deployment.md`](./operations/deployment.md);

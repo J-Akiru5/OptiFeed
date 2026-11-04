@@ -1,6 +1,6 @@
 # PakaonAI: Superadmin and Multi-Tenancy Plan (v2)
 
-> Status: **partly built.** v1 written 2026-10-17 against `origin/develop` @ `be77a18`. **v2 amended 2026-10-26** against `origin/develop` @ `3089c65`: new decisions T15-T18 (§1), progress and new findings (§2a), the device registry phase M3F (§8), a revised PR order (§9) and a production-grade benchmark (Appendix A). **v2.2 amended 2026-11-01** against `origin/develop` @ `fc727bb`: the Platform Command Center (decisions T24-T26, phase M3C, open questions O19-O24, issue #479). **v2.3 amended 2026-11-02:** O19/O20 answered, M3C.6 (the incident lifecycle) built. **v2.4 amended 2026-11-02** against `origin/develop` @ `6b79c7d`: O22 and O24 answered and M3C.10 built (registered versus active, stored 90-day connectivity history). What changed is listed in the change log at the end.
+> Status: **partly built.** v1 written 2026-10-17 against `origin/develop` @ `be77a18`. **v2 amended 2026-10-26** against `origin/develop` @ `3089c65`: new decisions T15-T18 (§1), progress and new findings (§2a), the device registry phase M3F (§8), a revised PR order (§9) and a production-grade benchmark (Appendix A). **v2.2 amended 2026-11-01** against `origin/develop` @ `fc727bb`: the Platform Command Center (decisions T24-T26, phase M3C, open questions O19-O24, issue #479). **v2.3 amended 2026-11-02:** O19/O20 answered, M3C.6 (the incident lifecycle) built. **v2.4 amended 2026-11-02** against `origin/develop` @ `6b79c7d`: O22 and O24 answered and M3C.10 built (registered versus active, stored 90-day connectivity history). **v2.5 amended 2026-11-04** against `origin/develop` @ `d5dce0b`: the deployment model is re-affirmed (owner decision D7, recorded here as **T20**) and its **enforcement gap** recorded; a decision-numbering note after T26 so the D7 references in `docs/adr/0001-deployment-model.md` and `docs/deployment-workflow.md` resolve; the branch-divergence facts refreshed; and the current open surface recorded in 9.1. What changed is listed in the change log at the end.
 > Pattern source: Syntaxure EMS Architecture v3 (WVSU energy monitoring), mapped onto PakaonAI.
 > Human-readable version with diagrams and charts: `docs/superadmin-multitenancy-portal.html` (**still v1**; this file wins where they differ).
 > This file is written for the executing AI agent. It follows the same conventions as `docs/OPTIFEED-INDUSTRY-GRADE-PLAN v3.md`.
@@ -23,7 +23,7 @@ Evidence labels used in this file:
 - Next.js is 16: the file is `proxy.ts`, not `middleware.ts`. Read `apps/web/node_modules/next/dist/docs/` before touching routing, route handlers or caching.
 - Match repo style: Biome (tabs, 100 columns, double quotes), Conventional Commits, Server Actions in `lib/actions/`, no code comments.
 - Money is stored as **integer centavos** (`Int`/`BigInt`), never `Float`. Rates are stored as **basis points** (`Int`, 1 bp = 0.01%).
-- Before any conclusion about repo state, compare `develop`, `staging` and `main` with a full clone (never shallow). At the time of writing, `develop` is 104 commits ahead of `staging`, and `main` has 1 merge commit not in `develop`.
+- Before any conclusion about repo state, compare `develop`, `staging` and `main` with a full clone (never shallow). Verified 2026-11-04 (app `1.53.1`): `staging` is **8 commits ahead of `develop`** (develop has none that staging lacks), and `main` is **41 ahead of / 5 behind `staging`**. Re-derive these numbers at the time you read this; do not trust the snapshot.
 - Do not guess. Items marked **(open)** block the task that depends on them. Put them in section 7 and continue with other work.
 
 **How to work:**
@@ -58,13 +58,21 @@ These are decided. Do not reopen them.
 | T17 | *(2026-10-26)* **Setup AP name is `PakaonAI-XXXX`**, XXXX = last four hex digits of the chip's **eFuse MAC** (replaces `PAKAON-XXXX` in §5.2). The device registry records that same MAC, so the printed sticker QR always matches the unit, including before identity is set. | — |
 | T19 | *(2026-10-26)* **Superadmin is god mode for the whole application** (resolves O9: T4 stands). Includes any org's members and permissions, view-as and remote feeder control. Guardrails stay: reason, audit, step-up, and the §6 safety caps. | — |
 | T23 | *(2026-10-26)* **No separate dev database.** E2E tests and migrations run against the production Supabase project while PakaonAI is not in operation (Jeff). Guardrails: a backup before every migration, E2E data prefixed `e2e-` and cleaned up, `migrate deploy` only (never reset). | — |
-| T20 | *(2026-10-26)* **Only `staging` (preview) and `main` (production) deploy.** `develop` is the reconciliation branch, validated by CI only (PR #182). | — |
+| T20 | *(2026-10-26; **re-affirmed 2026-11-04**)* **Only `staging` (preview) and `main` (production) deploy.** `develop` is the reconciliation branch, validated by CI only (PR #182). This is **mission decision D7** — see the decision-numbering note below. The global agent rule that `main` + `develop` deploy **does not apply to this repository**. The local agent instruction file `AGENTS.md` (untracked; not part of this repository) records the override as owner decision D7 and names `scripts/ops/deployment-policy.mjs` as the drift check — **that script does not exist in the repository as of 2026-11-04**, so the allowlist is **policy-only**. Until a check lands, `apps/web/vercel.json` is the mechanism and `docs/deployment-workflow.md` is the explanation. Preview deployments must stay behind Vercel Deployment Protection — a dashboard setting, not verifiable from the repository. | — |
 | T21 | *(2026-10-26)* **Remote firmware updates (OTA)** are required, because units sit on farms with no IT help. Design follows the ESP32 OTA research (mission T-12). | — |
 | T22 | *(2026-10-26)* **Firmware reset buttons on GPIO 17 (Wi-Fi, 5 s) and GPIO 16 (factory, 10 s)** (swapped the same day to match the soldered board), replacing the §5.3 proposal of 18/19. | — |
 | T18 | *(2026-10-26)* **Check the platform tables' exposure now.** Jeff checks whether RLS is off on the platform tables (§2a, N1) and whether the Data API exposes them. If they are exposed, ship an additive `ENABLE ROW LEVEL SECURITY` hotfix migration as its own PR with Jeff's explicit OK, despite the migration freeze. | — |
 | T24 | *(2026-11-01)* **The Superadmin landing page becomes a Platform Command Center** (issue #479). It answers, in order: what is happening, what is wrong, what should I do. Direction proposed by Jeff in chat; the build slices are Phase M3C and every threshold is still open (O19 to O24). A third-party dashboard screenshot was a layout reference only; nothing from it is reused, and the numbers in the proposal are illustrative placeholders. | — |
 | T25 | *(2026-11-01)* **Three scopes, always visible:** global (the console), tenant (one organization) and resource (one device, pond or user). A banner shows the path, for example `GLOBAL SUPERADMIN → ORGANIZATION ALPHA`. The red view-as banner stays the tenant-scope case for a live session. | — |
 | T26 | *(2026-11-01)* **Red, amber and green are reserved for status.** The dark blue sidebar and the orange accent stay; the Superadmin page is light by default with dark monitoring panels; Inter and an 8 px spacing scale. | — |
+
+> **Decision numbering.** This table (`T1`–`T26`) is the plan's own numbering. The mission record `docs/missions/2026-10-26-autonomous-mission.md` uses `D1`–`D10` for the same owner decisions, taken the same day. The two are the same decisions under two identifiers, and the plan is authoritative for the plan's phases. Where another document cites a `D` number, the mapping is:
+>
+> | Mission | Plan | Subject |
+> | --- | --- | --- |
+> | D7 | **T20** | Deployments: `staging` + `main` only; `develop` never deploys |
+>
+> When a decision is cited outside this plan, cite both identifiers (for example "T20 / D7") so either index finds it. Do not renumber the existing table.
 
 ---
 
@@ -644,6 +652,23 @@ Then continue with the v1 order below, skipping what §2a lists as built.
 
 **Suggested defense cut (pending O2):** PRs 1 to 12 + M5.1 + M5.2. That demonstrates real multi-tenancy, a god-mode console with audit and step-up, self-claim provisioning, and view-as. Commercial (M6) can be demoed with seeded data if time is short.
 
+### 9.1 Open surface (2026-11-04)
+
+Recorded so the next agent does not have to reconstruct it from the issue tracker.
+
+| Item | State |
+| --- | --- |
+| **#627** Superadmin visual-first redesign (epic) | open — 2 of 4 lanes delivered |
+| Lane I — #629 chart system | shipped |
+| Lane J — #630 data contracts and gap register | shipped |
+| **Lane H — #628** shell, tokens, theme parity, responsive | open, **unowned in practice** — assigned to `freebuff`, which has no running session |
+| **Lane K — #631** independent QA matrix | open, `op3`, runs after Lane H |
+| #658–#662 | firmware calibration and observability follow-ups from the #617 audit |
+| #665, #668, #669, #672 | offline replay; **staging runs on production credentials**; `deleteUser` Supabase removal inside the DB transaction; provider backups/PITR unconfirmed and the runbook contradicting the drill |
+| #538, #563, #572 | older backlog (dependency pass, CI watch, sticky header) |
+
+Highest-risk pair on that list: **#668** and **#672**. A shared production database plus unconfirmed backups is what makes every other boundary softer, and the RLS migration was promoted to `main` on the strength of that backup story.
+
 ---
 
 ## 10. Risks
@@ -734,6 +759,7 @@ Read-only research comparing the console against multi-tenant SaaS and IoT fleet
 
 ## Change log
 
+- **v2.5 (2026-11-04):** deployment model **re-affirmed** — owner decision D7, recorded here as **T20** — with the **enforcement gap recorded**: the local `AGENTS.md` names `scripts/ops/deployment-policy.mjs` as the drift check, but that script is absent from the repository, so the allowlist is policy-only. Added a decision-numbering note after T26 mapping mission `D` numbers to plan `T` numbers, so the D7 references in `docs/adr/0001-deployment-model.md` and `docs/deployment-workflow.md` resolve to a real entry. Branch-divergence facts refreshed to the verified 2026-11-04 state (app `1.53.1`: staging 8 ahead of develop; main 41/5 against staging). New 9.1 records the open surface, including the epic #627 lanes and the audit follow-ups. `docs/superadmin-multitenancy-portal.html` is still not updated.
 - **v2.4 (2026-11-02):** O22 answered (heartbeat or any feed event in 30 days, hand-fed included) and O24 answered (daily per-device rollup, 90-day retention, stored history only). M3C.10 built: additive `DeviceConnectivityDaily` migration `20261102180000` (later than the incident migration), the rollup inside the existing `device-watch` cron before the heartbeat sweep, and the registered/active/trend panel on `/superadmin`. §2a section E and the M3C.10 row updated. `docs/superadmin-multitenancy-portal.html` is still not updated.
 - **v2.3 (2026-11-02):** O19 and O20 answered (additive incident tables with a backup first; escalation is in-app only, with a named platform-admin owner and a 30-minute acknowledgement target). M3C.6 built as migration `20261102160000_add_platform_incidents`, the device-watch sync, the operator actions and the detail timeline. Hosted application still requires the full backup described in M3C.6.
 - **v2.2 (2026-11-01):** decisions T24–T26 (Platform Command Center, three scopes, reserved status colours); phase M3C with tasks M3C.1–M3C.10 and a today-versus-target table verified on `origin/develop` @ `fc727bb`; a Command Center queue in §9; open questions O19–O24. Tracked as issue #479. `docs/superadmin-multitenancy-portal.html` is still not updated.

@@ -72,7 +72,7 @@ closed by Jeff. The three owner decisions below are the work that remains.
 | #726 — no retention / no org purge | Automatic deletion of telemetry/PII and the lawful retention periods are owner/legal decisions. |
 | #729 — no external alerting / SLO pager | Requires an external service, credentials and an on-call policy. |
 | #730 — authenticated perf/a11y gate + coverage floor | Needs a seeded authenticated stack, a deliberate bundle re-baseline and a coverage-threshold decision. |
-| #731 — 5-second polling at 1,000 devices | Architecture decision (batch telemetry, MQTT/WebSocket or poll cadence) plus a load-test target. |
+| #731 - 5-second polling at 1,000 devices | **Deferred, not needed now.** Planning only: `docs/performance/device-polling-scale-plan.md` (PR #814) records the targets, options and trigger points. No code is scheduled. |
 
 Closed by this batch: #710, #713, #714, #715, #717, #718, #720, #721, #722, #723, #724, #725,
 #727, #728, #732. (#710 and #725 were closed by Jeff; the others closed as done.)

@@ -10,7 +10,7 @@ import { type MobileShell, useMobilePageTitle } from "./use-page-title";
 
 /**
  * The 44 px pill every icon control in the band wears, so search, the theme
- * switch and the quick menu read as one cluster instead of three sizes. The
+ * switch and the overflow menu read as one cluster instead of three sizes. The
  * size is the WCAG 2.5.8 target minimum, which the pond switcher's 16 px text
  * button did not meet.
  */
@@ -23,9 +23,21 @@ const BAND_PILL =
  * One band, three shells: the PakaonAI navy gradient from the design tokens,
  * the current page's title (duplicated from the page's own `<h1>`, so it is
  * `aria-hidden` for assistive tech), and one control cluster — theme, search
- * and the "+" quick menu. The second row carries whatever the shell needs next
- * to the page identity: the pond name for a farmer, help and the profile menu
- * for the consoles.
+ * and the overflow menu.
+ *
+ * **One row, like the platform bars.** A phone app bar is a single 44–64 px
+ * row: Material's small app bar is 64 dp and its two-tier medium/large variants
+ * are deprecated in M3 Expressive, and iOS is 44 pt inline (96 pt only while a
+ * large title is expanded). Shipping apps keep destinations in the bottom bar
+ * and put at most two or three actions up here — WhatsApp, Slack, Instagram and
+ * Spotify all do. This band used to stack a second row (pond name, device
+ * status, help, bell, avatar) on top of that, which cost 120 px of an 842 px
+ * viewport for controls the page did not need at all times.
+ *
+ * The pond switcher and the shell's own controls therefore live in the quick
+ * menu's sheet, which already implements the portal, `aria-modal`, Escape and
+ * Tab wrap. They keep their white-on-navy styling there because the sheet
+ * renders them on a navy card.
  *
  * The theme switch lives here rather than only in the desktop row: below `lg`
  * that row is `display: none`, so its toggle measured 0 px wide and a phone
@@ -42,9 +54,9 @@ export function MobileHeader({
 }: {
 	shell: MobileShell;
 	isTenantAdmin: boolean;
-	/** Pond name / farm line shown under the title. */
+	/** Pond name / farm line, shown in the overflow sheet above the menu. */
 	subtitle?: ReactNode;
-	/** Right-hand controls for the second row (bell, help, profile). */
+	/** The shell's own controls (help, profile), shown in the same sheet. */
 	children?: ReactNode;
 	className?: string;
 }) {
@@ -56,7 +68,7 @@ export function MobileHeader({
 
 	return (
 		<div className={cn("ofd-band pt-[env(safe-area-inset-top)] lg:hidden", className)}>
-			<div className="flex items-center gap-2 px-4 pt-2.5">
+			<div className="flex items-center gap-2 px-3 py-2.5">
 				<div className="min-w-0 flex-1">
 					<p
 						aria-hidden="true"
@@ -66,7 +78,7 @@ export function MobileHeader({
 					</p>
 					<p
 						aria-hidden="true"
-						className="mt-1 truncate text-xl leading-tight font-black text-[var(--ofd-band-ink)]"
+						className="mt-1 truncate text-lg leading-none font-black text-[var(--ofd-band-ink)]"
 					>
 						{title}
 					</p>
@@ -74,15 +86,15 @@ export function MobileHeader({
 				<div className="flex shrink-0 items-center gap-1.5">
 					<DarkModeToggle className={BAND_PILL} />
 					<SearchTrigger variant="icon" />
-					<QuickMenu shell={shell} isTenantAdmin={isTenantAdmin} trigger="plus" />
+					<QuickMenu
+						shell={shell}
+						isTenantAdmin={isTenantAdmin}
+						trigger="more"
+						variant="pill"
+						bandContext={subtitle}
+						bandActions={children}
+					/>
 				</div>
-			</div>
-
-			<div className="mt-1 flex items-center justify-between gap-2 px-4 pb-2">
-				<div className="min-w-0 flex-1 text-[11px] font-bold text-[var(--ofd-band-ink-muted)]">
-					{subtitle}
-				</div>
-				{children ? <div className="flex shrink-0 items-center gap-1.5">{children}</div> : null}
 			</div>
 		</div>
 	);

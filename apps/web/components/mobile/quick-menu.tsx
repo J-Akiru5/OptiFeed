@@ -33,7 +33,7 @@ import {
 	X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { MobileShell } from "./use-page-title";
 
@@ -247,6 +247,9 @@ export function QuickMenu({
 	label,
 	active = false,
 	className,
+	variant = "bar",
+	bandContext,
+	bandActions,
 }: {
 	shell: MobileShell;
 	isTenantAdmin: boolean;
@@ -256,6 +259,19 @@ export function QuickMenu({
 	/** True when the `more` tab represents the current page. */
 	active?: boolean;
 	className?: string;
+	/**
+	 * `bar` is the bottom-bar tab (full width, icon over label); `pill` is the
+	 * 44 px header control, for the `more` trigger inside the top band.
+	 */
+	variant?: "bar" | "pill";
+	/**
+	 * Pond name / device status, shown on a navy card at the top of the sheet.
+	 * These used to sit in a second header row that cost 120 px of a phone
+	 * viewport; the sheet keeps them one tap away without holding that space.
+	 */
+	bandContext?: ReactNode;
+	/** The shell's own controls (help, profile), shown beside them. */
+	bandActions?: ReactNode;
 }) {
 	const t = useTranslations("dashboard.mobile");
 	const nav = useTranslations(
@@ -368,7 +384,9 @@ export function QuickMenu({
 
 	const triggerClasses = isMore
 		? cn(
-				"relative flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 transition-colors focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none",
+				variant === "pill"
+					? "inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none [&_svg]:h-[18px] [&_svg]:w-[18px]"
+					: "relative flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 transition-colors focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none",
 				active ? "text-white" : "text-white/75 hover:text-white",
 				className,
 			)
@@ -439,6 +457,19 @@ export function QuickMenu({
 									<X aria-hidden="true" className="h-5 w-5" />
 								</button>
 							</div>
+
+							{bandContext || bandActions ? (
+								<div className="mx-4 mt-3 flex items-center justify-between gap-2 rounded-2xl bg-[#0A3D62] px-3 py-1.5 text-white">
+									<div className="min-w-0 flex-1 text-[11px] font-bold text-white/75 [&_button]:text-white [&_button]:hover:bg-white/10">
+										{bandContext}
+									</div>
+									{bandActions ? (
+										<div className="flex shrink-0 items-center gap-1.5 text-white [&_a:hover]:bg-white/10 [&_button:hover]:bg-white/10">
+											{bandActions}
+										</div>
+									) : null}
+								</div>
+							) : null}
 
 							<div className="px-4 pt-2">
 								<label htmlFor="mobile-quick-search" className="sr-only">

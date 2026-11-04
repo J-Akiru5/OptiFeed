@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.56.0] - 2026-11-04
+
+### Added
+
+- **A dedicated tenant role and fail-closed RLS policies (#711, phases 1 and 2).** `optifeed_app` is created `NOBYPASSRLS` with table and sequence grants, and the policies on the tenant tables key off a per-transaction context (`app.farm_ids`, `app.pond_ids`, `app.user_id`, `app.supabase_id`, `app.org_id`). An unset setting compares as NULL, so the role sees **no rows** rather than every row - a deliberate fail-closed default.
+
+  Phase 1 is safe to apply before the switch: the running app still uses the privileged `postgres` connection, every policy applies only to `optifeed_app`, and the migration contains no data change. Switching `DATABASE_URL` to the new role is a separate maintenance-window action and is **not** part of this release; until then tenant isolation remains application-level, exactly as before.
+
 ### Security
 
 - **A dedicated tenant database role and core RLS policies are prepared (#711).** Phase 1 migration `20261104150000_tenant_app_role_phase1` creates `optifeed_app` with `NOBYPASSRLS`, grants table/sequence access, and adds `optifeed_app`-only policies for `Farm`, `Pond`, `User`, `Membership`, `Organization`, `EnergyDevice`, `FeedEvent`, `Notification`, `FeedRequest`, `WaterTempLog`, `FeedLevelLog` and `DeviceStateEvent`. It contains no `DELETE`, `TRUNCATE`, `DROP TABLE`, column change or data backfill. The current app keeps using `postgres`, so this is inert until the Phase 2 `withTenant` context and the `DATABASE_URL` switch; the app-side context and the switch are not in this migration.

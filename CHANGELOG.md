@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Device surfaces poll adaptively instead of on a fixed interval (#731).** The browser used to re-read a device on one hard-coded interval per component (the 3D viewer and the large screen every 15 s, the dashboard's server-rendered device cards every 30 s), whether or not anything was waiting on the unit. A single policy in `apps/web/lib/live/poll-policy.ts` now decides the cadence: 5 s while the tab is visible **and** a feed request is still pending or dispatched, 30 s when the tab is visible and idle, and no timer at all while the tab is hidden — coming back to the tab re-reads immediately. An open viewer therefore drops from 240 to 120 device-state requests per hour at idle, while a feed in flight polls four times faster than before so the dispense and the new hopper level appear without a manual refresh. The firmware poll (two endpoints every 5 s) is unchanged: no protocol change, no firmware change, no new dependency. See `docs/performance/device-polling-scale-plan.md` §9.
+
 ## [1.55.1] - 2026-11-04
 
 ### Fixed

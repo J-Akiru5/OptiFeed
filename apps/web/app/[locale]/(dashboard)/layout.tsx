@@ -28,6 +28,7 @@ import { isCurrentTenantAdmin } from "@/lib/auth/tenant-admin";
 import { getViewAsState } from "@/lib/auth/view-as";
 import { getSignedAvatarUrls } from "@/lib/avatars";
 import { loadPondHopper } from "@/lib/device-hopper";
+import { IN_FLIGHT_FEED_STATUSES } from "@/lib/feed/commands";
 import { getActivePondId, listSelectablePonds } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { getActiveAnnouncement } from "@/lib/settings/announcement";
@@ -92,6 +93,8 @@ export default async function DashboardLayout({
 	let lastSeenAtStr: string | null = null;
 	let ponds: { id: string; name: string }[] = [];
 	let activePondId = "";
+	/** #731: a feed is still waiting on the unit, so the live refresh runs fast. */
+	let pendingFeedRequest = false;
 
 	try {
 		const [allPonds, selectedId] = await Promise.all([listSelectablePonds(), getActivePondId()]);
@@ -106,13 +109,23 @@ export default async function DashboardLayout({
 			pondName = pond.name;
 			hopperFeedsPerDay = pond.feedsPerDay ?? null;
 
-			const [unreadCount, hopper] = await Promise.all([
+			const [unreadCount, hopper, pendingFeedCount] = await Promise.all([
 				prisma.notification.count({
 					where: { pondId: pond.id, read: false, supersededById: null },
 				}),
 				loadPondHopper(pond.id),
+				// #731: the live refresh polls at the heartbeat cadence only while a
+				// feed is queued or dispensing, so it needs the same in-flight state
+				// the schedule page's pending-feed banner is built from.
+				prisma.feedRequest.count({
+					where: {
+						status: { in: [...IN_FLIGHT_FEED_STATUSES] },
+						device: { pondId: pond.id },
+					},
+				}),
 			]);
 			initialUnreadCount = unreadCount;
+			pendingFeedRequest = pendingFeedCount > 0;
 
 			if (hopper) {
 				hopperLevelPct = hopper.levelPercent;
@@ -144,7 +157,7 @@ export default async function DashboardLayout({
 	return (
 		<ChatWidgetProvider role={isPlatformAdmin ? "superadmin" : isTenantAdmin ? "owner" : "farmer"}>
 			<OfflineSync scope={ownerId} />
-			<DashboardLiveRefresh enabled={Boolean(pondId)} />
+			<DashboardLiveRefresh enabled={Boolean(pondId)} pendingFeedRequest={pendingFeedRequest} />
 			<OnboardingProvider>
 				<div className="flex h-dvh flex-col overflow-hidden bg-[#F4F7F6] dark:bg-gray-950">
 					<a

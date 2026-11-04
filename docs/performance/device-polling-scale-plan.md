@@ -1,6 +1,7 @@
 # Device polling at scale (#731) — plan
 
-**Status: deferred. Not scheduled. No code changes in this branch.**
+**Status: the device-scale work below is deferred; the browser-side adaptive cadence landed
+in #731 (§9).**
 Owner: Jeff. Prepared: 2026-11-04. Related: #731, #725 (cron), #729 (alerting),
 `docs/performance/README.md`.
 
@@ -92,7 +93,7 @@ first trigger.
 ## 7. What is explicitly not in this plan
 
 - No code changes, schema changes, migrations or deployments in this branch.
-- No change to the 5-second poll today.
+- No change to the 5-second firmware poll today (the browser-side cadence is separate; see §9).
 - No MQTT/WebSocket implementation until the target and budget are agreed.
 
 ## 8. Owner decision
@@ -100,3 +101,32 @@ first trigger.
 **Decision requested:** choose a 12-month device target and whether the cheap option A (cron
 expiry) should be scheduled now or at the 50-device trigger. Everything else waits for the
 target.
+
+## 9. Owner decision (2026-11-04): adaptive browser cadence
+
+**Decision: adaptive interval. No protocol change, no firmware change.**
+
+The firmware poll (two endpoints every 5 s) is unchanged: it is compiled into the unit and
+this decision explicitly excludes a firmware release, so the arithmetic in §1 still applies.
+What changed is the browser side, in one place — `apps/web/lib/live/poll-policy.ts`:
+
+| Tier | When | Interval |
+| --- | --- | --- |
+| fast | tab visible **and** a feed request is `pending`/`dispatched` | 5 s |
+| idle | tab visible, nothing waiting on the unit | 30 s |
+| hidden | tab not visible | no timer; an immediate poll on `visibilitychange` |
+
+Per open surface, derived from the policy's own `livePollDelayMs()` and asserted with simulated
+timers in `apps/web/lib/__tests__/use-adaptive-poll.test.tsx` (not a production load test):
+
+| Surface | Before | After, idle | After, feed pending |
+| --- | --- | --- | --- |
+| Device viewer / large screen (`GET /api/devices/{id}/state`) | 15 s → 240 req/h | 30 s → 120 req/h | 5 s → 720 req/h |
+| Dashboard tab (`router.refresh()`) | 30 s → 120 req/h | 30 s → 120 req/h | 5 s → 720 req/h |
+
+The fast tier is bounded by the in-flight window — the unit claims the request on its next poll
+and reports the dispense — so it is a short burst after an action, not a new steady state. A
+hidden tab now schedules no timer at all.
+
+This does not move the device request arithmetic in §1: the firmware poll is still the load at
+scale, and the trigger points in §4 stand.

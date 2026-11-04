@@ -1,11 +1,12 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * The live viewer (#620). Before this, the 15 s poll refreshed status, hopper
- * level and last-fed only, so the water probe and RTC health froze at the values
- * they had when the page loaded. These tests drive the poll and assert the
- * rendered health actually moves.
+ * The live viewer (#620). Before this, the poll refreshed status, hopper level
+ * and last-fed only, so the water probe and RTC health froze at the values they
+ * had when the page loaded. These tests drive the poll and assert the rendered
+ * health actually moves. #731 added the adaptive cadence: fast while a feed is
+ * in flight, backing off when the unit has nothing waiting on it.
  */
 
 vi.mock("next-intl", async () => {
@@ -29,6 +30,7 @@ vi.mock("@/components/feeder/feeder-viewer", () => ({
 }));
 
 import { FeederViewerLazy } from "@/components/feeder/feeder-viewer-lazy";
+import { LIVE_POLL_MS } from "@/lib/live/poll-policy";
 
 const NOW = Date.now();
 const RECENT = new Date(NOW - 60_000).toISOString();
@@ -122,6 +124,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	cleanup();
+	vi.useRealTimers();
 	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
 });
@@ -193,5 +196,63 @@ describe("FeederViewerLazy live health", () => {
 
 		const viewer = await screen.findByTestId("viewer-3d");
 		expect(viewer.getAttribute("data-sensor-offline")).toBe("true");
+	});
+});
+
+describe("FeederViewerLazy poll cadence (#731)", () => {
+	it("polls every 5 s while the payload says a feed is still in flight", async () => {
+		vi.useFakeTimers();
+		const fetchMock = pollReturns({ ...BASE_PAYLOAD, pendingFeedRequest: true });
+
+		renderViewer();
+		await act(async () => {});
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(LIVE_POLL_MS.fast);
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+
+		// Still pending → stays on the fast tier.
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(LIVE_POLL_MS.fast);
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(3);
+	});
+
+	it("backs off to 30 s once nothing is pending", async () => {
+		vi.useFakeTimers();
+		const fetchMock = pollReturns({ ...BASE_PAYLOAD, pendingFeedRequest: false });
+
+		renderViewer();
+		await act(async () => {});
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+
+		// No fast tick while idle.
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(LIVE_POLL_MS.fast);
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(LIVE_POLL_MS.idle - LIVE_POLL_MS.fast);
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
+	it("keeps the fast tier when an older API omits the flag mid-feed", async () => {
+		vi.useFakeTimers();
+		const fetchMock = pollReturns({ ...BASE_PAYLOAD });
+
+		renderViewer({ initialPendingFeedRequest: true });
+		await act(async () => {});
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+
+		// The payload has no `pendingFeedRequest`, so the seeded state survives
+		// and the viewer does not silently drop to idle in the middle of a feed.
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(LIVE_POLL_MS.fast);
+		});
+		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 });

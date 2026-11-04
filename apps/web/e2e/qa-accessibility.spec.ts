@@ -1,4 +1,6 @@
+import fs from "node:fs";
 import { createRequire } from "node:module";
+import path from "node:path";
 import { type Page, expect, test } from "@playwright/test";
 
 import { login } from "./helpers";
@@ -6,18 +8,33 @@ import { login } from "./helpers";
 /**
  * Axe accessibility checks for the release QA pass.
  *
- * The public pages run without a session; the dashboard check uses the normal
- * e2e- login. Color contrast is disabled in the general scan so it does not
- * mask the other results; the dedicated login-CTA test keeps the QA-20 fix
- * pinned at WCAG AA.
+ * The public pages run without a session. The authenticated run logs in once as
+ * the seeded e2e farmer and audits two console screens: the dashboard and the
+ * Calendar & Harvest page (the dense screen `/dashboard/harvest` redirects to).
+ * This is the only browser-level a11y gate that sees the real seeded data,
+ * hydrated client components and production CSS; the static markup gate lives
+ * in `lib/__tests__/a11y-pages.test.tsx`.
  *
- * The axe-core script is injected from the installed package, so this suite
- * keeps the repository's existing axe-core dependency instead of adding a
- * second wrapper package.
+ * Color contrast is disabled in the general scan so it does not mask the other
+ * results; the dedicated login-CTA test keeps the QA-20 fix pinned at WCAG AA.
+ *
+ * The axe-core bundle is read from the installed package and evaluated in the
+ * page, so this suite keeps the repository's existing axe-core dependency
+ * instead of adding a second wrapper package.
  */
 
 const require = createRequire(import.meta.url);
 const axePath = require.resolve("axe-core/axe.min.js");
+/**
+ * Read once, then evaluate in the page instead of injecting a `<script>` tag.
+ *
+ * `page.addScriptTag` on the authenticated screens races the app's realtime
+ * client: the local Supabase socket (`ws://127.0.0.1:54321`) is blocked by the
+ * `connect-src` CSP and Playwright rejects the injection with that violation.
+ * `page.evaluate` goes through CDP, which CSP does not gate, so the audit runs
+ * the same axe build without changing the page's CSP or its behaviour.
+ */
+const axeSource = fs.readFileSync(axePath, "utf8");
 
 type AxeViolation = {
 	id: string;
@@ -30,8 +47,16 @@ type AxeResults = {
 	violations: AxeViolation[];
 };
 
+type PageSummary = {
+	page: string;
+	path: string;
+	/** Violation ids grouped by axe impact, for the CI step summary. */
+	byImpact: Record<string, string[]>;
+	totalNodes: number;
+};
+
 async function runAxe(page: Page): Promise<AxeResults> {
-	await page.addScriptTag({ path: axePath });
+	await page.evaluate(axeSource);
 
 	return page.evaluate(async () => {
 		const axe = (
@@ -65,6 +90,46 @@ function criticalViolations(results: AxeResults): AxeViolation[] {
 	return results.violations.filter((violation) => violation.impact === "critical");
 }
 
+/**
+ * The console screens the browser gate audits, in the order it audits them.
+ *
+ * `/dashboard` is the control room; `/dashboard/calendar` is the dense screen
+ * the old Harvest page redirects to (crop cycle, harvest projection, org-wide
+ * calendar and feeder panels). Both need the seeded e2e fixture: a pond, a
+ * feeder and an organisation.
+ */
+const AUTHENTICATED_PAGES = [
+	{ label: "dashboard", path: "/en/dashboard", url: /\/en\/dashboard$/ },
+	{
+		label: "calendar-harvest",
+		path: "/en/dashboard/calendar",
+		url: /\/en\/dashboard\/calendar/,
+	},
+] as const;
+
+/** Violation ids grouped by impact, so the summary reports minor/serious too. */
+function groupByImpact(results: AxeResults): Record<string, string[]> {
+	const groups: Record<string, string[]> = {};
+	for (const violation of results.violations) {
+		const impact = violation.impact ?? "unknown";
+		groups[impact] = [...(groups[impact] ?? []), violation.id];
+	}
+	return groups;
+}
+
+/**
+ * Write the machine-readable summary the CI step prints into the job summary.
+ * Written even when a page fails, so a red run explains which rule fired.
+ */
+function writeSummary(summary: PageSummary[]): void {
+	const directory = path.resolve("test-results");
+	fs.mkdirSync(directory, { recursive: true });
+	fs.writeFileSync(
+		path.join(directory, "a11y-summary.json"),
+		`${JSON.stringify({ generatedAt: new Date().toISOString(), pages: summary }, null, 2)}\n`,
+	);
+}
+
 const PUBLIC_PAGES = [
 	{ label: "landing", path: "/en" },
 	{ label: "login", path: "/en/login" },
@@ -88,16 +153,46 @@ test.describe("QA accessibility — public", () => {
 });
 
 test.describe("QA accessibility — authenticated", () => {
-	test("axe: dashboard has no critical violations", async ({ page }) => {
+	test("axe: the console has no critical violations", async ({ page }) => {
+		// One login for both screens: the login endpoint is rate-limited to five
+		// attempts per minute per IP and the whole suite is serial.
 		await login(page);
 		await expect(page).toHaveURL(/\/en\/dashboard/);
 
-		const result = await attachAxeResult(page, "dashboard");
-		const critical = criticalViolations(result);
+		const summary: PageSummary[] = [];
+		const critical: string[] = [];
+
+		for (const entry of AUTHENTICATED_PAGES) {
+			await page.goto(entry.path);
+			await expect(page).toHaveURL(entry.url);
+
+			const result = await attachAxeResult(page, entry.label);
+			summary.push({
+				page: entry.label,
+				path: entry.path,
+				byImpact: groupByImpact(result),
+				totalNodes: result.violations.reduce(
+					(total, violation) => total + violation.nodes.length,
+					0,
+				),
+			});
+
+			for (const violation of criticalViolations(result)) {
+				critical.push(`${entry.label}: ${violation.id}: ${violation.help}`);
+			}
+		}
+
+		// The file is written before the assertion so the CI summary step still
+		// has data on a red run.
+		writeSummary(summary);
+		await test.info().attach("a11y-summary.json", {
+			body: JSON.stringify(summary, null, 2),
+			contentType: "application/json",
+		});
 
 		expect(
 			critical,
-			critical.map((violation) => `${violation.id}: ${violation.help}`).join("\n"),
+			`critical axe violations on the authenticated console:\n${critical.join("\n")}`,
 		).toEqual([]);
 	});
 });

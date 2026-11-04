@@ -73,8 +73,9 @@ edit around it locally.
   Actions.
 - Preview deployments must stay behind Vercel Deployment Protection. That is a dashboard setting and
   cannot be verified from the repository — treat it as unverified, not as guaranteed.
-- The allowlist is currently **policy-only**: no in-repo check enforces it yet. Do not claim
-  "verified enforcement" until a check exists.
+- The allowlist is enforced by `scripts/ops/deployment-policy.mjs`, which runs inside the `quality`
+  job and fails if `apps/web/vercel.json` or the documented allowlist drifts. It does not enforce
+  Deployment Protection — that stays a dashboard setting.
 - Production migrations only happen through the `main` deployment. Never run `prisma migrate deploy`
   against a hosted database by hand.
 

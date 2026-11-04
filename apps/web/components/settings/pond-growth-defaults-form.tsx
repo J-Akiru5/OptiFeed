@@ -24,17 +24,17 @@ import { toast } from "sonner";
  */
 
 const FIELDS: {
-	key: GrowthDefaultField;
+	name: GrowthDefaultField;
 	label: string;
 	step?: string;
 	/** The value shown for an inherited field; null means "no default". */
 	unit: "days" | "g" | "pct" | "fish";
 }[] = [
-	{ key: "growOutDays", label: "growOutDaysLabel", unit: "days" },
-	{ key: "targetHarvestWeightG", label: "targetWeightLabel", unit: "g" },
-	{ key: "expectedSurvivalPct", label: "survivalLabel", unit: "pct" },
-	{ key: "stockingAvgWeightG", label: "stockingWeightLabel", step: "0.1", unit: "g" },
-	{ key: "densityAdvisoryPerM2", label: "densityLabel", unit: "fish" },
+	{ name: "growOutDays", label: "growOutDaysLabel", unit: "days" },
+	{ name: "targetHarvestWeightG", label: "targetWeightLabel", unit: "g" },
+	{ name: "expectedSurvivalPct", label: "survivalLabel", unit: "pct" },
+	{ name: "stockingAvgWeightG", label: "stockingWeightLabel", step: "0.1", unit: "g" },
+	{ name: "densityAdvisoryPerM2", label: "densityLabel", unit: "fish" },
 ];
 
 function formatValue(value: number, unit: (typeof FIELDS)[number]["unit"]): string {
@@ -92,8 +92,8 @@ export function PondGrowthDefaultsForm({
 		setError(null);
 		const payload = Object.fromEntries(
 			FIELDS.map((field) => {
-				const raw = values[field.key];
-				return [field.key, raw.trim() === "" ? null : Number(raw)];
+				const raw = values[field.name];
+				return [field.name, raw.trim() === "" ? null : Number(raw)];
 			}),
 		);
 		startTransition(async () => {
@@ -139,30 +139,30 @@ export function PondGrowthDefaultsForm({
 
 			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 				{FIELDS.map((field) => (
-					<div key={field.key}>
+					<div key={field.name}>
 						<label
-							htmlFor={`pond-growth-${field.key}`}
+							htmlFor={`pond-growth-${field.name}`}
 							className="mb-1.5 block text-xs font-black tracking-wide text-[#0A3D62] uppercase dark:text-gray-200"
 						>
 							{t(field.label)}
 						</label>
 						<input
-							id={`pond-growth-${field.key}`}
-							name={field.key}
+							id={`pond-growth-${field.name}`}
+							name={field.name}
 							type="number"
-							min={GROWTH_DEFAULT_BOUNDS[field.key].min}
-							max={GROWTH_DEFAULT_BOUNDS[field.key].max}
+							min={GROWTH_DEFAULT_BOUNDS[field.name].min}
+							max={GROWTH_DEFAULT_BOUNDS[field.name].max}
 							step={field.step ?? "1"}
-							value={values[field.key]}
+							value={values[field.name]}
 							placeholder={t("inheritPlaceholder")}
 							disabled={!canWrite || isPending}
 							onChange={(event) =>
-								setValues((current) => ({ ...current, [field.key]: event.target.value }))
+								setValues((current) => ({ ...current, [field.name]: event.target.value }))
 							}
 							className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-2.5 text-sm font-semibold text-[#0A3D62] placeholder:text-gray-400 focus:border-[#E85A2A] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/30 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
 						/>
 						<p className="mt-1 text-[11px] text-[#3D5568] dark:text-gray-400">
-							{inheritedHint(field.key, field.unit)}
+							{inheritedHint(field.name, field.unit)}
 						</p>
 					</div>
 				))}

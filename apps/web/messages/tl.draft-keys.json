@@ -343,6 +343,7 @@
 		"dashboard.adminMembers.platformAdminLocked",
 		"dashboard.adminMembers.revokeButton",
 		"dashboard.adminMembers.revokeError",
+		"dashboard.adminMembers.revokeScope",
 		"dashboard.adminMembers.revokeSuccess",
 		"dashboard.adminMembers.role.ADMIN",
 		"dashboard.adminMembers.role.OPERATOR",

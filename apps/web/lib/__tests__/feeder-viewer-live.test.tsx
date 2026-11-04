@@ -16,12 +16,29 @@ vi.mock("next-intl", async () => {
 	};
 });
 
+// jsdom cannot mount three.js. The stub exposes the two props these tests
+// drive: the live status and the sensor-offline bit (#810).
+vi.mock("@/components/feeder/feeder-viewer", () => ({
+	FeederViewer: (props: { status?: string; sensorOffline?: boolean }) => (
+		<div
+			data-testid="viewer-3d"
+			data-status={String(props.status)}
+			data-sensor-offline={String(props.sensorOffline)}
+		/>
+	),
+}));
+
 import { FeederViewerLazy } from "@/components/feeder/feeder-viewer-lazy";
 
 const NOW = Date.now();
 const RECENT = new Date(NOW - 60_000).toISOString();
 const OLD = new Date(NOW - 2 * 60 * 60_000).toISOString();
 const STALE_AFTER_MS = 5 * 60_000;
+
+const WEBGL2_STUB = {
+	getExtension: () => null,
+	getParameter: () => "",
+} as unknown as WebGL2RenderingContext;
 
 const BASE_PAYLOAD = {
 	deviceId: "dev-1",
@@ -156,5 +173,25 @@ describe("FeederViewerLazy live health", () => {
 			"/api/devices/dev-1/state",
 			expect.objectContaining({ cache: "no-store" }),
 		);
+	});
+
+	it("takes the sensor offline from the poll so the labels update live (#810)", async () => {
+		vi.mocked(HTMLCanvasElement.prototype.getContext).mockReturnValue(WEBGL2_STUB);
+		pollReturns({ ...BASE_PAYLOAD, sensorOffline: true });
+
+		renderViewer({ initialSensorOffline: false });
+
+		const viewer = await screen.findByTestId("viewer-3d");
+		expect(viewer.getAttribute("data-sensor-offline")).toBe("true");
+	});
+
+	it("keeps an already-offline sensor when an older API omits the bit (#810)", async () => {
+		vi.mocked(HTMLCanvasElement.prototype.getContext).mockReturnValue(WEBGL2_STUB);
+		pollReturns({ ...BASE_PAYLOAD });
+
+		renderViewer({ initialSensorOffline: true });
+
+		const viewer = await screen.findByTestId("viewer-3d");
+		expect(viewer.getAttribute("data-sensor-offline")).toBe("true");
 	});
 });

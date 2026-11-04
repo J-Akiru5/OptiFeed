@@ -17,6 +17,18 @@ export const POND_SETTINGS_DRAFT_RETENTION_DAYS = 30;
 // in progress).
 export const DEVICE_STATE_RETENTION_DAYS = 180;
 
+// #726: owner-approved retention for telemetry and personal data. Each window
+// below is the policy; the sweeps delete one bounded batch per cron run,
+// oldest first. Notification and IssueReport keep rows that are still open.
+export const WATER_TEMP_RETENTION_DAYS = 365;
+export const FEED_LEVEL_RETENTION_DAYS = 365;
+export const NOTIFICATION_RETENTION_DAYS = 180;
+export const CALIBRATION_RUN_RETENTION_DAYS = 730;
+export const ASSISTANT_ACTION_RETENTION_DAYS = 180;
+export const ISSUE_REPORT_RETENTION_DAYS = 365;
+export const REMINDER_LOG_RETENTION_DAYS = 180;
+export const PLATFORM_AUDIT_LOG_RETENTION_DAYS = 730;
+
 const DEFAULT_BATCH_SIZE = 5000;
 
 export async function deleteOldHeartbeatEvents(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
@@ -124,6 +136,218 @@ export async function deleteExpiredPondSettingsDrafts(
 	if (stale.length === 0) return 0;
 
 	const result = await prisma.pondSettingsDraft.deleteMany({
+		where: { id: { in: stale.map((row) => row.id) } },
+	});
+
+	return result.count;
+}
+
+/**
+ * Prune water-temperature readings older than `WATER_TEMP_RETENTION_DAYS`.
+ *
+ * Bounded like the other sweeps: one oldest-first batch per cron run. The
+ * batch bound, not the `(deviceId, recordedAt)` index, caps the work: that
+ * index serves the per-device trend, while this sweep has no device prefix.
+ */
+export async function deleteOldWaterTempLogs(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
+	const cutoff = new Date(Date.now() - WATER_TEMP_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+
+	const stale = await prisma.waterTempLog.findMany({
+		where: { recordedAt: { lt: cutoff } },
+		orderBy: { recordedAt: "asc" },
+		select: { id: true },
+		take: batchSize,
+	});
+
+	if (stale.length === 0) return 0;
+
+	const result = await prisma.waterTempLog.deleteMany({
+		where: { id: { in: stale.map((row) => row.id) } },
+	});
+
+	return result.count;
+}
+
+/**
+ * Prune hopper-level readings older than `FEED_LEVEL_RETENTION_DAYS`.
+ * One oldest-first batch per cron run.
+ */
+export async function deleteOldFeedLevelLogs(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
+	const cutoff = new Date(Date.now() - FEED_LEVEL_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+
+	const stale = await prisma.feedLevelLog.findMany({
+		where: { recordedAt: { lt: cutoff } },
+		orderBy: { recordedAt: "asc" },
+		select: { id: true },
+		take: batchSize,
+	});
+
+	if (stale.length === 0) return 0;
+
+	const result = await prisma.feedLevelLog.deleteMany({
+		where: { id: { in: stale.map((row) => row.id) } },
+	});
+
+	return result.count;
+}
+
+/**
+ * Prune notifications older than `NOTIFICATION_RETENTION_DAYS`, but only rows
+ * that are already closed. An open alert — `resolvedAt` null, `autoCleared`
+ * false and `supersededById` null — is never deleted, regardless of age.
+ *
+ * The age clock is `resolvedAt` for a resolved alert, so a long-running alert
+ * that closes today is kept for the full window. Auto-cleared/superseded rows
+ * without a `resolvedAt` fall back to `createdAt`.
+ *
+ * One oldest-first batch per cron run.
+ */
+export async function deleteOldNotifications(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
+	const cutoff = new Date(Date.now() - NOTIFICATION_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+
+	const stale = await prisma.notification.findMany({
+		where: {
+			OR: [
+				{ resolvedAt: { lt: cutoff } },
+				{ resolvedAt: null, autoCleared: true, createdAt: { lt: cutoff } },
+				{ resolvedAt: null, supersededById: { not: null }, createdAt: { lt: cutoff } },
+			],
+		},
+		orderBy: { createdAt: "asc" },
+		select: { id: true },
+		take: batchSize,
+	});
+
+	if (stale.length === 0) return 0;
+
+	const result = await prisma.notification.deleteMany({
+		where: { id: { in: stale.map((row) => row.id) } },
+	});
+
+	return result.count;
+}
+
+/**
+ * Prune calibration history older than `CALIBRATION_RUN_RETENTION_DAYS`.
+ * One oldest-first batch per cron run.
+ */
+export async function deleteOldCalibrationRuns(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
+	const cutoff = new Date(Date.now() - CALIBRATION_RUN_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+
+	const stale = await prisma.calibrationRun.findMany({
+		where: { createdAt: { lt: cutoff } },
+		orderBy: { createdAt: "asc" },
+		select: { id: true },
+		take: batchSize,
+	});
+
+	if (stale.length === 0) return 0;
+
+	const result = await prisma.calibrationRun.deleteMany({
+		where: { id: { in: stale.map((row) => row.id) } },
+	});
+
+	return result.count;
+}
+
+/**
+ * Prune assistant proposals older than `ASSISTANT_ACTION_RETENTION_DAYS`.
+ * One oldest-first batch per cron run.
+ */
+export async function deleteOldAssistantActions(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
+	const cutoff = new Date(Date.now() - ASSISTANT_ACTION_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+
+	const stale = await prisma.assistantAction.findMany({
+		where: { createdAt: { lt: cutoff } },
+		orderBy: { createdAt: "asc" },
+		select: { id: true },
+		take: batchSize,
+	});
+
+	if (stale.length === 0) return 0;
+
+	const result = await prisma.assistantAction.deleteMany({
+		where: { id: { in: stale.map((row) => row.id) } },
+	});
+
+	return result.count;
+}
+
+/**
+ * Prune issue reports older than `ISSUE_REPORT_RETENTION_DAYS`, but only once
+ * they are no longer open. A report with `status = OPEN` and no `resolvedAt`
+ * is the only copy of the reporter's message and is never deleted.
+ *
+ * The age clock is `resolvedAt` for a resolved report; a non-OPEN report with
+ * no resolved timestamp falls back to `createdAt`.
+ *
+ * One oldest-first batch per cron run.
+ */
+export async function deleteOldIssueReports(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
+	const cutoff = new Date(Date.now() - ISSUE_REPORT_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+
+	const stale = await prisma.issueReport.findMany({
+		where: {
+			OR: [
+				{ resolvedAt: { lt: cutoff } },
+				{ resolvedAt: null, status: { not: "OPEN" }, createdAt: { lt: cutoff } },
+			],
+		},
+		orderBy: { createdAt: "asc" },
+		select: { id: true },
+		take: batchSize,
+	});
+
+	if (stale.length === 0) return 0;
+
+	const result = await prisma.issueReport.deleteMany({
+		where: { id: { in: stale.map((row) => row.id) } },
+	});
+
+	return result.count;
+}
+
+/**
+ * Prune reminder delivery records older than `REMINDER_LOG_RETENTION_DAYS`.
+ * `sentAt` is the age clock: it is the delivery attempt, not a later edit.
+ * One oldest-first batch per cron run.
+ */
+export async function deleteOldReminderLogs(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
+	const cutoff = new Date(Date.now() - REMINDER_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+
+	const stale = await prisma.reminderLog.findMany({
+		where: { sentAt: { lt: cutoff } },
+		orderBy: { sentAt: "asc" },
+		select: { id: true },
+		take: batchSize,
+	});
+
+	if (stale.length === 0) return 0;
+
+	const result = await prisma.reminderLog.deleteMany({
+		where: { id: { in: stale.map((row) => row.id) } },
+	});
+
+	return result.count;
+}
+
+/**
+ * Prune platform audit rows older than `PLATFORM_AUDIT_LOG_RETENTION_DAYS`.
+ * One oldest-first batch per cron run.
+ */
+export async function deleteOldPlatformAuditLogs(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
+	const cutoff = new Date(Date.now() - PLATFORM_AUDIT_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+
+	const stale = await prisma.platformAuditLog.findMany({
+		where: { createdAt: { lt: cutoff } },
+		orderBy: { createdAt: "asc" },
+		select: { id: true },
+		take: batchSize,
+	});
+
+	if (stale.length === 0) return 0;
+
+	const result = await prisma.platformAuditLog.deleteMany({
 		where: { id: { in: stale.map((row) => row.id) } },
 	});
 

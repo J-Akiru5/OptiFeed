@@ -42,6 +42,14 @@ vi.mock("@/lib/retention", () => ({
 	deleteOldHeartbeatEvents: vi.fn().mockResolvedValue(3),
 	deleteExpiredPondSettingsDrafts: vi.fn().mockResolvedValue(2),
 	deleteOldDeviceStateEvents: vi.fn().mockResolvedValue(4),
+	deleteOldWaterTempLogs: vi.fn().mockResolvedValue(11),
+	deleteOldFeedLevelLogs: vi.fn().mockResolvedValue(12),
+	deleteOldNotifications: vi.fn().mockResolvedValue(13),
+	deleteOldCalibrationRuns: vi.fn().mockResolvedValue(14),
+	deleteOldAssistantActions: vi.fn().mockResolvedValue(15),
+	deleteOldIssueReports: vi.fn().mockResolvedValue(16),
+	deleteOldReminderLogs: vi.fn().mockResolvedValue(17),
+	deleteOldPlatformAuditLogs: vi.fn().mockResolvedValue(18),
 }));
 
 vi.mock("@/lib/error-capture", () => ({
@@ -86,8 +94,16 @@ import prisma from "@/lib/prisma";
 import { cleanupExpiredRateLimitBuckets } from "@/lib/rate-limit";
 import {
 	deleteExpiredPondSettingsDrafts,
+	deleteOldAssistantActions,
+	deleteOldCalibrationRuns,
 	deleteOldDeviceStateEvents,
+	deleteOldFeedLevelLogs,
 	deleteOldHeartbeatEvents,
+	deleteOldIssueReports,
+	deleteOldNotifications,
+	deleteOldPlatformAuditLogs,
+	deleteOldReminderLogs,
+	deleteOldWaterTempLogs,
 } from "@/lib/retention";
 import { getDeviceStatusPolicy } from "@/lib/settings/device-status";
 
@@ -136,6 +152,14 @@ describe("api/cron/device-watch", () => {
 		vi.mocked(getDeviceStatusPolicy).mockResolvedValue(DEFAULT_DEVICE_STATUS_POLICY);
 		vi.mocked(deleteOldHeartbeatEvents).mockResolvedValue(3);
 		vi.mocked(deleteOldDeviceStateEvents).mockResolvedValue(4);
+		vi.mocked(deleteOldWaterTempLogs).mockResolvedValue(11);
+		vi.mocked(deleteOldFeedLevelLogs).mockResolvedValue(12);
+		vi.mocked(deleteOldNotifications).mockResolvedValue(13);
+		vi.mocked(deleteOldCalibrationRuns).mockResolvedValue(14);
+		vi.mocked(deleteOldAssistantActions).mockResolvedValue(15);
+		vi.mocked(deleteOldIssueReports).mockResolvedValue(16);
+		vi.mocked(deleteOldReminderLogs).mockResolvedValue(17);
+		vi.mocked(deleteOldPlatformAuditLogs).mockResolvedValue(18);
 		vi.mocked(cleanupExpiredRateLimitBuckets).mockResolvedValue(7);
 	});
 
@@ -241,6 +265,15 @@ describe("api/cron/device-watch", () => {
 		expect(deleteExpiredPondSettingsDrafts).toHaveBeenCalledTimes(1);
 		// #593: the 180-day DeviceStateEvent sweep is part of the same pass.
 		expect(deleteOldDeviceStateEvents).toHaveBeenCalledTimes(1);
+		// #726: every telemetry and PII sweep runs once per pass.
+		expect(deleteOldWaterTempLogs).toHaveBeenCalledTimes(1);
+		expect(deleteOldFeedLevelLogs).toHaveBeenCalledTimes(1);
+		expect(deleteOldNotifications).toHaveBeenCalledTimes(1);
+		expect(deleteOldCalibrationRuns).toHaveBeenCalledTimes(1);
+		expect(deleteOldAssistantActions).toHaveBeenCalledTimes(1);
+		expect(deleteOldIssueReports).toHaveBeenCalledTimes(1);
+		expect(deleteOldReminderLogs).toHaveBeenCalledTimes(1);
+		expect(deleteOldPlatformAuditLogs).toHaveBeenCalledTimes(1);
 	});
 
 	it("reports the DeviceStateEvent rows pruned by the housekeeping pass", async () => {
@@ -249,6 +282,23 @@ describe("api/cron/device-watch", () => {
 
 		await expect(res.json()).resolves.toMatchObject({
 			data: { deviceStateEventsDeleted: 4 },
+		});
+	});
+
+	it("reports the telemetry and PII rows pruned by the housekeeping pass", async () => {
+		const res = await GET(cronRequest("Bearer test-cron-secret"));
+
+		await expect(res.json()).resolves.toMatchObject({
+			data: {
+				waterTempLogsDeleted: 11,
+				feedLevelLogsDeleted: 12,
+				notificationsDeleted: 13,
+				calibrationRunsDeleted: 14,
+				assistantActionsDeleted: 15,
+				issueReportsDeleted: 16,
+				reminderLogsDeleted: 17,
+				platformAuditLogsDeleted: 18,
+			},
 		});
 	});
 

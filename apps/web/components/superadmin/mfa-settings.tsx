@@ -251,7 +251,9 @@ export function MfaSettings({ factors }: { factors: TotpFactorSummary[] }) {
 							width={176}
 							height={176}
 							unoptimized
-							className="size-44 shrink-0 rounded-lg bg-white p-2"
+							// Scanners need a light quiet zone in both themes; this is
+							// the image surface, not a console card.
+							className="size-44 shrink-0 rounded-lg bg-white p-2 dark:bg-white"
 						/>
 						<div className="min-w-0 flex-1 space-y-2">
 							<p className={FIELD_LABEL}>{t("mfaSecret")}</p>

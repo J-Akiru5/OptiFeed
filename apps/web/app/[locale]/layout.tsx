@@ -76,6 +76,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
 	themeColor: "#0A3D62",
 	viewportFit: "cover",
+	// Android resizes the layout when the keyboard opens instead of letting the
+	// keyboard cover the focused field, so forms stay visible and one-handed.
+	interactiveWidget: "resizes-content",
 };
 
 export default async function LocaleLayout({

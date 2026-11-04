@@ -312,6 +312,13 @@ export function QuickMenu({
 		if (!open) return;
 		const previous = document.body.style.overflow;
 		document.body.style.overflow = "hidden";
+		// Android's back gesture pops history. Without an entry of its own the
+		// sheet would be skipped and the reader would land on the previous page,
+		// so opening pushes one and closing consumes it.
+		const sheetState = { ...(window.history.state ?? {}), ofdSheet: true };
+		window.history.pushState(sheetState, "");
+		const onPopState = () => setOpen(false);
+		window.addEventListener("popstate", onPopState);
 		const onKeyDown = (event: KeyboardEvent) => {
 			if (event.key === "Escape") {
 				setOpen(false);
@@ -352,6 +359,10 @@ export function QuickMenu({
 		return () => {
 			document.body.style.overflow = previous;
 			document.removeEventListener("keydown", onKeyDown);
+			window.removeEventListener("popstate", onPopState);
+			// Only unwind the entry this sheet pushed; a close caused by a back
+			// gesture has already popped it.
+			if (window.history.state?.ofdSheet) window.history.back();
 		};
 	}, [open]);
 

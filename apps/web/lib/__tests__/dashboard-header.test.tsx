@@ -99,7 +99,7 @@ describe("the mobile band carries reachable, uniformly sized controls", () => {
 	it("keeps the farmer band to search, notifications and the account control", () => {
 		// The theme switch is still supported by the band, but the farmer band
 		// hands it to the account menu so the bar does not grow a fourth control.
-		expect(layoutSource).toContain("<MobileHeader showTheme={false}>");
+		expect(layoutSource).toContain('<MobileHeader shell="farmer" showTheme={false}>');
 		expect(mobileHeaderSource).toContain(
 			"{showTheme ? <DarkModeToggle className={BAND_PILL} /> : null}",
 		);
@@ -137,6 +137,20 @@ describe("the mobile band carries reachable, uniformly sized controls", () => {
 		const pill = /const BAND_PILL =\s*\n?\s*"([^"]+)"/.exec(mobileHeaderSource)?.[1] ?? "";
 		expect(pill).toContain("h-11 w-11");
 		expect(pill).toContain("rounded-full");
+	});
+
+	it("is a contextual app bar: brand on destinations, back and title below them", () => {
+		const routeInfo = read("components/mobile/use-page-title.ts");
+		// Destinations are an explicit list, so a detail route can never render the
+		// brand where a back arrow belongs.
+		expect(routeInfo).toContain("useMobileRouteInfo");
+		expect(routeInfo).toContain("TOP_LEVEL");
+		expect(mobileHeaderSource).toContain("ChevronLeft");
+		expect(mobileHeaderSource).toContain('t("back")');
+		expect(mobileHeaderSource).toContain("router.back()");
+		// Search is an action that opens the search sheet, not a permanent field.
+		expect(mobileHeaderSource).toContain('<SearchTrigger variant="icon"');
+		expect(mobileHeaderSource).not.toContain('variant="field"');
 	});
 
 	it("accepts the pill without losing the desktop size or the label", () => {

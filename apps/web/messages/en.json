@@ -611,7 +611,13 @@
 			"healthFaults": "{count, plural, one {# active fault} other {# active faults}}",
 			"healthClear": "No faults reported",
 			"lastKnownShort": "Last known",
-			"summaryLabel": "{status}. Hopper level {percent}."
+			"summaryLabel": "{status}. Hopper level {percent}.",
+			"panelTitle": "Device health",
+			"connection": "Connection",
+			"sensor": "Hopper sensor",
+			"sensorOk": "Responding",
+			"faults": "Faults",
+			"close": "Close"
 		},
 		"feederHero": {
 			"eyebrow": "Live monitoring",
@@ -3169,6 +3175,7 @@
 			"menuLabel": "Quick menu",
 			"moreLabel": "More sections",
 			"more": "More",
+			"back": "Back",
 			"close": "Close quick menu",
 			"searchLabel": "Search pages and actions",
 			"searchPlaceholder": "Search pages and actions",

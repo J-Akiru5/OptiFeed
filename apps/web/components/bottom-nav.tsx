@@ -81,11 +81,20 @@ export function BottomNav({
 										isActive ? "bg-[#C2410C] opacity-100 dark:bg-[#ff8a5c]" : "opacity-0",
 									)}
 								/>
-								<tab.icon
+								{/* Material 3 puts the active state in a pill behind the icon, not only in
+								    the label colour, which is also a non-colour cue (#E26). */}
+								<span
 									aria-hidden="true"
-									size={22}
-									className={cn(isActive && "fill-[#C2410C]/15 dark:fill-[#ff8a5c]/15")}
-								/>
+									className={cn(
+										"flex h-8 min-w-16 items-center justify-center rounded-full transition-colors",
+										isActive ? "bg-[#0A3D62]/10 dark:bg-white/10" : "bg-transparent",
+									)}
+								>
+									<tab.icon
+										size={24}
+										className={cn(isActive && "fill-[#C2410C]/15 dark:fill-[#ff8a5c]/15")}
+									/>
+								</span>
 								<span
 									className={cn(
 										"w-full truncate text-center text-[10px] leading-tight",

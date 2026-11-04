@@ -1406,7 +1406,13 @@
 			"healthFaults": "{count, plural, one {# aktibong fault} other {# aktibong fault}}",
 			"healthClear": "Walang naiulat na fault",
 			"lastKnownShort": "Huling alam",
-			"summaryLabel": "{status}. Antas ng hopper {percent}."
+			"summaryLabel": "{status}. Antas ng hopper {percent}.",
+			"panelTitle": "Kalagayan ng device",
+			"connection": "Koneksyon",
+			"sensor": "Sensor ng hopper",
+			"sensorOk": "Tumutugon",
+			"faults": "Mga depekto",
+			"close": "Isara"
 		},
 		"home": {
 			"noData": "Wala pang pond na nakatalaga. Hilingin sa administrator na magtalaga ng isa.",
@@ -2698,6 +2704,7 @@
 			"menuLabel": "Mabilisang menu",
 			"moreLabel": "Iba pang seksyon",
 			"more": "Higit pa",
+			"back": "Bumalik",
 			"close": "Isara ang mabilisang menu",
 			"searchLabel": "Maghanap ng mga page at aksyon",
 			"searchPlaceholder": "Maghanap ng mga page at aksyon",

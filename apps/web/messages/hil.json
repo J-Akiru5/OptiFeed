@@ -611,7 +611,13 @@
 			"healthFaults": "{count, plural, one {# aktibo nga fault} other {# aktibo nga fault}}",
 			"healthClear": "Wala sing na-report nga fault",
 			"lastKnownShort": "Huli nga nahibal-an",
-			"summaryLabel": "{status}. Lebel sang hopper {percent}."
+			"summaryLabel": "{status}. Lebel sang hopper {percent}.",
+			"panelTitle": "Kahimtangan sang device",
+			"connection": "Koneksyon",
+			"sensor": "Sensor sang hopper",
+			"sensorOk": "Nagasabat",
+			"faults": "Mga depekto",
+			"close": "Sirad-an"
 		},
 		"feederHero": {
 			"eyebrow": "Live nga pag-monitor",
@@ -3169,6 +3175,7 @@
 			"menuLabel": "Madasig nga menu",
 			"moreLabel": "Dugang nga mga seksyon",
 			"more": "Dugang",
+			"back": "Bumalik",
 			"close": "Sirad-i ang madasig nga menu",
 			"searchLabel": "Pangitaa ang mga pahina kag aksyon",
 			"searchPlaceholder": "Pangitaa ang mga pahina kag aksyon",

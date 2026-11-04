@@ -37,6 +37,19 @@ export interface HopperDistanceSnapshot {
 export type HopperDistanceReader = (deviceId: string) => Promise<HopperDistanceSnapshot | null>;
 
 /**
+ * Milliseconds for a snapshot timestamp, or `null` when there is no usable one.
+ *
+ * Ordering the server render against the polled reading by this value — never by
+ * object identity — is what stops a `router.refresh()` from overwriting a newer
+ * live reading (#831).
+ */
+function updatedAtMillis(updatedAt: string | null): number | null {
+	if (!updatedAt) return null;
+	const millis = Date.parse(updatedAt);
+	return Number.isFinite(millis) ? millis : null;
+}
+
+/**
  * The raw distance from the device's live-state endpoint.
  *
  * `null` means "could not read" (network, 401/403, 404, malformed body): the
@@ -99,10 +112,41 @@ export function HopperLiveDistance({
 	const [visible, setVisible] = useState(false);
 	const hostRef = useRef<HTMLDivElement | null>(null);
 	const inFlight = useRef(false);
+	/** True once the poller has produced a value, so it owns the reading. */
+	const polled = useRef(false);
+
+	/**
+	 * #831: `DashboardLiveRefresh` calls `router.refresh()` every 30 s, so
+	 * `initial` is rebuilt from a fresh RSC payload while the poller is showing
+	 * something newer. Adopt the server snapshot only when it is strictly newer
+	 * than the reading on screen.
+	 *
+	 * The dependencies are deliberately primitives and not the `initial` object:
+	 * `feedLevelUpdatedAt` reaches `HopperCalibrationForm` as a new `Date`
+	 * instance on every payload, so object identity changes even when the
+	 * reading did not. Ordering by timestamp means a refresh can still update a
+	 * value the poller has not overtaken, without ever reverting a newer one.
+	 */
+	const { cm: serverCm, percent: serverPercent, updatedAt: serverUpdatedAt } = initial;
 
 	useEffect(() => {
-		setReading(initial);
-	}, [initial]);
+		setReading((current) => {
+			const serverSnapshot: HopperDistanceSnapshot = {
+				cm: serverCm,
+				percent: serverPercent,
+				updatedAt: serverUpdatedAt ?? null,
+			};
+			// Before the first successful poll the server render is the only source.
+			if (!polled.current) return serverSnapshot;
+			// Once the poller has produced a value it keeps ownership unless the
+			// server snapshot carries a strictly newer reading. Without two
+			// timestamps there is nothing to compare, so the poller wins.
+			const currentMs = updatedAtMillis(current.updatedAt);
+			const serverMs = updatedAtMillis(serverUpdatedAt);
+			if (currentMs === null || serverMs === null) return current;
+			return serverMs > currentMs ? serverSnapshot : current;
+		});
+	}, [serverCm, serverPercent, serverUpdatedAt]);
 
 	// Only poll while this block is actually on screen. The device settings page
 	// keeps every tab panel mounted and merely hides the inactive ones, so a
@@ -133,7 +177,10 @@ export function HopperLiveDistance({
 				const next = await read(deviceId);
 				// `null` means the read failed or the device is gone: keep the last
 				// value rather than pretending there is no reading.
-				if (next) setReading(next);
+				if (next) {
+					polled.current = true;
+					setReading(next);
+				}
 			} finally {
 				inFlight.current = false;
 			}

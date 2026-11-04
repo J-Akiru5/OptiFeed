@@ -9,8 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Bounded retention for telemetry and personal data (#726).** `lib/retention.ts` now prunes `WaterTempLog` and `FeedLevelLog` after 365 days, closed `Notification` rows after 180 days, `CalibrationRun` after 730 days, `AssistantAction` after 180 days, resolved `IssueReport` rows after 365 days, `ReminderLog` after 180 days and `PlatformAuditLog` after 730 days. Each sweep removes at most one 5,000-row batch per device-watch run; an open alert or an open report is never deleted.
+
 ### Changed
 
+- **Retention, PII and erasure are documented, including the unimplemented organization purge (#726).** `docs/privacy/retention.md` records the schedule, the PII inventory (`User.contactEmail`, `IssueReport.email`, `PlatformAuditLog.ip`/`userAgent`) and the owner-mediated access/erasure path. Organization deletion remains a manual owner process: `PENDING_DELETION` and `purgeAfter` exist in the schema but no action sets them and no purge worker exists, so a purge flow (or removal of the unused fields) remains an owner decision. The document also records that the public policy's 90-day audit-log wording does not match the 730-day code window.
 - **Deployment policy is recorded as `main` + `staging` and guarded against drift (D7).** The promotion chain remains `develop` → `staging` → `main`; `develop` is validation-only, matching `apps/web/vercel.json`, and the global `main` + `develop` deployment default does not apply to this repository. Vercel Deployment Protection is now documented as a required control for preview deployments, and `scripts/ops/deployment-policy.mjs` (run inside the existing `quality` job) fails if the config, the deployment document and the documented allowlist diverge.
 
 ## [1.53.1] - 2026-11-04

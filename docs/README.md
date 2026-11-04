@@ -42,7 +42,7 @@ there is a single place to change each rule and nothing here can drift from it.
 | Internationalisation | [`docs/i18n.md`](./i18n.md), [`docs/i18n/tagalog-glossary.md`](./i18n/tagalog-glossary.md) |
 | Data and tenancy | [`docs/rbac-permissions.md`](./rbac-permissions.md), [`docs/superadmin-multitenancy-plan.md`](./SUPERADMIN-MULTITENANCY-PLAN.md), [`docs/superadmin-data-contracts.md`](./superadmin-data-contracts.md) |
 | Offline and PWA | [`docs/pwa-offline.md`](./pwa-offline.md) |
-| Legal and privacy | [`docs/legal/`](./legal/) |
+| Legal and privacy | [`docs/legal/`](./legal/), [`docs/privacy/retention.md`](./privacy/retention.md) |
 | Audits | [`docs/audits/`](./audits/) — calculation ledgers, calibration coverage (#617) and the production-readiness register (#618) |
 
 ## Quality gates

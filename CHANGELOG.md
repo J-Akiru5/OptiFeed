@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Revoking a member no longer hides the organization's ponds (#808).** A pond's only ownership stamp is `Pond.ownerId`/`Pond.farmId`, and the admin scope is derived from the farms of *active* members, so revoking the member whose farm held them silently removed those ponds from every remaining admin's console while the revoked account kept write access to them. Revocation now reassigns them — in the same transaction, on both the tenant `revokeMember` and the platform `revokeOrgMembership` paths — to the organization's anchor farm: its highest-role other active member, longest-standing membership first (in practice the primary owner). No schema change: the existing ownership stamp carries the transfer and the `record_pond_ownership_event` trigger records it as `TRANSFERRED`. The revoked member keeps their own login and farm (#765) but no longer owns, or can write, the moved ponds. Archived ponds move too, and nothing moves when no other member remains.
+
 ## [1.56.0] - 2026-11-04
 
 ### Added

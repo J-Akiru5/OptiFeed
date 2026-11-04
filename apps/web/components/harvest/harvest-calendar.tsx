@@ -249,7 +249,17 @@ export function HarvestCalendar({
 
 	// Restore the pond/all-ponds/event-type selection from the URL once, then
 	// keep the URL in sync without triggering a navigation.
+	//
+	// #830: this must not re-read the URL on every payload. `DashboardLiveRefresh`
+	// calls `router.refresh()` every 30 s (and on `visibilitychange`), so `ponds`
+	// arrives as a brand-new array while the operator's own selection lives only
+	// in state. Re-running the effect adopted the URL again and silently reverted
+	// that selection — a `replaceState` the browser throttled, or a filter change
+	// whose write had not landed yet, was enough to lose it. Explicit changes are
+	// owned by the writer below, which drives the URL from state; the ref makes
+	// this hydration run once per mount and keeps the writer's gate in one place.
 	useEffect(() => {
+		if (urlHydrated.current) return;
 		const params = new URLSearchParams(window.location.search);
 		const pondParam = params.get("pond");
 		if (pondParam === "all") {

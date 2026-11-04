@@ -1,5 +1,7 @@
 import { resolveOrgScope } from "@/lib/auth/org-scope";
 import { getCurrentPondOwnerIdSafe, getCurrentUser } from "@/lib/auth/session";
+import { faultsFromMask, parseDeviceHealthReport } from "@/lib/device-health-model";
+import { HOPPER_SENSOR_FAULT, resolveHopperSensorOffline } from "@/lib/device-hopper";
 import { resolveRssiDbm } from "@/lib/device-status";
 import { MACHINE_FEED_SOURCES } from "@/lib/feed-figures";
 import { type FeederStatus, feederStatus } from "@/lib/feeder/feeder-parts";
@@ -45,6 +47,13 @@ export interface FeederDeviceDetail {
 	feedLevelCm: number | null;
 	/** When the hopper level was measured; the freshness basis for that reading. */
 	feedLevelUpdatedAt: Date | null;
+	/**
+	 * The unit is reachable but its ultrasonic sensor is not answering (#574).
+	 * False while the whole device is offline: the viewer's `status` already
+	 * says Offline, and the sensor must not take the blame for a dead unit
+	 * (#810). The hopper keeps its last known level either way.
+	 */
+	sensorOffline: boolean;
 	hopperCapacityG: number | null;
 	gramsPerFeeding: number;
 	pond: { id: string; name: string };
@@ -113,6 +122,19 @@ export async function getDeviceDetail(
 
 	const policy = await getDeviceStatusPolicy();
 	const diag = (device.diag as Record<string, unknown> | null) ?? null;
+	const status = feederStatus({
+		isPaused: device.isPaused,
+		lastSeenAt: device.lastSeenAt,
+		lastFedAt: latestFeed?.receivedAt ?? null,
+		now,
+		policy,
+	});
+	// #810: reuse the stored heartbeat diagnostics; the sensor fault is the
+	// `hopper_sensor` bit, with the stale-level fallback for old firmware. No
+	// extra query and no schema change.
+	const sensorFault = faultsFromMask(
+		parseDeviceHealthReport({ diag })?.faultsPresent ?? 0,
+	).includes(HOPPER_SENSOR_FAULT);
 
 	return {
 		...device,
@@ -132,10 +154,11 @@ export async function getDeviceDetail(
 		staleAfterMs: policy.offlineAfterMs,
 		lastFedAt: latestFeed?.receivedAt ?? null,
 		lastFedGrams: latestFeed?.grams ?? null,
-		status: feederStatus({
-			isPaused: device.isPaused,
-			lastSeenAt: device.lastSeenAt,
-			lastFedAt: latestFeed?.receivedAt ?? null,
+		status,
+		sensorOffline: resolveHopperSensorOffline({
+			deviceOffline: status === "offline",
+			levelUpdatedAt: device.feedLevelUpdatedAt,
+			sensorFault,
 			now,
 			policy,
 		}),

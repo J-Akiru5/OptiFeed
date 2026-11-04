@@ -33,7 +33,9 @@ const DEVICE = {
 	lastSeenAt: new Date("2026-10-29T09:59:00+08:00"),
 	rtcOk: true,
 	isPaused: false,
+	diag: null,
 	feedLevelPercent: 30,
+	feedLevelUpdatedAt: new Date("2026-10-29T09:58:00+08:00"),
 	hopperCapacityG: 22_190,
 	gramsPerFeeding: 150,
 	pond: { id: "pond-a", name: "Demo Pond" },
@@ -93,5 +95,59 @@ describe("getDeviceDetail", () => {
 
 		await expect(getDeviceDetail("dev-1", NOW)).resolves.toBeNull();
 		expect(prisma.energyDevice.findFirst).not.toHaveBeenCalled();
+	});
+
+	it("marks the sensor offline when the stored heartbeat carries the hopper_sensor fault (#810)", async () => {
+		vi.mocked(getCurrentUser).mockResolvedValue(ADMIN);
+		vi.mocked(resolveOrgScope).mockResolvedValue({ pondIds: ["pond-a"] } as never);
+		vi.mocked(prisma.energyDevice.findFirst).mockResolvedValue({
+			...DEVICE,
+			diag: { faults_present: 1 << 1 },
+		} as never);
+
+		const detail = await getDeviceDetail("dev-1", NOW);
+
+		expect(detail?.status).toBe("idle");
+		expect(detail?.sensorOffline).toBe(true);
+	});
+
+	it("falls back to the stale-level rule for firmware that reports no fault (#810)", async () => {
+		vi.mocked(getCurrentUser).mockResolvedValue(ADMIN);
+		vi.mocked(resolveOrgScope).mockResolvedValue({ pondIds: ["pond-a"] } as never);
+		vi.mocked(prisma.energyDevice.findFirst).mockResolvedValue({
+			...DEVICE,
+			diag: null,
+			feedLevelUpdatedAt: new Date("2026-10-29T09:45:00+08:00"),
+		} as never);
+
+		const detail = await getDeviceDetail("dev-1", NOW);
+
+		expect(detail?.status).toBe("idle");
+		expect(detail?.sensorOffline).toBe(true);
+	});
+
+	it("does not blame the sensor when the whole device is offline (#810)", async () => {
+		vi.mocked(getCurrentUser).mockResolvedValue(ADMIN);
+		vi.mocked(resolveOrgScope).mockResolvedValue({ pondIds: ["pond-a"] } as never);
+		vi.mocked(prisma.energyDevice.findFirst).mockResolvedValue({
+			...DEVICE,
+			lastSeenAt: new Date("2026-10-29T09:50:00+08:00"),
+			diag: { faults_present: 1 << 1 },
+		} as never);
+
+		const detail = await getDeviceDetail("dev-1", NOW);
+
+		expect(detail?.status).toBe("offline");
+		expect(detail?.sensorOffline).toBe(false);
+	});
+
+	it("keeps a healthy online sensor live", async () => {
+		vi.mocked(getCurrentUser).mockResolvedValue(ADMIN);
+		vi.mocked(resolveOrgScope).mockResolvedValue({ pondIds: ["pond-a"] } as never);
+
+		const detail = await getDeviceDetail("dev-1", NOW);
+
+		expect(detail?.status).toBe("idle");
+		expect(detail?.sensorOffline).toBe(false);
 	});
 });

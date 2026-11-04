@@ -57,7 +57,6 @@ import {
 	pondListStatus,
 	summarizeStatuses,
 } from "@/lib/mobile-list";
-import { consoleScopeCrumbs } from "@/lib/superadmin-scope";
 import { createTranslator } from "./helpers/messages";
 
 const tMobile = createTranslator("dashboard.mobile") as unknown as (key: string) => string;
@@ -433,22 +432,6 @@ describe("header band titles", () => {
 		}
 		// The overview stays the fallback, but never wins over a section.
 		expect(pageTitleKey("platform", "/superadmin/elsewhere")).toBe("overview");
-	});
-
-	it("keeps a section crumb for every command-center page (#479)", () => {
-		const crumbLabels = { global: "Global superadmin", section: (key: string) => `section:${key}` };
-
-		for (const [pathname, key] of [
-			["/superadmin/tenants", "tenants"],
-			["/superadmin/tenants/compare", "tenants"],
-			["/superadmin/fleet", "fleet"],
-			["/superadmin/incidents", "incidents"],
-		] as const) {
-			expect(consoleScopeCrumbs(pathname, crumbLabels), pathname).toEqual([
-				{ level: "global", label: "Global superadmin" },
-				{ level: "section", label: `section:${key}` },
-			]);
-		}
 	});
 });
 

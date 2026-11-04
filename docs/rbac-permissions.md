@@ -222,6 +222,26 @@ The tenant **Admin → Settings → Members** section and the platform
   rules so a platform admin can repair a stranded organization. Required reason, step-up and one
   `membership` audit row are the guardrails.
 
+### Membership revocation semantics (#765)
+
+Removing a member ends their access to this organization. Their own farm and login remain; use
+account deletion or disable to end those.
+
+- Revocation stamps `Membership.revokedAt`; it does not delete the `User`, the login, the member's
+  `Farm`, or their ponds.
+- `resolveOrgScope()` and `resolveMemberOrgScope()` fail closed to an empty scope, so the revoked
+  member loses organization-wide reads, the tenant `/admin` console, and org calendar visibility.
+- `canWrite()` / `requireWriteAccess()` deny writes because the account still has a membership row
+  but no active membership role. The legacy `User.role` must not be used as a fallback.
+- Dashboard pond selection resolves the member's own `User.farmId` and ACTIVE ponds, so the member
+  keeps read access to their own farm data. That is intentional: an organization membership is a
+  collaboration grant, not ownership of the person's farm.
+- Account deletion/disable is the separate operation that ends the login and own-farm access.
+- Follow-up [#808](https://github.com/J-Akiru5/OptiFeed/issues/808) tracks the remaining
+  org-ownership edge case: ponds that an organization relies on may be owned by a member's farm, so
+  revoking that member can silently remove those ponds from the remaining admins' scope. Decide
+  whether to transfer those ponds first or block revocation until ownership is resolved.
+
 ## Managing grants and revocations
 
 Tenant admins manage permissions at **Admin → Users → Permissions**. Per row, the dialog shows the

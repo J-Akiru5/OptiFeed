@@ -28,7 +28,7 @@ import {
  * What this does **not** prove is pixel rendering; that is the QA lane's job on
  * a running console. The structural half of the suite (last describe block)
  * covers the other half of "no horizontal overflow": one scroll pane, no fixed
- * width outside a scroller, and a breadcrumb that pays back the pane's padding.
+ * width outside a scroller, and the pane's padding token.
  */
 
 const webRoot = join(__dirname, "../..");
@@ -228,7 +228,6 @@ describe("console shell structure (#628)", () => {
 	const css = readFileSync(join(webRoot, "app/globals.css"), "utf8");
 	const sidebar = readFileSync(join(webRoot, "components/superadmin-sidebar.tsx"), "utf8");
 	const bottomNav = readFileSync(join(webRoot, "components/superadmin-bottom-nav.tsx"), "utf8");
-	const scopeBanner = readFileSync(join(webRoot, "components/superadmin/scope-banner.tsx"), "utf8");
 
 	it("keeps one scrolling pane inside a full-height, non-scrolling frame", () => {
 		expect(layout).toContain("flex h-dvh flex-col overflow-hidden");
@@ -243,13 +242,9 @@ describe("console shell structure (#628)", () => {
 		expect(bottomNav).toContain("lg:hidden");
 	});
 
-	it("derives the breadcrumb bleed from the pane padding token", () => {
-		expect(scopeBanner).toContain("ofd-console-scope");
-		expect(css).toContain(
-			"margin: calc(-1 * var(--console-pane-pad, 1rem)) calc(-1 * var(--console-pane-pad, 1rem)) 1rem;",
-		);
-		// The banner no longer carries its own negative margins.
-		expect(scopeBanner).not.toMatch(/-m[xytrbl]?-\d/);
+	it("derives the content pane from the padding token", () => {
+		expect(css).toContain("--console-pane-pad: 1rem");
+		expect(layout).toContain("ofd-console-pane");
 	});
 
 	it("keeps wide tables inside their own scroller instead of the page", () => {

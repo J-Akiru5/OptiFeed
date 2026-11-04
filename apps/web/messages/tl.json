@@ -543,6 +543,8 @@
 			"componentMotor": "Motor",
 			"componentAuger": "Auger",
 			"componentOutlet": "Outlet",
+			"componentRtc": "RTC",
+			"componentWaterTemp": "Temperatura ng tubig",
 			"componentLive": "Live",
 			"componentLastKnown": "Huling alam",
 			"componentOnline": "Online",
@@ -1951,7 +1953,8 @@
 			"permissionsButton": "Mga Pahintulot",
 			"viewOnly": "Tingin lang",
 			"revokeButton": "Bawiin",
-			"confirmRevoke": "Kumpirmahin ang pagbawi",
+			"confirmRevoke": "Alisin sa organisasyon",
+			"revokeScope": "Inaalis ang miyembro sa organisasyon. Mananatili ang sarili niyang farm at login; gamitin ang pag-delete o pag-disable ng account para tapusin ang mga ito.",
 			"revokeSuccess": "Binawi ang pagiging miyembro.",
 			"revokeError": "Hindi mabawi ang pagiging miyembro. Subukan muli.",
 			"roleSuccess": "Na-update ang role.",
@@ -3545,11 +3548,6 @@
 				"commandCenter": "Command Center",
 				"ecosystem": "Pamamahala ng Ecosystem",
 				"platformControl": "Kontrol ng Platform"
-			},
-			"scope": {
-				"label": "Saklaw ng console",
-				"global": "Global na superadmin",
-				"organization": "Organisasyon {name}"
 			}
 		},
 		"loading": {
@@ -4790,7 +4788,7 @@
 		"previewBiomass": "Huling sample",
 		"previewBiomassValue": "220 g",
 		"faqAside": "Ito ay research prototype. Ang koponan ng proyekto ang nagbibigay ng mga account.",
-		"footerFirmware": "Firmware v1.4.2",
+		"footerFirmware": "Firmware v{version}",
 		"teamEyebrow": "Proyekto",
 		"navWhy": "Bakit PakaonAI",
 		"heroTrust1": "Walang kailangang camera",

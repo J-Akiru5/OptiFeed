@@ -13,9 +13,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **A dedicated tenant database role and core RLS policies are prepared (#711).** Phase 1 migration `20261104150000_tenant_app_role_phase1` creates `optifeed_app` with `NOBYPASSRLS`, grants table/sequence access, and adds `optifeed_app`-only policies for `Farm`, `Pond`, `User`, `Membership`, `Organization`, `EnergyDevice`, `FeedEvent`, `Notification`, `FeedRequest`, `WaterTempLog`, `FeedLevelLog` and `DeviceStateEvent`. It contains no `DELETE`, `TRUNCATE`, `DROP TABLE`, column change or data backfill. The current app keeps using `postgres`, so this is inert until the Phase 2 `withTenant` context and the `DATABASE_URL` switch; the app-side context and the switch are not in this migration.
 
+## [1.55.1] - 2026-11-04
+
+### Fixed
+
+- **The hopper level is rounded instead of printed as a raw float (#848).** The 3D viewer showed `71.25105%` in both the ISO label and the hero callout, straight from the stored value. Both sites round to a whole percent, and a test asserts a fractional level renders `71%` and never the raw number.
+- **The public footer shows the published firmware version, not a hardcoded one (#845).** It printed `v1.4.2` from a literal in all three locales while the fleet ran 1.9.0. The landing page now reads the stable channel's manifest through `getFirmwareStatus()` and renders that version, omitting the line entirely when the channel cannot be read rather than showing a stale number.
+
+### Fixed
+
+- **The landing footer's firmware version comes from the published channel, not a hardcoded string (#845).** It read "Firmware v1.4.2" in all three locales while the fleet was on 1.9.0 and the repository's `FW_VERSION` was already 1.10.0. The page now reads `getFirmwareStatus()` — the signed manifest in the private `firmware` bucket, the same source as the superadmin firmware console — and renders that version through a `{version}` placeholder; when the channel cannot be read the line is omitted rather than showing a stale number. The page body moved to a client component so the server wrapper can supply the value; a five-minute ISR window keeps it static between releases.
+
+## [1.55.0] - 2026-11-04
+
+### Added
+
+- **The grow-out cycle cascades its dates and tolerates empty input (#826).** Editing the stocking date no longer moves the harvest date; the period re-derives from the pair and is clamped to the 30-365 rails, snapping back on blur and on save so the field can never show a value that will not be saved. Empty text falls back to the pair, then the last usable value, then the documented 135 default - never `NaN`, never a date derived from an empty string. This also fixes a live crash: clearing the stocking date called `daysBetween("")`, which threw.
+
+### Fixed
+
+- **Forms no longer lose typed values on the 30-second refresh (#825, #830, #831).** `DashboardLiveRefresh` replaces server props with new arrays and objects every 30 seconds by design. The growth-cycle and harvest forms now key their reset effects on a stable identity, the calendar keeps the operator's pond/type selection instead of re-hydrating from stale URL parameters, and the live hopper distance adopts the server snapshot by **timestamp** rather than object identity, so a polled reading and a captured calibration value survive the refresh. Each carries a test that fails when the fix is reverted.
+- **Every organization in the feed-dispensed treemap has its own colour (#835).** The fill was read from Recharts' `node.index`/`tooltipIndex`, which made every organization's first pond resolve to palette slot 0 - all orange. The colour is now stamped on the datum from its top-level position and inherited by its ponds, with an explicit override supported.
+
+
 ### Changed
 
+- **The redundant superadmin scope banner is gone (#834).** The sticky `GLOBAL SUPERADMIN` strip duplicated the sidebar and the page heading; it and its URL-crumb helper, CSS and locale strings are removed. The sidebar active item, page `<h1>`, mobile header band and skip link remain.
+- **The project-layer agent rules are tracked in git (#821)** with an explicit precedence table, and the deployment allowlist is enforced by `scripts/ops/deployment-policy.mjs` inside `quality`.
+
+### Fixed
+
+- **Each organization in the "Feed dispensed by organization" treemap now gets its own colour (#835).** Tile fill was derived from Recharts' internal node index and tooltip path, so a node at depth 1, or a leaf whose path lookup missed, resolved to palette slot 0 — orange — and a multi-organization chart could paint entirely in that one colour. Colour is now stamped onto the datum from its top-level position (palette per theme), inherited by its ponds, and an explicit `color` overrides it; the renderer no longer reads Recharts internals. No data or schema change.
+### Removed
+
+- **The superadmin console no longer opens with a redundant sticky scope strip (#834).** The `GLOBAL SUPERADMIN` / `GLOBAL SUPERADMIN → ORG` banner repeated the sidebar's active item and the page heading while occupying a sticky row on every console page. The banner component, its layout and organization-page mounts, its URL-crumb helper, the `.ofd-console-scope` rule and the three `superadmin.shell.scope.*` strings are gone from English, Hiligaynon and Tagalog. The sidebar highlight, the page heading and the mobile header band still name where the operator is. No data or schema change.
+
+## [1.54.0] - 2026-11-04
+
+### Added
+
+- **Telemetry and PII now have a retention policy, and organisation deletion purges (#726).** A documented retention window drives a purge job, and deleting an organisation removes its rows instead of leaving them orphaned. Previously the append-only tables grew without bound and a deleted tenant left data behind.
+
+### Fixed
+
+- **An offline or faulted ultrasonic sensor no longer reports a reading (#810).** The viewer shows the sensor as offline and keeps the hopper's last known level, instead of presenting a stale distance as current.
+
+### Changed
+
+- **Membership revocation semantics are documented and pinned (#765).** Revoking a membership ends organisation access and write authority but not the person's own farm, because the dashboard reads `Pond.ownerId` rather than membership. The policy is in `docs/rbac-permissions.md`, the admin UI says what revocation does and does not do, and tests fail if the behaviour drifts.
+- **The deployment policy is recorded as enforced, not advisory (#805).** `scripts/ops/deployment-policy.mjs` runs inside `quality` and fails if `apps/web/vercel.json` or the documented `main` + `staging` allowlist drifts. Deployment Protection remains a dashboard setting and is explicitly unverified from the repository.
+- **Release QA e2e is now part of CI (#816), and the dashboard bundle budget is re-baselined with accessibility coverage (#730/#818).**
+
+### Added
+
+- **Bounded retention for telemetry and personal data (#726).** `lib/retention.ts` now prunes `WaterTempLog` and `FeedLevelLog` after 365 days, closed `Notification` rows 180 days after resolution, `CalibrationRun` after 730 days, `AssistantAction` after 180 days, resolved `IssueReport` rows 365 days after resolution, `ReminderLog` after 180 days and `PlatformAuditLog` after 730 days. Each sweep removes at most one 5,000-row batch per device-watch run; an open alert or an open report is never deleted. Additive migration `20261104140000_retention_indexes` adds the global `recordedAt`/`sentAt` indexes the sweeps need.
+
+### Changed
+
+- **Retention, PII and erasure are documented, including the unimplemented organization purge (#726).** `docs/privacy/retention.md` records the schedule, the PII inventory (`User.contactEmail`, `IssueReport.email`, `PlatformAuditLog.ip`/`userAgent`) and the owner-mediated access/erasure path. Organization deletion remains a manual owner process: `PENDING_DELETION` and `purgeAfter` exist in the schema but no action sets them and no purge worker exists, so a purge flow (or removal of the unused fields) remains an owner decision. The document also records that the public policy's 90-day audit-log wording does not match the 730-day code window.
+- **Release QA E2E coverage is now part of CI.** The suite covers the critical authenticated flows from the 2026-11-04 pass and axe checks on the public pages and dashboard, including the QA-20 contrast regression. `pnpm test:e2e:qa` runs the focused pair; the normal `pnpm test:e2e` and its CI job include them.
+
+### Changed
+
+- **The dashboard bundle budget is re-baselined (#730).** Develop CI run `41745118084` measured `/dashboard` at **1062.8 kB** first-load JS on 2026-11-04. Its committed budget is now **1116.0 kB**, a deliberate +5% rather than the usual +2%, so the busiest authenticated screen has real headroom while its measurement is recorded; every other route budget is unchanged.
+- **The real dashboard page is now in the axe gate (#730).** `a11y-pages.test.tsx` renders `/dashboard` with a pond and a feeder and asserts zero serious/critical violations, instead of testing only the shared shell. The stat-tile term-info trigger now sits outside the tile link (it was a nested interactive control); that fix is what lets the page pass the gate. The authenticated Lighthouse gate for the whole console remains a follow-up.
 - **Deployment policy is recorded as `main` + `staging` and guarded against drift (D7).** The promotion chain remains `develop` → `staging` → `main`; `develop` is validation-only, matching `apps/web/vercel.json`, and the global `main` + `develop` deployment default does not apply to this repository. Vercel Deployment Protection is now documented as a required control for preview deployments, and `scripts/ops/deployment-policy.mjs` (run inside the existing `quality` job) fails if the config, the deployment document and the documented allowlist diverge.
+- **Membership revocation is documented as an organization-access change (#765).** The revoke confirmation now says that removing a member ends their organization access while their own farm and login remain; account deletion or disable is the separate operation that ends those. A regression test pins the post-revocation behavior: empty org scope, denied writes, and own-farm reads still available. The org-pond ownership edge case is tracked in #808.
 
 ## [1.53.1] - 2026-11-04
 

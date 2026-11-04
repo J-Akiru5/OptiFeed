@@ -25,10 +25,10 @@ Open issues #710–#732 (22 issues; #716 is a pull request, not an issue).
 
 | Branch | Issues | PR | State |
 | --- | --- | --- | --- |
-| `fix/auth-reset-lockout-718-721-732` | #718, #721, #732 (parts 2–3), #712 docs | #739 | **merged**; #718/#721/#732 close on merge |
-| `fix/ingest-724-727` | #724, #727 | #736 | **merged**; #724/#727 close on merge |
-| `fix/jobs-723-728` | #723, #728 | #737 | open, **all checks green**; #723 closes on merge, #728 remains partial |
-| `chore/ci-deps-dx-710-713-714-715-722` | #710, #713, #714, #715, #722 | #738 | **merged** into `develop` @ `77a7b362`; #713/#714/#715/#722 closed |
+| `fix/auth-reset-lockout-718-721-732` | #718, #721, #732 (parts 2–3), #712 docs | #739 | **merged**; #718/#721/#732 closed; #712 remains open for the Supabase account action |
+| `fix/ingest-724-727` | #724, #727 | #736 | **merged**; #724/#727 closed |
+| `fix/jobs-723-728` | #723, #728 | #737 | **merged**; #723 closed; #728 closed as partial (timeout-cancellation follow-up) |
+| `chore/ci-deps-dx-710-713-714-715-722` | #710, #713, #714, #715, #722 | #738 | **merged**; #713/#714/#715/#722 closed; #710 closed separately (required-check decision remains) |
 
 The four branches were merged into `chore/op2-verification` for the combined gate. Two
 integration-only defects were found and fixed there:
@@ -51,29 +51,31 @@ Local gate on the combined verification tree:
 - Full `pnpm test` + coverage — **pass**: 456 files / 5,468 tests; coverage 92.23 % lines,
   90.21 % statements, 92.4 % functions, 82.59 % branches (floors 90/89/91.5/81.5).
 
-CI on the PRs: #738, #736 and #739 are merged and were fully green, including `docker build (no
-push)`, `quality`, `e2e`, `lighthouse budgets`, `bundle budget + latency` and the public smoke.
-#737 was merged with `origin/develop` after those landings and is now fully green, ready to merge.
-#740 is this docs-only mission record; its checks rerun after each documentation edit. The three migrations are independent additive tables: `20261104100000` (events),
-`20261104110000` (imports) and `20261104120000` (reset proofs). The auth migration landed before
-the import one, so the timestamps are not the merge order; they touch different tables, so
-application order is immaterial. No deployment was triggered by these branches.
+CI on the PRs: #736, #737, #738, #739 and this docs record (#740) are all merged. Every
+code PR was fully green, including `docker build (no push)`, `quality`, `e2e`,
+`lighthouse budgets`, `bundle budget + latency` and the public smoke. The three migrations are
+independent additive tables: `20261104100000` (events), `20261104110000` (imports) and
+`20261104120000` (reset proofs). The auth migration landed before the import one, so the
+timestamps are not the merge order; they touch different tables, so application order is
+immaterial. No deployment was triggered by these branches.
 
-## Deliberately parked
+## Currently open issues (7)
 
-| Issue | Reason |
+These are the only issues from #710–#732 still open. The rest are closed as done, or were
+closed by Jeff. The three owner decisions below are the work that remains.
+
+| Issue | Why it is open |
 | --- | --- |
 | #711 — RLS bypassed by the app role | Tier C. A dedicated non-`BYPASSRLS` role, grants and INSERT/DELETE policies need owner approval, a backup and a production change. Existing RLS is documented containment, not tenancy. |
-| #717 — non-HttpOnly cookies / CSP inline scripts | The `@supabase/ssr` browser client reads its own auth cookies; `httpOnly: true` would break client-side session recovery and data fetching. Removing `unsafe-inline` needs a per-request nonce across the App Router. Architectural change. |
+| #712 — two accounts on the breached temporary password | The documentation part is done; `superadmin`, `independent-farmer` and `test` still need action in Supabase Auth (decision 3 below). |
 | #719 — no MFA | Product feature and policy decision (TOTP enrolment, recovery codes, enforcement). |
-| #720 — plaintext device tokens / no step-up | Encryption/hashing needs key rotation and a migration; the tenant-admin reveal UI has no step-up dialog, so adding `withStepUp` alone would break the flow. |
-| #725 — out-of-band cron SQL / no heartbeat | Needs Supabase scheduling, Vault secrets and an external dead-man's-switch; owner infrastructure. |
 | #726 — no retention / no org purge | Automatic deletion of telemetry/PII and the lawful retention periods are owner/legal decisions. |
 | #729 — no external alerting / SLO pager | Requires an external service, credentials and an on-call policy. |
 | #730 — authenticated perf/a11y gate + coverage floor | Needs a seeded authenticated stack, a deliberate bundle re-baseline and a coverage-threshold decision. |
-| #731 — 5-second polling at 1,000 devices | Architecture decision (batch telemetry, MQTT/WebSocket or poll cadence) plus a load-test target. |
-| #710 — required checks (partial) | Lighthouse budget is corrected; adding required status checks is a GitHub branch-protection change and an owner action. |
-| #728 — timeout cancellation (partial) | Artifact size cap and no-copy are delivered; true cancellation needs request-signal plumbing through every builder. |
+| #731 - 5-second polling at 1,000 devices | **Deferred, not needed now.** Planning only: `docs/performance/device-polling-scale-plan.md` (PR #814) records the targets, options and trigger points. No code is scheduled. |
+
+Closed by this batch: #710, #713, #714, #715, #717, #718, #720, #721, #722, #723, #724, #725,
+#727, #728, #732. (#710 and #725 were closed by Jeff; the others closed as done.)
 
 ## Owner decisions required (Jeff)
 

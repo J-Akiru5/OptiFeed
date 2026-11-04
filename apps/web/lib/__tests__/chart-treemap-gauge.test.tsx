@@ -20,6 +20,7 @@ vi.mock("recharts", async (importOriginal) => {
 	};
 });
 
+import { SERIES_COLORS } from "@/components/charts/chart-theme";
 import { RadialGauge } from "@/components/charts/radial-gauge";
 import { Treemap } from "@/components/charts/treemap";
 
@@ -106,6 +107,56 @@ describe("Treemap", () => {
 		expect(within(table).getByRole("rowheader", { name: "Org A / Pond 2" })).toBeInTheDocument();
 		expect(within(table).getByRole("cell", { name: "120" })).toBeInTheDocument();
 		expect(within(table).getByRole("cell", { name: "80" })).toBeInTheDocument();
+	});
+
+	it("gives each organization its own auto-assigned fill (#835)", () => {
+		render(
+			<Treemap
+				title="Organizations"
+				summary={TREE_SUMMARY}
+				labels={LABELS}
+				nodes={[
+					{ name: "Org A", value: 1, children: [{ name: "Pond 1", value: 1 }] },
+					{ name: "Org B", value: 1, children: [{ name: "Pond 2", value: 1 }] },
+				]}
+			/>,
+		);
+
+		const plot = screen.getByRole("img", { name: TREE_SUMMARY });
+		const fills = [...plot.querySelectorAll("rect[fill]")].map((rect) => rect.getAttribute("fill"));
+
+		expect(fills).toContain(SERIES_COLORS[0]);
+		expect(fills).toContain(SERIES_COLORS[1]);
+		// The parent tile and its leaf share the organization's colour, so the
+		// proof is that both palette slots are present, not how many rects use them.
+		expect(new Set(fills).size).toBeGreaterThanOrEqual(2);
+	});
+
+	it("honours an explicit colour and lets its children inherit it (#835)", () => {
+		render(
+			<Treemap
+				title="Organizations"
+				summary={TREE_SUMMARY}
+				labels={LABELS}
+				nodes={[
+					{
+						name: "Org A",
+						value: 2,
+						color: "#123456",
+						children: [
+							{ name: "Pond 1", value: 1 },
+							{ name: "Pond 2", value: 1 },
+						],
+					},
+				]}
+			/>,
+		);
+
+		const plot = screen.getByRole("img", { name: TREE_SUMMARY });
+		const fills = [...plot.querySelectorAll("rect[fill]")].map((rect) => rect.getAttribute("fill"));
+
+		expect(fills.length).toBeGreaterThan(0);
+		expect(fills.every((fill) => fill === "#123456")).toBe(true);
 	});
 
 	it("shows the loading skeleton", () => {

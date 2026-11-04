@@ -125,7 +125,7 @@ jobs:
         if: steps.green.outputs.cache-hit != 'true'
         run: pnpm typecheck
 
-      - name: Unit tests + lib coverage (threshold enforced)
+      - name: Unit tests + coverage (thresholds enforced)
         if: steps.green.outputs.cache-hit != 'true'
         run: pnpm --filter web test:coverage
 

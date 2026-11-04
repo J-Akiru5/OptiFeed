@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Optional TOTP MFA for platform admins (#719).** Platform admins can enrol an authenticator app from `/superadmin/account`: the page shows the secret and QR code once, verifies a 6-digit code, lists active factors, and removes one only after a fresh code. An account with a verified factor is challenged for a code after the password step; the platform console, platform actions, backup export and platform search then require `aal2`. Enrolment is **not enforced** yet (owner decision), so an admin with no factor signs in exactly as before. Supabase Auth stores the factor, secret and challenge state — no application table, no migration and no new dependency. Recovery is a Supabase dashboard factor deletion, documented in `docs/security/mfa.md`; there is no self-service bypass.
 
+### Changed
+
+- **The coverage floor measures the authenticated product (#730).** `apps/web/vitest.config.ts` measured `lib/` only, so the reported 92% described about half of the shipped code: `app/` and `components/` were outside the denominator. Coverage now includes `app/` (pages, layouts and the 34 API route handlers, including the device-token, cron and platform-admin ones) and `components/` (237 files), with per-directory ratchets set below the observed baseline — `app/` 65.0 lines, `components/` 54.5 lines, `lib/` 91.6 lines. Measured on develop on 2026-11-04: `app/` 66.89-66.40, `components/` 55.14, `lib/` 92.27-92.38 lines across four runs. Tests are the only exclusion.
+
 ## [1.56.1] - 2026-11-04
 
 ### Fixed

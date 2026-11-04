@@ -169,8 +169,46 @@ fix.
 
 ## Coverage gate
 
-The unit suite is measured on `apps/web/lib` only, with
-`@vitest/coverage-v8` (pinned to the vitest version) and thresholds in
-`apps/web/vitest.config.ts`. CI runs `pnpm --filter web test:coverage`; the
-thresholds are a ratchet — raise them, never lower them. `pnpm test` still runs
-the same tests without coverage when you are iterating.
+The unit suite is measured on `apps/web/app`, `apps/web/components` and
+`apps/web/lib` with `@vitest/coverage-v8` (pinned to the vitest version) and
+per-directory thresholds in `apps/web/vitest.config.ts`. CI runs
+`pnpm --filter web test:coverage`; the thresholds are a ratchet — raise them,
+never lower them. `pnpm test` still runs the same tests without coverage when you
+are iterating.
+
+`app/` is the measured page, layout and route-handler surface (including
+`app/api/**`, the security-sensitive handlers), `components/` is the rendered UI
+and `lib/` is the logic underneath. Tests are the only exclusion. No directory is
+hidden from the denominator.
+
+Measured on `develop` on 2026-11-04 (#730), four observations (local Windows, two
+CI artifacts — runs `41801236208` and `41803115053` — and a local run on the
+rebase base `9db7eb5`), enforced below the lowest of them:
+
+| Directory | Lines | Statements | Functions | Branches |
+|---|---|---|---|---|
+| `app/` | 66.89 / 66.40 → **65.0** | 65.79 / 65.29 → **63.9** | 58.57 / 57.79 → **56.4** | 53.64 → **52.5** |
+| `components/` | 55.14 → **54.5** | 53.58 → **52.9** | 51.31 → **50.7** | 53.42 → **52.8** |
+| `lib/` | 92.27 / 92.38 → **91.6** | 90.28 / 90.39 → **89.6** | 92.44 / 92.54 → **91.8** | 82.67 / 82.79 → **82.0** |
+| whole map (reference only) | 76.53 | 75.13 | 72.53 | 68.15 |
+
+The whole-map row is not a threshold: a blended number would let a `lib/` gain
+hide an `app/` regression. Each directory is enforced on its own, and a new
+directory added to `coverage.include` needs its own threshold block in the same
+change.
+
+`components/` and `lib/` are stable across runs, so their floors sit 0.6-0.7pp
+under the lowest observation. `app/` is not: the same suite reported
+57.79-58.57 functions across runs (including one tree measured twice), because
+v8 attributes different source ranges to a module depending on load/mock order
+(`lib/ops/cron-heartbeat.ts` reported 15 lines in one run and 48 in the other,
+of a 48-line file). A 0.6pp `app/` floor failed on CI with no code change, so
+those floors sit 1.4pp under the lowest observation — still far below what a
+real regression costs (a new untested ~100-line page moves `app/` by about
+3.7pp). Tighten them once that reporting instability is fixed, rather than
+papering over it.
+
+`app/` and `components/` start lower than `lib/` because most of their coverage
+arrives through tests in `lib/__tests__/` that render real pages, not because
+they are exempt; the floors exist to stop the number falling, and rise as the
+suite grows.

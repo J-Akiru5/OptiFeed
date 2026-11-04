@@ -1954,7 +1954,7 @@
 			"viewOnly": "Tingin lang",
 			"revokeButton": "Bawiin",
 			"confirmRevoke": "Alisin sa organisasyon",
-			"revokeScope": "Inaalis ang miyembro sa organisasyon. Mananatili ang sarili niyang farm at login; gamitin ang pag-delete o pag-disable ng account para tapusin ang mga ito.",
+			"revokeScope": "Inaalis ang miyembro sa organisasyon. Ang mga pond sa kanyang farm ay ililipat sa farm ng may-ari ng organisasyon; mananatili ang sarili niyang login.",
 			"revokeSuccess": "Binawi ang pagiging miyembro.",
 			"revokeError": "Hindi mabawi ang pagiging miyembro. Subukan muli.",
 			"roleSuccess": "Na-update ang role.",

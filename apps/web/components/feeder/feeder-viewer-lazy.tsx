@@ -7,10 +7,11 @@ import {
 	type FeederViewerTier,
 	chooseViewerTier,
 } from "@/lib/feeder/feeder-parts";
+import { useAdaptivePoll } from "@/lib/live/use-adaptive-poll";
 import { cn } from "@/lib/utils";
 import { useLocale, useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
-import { Component, type ReactNode, useEffect, useRef, useState } from "react";
+import { Component, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 
 const FeederViewer = dynamic(
 	() => import("./feeder-viewer").then((module) => module.FeederViewer),
@@ -46,11 +47,14 @@ interface FeederViewerLazyProps {
 	initialSensorOffline?: boolean;
 	/** Reading freshness window, from the device status policy. */
 	staleAfterMs?: number;
+	/** A feed request is still pending or dispatched; poll at the heartbeat cadence. */
+	initialPendingFeedRequest?: boolean;
 	/** Large-screen treatment: bigger readings, full-height scene, no chrome. */
 	kiosk?: boolean;
 }
 
 interface StatePayload {
+	deviceId: string;
 	status: FeederStatus;
 	feedLevelPercent: number | null;
 	feedLevelUpdatedAt: string | null;
@@ -64,13 +68,16 @@ interface StatePayload {
 	lastSeenAt: string | null;
 	signalDbm: number | null;
 	firmwareVersion: string | null;
+	/** Optional so an older API leaves the cadence at the idle tier (#731). */
+	pendingFeedRequest?: boolean;
 }
 
 /** The client copy: health stays nullable because "not reported" is a state. */
-type ViewerState = Omit<StatePayload, "waterTempOk" | "rtcOk" | "sensorOffline"> & {
+type ViewerState = Omit<StatePayload, "deviceId" | "waterTempOk" | "rtcOk" | "sensorOffline"> & {
 	waterTempOk: boolean | null;
 	rtcOk: boolean | null;
 	sensorOffline: boolean;
+	pendingFeedRequest: boolean;
 };
 
 type NavigatorWithHints = Navigator & {
@@ -146,6 +153,7 @@ export function FeederViewerLazy({
 	initialFeedLevelUpdatedAt = null,
 	initialSensorOffline = false,
 	staleAfterMs = DEFAULT_DEVICE_STATUS_POLICY.offlineAfterMs,
+	initialPendingFeedRequest = false,
 	kiosk = false,
 }: FeederViewerLazyProps) {
 	const t = useTranslations("dashboard.feederViewer");
@@ -167,6 +175,7 @@ export function FeederViewerLazy({
 		lastSeenAt: initialLastSeenAt,
 		signalDbm: initialSignalDbm,
 		firmwareVersion: initialFirmwareVersion,
+		pendingFeedRequest: initialPendingFeedRequest,
 	});
 
 	useEffect(() => {
@@ -189,20 +198,22 @@ export function FeederViewerLazy({
 		return () => observer.disconnect();
 	}, []);
 
-	useEffect(() => {
-		let active = true;
-		const poll = async () => {
-			if (document.visibilityState !== "visible") return;
-			try {
-				const response = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/state`, {
-					headers: { accept: "application/json" },
-					cache: "no-store",
-				});
-				if (!response.ok) return;
-				const body = (await response.json()) as { data?: StatePayload };
-				if (!active || !body.data) return;
-				const next = body.data;
-				setState((previous) => ({
+	const poll = useCallback(async () => {
+		if (document.visibilityState !== "visible") return;
+		try {
+			const response = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/state`, {
+				headers: { accept: "application/json" },
+				cache: "no-store",
+			});
+			if (!response.ok) return;
+			const body = (await response.json()) as { data?: StatePayload };
+			if (!body.data) return;
+			const next = body.data;
+			setState((previous) => {
+				// A response for a device this viewer no longer shows must not
+				// overwrite the current one when the prop changes mid-flight.
+				if (next.deviceId && next.deviceId !== deviceId) return previous;
+				return {
 					status: next.status,
 					feedLevelPercent: next.feedLevelPercent,
 					feedLevelUpdatedAt: next.feedLevelUpdatedAt ?? null,
@@ -220,18 +231,25 @@ export function FeederViewerLazy({
 					lastSeenAt: next.lastSeenAt,
 					signalDbm: next.signalDbm ?? null,
 					firmwareVersion: next.firmwareVersion ?? null,
-				}));
-			} catch {
-				// Keep the last known reading; the next tick retries.
-			}
-		};
-		void poll();
-		const timer = window.setInterval(poll, 15_000);
-		return () => {
-			active = false;
-			window.clearInterval(timer);
-		};
+					// #731: an older API omits it, so a feed already known to be
+					// pending keeps the fast cadence instead of dropping to idle.
+					pendingFeedRequest: next.pendingFeedRequest ?? previous.pendingFeedRequest,
+				};
+			});
+		} catch {
+			// Keep the last known reading; the next tick retries.
+		}
 	}, [deviceId]);
+
+	// Only while the viewer is on screen, and at the shared cadence (#731): fast
+	// while a feed is still in flight, backing off when the unit has nothing
+	// waiting on it. The hopper level, water temperature and RTC bit all ride
+	// this poll, so they stay as fresh as the policy above allows.
+	useAdaptivePoll(poll, {
+		enabled: visible,
+		feedPending: state.pendingFeedRequest,
+		immediate: true,
+	});
 
 	const lastFedLabel = state.lastFedAt
 		? new Intl.DateTimeFormat(locale, {

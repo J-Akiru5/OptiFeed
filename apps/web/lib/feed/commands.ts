@@ -28,6 +28,15 @@ import type { FeedRequest, Prisma, PrismaClient } from "@prisma/client";
 
 export type CommandDb = PrismaClient | Prisma.TransactionClient;
 
+/**
+ * Statuses of a feed request the unit has not finished yet: `pending` is queued
+ * for its next poll, `dispatched` has been claimed and is dispensing. Anything
+ * else (`completed`, `expired`, `refused`, `fulfilled_by_other_trigger`) is
+ * history. #731 reads this to poll a device surface at the heartbeat cadence
+ * only while a feed is actually in flight.
+ */
+export const IN_FLIGHT_FEED_STATUSES = ["pending", "dispatched"] as const;
+
 export type ManualFeedFailureCode =
 	| "device_not_found"
 	| "pond_fallow"

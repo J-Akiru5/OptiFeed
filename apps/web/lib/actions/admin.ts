@@ -14,6 +14,7 @@ import {
 	revokeMemberError,
 	roleChangeError,
 } from "@/lib/auth/member-rules";
+import { transferOrgPondsOnRevoke } from "@/lib/auth/org-pond-ownership";
 import { resolveOrgScope } from "@/lib/auth/org-scope";
 import { passwordErrorMessage, validatePassword } from "@/lib/auth/password";
 import {
@@ -1055,6 +1056,22 @@ export async function revokeMember(userId: string): Promise<MemberActionState> {
 				where: { id: membership.id },
 				data: { revokedAt: new Date() },
 			});
+
+			// #808: the ponds on this member's farm were part of the organization's
+			// scope only because the membership was active. Move them to the org's
+			// anchor farm in the same transaction, or the remaining admins lose
+			// them while the revoked account keeps write access to them.
+			const revokedUser = await tx.user.findUnique({
+				where: { id: userId },
+				select: { farmId: true },
+			});
+			if (revokedUser) {
+				await transferOrgPondsOnRevoke(tx, {
+					orgId: membership.orgId,
+					revokedUserId: userId,
+					revokedFarmId: revokedUser.farmId,
+				});
+			}
 			return true;
 		});
 		if (!revoked) {

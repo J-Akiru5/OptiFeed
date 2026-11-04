@@ -14,6 +14,7 @@ vi.mock("@/lib/prisma", () => ({
 		pond: { findMany: vi.fn() },
 		energyDevice: { findFirst: vi.fn() },
 		feedEvent: { findFirst: vi.fn() },
+		feedRequest: { findFirst: vi.fn() },
 	},
 }));
 
@@ -47,6 +48,7 @@ beforeEach(() => {
 	vi.mocked(getCurrentPondOwnerIdSafe).mockResolvedValue("farm-a");
 	vi.mocked(prisma.energyDevice.findFirst).mockResolvedValue(DEVICE as never);
 	vi.mocked(prisma.feedEvent.findFirst).mockResolvedValue(null);
+	vi.mocked(prisma.feedRequest.findFirst).mockResolvedValue(null);
 });
 
 describe("getDeviceDetail", () => {
@@ -149,5 +151,28 @@ describe("getDeviceDetail", () => {
 
 		expect(detail?.status).toBe("idle");
 		expect(detail?.sensorOffline).toBe(false);
+	});
+
+	it("carries whether a feed request is still in flight (#731)", async () => {
+		vi.mocked(getCurrentUser).mockResolvedValue(ADMIN);
+		vi.mocked(resolveOrgScope).mockResolvedValue({ pondIds: ["pond-a"] } as never);
+
+		vi.mocked(prisma.feedRequest.findFirst).mockResolvedValue({ id: "fr-1" } as never);
+		await expect(getDeviceDetail("dev-1", NOW)).resolves.toMatchObject({
+			pendingFeedRequest: true,
+		});
+
+		// The query is the queue's own state, not the dispensing window: only a
+		// queued or claimed row counts.
+		expect(prisma.feedRequest.findFirst).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { deviceId: "dev-1", status: { in: ["pending", "dispatched"] } },
+			}),
+		);
+
+		vi.mocked(prisma.feedRequest.findFirst).mockResolvedValue(null);
+		await expect(getDeviceDetail("dev-1", NOW)).resolves.toMatchObject({
+			pendingFeedRequest: false,
+		});
 	});
 });

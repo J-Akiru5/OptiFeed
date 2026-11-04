@@ -6,6 +6,7 @@ const { db, tx, STEP_UP_AT } = vi.hoisted(() => {
 		membership: { update: vi.fn() },
 		membershipPermission: { findUnique: vi.fn(), upsert: vi.fn() },
 		platformAuditLog: { create: vi.fn() },
+		user: { findUnique: vi.fn() },
 	};
 	const db = {
 		organization: { findUnique: vi.fn() },
@@ -20,6 +21,7 @@ const { db, tx, STEP_UP_AT } = vi.hoisted(() => {
 
 vi.mock("@/lib/prisma", () => ({ default: db }));
 vi.mock("@/lib/auth/require-platform-admin", () => ({ requirePlatformAdmin: vi.fn() }));
+vi.mock("@/lib/auth/org-pond-ownership", () => ({ transferOrgPondsOnRevoke: vi.fn() }));
 vi.mock("@/lib/auth/session", () => ({ getCurrentUser: vi.fn() }));
 vi.mock("@/lib/auth/step-up", () => ({
 	withStepUp: vi.fn(async (action: (stepUpAt: Date) => Promise<unknown>) => action(STEP_UP_AT)),
@@ -94,6 +96,7 @@ beforeEach(() => {
 	tx.membership.update.mockResolvedValue({});
 	tx.membershipPermission.findUnique.mockResolvedValue(null);
 	tx.membershipPermission.upsert.mockResolvedValue({});
+	tx.user.findUnique.mockResolvedValue({ farmId: "farm-1" });
 	mockAudit.mockResolvedValue({});
 });
 

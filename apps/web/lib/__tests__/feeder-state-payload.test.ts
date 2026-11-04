@@ -32,6 +32,7 @@ const DETAIL: FeederDeviceDetail = {
 	lastFedAt: new Date("2026-11-03T06:00:00.000Z"),
 	lastFedGrams: 120,
 	status: "idle",
+	pendingFeedRequest: false,
 };
 
 describe("toStatePayload", () => {
@@ -87,5 +88,11 @@ describe("toStatePayload", () => {
 		expect(payload.status).toBe("idle");
 		expect(payload.feedLevelPercent).toBe(62);
 		expect(payload.waterTempUpdatedAt).toBe("2026-11-03T07:58:00.000Z");
+	});
+
+	it("carries the in-flight feed flag that sets the poll cadence (#731)", () => {
+		expect(toStatePayload(DETAIL).pendingFeedRequest).toBe(false);
+
+		expect(toStatePayload({ ...DETAIL, pendingFeedRequest: true }).pendingFeedRequest).toBe(true);
 	});
 });

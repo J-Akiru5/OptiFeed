@@ -1,7 +1,7 @@
 "use client";
 
+import { useAdaptivePoll } from "@/lib/live/use-adaptive-poll";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 
 /**
  * Keep the server-rendered device surfaces fresh (#263).
@@ -14,38 +14,29 @@ import { useEffect } from "react";
  * A visibility-aware `router.refresh()` is the app's existing revalidation
  * mechanism (the same call every action uses after a write). It re-renders the
  * server components, so the sidebar, the dashboard card, the History card and
- * any open settings page all read the same fresh device row. Hidden tabs do no
- * work.
+ * any open settings page all read the same fresh device row.
+ *
+ * The cadence is the shared policy (#731), not a fixed interval: the hopper
+ * level, water temperature, RTC bit and the pending-feed banner all come from
+ * this one refresh, so it polls at the heartbeat cadence only while a feed is
+ * still pending and otherwise backs off. See `lib/live/poll-policy.ts`.
  */
-export const LIVE_REFRESH_INTERVAL_MS = 30_000;
-
 interface DashboardLiveRefreshProps {
 	/** Disable while there is no device to watch (no pond / platform admin). */
 	enabled?: boolean;
-	intervalMs?: number;
+	/** A feed request is still pending/dispatched, so refresh at the fast tier. */
+	pendingFeedRequest?: boolean;
 }
 
 export function DashboardLiveRefresh({
 	enabled = true,
-	intervalMs = LIVE_REFRESH_INTERVAL_MS,
+	pendingFeedRequest = false,
 }: DashboardLiveRefreshProps) {
 	const router = useRouter();
 
-	useEffect(() => {
-		if (!enabled) return;
-
-		const refreshIfVisible = () => {
-			if (document.visibilityState === "visible") router.refresh();
-		};
-
-		const timer = window.setInterval(refreshIfVisible, intervalMs);
-		document.addEventListener("visibilitychange", refreshIfVisible);
-
-		return () => {
-			window.clearInterval(timer);
-			document.removeEventListener("visibilitychange", refreshIfVisible);
-		};
-	}, [enabled, intervalMs, router]);
+	// Not immediate: the server just rendered this payload. The first refresh is
+	// one interval away, or immediately when the tab becomes visible again.
+	useAdaptivePoll(() => router.refresh(), { enabled, feedPending: pendingFeedRequest });
 
 	return null;
 }

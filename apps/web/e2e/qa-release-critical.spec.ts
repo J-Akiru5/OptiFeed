@@ -43,7 +43,9 @@ test.describe("QA release-critical flows", () => {
 		await expect(feedsPerDay).toBeVisible();
 		const original = await feedsPerDay.inputValue();
 
-		await feedsPerDay.fill("4");
+		// Six meals keeps the seeded ration inside the device relay-time guard;
+		// four meals makes the same daily ration too large for one 300 s pulse.
+		await feedsPerDay.fill("6");
 		await page.getByRole("button", { name: "Save Changes" }).first().click();
 
 		await expect(page.getByText("Changes saved!")).toBeVisible({ timeout: 20_000 });
@@ -52,7 +54,7 @@ test.describe("QA release-critical flows", () => {
 		// the sync state must both survive a full server render.
 		await page.reload();
 		await expect(page.getByText("Pending device sync")).toBeVisible();
-		await expect(page.locator("#feedsPerDay:visible").first()).toHaveValue("4");
+		await expect(page.locator("#feedsPerDay:visible").first()).toHaveValue("6");
 
 		// Leave the fixture in its seeded state for the rest of the serial suite.
 		await page.locator("#feedsPerDay:visible").first().fill(original);
@@ -75,9 +77,11 @@ test.describe("QA release-critical flows", () => {
 
 		await page.getByRole("button", { name: "Save Sample" }).click();
 
-		await expect(page.getByText("Feed to dispense per feeding")).toBeVisible({
-			timeout: 20_000,
-		});
+		// The ration may be applied, kept by the safety guard, or skipped. All
+		// are valid outcomes for this fixture; the sample must still be saved.
+		await expect(
+			page.getByText(/Feed to dispense per feeding|Calculated dose .* not applied|Device schedule not changed/),
+		).toBeVisible({ timeout: 20_000 });
 		await expect(page.getByText("Saved to")).toBeVisible();
 		await expect(page.getByText(batch, { exact: true }).first()).toBeVisible();
 

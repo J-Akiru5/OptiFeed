@@ -853,7 +853,14 @@
 				"sourcePond": "Pond override",
 				"sourceFarm": "Farm default",
 				"sourceSystem": "System default",
-				"defaultsHint": "Gumagamit ang mga bagong cycle ng pond override, pagkatapos ang farm default, pagkatapos ang system default."
+				"defaultsHint": "Gumagamit ang mga bagong cycle ng pond override, pagkatapos ang farm default, pagkatapos ang system default.",
+				"suggestionTitle": "Mungkahi mula sa iyong mga natapos na cycle",
+				"suggestionHint": "Ebidensya, hindi awtomatikong fill. Walang mababago hanggang pindutin mo ang Gamitin.",
+				"suggestionUnnamedCycle": "Walang pangalang cycle",
+				"suggestionSource": "Huli: {cycle} · {pond} · {date}",
+				"suggestionSample": "{count, plural, one {1 natapos na cycle} other {# natapos na cycle}} · range {min}–{max}",
+				"suggestionUse": "Gamitin",
+				"suggestionApplied": "Nagamit"
 			},
 			"title": "Ani at Grow-out",
 			"desc": "Planuhin ang grow-out, i-iskedyul ang ani, at subaybayan ang bawat pangyayari sa pond para sa {pond}.",

@@ -62,6 +62,7 @@ export default async function AdminCalendarPage() {
 						isFallow: true,
 						population: true,
 						ownerId: true,
+						farmId: true,
 						notificationPrefs: true,
 					},
 				})
@@ -141,6 +142,7 @@ export default async function AdminCalendarPage() {
 					? savedTarget.targetWeightG
 					: null,
 			growthDefaults: growthContexts.get(pond.id)?.resolved,
+			growthSuggestions: growthContexts.get(pond.id)?.suggestions ?? [],
 		};
 	});
 	const activeCycle = activeCycles.find((cycle) => cycle.pondId === ponds[0].id) ?? null;

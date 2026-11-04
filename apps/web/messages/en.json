@@ -1470,7 +1470,14 @@
 				"sourcePond": "Pond override",
 				"sourceFarm": "Farm default",
 				"sourceSystem": "System default",
-				"defaultsHint": "New cycles start from the pond override, then the farm default, then the system default."
+				"defaultsHint": "New cycles start from the pond override, then the farm default, then the system default.",
+				"suggestionTitle": "Suggested from your completed cycles",
+				"suggestionHint": "Evidence, not a prefill. Nothing changes until you press Use.",
+				"suggestionUnnamedCycle": "Untitled cycle",
+				"suggestionSource": "Last: {cycle} · {pond} · {date}",
+				"suggestionSample": "{count, plural, one {1 completed cycle} other {# completed cycles}} · range {min}–{max}",
+				"suggestionUse": "Use",
+				"suggestionApplied": "Applied"
 			},
 			"harvestForm": {
 				"title": "Record harvest",

@@ -14,6 +14,7 @@ import {
 	SYSTEM_GROWTH_DEFAULTS,
 	resolveGrowthDefaults,
 } from "@/lib/growth/defaults";
+import { type GrowthHistorySuggestion, formatGrowthHistoryValue } from "@/lib/growth/history";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
@@ -141,6 +142,14 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 		),
 	);
 	const [notes, setNotes] = useState(cycle?.notes ?? "");
+	/**
+	 * #828: suggestions are evidence, not automation. Nothing from a completed
+	 * cycle is written until the operator presses Use, and the accepted fields
+	 * stay visible as "Applied" so the decision is auditable in the dialog.
+	 */
+	const [appliedSuggestions, setAppliedSuggestions] = useState<GrowthHistorySuggestion["field"][]>(
+		[],
+	);
 	const [error, setError] = useState<string | null>(null);
 	/**
 	 * Set when saving would overwrite a saved calculator target (D-2). Holds the
@@ -151,6 +160,7 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 	const confirmRef = useRef<HTMLDivElement>(null);
 	const confirmTitleId = useId();
 	const confirmDescId = useId();
+	const suggestionsTitleId = useId();
 	const [isPending, startTransition] = useTransition();
 	/**
 	 * #825: `DashboardLiveRefresh` re-deserialises the RSC payload every 30 s and
@@ -210,6 +220,7 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 			),
 		);
 		setNotes(cycle?.notes ?? "");
+		setAppliedSuggestions([]);
 		setError(null);
 		setPendingSavedWeightG(null);
 	}, [open, cycle, initialPondId, ponds, today]);
@@ -226,6 +237,9 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 		lastPondId.current = pondId;
 		if (cycle || touched.current) return;
 
+		// A new pond's suggestions come from the same farm history, but the
+		// "Applied" marks belonged to the operator's work on the previous pond.
+		setAppliedSuggestions([]);
 		const pond = ponds.find((candidate) => candidate.id === pondId);
 		const defaults = pond?.growthDefaults ?? SYSTEM_RESOLVED;
 		const defaultGrowOutDays = growOutDaysDefault(defaults);
@@ -295,6 +309,15 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 		return t(key);
 	};
 
+	// #828: only a new cycle gets suggestions; an edit keeps its own plan.
+	const historySuggestions = cycle ? [] : (selectedPond?.growthSuggestions ?? []);
+	const suggestionLabel = (field: GrowthHistorySuggestion["field"]): string =>
+		field === "growOutDays"
+			? t("growOutDays")
+			: field === "targetHarvestWeightG"
+				? t("targetWeight")
+				: t("survival");
+
 	/**
 	 * #826 (owner decision 3): the harvest date is the operator's anchor.
 	 * Moving the stocking date re-derives the grow-out period from the pair
@@ -359,6 +382,30 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 		// #828: the last resort is the pond's resolved default (pond → farm →
 		// constant), not a global literal.
 		setGrowOutDays(String(growOutDaysDefault(activeDefaults)));
+	};
+
+	/**
+	 * #828: accept one evidence-backed suggestion. This is the only path that
+	 * copies a completed cycle's outcome into the form — the initial render
+	 * never does. A grow-out suggestion also moves the harvest date because
+	 * that is what the field means; with no usable stocking date only the
+	 * period is set and the date keeps its current value.
+	 */
+	const applySuggestion = (suggestion: GrowthHistorySuggestion) => {
+		markTouched();
+		if (suggestion.field === "growOutDays") {
+			setGrowOutDays(String(suggestion.value));
+			if (isValidDateOnly(stockingDate)) {
+				setTargetHarvestDate(addDays(stockingDate, suggestion.value));
+			}
+		} else if (suggestion.field === "targetHarvestWeightG") {
+			setTargetHarvestWeightG(String(suggestion.value));
+		} else {
+			setExpectedSurvivalPct(String(suggestion.value));
+		}
+		setAppliedSuggestions((current) =>
+			current.includes(suggestion.field) ? current : [...current, suggestion.field],
+		);
 	};
 
 	/** Validate the form and return the payload, or show the existing error. */
@@ -655,6 +702,70 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 						/>
 					</label>
 				</div>
+
+				{historySuggestions.length > 0 && (
+					<section
+						aria-labelledby={suggestionsTitleId}
+						className="rounded-2xl border border-dashed border-[#0A3D62]/25 bg-[#0A3D62]/[0.03] p-3 dark:border-white/15 dark:bg-white/5"
+					>
+						<h3
+							id={suggestionsTitleId}
+							className="text-[11px] font-extrabold tracking-wider text-[#0A3D62] uppercase dark:text-[#9cc7f0]"
+						>
+							{t("suggestionTitle")}
+						</h3>
+						<p className="mt-0.5 text-[11px] text-[#3D5568] dark:text-gray-400">
+							{t("suggestionHint")}
+						</p>
+						<ul className="mt-2 space-y-2">
+							{historySuggestions.map((suggestion) => {
+								const applied = appliedSuggestions.includes(suggestion.field);
+								return (
+									<li
+										key={suggestion.field}
+										className="flex flex-col gap-2 rounded-xl bg-white/70 p-2.5 dark:bg-gray-900/60 sm:flex-row sm:items-center sm:justify-between"
+									>
+										<div className="min-w-0">
+											<p className="text-xs font-bold text-[#0A3D62] dark:text-gray-100">
+												{suggestionLabel(suggestion.field)}:{" "}
+												<span className="font-black">
+													{formatGrowthHistoryValue(suggestion.field, suggestion.value)}
+												</span>
+											</p>
+											<p className="mt-0.5 text-[11px] text-[#3D5568] dark:text-gray-400">
+												{t("suggestionSource", {
+													cycle: suggestion.sourceLabel ?? t("suggestionUnnamedCycle"),
+													pond: suggestion.sourcePondName,
+													date: suggestion.sourceHarvestDate,
+												})}
+											</p>
+											<p className="text-[11px] text-[#3D5568] dark:text-gray-400">
+												{t("suggestionSample", {
+													count: suggestion.sampleSize,
+													min: formatGrowthHistoryValue(suggestion.field, suggestion.min),
+													max: formatGrowthHistoryValue(suggestion.field, suggestion.max),
+												})}
+											</p>
+										</div>
+										<button
+											type="button"
+											onClick={() => applySuggestion(suggestion)}
+											disabled={applied}
+											aria-label={
+												applied
+													? `${suggestionLabel(suggestion.field)}: ${t("suggestionApplied")}`
+													: `${suggestionLabel(suggestion.field)}: ${t("suggestionUse")}`
+											}
+											className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-[#0A3D62]/30 bg-white px-3 py-2 text-xs font-bold text-[#0A3D62] transition-colors hover:bg-[#0A3D62]/5 disabled:cursor-default disabled:border-emerald-300 disabled:bg-emerald-50 disabled:text-emerald-800 dark:border-white/20 dark:bg-gray-900 dark:text-blue-200 dark:hover:bg-white/5 dark:disabled:border-emerald-800 dark:disabled:bg-emerald-950/40 dark:disabled:text-emerald-300"
+										>
+											{applied ? t("suggestionApplied") : t("suggestionUse")}
+										</button>
+									</li>
+								);
+							})}
+						</ul>
+					</section>
+				)}
 
 				<label className="block">
 					<span className="mb-1 block text-[10px] font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400">

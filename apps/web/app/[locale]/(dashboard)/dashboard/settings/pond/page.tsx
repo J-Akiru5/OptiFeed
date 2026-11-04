@@ -68,6 +68,7 @@ export default async function PondSettingsPage() {
 	const growthDefaults = await loadPondGrowthDefaultsForPond({
 		id: pond.id,
 		ownerId: pond.ownerId,
+		farmId: pond.farmId,
 	});
 
 	// The form shows the pond's derived grams beside the feeder's real limits,

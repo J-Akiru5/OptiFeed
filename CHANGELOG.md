@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.56.0] - 2026-11-04
+
+### Added
+
+- **A dedicated tenant role and fail-closed RLS policies (#711, phases 1 and 2).** `optifeed_app` is created `NOBYPASSRLS` with table and sequence grants, and the policies on the tenant tables key off a per-transaction context (`app.farm_ids`, `app.pond_ids`, `app.user_id`, `app.supabase_id`, `app.org_id`). An unset setting compares as NULL, so the role sees **no rows** rather than every row - a deliberate fail-closed default.
+
+  Phase 1 is safe to apply before the switch: the running app still uses the privileged `postgres` connection, every policy applies only to `optifeed_app`, and the migration contains no data change. Switching `DATABASE_URL` to the new role is a separate maintenance-window action and is **not** part of this release; until then tenant isolation remains application-level, exactly as before.
+
+### Security
+
+- **A dedicated tenant database role and core RLS policies are prepared (#711).** Phase 1 migration `20261104150000_tenant_app_role_phase1` creates `optifeed_app` with `NOBYPASSRLS`, grants table/sequence access, and adds `optifeed_app`-only policies for `Farm`, `Pond`, `User`, `Membership`, `Organization`, `EnergyDevice`, `FeedEvent`, `Notification`, `FeedRequest`, `WaterTempLog`, `FeedLevelLog` and `DeviceStateEvent`. It contains no `DELETE`, `TRUNCATE`, `DROP TABLE`, column change or data backfill. The current app keeps using `postgres`, so this is inert until the Phase 2 `withTenant` context and the `DATABASE_URL` switch; the app-side context and the switch are not in this migration.
+- **The tenant context helper and the remaining tenant policies are prepared (#711).** `apps/web/lib/db/tenant-context.ts` sets `app.farm_ids`, `app.pond_ids`, `app.user_id`, `app.supabase_id` and `app.org_ids` with transaction-local `set_config`. Phase 2 migration `20261104160000_tenant_app_role_phase2` adds policies for the remaining tenant tables and switches `Membership`/`Organization` to the multi-org list. Platform-only tables stay default-deny for `optifeed_app`; platform-admin paths keep the privileged connection. `scripts/security/tenant-isolation-proof.mjs` is the read-only two-tenant gate for the staging copy. The app is still not switched.
+
 ## [1.55.1] - 2026-11-04
 
 ### Fixed
@@ -30,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Forms no longer lose typed values on the 30-second refresh (#825, #830, #831).** `DashboardLiveRefresh` replaces server props with new arrays and objects every 30 seconds by design. The growth-cycle and harvest forms now key their reset effects on a stable identity, the calendar keeps the operator's pond/type selection instead of re-hydrating from stale URL parameters, and the live hopper distance adopts the server snapshot by **timestamp** rather than object identity, so a polled reading and a captured calibration value survive the refresh. Each carries a test that fails when the fix is reverted.
 - **Every organization in the feed-dispensed treemap has its own colour (#835).** The fill was read from Recharts' `node.index`/`tooltipIndex`, which made every organization's first pond resolve to palette slot 0 - all orange. The colour is now stamped on the datum from its top-level position and inherited by its ponds, with an explicit override supported.
+
 
 ### Changed
 

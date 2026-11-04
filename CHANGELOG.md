@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The landing footer's firmware version comes from the published channel, not a hardcoded string (#845).** It read "Firmware v1.4.2" in all three locales while the fleet was on 1.9.0 and the repository's `FW_VERSION` was already 1.10.0. The page now reads `getFirmwareStatus()` — the signed manifest in the private `firmware` bucket, the same source as the superadmin firmware console — and renders that version through a `{version}` placeholder; when the channel cannot be read the line is omitted rather than showing a stale number. The page body moved to a client component so the server wrapper can supply the value; a five-minute ISR window keeps it static between releases.
+
 ## [1.55.0] - 2026-11-04
 
 ### Added

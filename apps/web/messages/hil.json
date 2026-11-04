@@ -398,7 +398,7 @@
 		"previewBiomass": "Katapusan nga sample",
 		"previewBiomassValue": "220 g",
 		"faqAside": "Ini nga research prototype. Ang accounts ginahatag sang project team.",
-		"footerFirmware": "Firmware v1.4.2",
+		"footerFirmware": "Firmware v{version}",
 		"teamEyebrow": "Proyekto",
 		"navWhy": "Ngaa PakaonAI",
 		"heroTrust1": "Wala sang camera nga kinahanglan",

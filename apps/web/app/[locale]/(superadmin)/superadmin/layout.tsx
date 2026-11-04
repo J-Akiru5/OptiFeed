@@ -9,7 +9,6 @@ import { GlobalSearch, SearchTrigger } from "@/components/search/global-search";
 import { SuperadminBottomNav } from "@/components/superadmin-bottom-nav";
 import { SuperadminSidebar } from "@/components/superadmin-sidebar";
 import { SuperadminAccountMenu } from "@/components/superadmin/account-menu";
-import { ConsoleScopeBanner } from "@/components/superadmin/console-scope-banner";
 import { FOCUS_RING_ON_DARK } from "@/components/superadmin/ui";
 import { Link } from "@/i18n/routing";
 import { requirePlatformAdmin } from "@/lib/auth/require-platform-admin";
@@ -125,15 +124,13 @@ export default async function SuperadminLayout({
 				<div className="flex min-h-0 w-full flex-1 overflow-hidden">
 					<SuperadminSidebar showFarmDashboard={hasFarmDashboard} />
 					{/* min-w-0 lets a wide table scroll inside its own card instead of
-				    widening the page. The scope banner is the pane's first child so its
-				    negative margins cancel the pane's padding (see .ofd-console-scope),
-				    and `.ofd-console-pane` owns the padding scale for every breakpoint. */}
+				    widening the page. `.ofd-console-pane` owns the padding scale for
+				    every breakpoint. */}
 					<main
 						id="main-content"
 						tabIndex={-1}
 						className="ofd-console-pane relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto"
 					>
-						<ConsoleScopeBanner />
 						{children}
 					</main>
 				</div>

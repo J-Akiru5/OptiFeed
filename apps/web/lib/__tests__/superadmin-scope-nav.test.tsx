@@ -64,10 +64,7 @@ vi.mock("@/components/superadmin/org-status-control", () => ({ OrgStatusControl:
 import SuperadminOrgDetailPage from "@/app/[locale]/(superadmin)/superadmin/orgs/[orgId]/page";
 import { quickMenuSections } from "@/components/mobile/quick-menu";
 import { SuperadminSidebar } from "@/components/superadmin-sidebar";
-import { ConsoleScopeBanner } from "@/components/superadmin/console-scope-banner";
-import { ScopeBanner } from "@/components/superadmin/scope-banner";
 import { SUPERADMIN_NAV_GROUPS, isNavItemActive } from "@/lib/superadmin-nav";
-import { consoleScopeCrumbs, pageOwnsScope } from "@/lib/superadmin-scope";
 import { createTranslator, loadMessages } from "./helpers/messages";
 
 const webRoot = join(__dirname, "../..");
@@ -90,11 +87,6 @@ const EXISTING_URLS = [
 
 /** The command-center pages that shipped after the regroup (#479). */
 const COMMAND_CENTER_URLS = ["/superadmin/tenants", "/superadmin/fleet", "/superadmin/incidents"];
-
-const labels = {
-	global: "Global superadmin",
-	section: (key: string) => `section:${key}`,
-};
 
 beforeEach(() => {
 	pathname.current = "/superadmin";
@@ -216,88 +208,8 @@ describe("isNavItemActive (M3C.1)", () => {
 	});
 });
 
-describe("scope path (M3C.1)", () => {
-	it("is the global scope alone on the overview", () => {
-		expect(consoleScopeCrumbs("/superadmin", labels)).toEqual([
-			{ level: "global", label: "Global superadmin" },
-		]);
-	});
-
-	it("adds the section for a console page, devices included", () => {
-		expect(consoleScopeCrumbs("/superadmin/devices", labels)).toEqual([
-			{ level: "global", label: "Global superadmin" },
-			{ level: "section", label: "section:devices" },
-		]);
-		expect(consoleScopeCrumbs("/superadmin/operations/audit", labels).at(-1)).toEqual({
-			level: "section",
-			label: "section:operations",
-		});
-	});
-
-	it("leaves a page that names a record to draw its own banner", () => {
-		expect(pageOwnsScope("/superadmin/orgs/org-alpha")).toBe(true);
-		expect(pageOwnsScope("/superadmin/orgs")).toBe(false);
-		expect(pageOwnsScope("/superadmin/devices")).toBe(false);
-
-		pathname.current = "/superadmin/orgs/org-alpha";
-		expect(renderToStaticMarkup(<ConsoleScopeBanner />)).toBe("");
-	});
-
-	it("shows the layout banner on a console page with the translated names", () => {
-		pathname.current = "/superadmin/devices";
-		const html = renderToStaticMarkup(<ConsoleScopeBanner />);
-
-		expect(html).toContain('aria-label="Console scope"');
-		expect(html).toContain(">Global superadmin<");
-		expect(html).toContain(">Devices<");
-		expect(html.indexOf("Global superadmin")).toBeLessThan(html.indexOf(">Devices<"));
-	});
-
-	it("renders a three-level path with the last crumb as the current location", () => {
-		const html = renderToStaticMarkup(
-			<ScopeBanner
-				label="Console scope"
-				crumbs={[
-					{ level: "global", label: "Global superadmin" },
-					{ level: "organization", label: "Organization Alpha" },
-					{ level: "resource", label: "Feeder 3B09" },
-				]}
-			/>,
-		);
-
-		const levels = [...html.matchAll(/data-scope-level="(\w+)"/g)].map((m) => m[1]);
-		expect(levels).toEqual(["global", "organization", "resource"]);
-		expect(html.split('aria-current="location"').length - 1).toBe(1);
-		expect(html).toMatch(/aria-current="location"[^>]*>Feeder 3B09</);
-		// Each crumb is written out and the path reads with text arrows, so scope
-		// never rests on colour or an icon alone. Icons mark the three levels that
-		// name a thing; a section crumb is plain text.
-		expect(html.split("<svg").length - 1).toBe(3);
-		expect(html.split(">→<").length - 1).toBe(2);
-	});
-
-	it("draws a section crumb as text only", () => {
-		const html = renderToStaticMarkup(
-			<ScopeBanner
-				label="Console scope"
-				crumbs={[
-					{ level: "global", label: "Global superadmin" },
-					{ level: "section", label: "Devices" },
-				]}
-			/>,
-		);
-		expect(html.split("<svg").length - 1).toBe(1);
-		expect(html).toMatch(/data-scope-level="section"[^>]*>Devices</);
-	});
-
-	it("keeps red, amber and green out of the banner, which are reserved for status", () => {
-		const html = renderToStaticMarkup(
-			<ScopeBanner label="Console scope" crumbs={[{ level: "global", label: "Global" }]} />,
-		);
-		expect(html).not.toMatch(/(red|amber|green|emerald|rose|#C42B3A)/i);
-	});
-
-	it("names the organization on its detail page, under the global scope", async () => {
+describe("organization detail page context", () => {
+	it("names the organization in the heading and keeps the back link", async () => {
 		orgDetailMock.mockResolvedValue({
 			org: {
 				id: "org-alpha",
@@ -313,11 +225,8 @@ describe("scope path (M3C.1)", () => {
 			await SuperadminOrgDetailPage({ params: Promise.resolve({ orgId: "org-alpha" }) }),
 		);
 
-		expect(html).toContain('aria-label="Console scope"');
-		expect(html).toContain(">Global superadmin<");
-		expect(html).toContain(">Organization Alpha Coop<");
-		expect(html.indexOf("Global superadmin")).toBeLessThan(html.indexOf("Organization Alpha Coop"));
-		expect(html).toMatch(/aria-current="location"[^>]*>Organization Alpha Coop</);
+		expect(html).toContain(">Alpha Coop<");
+		expect(html).toContain('href="/superadmin/orgs"');
 	});
 });
 
@@ -326,9 +235,6 @@ describe("scope and group copy (M3C.1)", () => {
 		"superadmin.shell.groups.commandCenter",
 		"superadmin.shell.groups.ecosystem",
 		"superadmin.shell.groups.platformControl",
-		"superadmin.shell.scope.label",
-		"superadmin.shell.scope.global",
-		"superadmin.shell.scope.organization",
 	];
 
 	it("exists, non-blank, in English, Hiligaynon and Tagalog", () => {
@@ -337,12 +243,6 @@ describe("scope and group copy (M3C.1)", () => {
 			for (const key of KEYS) {
 				expect(messages[key]?.trim(), `${locale} is missing ${key}`).toBeTruthy();
 			}
-		}
-	});
-
-	it("keeps the organization name placeholder in every locale", () => {
-		for (const locale of ["en", "hil", "tl"] as const) {
-			expect(loadMessages(locale)["superadmin.shell.scope.organization"]).toContain("{name}");
 		}
 	});
 

@@ -136,14 +136,17 @@ test.describe("QA release-critical flows", () => {
 			await expect(page.getByText(message, { exact: true }).first()).toBeVisible({
 				timeout: 20_000,
 			});
-			// Scope to the card that carries the message: the filter chips repeat the
-			// category name, and one of the two copies is the collapsed phone panel.
-			const card = page
-				.locator("ul li")
-				.filter({ has: page.getByText(message, { exact: true }) })
-				.first();
-			await expect(card.getByText("Feeding", { exact: true })).toBeVisible();
-			await expect(card.getByText("SUCCESS", { exact: true })).toBeVisible();
+			// Scope to the rendered list, not a specific view or `.first()`: the filter
+			// chips repeat the category name (and one copy is the collapsed phone
+			// panel), and the list renders a table and a card view of which only one
+			// is displayed.
+			const list = page.locator("[data-list-view]");
+			await expect(
+				list.getByText("Feeding", { exact: true }).filter({ visible: true }).first(),
+			).toBeVisible();
+			await expect(
+				list.getByText("SUCCESS", { exact: true }).filter({ visible: true }).first(),
+			).toBeVisible();
 		} finally {
 			await prisma.notification.deleteMany({
 				where: { pondId: E2E.pondId, message },

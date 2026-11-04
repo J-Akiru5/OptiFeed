@@ -39,13 +39,14 @@ test.describe("QA release-critical flows", () => {
 		// The responsive schedule page can expose the same editor slot more than
 		// once before hydration settles; scope every operation to the first
 		// visible editor rather than matching two nodes.
-		const feedsPerDay = page.locator("#feedsPerDay:visible").first();
-		await expect(feedsPerDay).toBeVisible();
-		const original = await feedsPerDay.inputValue();
+		const startTime = page.locator("#startTime:visible").first();
+		await expect(startTime).toBeVisible();
+		const original = await startTime.inputValue();
 
-		// Six meals keeps the seeded ration inside the device relay-time guard;
-		// four meals makes the same daily ration too large for one 300 s pulse.
-		await feedsPerDay.fill("6");
+		// Change only the window, not the ration: feeds/day changes can trip the
+		// relay-time guard for the seeded device, which is a valid product error
+		// but not the persistence behavior this flow is asserting.
+		await startTime.fill("05:00");
 		await page.getByRole("button", { name: "Save Changes" }).first().click();
 
 		await expect(page.getByText("Changes saved!")).toBeVisible({ timeout: 20_000 });
@@ -54,10 +55,10 @@ test.describe("QA release-critical flows", () => {
 		// the sync state must both survive a full server render.
 		await page.reload();
 		await expect(page.getByText("Pending device sync")).toBeVisible();
-		await expect(page.locator("#feedsPerDay:visible").first()).toHaveValue("6");
+		await expect(page.locator("#startTime:visible").first()).toHaveValue("05:00");
 
 		// Leave the fixture in its seeded state for the rest of the serial suite.
-		await page.locator("#feedsPerDay:visible").first().fill(original);
+		await page.locator("#startTime:visible").first().fill(original);
 		await page.getByRole("button", { name: "Save Changes" }).first().click();
 		await expect(page.getByText("Changes saved!")).toBeVisible({ timeout: 20_000 });
 	});

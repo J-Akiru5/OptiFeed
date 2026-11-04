@@ -127,14 +127,32 @@ remain; nothing is deleted.
 
 ## 6. What is explicitly not done here
 
-- No Prisma migration.
 - No app connection-string change.
-- No app-side `withTenant` refactor.
 - No data deletion.
 - No policy applied to any database.
 
-## 7. Migration
+## 7. Phase 1 migration
 
-See `apps/web/prisma/migrations/20261104150000_tenant_app_role_phase1/migration.sql`. It is a
-Phase 1 migration that only creates the role, grants and policies; it is not applied by this
-branch.
+See `apps/web/prisma/migrations/20261104150000_tenant_app_role_phase1/migration.sql`. It creates
+the role, grants and core policies; it is inert for the current `postgres` connection.
+
+## 8. Phase 2 implementation (this branch)
+
+- `apps/web/lib/db/tenant-context.ts` provides `withTenant()` and `applyTenantContext()`. They set
+  `app.farm_ids`, `app.pond_ids`, `app.user_id`, `app.supabase_id` and `app.org_ids` with
+  transaction-local `set_config(..., true)`. A unit test pins the order, values and omission of
+  empty arrays.
+- `apps/web/prisma/migrations/20261104160000_tenant_app_role_phase2/migration.sql` adds policies
+  for the remaining tenant tables (`BiomassLog`, `FcrReport`, `FishSample`, `CalibrationRun`,
+  `ScheduleCommand`, `PondSettingsDraft`, `PondEvent`, `MortalityLog`, `CropCycle`, `ReminderLog`,
+  `DeviceConnectivityDaily`, `ImportConfirmation`, `AssistantAction`, `BackgroundJob`,
+  `JobArtifact`, `PondOwnershipHistory`, `Device`, `FeedingEvent`, `OrgSetting`) and replaces the
+  two single-org policies with `app.org_ids`.
+- Platform-only tables remain default-deny for `optifeed_app`: `AiProviderConfig`, `PlatformAdmin`,
+  `PlatformAuditLog`, `ImpersonationSession`, `PlatformIncident`, `PlatformIncidentEvent`,
+  `PlatformSetting`, `ErrorEvent`, `IssueReport`, `CronHeartbeat`. Platform-admin paths must keep a
+  privileged connection until a separate platform context is designed.
+- The app is **not switched**. Route handlers and actions must be moved to `withTenant` (or
+  `applyTenantContext` inside an existing transaction) before the `DATABASE_URL` change. Platform
+  admin paths are excluded from the tenant role.
+- The two-tenant proof and the switch window remain owner-run.

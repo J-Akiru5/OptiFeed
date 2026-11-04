@@ -129,7 +129,6 @@ export default async function LogSamplePage({
 											? `/dashboard/log-sample/batches?label=${encodeURIComponent(batch.label)}`
 											: "/dashboard/log-sample/batches?unlabeled=1"
 									}
-									aria-label={`${batch.label ?? t("unlabeled")} — ${t("viewLogs")}`}
 									className="group block h-full rounded-3xl border border-gray-100 bg-white p-6 shadow-sm transition hover:border-[var(--ofd-base)]/30 hover:shadow-md focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-gray-700/50 dark:bg-gray-900 dark:focus-visible:outline-[#8fc0ea]"
 								>
 									<div className="flex items-start justify-between gap-3">
@@ -172,6 +171,10 @@ export default async function LogSamplePage({
 											</p>
 										</div>
 									</div>
+									{/* The card's own text names the link; this only says what
+									    activating it does. An aria-label here would replace the
+									    visible text and fail WCAG 2.5.3 (label in name). */}
+									<span className="sr-only"> — {t("viewLogs")}</span>
 								</Link>
 							</li>
 						))}

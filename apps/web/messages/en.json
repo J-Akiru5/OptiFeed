@@ -74,6 +74,7 @@
 		"dashboard": "Dashboard",
 		"schedule": "Schedule",
 		"logSample": "Biomass Log",
+		"logSampleShort": "Biomass",
 		"history": "History",
 		"growth": "Growth",
 		"harvest": "Harvest",

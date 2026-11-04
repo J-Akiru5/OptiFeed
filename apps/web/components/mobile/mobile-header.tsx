@@ -16,7 +16,7 @@ import { type MobileShell, useMobileRouteInfo } from "./use-page-title";
  * target minimum, which the pond switcher's 16 px text button did not meet.
  */
 const BAND_PILL =
-	"h-11 w-11 shrink-0 rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/20 [&_svg]:h-[18px] [&_svg]:w-[18px]";
+	"flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--ofd-band-ink)] transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none [&_svg]:h-[22px] [&_svg]:w-[22px]";
 
 /**
  * The mobile app bar every shell shows below `lg` (E26).
@@ -66,6 +66,9 @@ export function MobileHeader({
 	const router = useRouter();
 	const t = useTranslations("dashboard.mobile");
 	const route = useMobileRouteInfo(shell);
+	// A route with no label yet would render a back arrow and an empty gap, so it
+	// falls back to the brand bar rather than pretending to be a detail screen.
+	const isTopLevel = route.isTopLevel || route.title === "";
 
 	const goBack = () => {
 		// Android's back gesture pops history; only fall back to the shell root
@@ -77,7 +80,7 @@ export function MobileHeader({
 	return (
 		<div className={cn("ofd-band pt-[env(safe-area-inset-top)] lg:hidden", className)}>
 			<div className="flex items-center gap-1.5 px-2.5 py-1.5">
-				{route.isTopLevel ? (
+				{isTopLevel ? (
 					<span className="flex shrink-0 items-center gap-1.5 pl-0.5">
 						<OptiFeedLogo size={26} variant="ondark" />
 						<span className="hidden text-sm leading-none font-black text-[var(--ofd-band-ink)] min-[360px]:inline">
@@ -91,10 +94,7 @@ export function MobileHeader({
 							onClick={goBack}
 							aria-label={t("back")}
 							data-mobile-back
-							className={cn(
-								BAND_PILL,
-								"-ml-0.5 border-transparent bg-transparent hover:bg-white/15",
-							)}
+							className={cn(BAND_PILL, "-ml-0.5")}
 						>
 							<ChevronLeft aria-hidden="true" className="h-5 w-5" />
 						</button>
@@ -109,10 +109,22 @@ export function MobileHeader({
 					</>
 				)}
 
-				<SearchTrigger variant="icon" className={cn(!route.isTopLevel && "ml-auto")} />
+				<SearchTrigger
+					variant="icon"
+					// `ml-auto` sits on the first action, so the cluster keeps to the
+					// trailing edge in both states: Material app bars put actions right,
+					// and a left-hugging cluster leaves dead space beside the brand.
+					className={cn(
+						// Plain icon buttons, not stacked outlined circles; the avatar
+						// stays the one filled chip in the cluster.
+						"ml-auto border-transparent bg-transparent hover:bg-white/15 [&_svg]:h-[22px] [&_svg]:w-[22px]",
+					)}
+				/>
 
 				{showTheme ? <DarkModeToggle className={BAND_PILL} /> : null}
-				{children}
+				{/* The action cluster never shrinks: it is the part that must stay
+				    tappable, while the brand or title truncates instead. */}
+				{children ? <div className="flex shrink-0 items-center gap-1.5">{children}</div> : null}
 			</div>
 		</div>
 	);

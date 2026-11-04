@@ -502,7 +502,7 @@ export function CompactHeaderActions({
 			{/* The band keeps search, notifications and the account control only.
 			    Help and the theme switch moved into the account menu, which is the
 			    one place on a phone where secondary actions belong. */}
-			<NotificationBell className="h-11 w-11" />
+			<NotificationBell className="h-11 w-11 border-transparent bg-transparent hover:bg-white/15 [&_svg]:h-[22px] [&_svg]:w-[22px]" />
 			<button
 				ref={profileButtonRef}
 				type="button"

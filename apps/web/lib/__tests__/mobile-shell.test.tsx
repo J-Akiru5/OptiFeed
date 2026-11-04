@@ -79,9 +79,15 @@ describe("farmer bottom bar (E26)", () => {
 		expect(html.split("<a ").length - 1).toBe(4);
 		expect(html.split('aria-current="page"').length - 1).toBe(1);
 
-		for (const label of ["Overview", "Schedule", "Biomass Log", "Alerts", "More"]) {
+		// Five tabs share the width of a phone, so the third one renders the short
+		// catalogue label ("Biomass"); the full name stays its accessible name.
+		// "Biomass Log" is 62 px at 10 px and the label box is 54 px at 320 px,
+		// and Hiligaynon/Tagalog are longer still ("Log sang Biomass").
+		for (const label of ["Overview", "Schedule", "Biomass", "Alerts", "More"]) {
 			expect(html).toContain(`>${label}<`);
 		}
+		expect(html).toContain('aria-label="Biomass Log"');
+		expect(html).not.toContain(">Biomass Log<");
 		// Settings is no longer a tab: it stays one tap away in the More sheet.
 		expect(html).not.toContain(">Me<");
 		expect(html.split('data-mobile-trigger="more"').length - 1).toBe(1);

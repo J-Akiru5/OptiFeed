@@ -74,6 +74,7 @@
 		"dashboard": "Dashboard",
 		"schedule": "Iskedyul",
 		"logSample": "Log sang Biomass",
+		"logSampleShort": "Biomass",
 		"history": "Kasaysayan",
 		"growth": "Pagtubo",
 		"harvest": "Pag-ani",

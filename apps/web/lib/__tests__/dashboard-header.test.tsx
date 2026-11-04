@@ -149,7 +149,7 @@ describe("the mobile band carries reachable, uniformly sized controls", () => {
 		expect(mobileHeaderSource).toContain('t("back")');
 		expect(mobileHeaderSource).toContain("router.back()");
 		// Search is an action that opens the search sheet, not a permanent field.
-		expect(mobileHeaderSource).toContain('<SearchTrigger variant="icon"');
+		expect(mobileHeaderSource).toMatch(/<SearchTrigger[\s\S]{0,120}variant="icon"/);
 		expect(mobileHeaderSource).not.toContain('variant="field"');
 	});
 

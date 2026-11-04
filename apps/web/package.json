@@ -17,6 +17,7 @@
 		"test:coverage": "vitest run --coverage",
 		"test:watch": "vitest",
 		"test:e2e": "playwright test",
+		"test:e2e:qa": "playwright test e2e/qa-release-critical.spec.ts e2e/qa-accessibility.spec.ts",
 		"complexity": "node scripts/check-complexity.mjs",
 		"i18n:tl-coverage": "node scripts/i18n-tagalog-coverage.mjs",
 		"i18n:hil-coverage": "node scripts/i18n-hiligaynon-coverage.mjs",

@@ -145,6 +145,28 @@ authenticates through the login endpoint that is rate-limited to 5 attempts per
 60 seconds; parallel workers would trip it and the RBAC/device specs would race.
 Do not raise the worker count to make the job finish sooner.
 
+## QA release suite
+
+The release QA pass keeps two focused specs in the normal `e2e/` directory:
+
+- `e2e/qa-release-critical.spec.ts` — login/protected redirect, schedule
+  persistence, biomass save + growth visibility, a real ingest-driven
+  notification, and farmer/platform-console boundaries.
+- `e2e/qa-accessibility.spec.ts` — axe checks on the four public pages and the
+  authenticated dashboard, plus the QA-20 CTA contrast regression.
+
+They run as part of `pnpm test:e2e`, so the normal `e2e` CI job covers them on
+every pull request to `develop`. Use the focused script while iterating:
+
+```bash
+pnpm --filter web test:e2e:qa
+```
+
+The specs are serial like the rest of the suite and clean up the `e2e-` rows
+they create. The axe spec disables the generic color-contrast rule so it does
+not mask other findings; the dedicated CTA contrast test pins the known QA-20
+fix.
+
 ## Coverage gate
 
 The unit suite is measured on `apps/web/lib` only, with

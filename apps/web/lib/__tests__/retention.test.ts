@@ -16,21 +16,66 @@ vi.mock("@/lib/prisma", () => ({
 		},
 		notification: {
 			findMany: vi.fn(),
+			deleteMany: vi.fn(),
 		},
 		feedRequest: {
 			findMany: vi.fn(),
+		},
+		waterTempLog: {
+			findMany: vi.fn(),
+			deleteMany: vi.fn(),
+		},
+		feedLevelLog: {
+			findMany: vi.fn(),
+			deleteMany: vi.fn(),
+		},
+		calibrationRun: {
+			findMany: vi.fn(),
+			deleteMany: vi.fn(),
+		},
+		assistantAction: {
+			findMany: vi.fn(),
+			deleteMany: vi.fn(),
+		},
+		issueReport: {
+			findMany: vi.fn(),
+			deleteMany: vi.fn(),
+		},
+		reminderLog: {
+			findMany: vi.fn(),
+			deleteMany: vi.fn(),
+		},
+		platformAuditLog: {
+			findMany: vi.fn(),
+			deleteMany: vi.fn(),
 		},
 	},
 }));
 
 import prisma from "@/lib/prisma";
 import {
+	ASSISTANT_ACTION_RETENTION_DAYS,
+	CALIBRATION_RUN_RETENTION_DAYS,
 	DEVICE_STATE_RETENTION_DAYS,
+	FEED_LEVEL_RETENTION_DAYS,
 	HEARTBEAT_RETENTION_DAYS,
+	ISSUE_REPORT_RETENTION_DAYS,
+	NOTIFICATION_RETENTION_DAYS,
+	PLATFORM_AUDIT_LOG_RETENTION_DAYS,
 	POND_SETTINGS_DRAFT_RETENTION_DAYS,
+	REMINDER_LOG_RETENTION_DAYS,
+	WATER_TEMP_RETENTION_DAYS,
 	deleteExpiredPondSettingsDrafts,
+	deleteOldAssistantActions,
+	deleteOldCalibrationRuns,
 	deleteOldDeviceStateEvents,
+	deleteOldFeedLevelLogs,
 	deleteOldHeartbeatEvents,
+	deleteOldIssueReports,
+	deleteOldNotifications,
+	deleteOldPlatformAuditLogs,
+	deleteOldReminderLogs,
+	deleteOldWaterTempLogs,
 } from "@/lib/retention";
 
 const mockFeedEvent = vi.mocked(prisma.feedEvent);
@@ -38,6 +83,43 @@ const mockDraft = vi.mocked(prisma.pondSettingsDraft);
 const mockDeviceStateEvent = vi.mocked(prisma.deviceStateEvent);
 const mockNotification = vi.mocked(prisma.notification);
 const mockFeedRequest = vi.mocked(prisma.feedRequest);
+const mockWaterTempLog = vi.mocked(prisma.waterTempLog);
+const mockFeedLevelLog = vi.mocked(prisma.feedLevelLog);
+const mockCalibrationRun = vi.mocked(prisma.calibrationRun);
+const mockAssistantAction = vi.mocked(prisma.assistantAction);
+const mockIssueReport = vi.mocked(prisma.issueReport);
+const mockReminderLog = vi.mocked(prisma.reminderLog);
+const mockPlatformAuditLog = vi.mocked(prisma.platformAuditLog);
+
+type AgeWhere = {
+	createdAt?: { lt: Date };
+	recordedAt?: { lt: Date };
+	sentAt?: { lt: Date };
+	OR?: unknown[];
+};
+
+function ageWhere(call: unknown): AgeWhere {
+	return (call as { where: AgeWhere }).where;
+}
+
+function expectCutoff(cutoff: Date | undefined, days: number): void {
+	expect(cutoff).toBeInstanceOf(Date);
+	const expected = Date.now() - days * 24 * 60 * 60 * 1000;
+	expect(Math.abs((cutoff as Date).getTime() - expected)).toBeLessThan(5000);
+}
+
+describe("retention windows (#726)", () => {
+	it("pins the documented day counts", () => {
+		expect(WATER_TEMP_RETENTION_DAYS).toBe(365);
+		expect(FEED_LEVEL_RETENTION_DAYS).toBe(365);
+		expect(NOTIFICATION_RETENTION_DAYS).toBe(180);
+		expect(CALIBRATION_RUN_RETENTION_DAYS).toBe(730);
+		expect(ASSISTANT_ACTION_RETENTION_DAYS).toBe(180);
+		expect(ISSUE_REPORT_RETENTION_DAYS).toBe(365);
+		expect(REMINDER_LOG_RETENTION_DAYS).toBe(180);
+		expect(PLATFORM_AUDIT_LOG_RETENTION_DAYS).toBe(730);
+	});
+});
 
 describe("deleteOldHeartbeatEvents", () => {
 	beforeEach(() => {
@@ -254,5 +336,322 @@ describe("deleteOldDeviceStateEvents", () => {
 		expect(mockDeviceStateEvent.findMany).toHaveBeenCalledWith(
 			expect.objectContaining({ take: 25 }),
 		);
+	});
+});
+
+describe("deleteOldWaterTempLogs", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("deletes readings past 365 days, oldest first, in one batch", async () => {
+		mockWaterTempLog.findMany.mockResolvedValue([{ id: "w1" }, { id: "w2" }] as never);
+		mockWaterTempLog.deleteMany.mockResolvedValue({ count: 2 } as never);
+
+		await expect(deleteOldWaterTempLogs()).resolves.toBe(2);
+
+		expect(mockWaterTempLog.findMany).toHaveBeenCalledWith({
+			where: { recordedAt: { lt: expect.any(Date) } },
+			orderBy: { recordedAt: "asc" },
+			select: { id: true },
+			take: 5000,
+		});
+		expectCutoff(
+			ageWhere(mockWaterTempLog.findMany.mock.calls[0]?.[0]).recordedAt?.lt,
+			WATER_TEMP_RETENTION_DAYS,
+		);
+		expect(mockWaterTempLog.deleteMany).toHaveBeenCalledWith({
+			where: { id: { in: ["w1", "w2"] } },
+		});
+	});
+
+	it("returns 0 and skips deleteMany when nothing is stale", async () => {
+		mockWaterTempLog.findMany.mockResolvedValue([] as never);
+
+		await expect(deleteOldWaterTempLogs()).resolves.toBe(0);
+		expect(mockWaterTempLog.deleteMany).not.toHaveBeenCalled();
+	});
+});
+
+describe("deleteOldFeedLevelLogs", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("deletes readings past 365 days, oldest first, in one batch", async () => {
+		mockFeedLevelLog.findMany.mockResolvedValue([{ id: "f1" }] as never);
+		mockFeedLevelLog.deleteMany.mockResolvedValue({ count: 1 } as never);
+
+		await expect(deleteOldFeedLevelLogs()).resolves.toBe(1);
+
+		expect(mockFeedLevelLog.findMany).toHaveBeenCalledWith({
+			where: { recordedAt: { lt: expect.any(Date) } },
+			orderBy: { recordedAt: "asc" },
+			select: { id: true },
+			take: 5000,
+		});
+		expectCutoff(
+			ageWhere(mockFeedLevelLog.findMany.mock.calls[0]?.[0]).recordedAt?.lt,
+			FEED_LEVEL_RETENTION_DAYS,
+		);
+		expect(mockFeedLevelLog.deleteMany).toHaveBeenCalledWith({
+			where: { id: { in: ["f1"] } },
+		});
+	});
+
+	it("returns 0 and skips deleteMany when nothing is stale", async () => {
+		mockFeedLevelLog.findMany.mockResolvedValue([] as never);
+
+		await expect(deleteOldFeedLevelLogs()).resolves.toBe(0);
+		expect(mockFeedLevelLog.deleteMany).not.toHaveBeenCalled();
+	});
+});
+
+describe("deleteOldNotifications", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("deletes closed rows past 180 days, oldest first, in one batch", async () => {
+		mockNotification.findMany.mockResolvedValue([
+			{ id: "resolved" },
+			{ id: "auto-cleared" },
+			{ id: "superseded" },
+		] as never);
+		mockNotification.deleteMany.mockResolvedValue({ count: 3 } as never);
+
+		await expect(deleteOldNotifications()).resolves.toBe(3);
+
+		expect(mockNotification.findMany).toHaveBeenCalledWith({
+			where: {
+				createdAt: { lt: expect.any(Date) },
+				OR: [
+					{ resolvedAt: { not: null } },
+					{ autoCleared: true },
+					{ supersededById: { not: null } },
+				],
+			},
+			orderBy: { createdAt: "asc" },
+			select: { id: true },
+			take: 5000,
+		});
+		expectCutoff(
+			ageWhere(mockNotification.findMany.mock.calls[0]?.[0]).createdAt?.lt,
+			NOTIFICATION_RETENTION_DAYS,
+		);
+		expect(mockNotification.deleteMany).toHaveBeenCalledWith({
+			where: { id: { in: ["resolved", "auto-cleared", "superseded"] } },
+		});
+	});
+
+	it("never selects an open alert, so an open alert is never deleted", async () => {
+		// An open alert is resolvedAt null AND autoCleared false AND
+		// supersededById null, so it matches none of the closure branches.
+		mockNotification.findMany.mockResolvedValue([] as never);
+
+		await expect(deleteOldNotifications()).resolves.toBe(0);
+
+		const args = mockNotification.findMany.mock.calls[0]?.[0] as {
+			where?: { OR?: unknown[] };
+		};
+		expect(args?.where?.OR).toEqual([
+			{ resolvedAt: { not: null } },
+			{ autoCleared: true },
+			{ supersededById: { not: null } },
+		]);
+		expect(mockNotification.deleteMany).not.toHaveBeenCalled();
+	});
+
+	it("respects a custom batch size", async () => {
+		mockNotification.findMany.mockResolvedValue([] as never);
+
+		await deleteOldNotifications(25);
+
+		expect(mockNotification.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({ take: 25 }),
+		);
+	});
+});
+
+describe("deleteOldCalibrationRuns", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("deletes runs past 730 days, oldest first, in one batch", async () => {
+		mockCalibrationRun.findMany.mockResolvedValue([{ id: "c1" }] as never);
+		mockCalibrationRun.deleteMany.mockResolvedValue({ count: 1 } as never);
+
+		await expect(deleteOldCalibrationRuns()).resolves.toBe(1);
+
+		expect(mockCalibrationRun.findMany).toHaveBeenCalledWith({
+			where: { createdAt: { lt: expect.any(Date) } },
+			orderBy: { createdAt: "asc" },
+			select: { id: true },
+			take: 5000,
+		});
+		expectCutoff(
+			ageWhere(mockCalibrationRun.findMany.mock.calls[0]?.[0]).createdAt?.lt,
+			CALIBRATION_RUN_RETENTION_DAYS,
+		);
+		expect(mockCalibrationRun.deleteMany).toHaveBeenCalledWith({
+			where: { id: { in: ["c1"] } },
+		});
+	});
+
+	it("returns 0 and skips deleteMany when nothing is stale", async () => {
+		mockCalibrationRun.findMany.mockResolvedValue([] as never);
+
+		await expect(deleteOldCalibrationRuns()).resolves.toBe(0);
+		expect(mockCalibrationRun.deleteMany).not.toHaveBeenCalled();
+	});
+});
+
+describe("deleteOldAssistantActions", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("deletes proposals past 180 days, oldest first, in one batch", async () => {
+		mockAssistantAction.findMany.mockResolvedValue([{ id: "a1" }, { id: "a2" }] as never);
+		mockAssistantAction.deleteMany.mockResolvedValue({ count: 2 } as never);
+
+		await expect(deleteOldAssistantActions()).resolves.toBe(2);
+
+		expect(mockAssistantAction.findMany).toHaveBeenCalledWith({
+			where: { createdAt: { lt: expect.any(Date) } },
+			orderBy: { createdAt: "asc" },
+			select: { id: true },
+			take: 5000,
+		});
+		expectCutoff(
+			ageWhere(mockAssistantAction.findMany.mock.calls[0]?.[0]).createdAt?.lt,
+			ASSISTANT_ACTION_RETENTION_DAYS,
+		);
+		expect(mockAssistantAction.deleteMany).toHaveBeenCalledWith({
+			where: { id: { in: ["a1", "a2"] } },
+		});
+	});
+
+	it("returns 0 and skips deleteMany when nothing is stale", async () => {
+		mockAssistantAction.findMany.mockResolvedValue([] as never);
+
+		await expect(deleteOldAssistantActions()).resolves.toBe(0);
+		expect(mockAssistantAction.deleteMany).not.toHaveBeenCalled();
+	});
+});
+
+describe("deleteOldIssueReports", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("deletes resolved or non-OPEN reports past 365 days, oldest first", async () => {
+		mockIssueReport.findMany.mockResolvedValue([{ id: "r1" }, { id: "r2" }] as never);
+		mockIssueReport.deleteMany.mockResolvedValue({ count: 2 } as never);
+
+		await expect(deleteOldIssueReports()).resolves.toBe(2);
+
+		expect(mockIssueReport.findMany).toHaveBeenCalledWith({
+			where: {
+				createdAt: { lt: expect.any(Date) },
+				OR: [{ resolvedAt: { not: null } }, { status: { not: "OPEN" } }],
+			},
+			orderBy: { createdAt: "asc" },
+			select: { id: true },
+			take: 5000,
+		});
+		expectCutoff(
+			ageWhere(mockIssueReport.findMany.mock.calls[0]?.[0]).createdAt?.lt,
+			ISSUE_REPORT_RETENTION_DAYS,
+		);
+		expect(mockIssueReport.deleteMany).toHaveBeenCalledWith({
+			where: { id: { in: ["r1", "r2"] } },
+		});
+	});
+
+	it("never selects an open report, so an open report is never deleted", async () => {
+		// An open report has resolvedAt null and status OPEN, matching neither
+		// branch of the closure filter.
+		mockIssueReport.findMany.mockResolvedValue([] as never);
+
+		await expect(deleteOldIssueReports()).resolves.toBe(0);
+
+		const args = mockIssueReport.findMany.mock.calls[0]?.[0] as {
+			where?: { OR?: unknown[] };
+		};
+		expect(args?.where?.OR).toEqual([
+			{ resolvedAt: { not: null } },
+			{ status: { not: "OPEN" } },
+		]);
+		expect(mockIssueReport.deleteMany).not.toHaveBeenCalled();
+	});
+});
+
+describe("deleteOldReminderLogs", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("deletes delivery records past 180 days by sentAt, oldest first", async () => {
+		mockReminderLog.findMany.mockResolvedValue([{ id: "rl1" }] as never);
+		mockReminderLog.deleteMany.mockResolvedValue({ count: 1 } as never);
+
+		await expect(deleteOldReminderLogs()).resolves.toBe(1);
+
+		expect(mockReminderLog.findMany).toHaveBeenCalledWith({
+			where: { sentAt: { lt: expect.any(Date) } },
+			orderBy: { sentAt: "asc" },
+			select: { id: true },
+			take: 5000,
+		});
+		expectCutoff(
+			ageWhere(mockReminderLog.findMany.mock.calls[0]?.[0]).sentAt?.lt,
+			REMINDER_LOG_RETENTION_DAYS,
+		);
+		expect(mockReminderLog.deleteMany).toHaveBeenCalledWith({
+			where: { id: { in: ["rl1"] } },
+		});
+	});
+
+	it("returns 0 and skips deleteMany when nothing is stale", async () => {
+		mockReminderLog.findMany.mockResolvedValue([] as never);
+
+		await expect(deleteOldReminderLogs()).resolves.toBe(0);
+		expect(mockReminderLog.deleteMany).not.toHaveBeenCalled();
+	});
+});
+
+describe("deleteOldPlatformAuditLogs", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("deletes audit rows past 730 days, oldest first, in one batch", async () => {
+		mockPlatformAuditLog.findMany.mockResolvedValue([{ id: "p1" }] as never);
+		mockPlatformAuditLog.deleteMany.mockResolvedValue({ count: 1 } as never);
+
+		await expect(deleteOldPlatformAuditLogs()).resolves.toBe(1);
+
+		expect(mockPlatformAuditLog.findMany).toHaveBeenCalledWith({
+			where: { createdAt: { lt: expect.any(Date) } },
+			orderBy: { createdAt: "asc" },
+			select: { id: true },
+			take: 5000,
+		});
+		expectCutoff(
+			ageWhere(mockPlatformAuditLog.findMany.mock.calls[0]?.[0]).createdAt?.lt,
+			PLATFORM_AUDIT_LOG_RETENTION_DAYS,
+		);
+		expect(mockPlatformAuditLog.deleteMany).toHaveBeenCalledWith({
+			where: { id: { in: ["p1"] } },
+		});
+	});
+
+	it("returns 0 and skips deleteMany when nothing is stale", async () => {
+		mockPlatformAuditLog.findMany.mockResolvedValue([] as never);
+
+		await expect(deleteOldPlatformAuditLogs()).resolves.toBe(0);
+		expect(mockPlatformAuditLog.deleteMany).not.toHaveBeenCalled();
 	});
 });

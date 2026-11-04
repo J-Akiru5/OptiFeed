@@ -13,8 +13,8 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { after, describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
 
 const CHECK = fileURLToPath(new URL("../migration-ledger.mjs", import.meta.url));
 const roots = [];

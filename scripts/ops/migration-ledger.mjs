@@ -35,7 +35,10 @@ import { pathToFileURL } from "node:url";
 const KNOWN_COLLISIONS = [
 	{
 		prefix: "20261104130000",
-		migrations: ["20261104130000_cron_heartbeat", "20261104130000_notification_realtime_publication"],
+		migrations: [
+			"20261104130000_cron_heartbeat",
+			"20261104130000_notification_realtime_publication",
+		],
 		reason:
 			"Both were applied to production on 2026-11-03 before any check existed. Prisma sorted by name and ran both; renaming either one now would make Prisma see a missing migration plus a new one and try to re-run it. Fix forward only.",
 	},
@@ -104,7 +107,9 @@ function main(argv) {
 
 	const rejected = strict ? results : results.filter((result) => !result.accepted);
 	if (rejected.length === 0) {
-		console.log(`migration-ledger: OK (${results.length} known collision(s) accepted; run --strict to reject)`);
+		console.log(
+			`migration-ledger: OK (${results.length} known collision(s) accepted; run --strict to reject)`,
+		);
 		return 0;
 	}
 

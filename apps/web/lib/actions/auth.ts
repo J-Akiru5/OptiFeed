@@ -77,7 +77,10 @@ async function redirectAfterSignIn(
 	try {
 		landing = await getPostLoginDestination(farmId, supabaseId);
 	} catch (dbError) {
-		reportError(dbError, { action: "redirectAfterSignIn.landing", farmId });
+		// Fallback only: the sign-in still succeeds and lands on /dashboard, so
+		// this is not page-worthy. It is recorded because the destination lookup
+		// is broken.
+		reportError(dbError, { action: "loginWithPassword.landing", farmId }, "WARNING");
 	}
 
 	// #760: return to the page the proxy intercepted, but never override a
@@ -145,7 +148,9 @@ export async function loginWithPassword(
 		if (isNextRedirect(error)) {
 			throw error;
 		}
-		reportError(error, { action: "loginWithPassword", farmId });
+		// Any unexpected failure here means sign-in itself is broken for everyone,
+		// with no human watching the request. That is page-worthy.
+		reportError(error, { action: "loginWithPassword", farmId }, "CRITICAL");
 		return { error: "service" };
 	}
 }
@@ -218,7 +223,8 @@ export async function completeMfaLogin(code: string, nextPath?: string): Promise
 		if (isNextRedirect(error)) {
 			throw error;
 		}
-		reportError(error, { action: "completeMfaLogin" });
+		// The second sign-in step is broken for every MFA account, unattended.
+		reportError(error, { action: "completeMfaLogin" }, "CRITICAL");
 		return { error: "service" };
 	}
 }

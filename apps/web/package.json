@@ -1,6 +1,6 @@
 {
 	"name": "@optifeed/web",
-	"version": "1.56.0",
+	"version": "1.56.1",
 	"private": true,
 	"type": "module",
 	"scripts": {
@@ -24,7 +24,7 @@
 		"test:e2e:smoke": "playwright test --config=playwright.smoke.config.ts",
 		"seed:dev": "tsx prisma/seed-dev.ts",
 		"seed:tenant-b": "tsx scripts/seed-tenant-b.ts",
-		"cron:apply": "node scripts/ops/apply-cron-schedules.mjs",
+		"cron:apply": "tsx scripts/ops/apply-cron-schedules.ts",
 		"cron:health": "node scripts/ops/check-cron-health.mjs",
 		"cron:smoke": "node scripts/ops/smoke-cron-endpoints.mjs",
 		"manage-user": "tsx prisma/manage-users.ts",

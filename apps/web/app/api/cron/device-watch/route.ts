@@ -38,6 +38,10 @@ export const dynamic = "force-dynamic";
 
 export const GET = withApi(
 	withCronAuth(async () => {
+		// Start marker before the first query: a run killed by the wrapper/pg_net
+		// budget must still leave evidence that it started. See
+		// lib/ops/cron-heartbeat.ts for the three-state read model.
+		await recordCronHeartbeat("device-watch", "running");
 		try {
 			// 1. Dead-device detection: stale heartbeat, no disconnected event
 			//    since the last contact. The event itself is the dedup marker, so
@@ -220,7 +224,7 @@ export const GET = withApi(
 				platformAuditLogsDeleted,
 			});
 		} catch (error) {
-			reportError(error, { route: "cron/device-watch" });
+			reportError(error, { route: "cron/device-watch" }, "CRITICAL");
 			await recordCronHeartbeat("device-watch", "error", error);
 			return Response.json({ error: "Internal Error" }, { status: 500 });
 		}

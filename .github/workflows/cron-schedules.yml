@@ -71,6 +71,13 @@ jobs:
             pnpm --filter web cron:apply
           fi
 
+      - name: Verify the applied schedules
+        if: ${{ inputs.dry_run == false }}
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DIRECT_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: pnpm --filter web cron:apply -- --check
+
       - name: Smoke-call the endpoints
         if: ${{ inputs.dry_run == false && inputs.smoke == true }}
         env:

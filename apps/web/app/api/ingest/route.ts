@@ -822,7 +822,7 @@ export const POST = withApi(
 				if (isUniqueConstraintError(error)) {
 					return new Response(null, { status: 204 });
 				}
-				reportError(error, { route: "ingest", deviceId: device.id });
+				reportError(error, { route: "ingest", deviceId: device.id }, "ERROR");
 				throw error;
 			}
 		} else if (eventType === "feed_dispensed") {
@@ -959,7 +959,7 @@ export const POST = withApi(
 				if (isUniqueConstraintError(error)) {
 					return new Response(null, { status: 204 });
 				}
-				reportError(error, { route: "ingest", deviceId: device.id });
+				reportError(error, { route: "ingest", deviceId: device.id }, "ERROR");
 				throw error;
 			}
 		} else if (eventType === "schedule_acked") {
@@ -1041,7 +1041,7 @@ export const POST = withApi(
 				if (isUniqueConstraintError(error)) {
 					return new Response(null, { status: 204 });
 				}
-				reportError(error, { route: "ingest", deviceId: device.id });
+				reportError(error, { route: "ingest", deviceId: device.id }, "ERROR");
 				throw error;
 			}
 		} else if (eventType === "feed_refused") {
@@ -1146,7 +1146,7 @@ export const POST = withApi(
 				if (isUniqueConstraintError(error)) {
 					return new Response(null, { status: 204 });
 				}
-				reportError(error, { route: "ingest", deviceId: device.id });
+				reportError(error, { route: "ingest", deviceId: device.id }, "ERROR");
 				throw error;
 			}
 		} else if (eventType === "safety_trip") {
@@ -1205,7 +1205,7 @@ export const POST = withApi(
 				if (isUniqueConstraintError(error)) {
 					return new Response(null, { status: 204 });
 				}
-				reportError(error, { route: "ingest", deviceId: device.id });
+				reportError(error, { route: "ingest", deviceId: device.id }, "ERROR");
 				throw error;
 			}
 		}

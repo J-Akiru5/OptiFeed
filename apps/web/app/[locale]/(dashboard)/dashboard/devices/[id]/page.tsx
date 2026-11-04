@@ -71,6 +71,7 @@ export default async function DeviceDetailPage({
 					initialFirmwareVersion={detail.firmwareVersion}
 					initialFeedLevelUpdatedAt={detail.feedLevelUpdatedAt?.toISOString() ?? null}
 					initialSensorOffline={detail.sensorOffline}
+					initialPendingFeedRequest={detail.pendingFeedRequest}
 					staleAfterMs={detail.staleAfterMs}
 				/>
 

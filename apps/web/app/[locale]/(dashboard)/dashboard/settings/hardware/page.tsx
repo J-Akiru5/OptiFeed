@@ -542,6 +542,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 									initialWaterTempUpdatedAt={energyDevice.waterTempUpdatedAt?.toISOString() ?? null}
 									initialRtcOk={energyDevice.rtcOk}
 									initialLastSeenAt={energyDevice.lastSeenAt?.toISOString() ?? null}
+									initialSensorOffline={hopperSensorOffline}
 								/>
 							)}
 

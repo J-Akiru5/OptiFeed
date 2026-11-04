@@ -39,15 +39,42 @@ describe("FeederComponentStatusList", () => {
 		expect(html).toContain("Live");
 	});
 
-	it("keeps the last known level and marks every module offline", () => {
+	it("keeps the last known hopper level but shows the sensor offline", () => {
 		const html = renderToStaticMarkup(
 			<FeederComponentStatusList status="offline" level={30} active />,
 		);
 
 		expect(html).toContain("30%");
-		expect(html).toContain("Reading");
 		expect(html).toContain("Last known");
 		expect(html).toContain("Offline");
+		// #810: the sensor is not "Reading" while its unit is offline.
+		expect(html).not.toContain("Reading");
+		expect(html).toContain("—");
+	});
+
+	it("marks the hopper last known when an online unit's sensor is faulted (#810)", () => {
+		const html = renderToStaticMarkup(
+			<FeederComponentStatusList status="idle" level={30} sensorOffline active />,
+		);
+
+		expect(html).toContain("30%");
+		expect(html).toContain("Offline");
+		expect(html).not.toContain("Reading");
+		expect(html).toContain("—");
+		// The hopper is the only component whose reading is last known here;
+		// motor/auger still use the live tone while online and idle.
+		expect(html.match(/Last known/g)).toHaveLength(1);
+		expect(html).toMatch(/Hopper<\/dt>.*?30%.*?Last known/);
+	});
+
+	it("keeps the hopper at no reading when an online sensor is faulted without a level (#810)", () => {
+		const html = renderToStaticMarkup(
+			<FeederComponentStatusList status="idle" level={null} sensorOffline active />,
+		);
+
+		expect(html.match(/No reading/g)).toHaveLength(1);
+		expect(html).toContain("Offline");
+		expect(html).toContain("—");
 	});
 
 	it("shows no reading when the level is missing", () => {
@@ -55,7 +82,9 @@ describe("FeederComponentStatusList", () => {
 			<FeederComponentStatusList status="offline" level={null} active />,
 		);
 
-		expect(html).toContain("No reading");
+		// Only the hopper has no reading; the sensor itself is offline (#810).
+		expect(html.match(/No reading/g)).toHaveLength(1);
+		expect(html).toContain("Offline");
 		expect(html).toContain("—");
 	});
 

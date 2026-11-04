@@ -36,19 +36,18 @@ would lose the only copy of an active condition or a reporter's message.
 | First-party error capture | `ErrorEvent` | Reliability diagnostics; scrubbed before write | **30 days** after last seen | Legitimate interest (service reliability) | `deleteExpiredErrorEvents()` |
 | Water temperature | `WaterTempLog` | Water-quality trend charts | **365 days** | Contract (farm monitoring feature); farm is controller, PakaonAI processor | `deleteOldWaterTempLogs()` |
 | Hopper feed level | `FeedLevelLog` | Feed-level trend charts | **365 days** | Contract (farm monitoring feature); farm is controller, PakaonAI processor | `deleteOldFeedLevelLogs()` |
-| Notifications | `Notification` | Alert and episode history | **180 days after creation**, **closed rows only** | Contract / legitimate interest (alert history) | `deleteOldNotifications()`; an open alert (`resolvedAt` null, `autoCleared` false, `supersededById` null) is never deleted |
+| Notifications | `Notification` | Alert and episode history | **180 days after resolution**, **closed rows only** | Contract / legitimate interest (alert history) | `deleteOldNotifications()`; resolved rows age from `resolvedAt`, auto-cleared/superseded rows without it age from `createdAt`; an open alert (`resolvedAt` null, `autoCleared` false, `supersededById` null) is never deleted |
 | Calibration history | `CalibrationRun` | Feeder calibration and equipment-performance history | **730 days** | Contract / legitimate interest (equipment maintenance) | `deleteOldCalibrationRuns()` |
 | Assistant proposals | `AssistantAction` | Audit of AI-proposed actions the user accepted or rejected | **180 days** | Contract (requested AI feature) / legitimate interest (accountability) | `deleteOldAssistantActions()` |
-| Issue reports | `IssueReport` | Support triage and product quality | **365 days after creation**, **resolved or non-OPEN rows only** | Legitimate interest (handling the report); the optional email is volunteered for follow-up | `deleteOldIssueReports()`; an open report is never deleted |
+| Issue reports | `IssueReport` | Support triage and product quality | **365 days after resolution**, **resolved or non-OPEN rows only** | Legitimate interest (handling the report); the optional email is volunteered for follow-up | `deleteOldIssueReports()`; resolved rows age from `resolvedAt`, non-OPEN rows without it age from `createdAt`; an open report is never deleted |
 | Reminder delivery log | `ReminderLog` | Deduplicate and record reminders; `recipient` may hold an email address | **180 days** after `sentAt` | Contract / legitimate interest (delivering requested reminders) | `deleteOldReminderLogs()` |
 | Platform audit log | `PlatformAuditLog` | Security and administrative accountability; includes `ip` and `userAgent` | **730 days** | Legitimate interest (security) and legal obligation (accountability and security measures under the Data Privacy Act) | `deleteOldPlatformAuditLogs()` |
 | Organization record | `Organization` | Tenant identity, membership and status | While the tenant is active | Contract | **No automated purge.** See section 5 |
 
-For the two guarded tables the age clock is `createdAt`, matching the other
-sweeps. A notification or report created before the window and closed only
-recently is therefore eligible on the next run; if retention should be measured
-from closure instead, the filter must switch to `resolvedAt` (an owner
-decision).
+For the two guarded tables the age clock is `resolvedAt` when the row has a
+resolution timestamp, so a long-running alert or report that closes recently
+stays for the full window. Auto-cleared/superseded notifications and non-OPEN
+reports without `resolvedAt` fall back to `createdAt`.
 
 The windows are exported constants (`WATER_TEMP_RETENTION_DAYS`,
 `FEED_LEVEL_RETENTION_DAYS`, `NOTIFICATION_RETENTION_DAYS`,
@@ -171,10 +170,10 @@ rows listed in section 2.
   `apps/web/lib/__tests__/device-watch.test.ts` pins that the cron runs every
   sweep once and reports the counts.
 - This change adds no schema or migration. The existing
-  `WaterTempLog(deviceId, recordedAt)`, `FeedLevelLog(deviceId, recordedAt)` and
-  `PlatformAuditLog(createdAt)` indexes serve the per-device trend and the
-  global audit list; the notification sweep is served by the pond/farm
-  `createdAt` indexes only when a scope is supplied. The retention sweeps are
-  global and therefore rely on the 5,000-row batch bound, not on a new index.
+  `WaterTempLog(recordedAt)`, `FeedLevelLog(recordedAt)` and
+  `ReminderLog(sentAt)` indexes serve the global retention cutoffs;
+  `PlatformAuditLog(createdAt)` serves the audit sweep. The migration
+  `20261104140000_retention_indexes` adds the three new indexes. The 5,000-row
+  batch still bounds the delete itself.
 - No sweep was executed against a database as part of this change. The first
   real deletion happens on the deployed cron after release.

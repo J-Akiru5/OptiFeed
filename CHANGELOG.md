@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Bounded retention for telemetry and personal data (#726).** `lib/retention.ts` now prunes `WaterTempLog` and `FeedLevelLog` after 365 days, closed `Notification` rows after 180 days, `CalibrationRun` after 730 days, `AssistantAction` after 180 days, resolved `IssueReport` rows after 365 days, `ReminderLog` after 180 days and `PlatformAuditLog` after 730 days. Each sweep removes at most one 5,000-row batch per device-watch run; an open alert or an open report is never deleted.
+- **Bounded retention for telemetry and personal data (#726).** `lib/retention.ts` now prunes `WaterTempLog` and `FeedLevelLog` after 365 days, closed `Notification` rows 180 days after resolution, `CalibrationRun` after 730 days, `AssistantAction` after 180 days, resolved `IssueReport` rows 365 days after resolution, `ReminderLog` after 180 days and `PlatformAuditLog` after 730 days. Each sweep removes at most one 5,000-row batch per device-watch run; an open alert or an open report is never deleted. Additive migration `20261104140000_retention_indexes` adds the global `recordedAt`/`sentAt` indexes the sweeps need.
 
 ### Changed
 

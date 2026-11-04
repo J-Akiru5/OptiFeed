@@ -422,13 +422,13 @@ describe("deleteOldNotifications", () => {
 
 		await expect(deleteOldNotifications()).resolves.toBe(3);
 
+		const where = ageWhere(mockNotification.findMany.mock.calls[0]?.[0]);
 		expect(mockNotification.findMany).toHaveBeenCalledWith({
 			where: {
-				createdAt: { lt: expect.any(Date) },
 				OR: [
-					{ resolvedAt: { not: null } },
-					{ autoCleared: true },
-					{ supersededById: { not: null } },
+					{ resolvedAt: { lt: expect.any(Date) } },
+					{ resolvedAt: null, autoCleared: true, createdAt: { lt: expect.any(Date) } },
+					{ resolvedAt: null, supersededById: { not: null }, createdAt: { lt: expect.any(Date) } },
 				],
 			},
 			orderBy: { createdAt: "asc" },
@@ -436,7 +436,7 @@ describe("deleteOldNotifications", () => {
 			take: 5000,
 		});
 		expectCutoff(
-			ageWhere(mockNotification.findMany.mock.calls[0]?.[0]).createdAt?.lt,
+			(where.OR?.[0] as { resolvedAt: { lt: Date } }).resolvedAt.lt,
 			NOTIFICATION_RETENTION_DAYS,
 		);
 		expect(mockNotification.deleteMany).toHaveBeenCalledWith({
@@ -455,9 +455,9 @@ describe("deleteOldNotifications", () => {
 			where?: { OR?: unknown[] };
 		};
 		expect(args?.where?.OR).toEqual([
-			{ resolvedAt: { not: null } },
-			{ autoCleared: true },
-			{ supersededById: { not: null } },
+			{ resolvedAt: { lt: expect.any(Date) } },
+			{ resolvedAt: null, autoCleared: true, createdAt: { lt: expect.any(Date) } },
+			{ resolvedAt: null, supersededById: { not: null }, createdAt: { lt: expect.any(Date) } },
 		]);
 		expect(mockNotification.deleteMany).not.toHaveBeenCalled();
 	});
@@ -552,17 +552,20 @@ describe("deleteOldIssueReports", () => {
 
 		await expect(deleteOldIssueReports()).resolves.toBe(2);
 
+		const where = ageWhere(mockIssueReport.findMany.mock.calls[0]?.[0]);
 		expect(mockIssueReport.findMany).toHaveBeenCalledWith({
 			where: {
-				createdAt: { lt: expect.any(Date) },
-				OR: [{ resolvedAt: { not: null } }, { status: { not: "OPEN" } }],
+				OR: [
+					{ resolvedAt: { lt: expect.any(Date) } },
+					{ resolvedAt: null, status: { not: "OPEN" }, createdAt: { lt: expect.any(Date) } },
+				],
 			},
 			orderBy: { createdAt: "asc" },
 			select: { id: true },
 			take: 5000,
 		});
 		expectCutoff(
-			ageWhere(mockIssueReport.findMany.mock.calls[0]?.[0]).createdAt?.lt,
+			(where.OR?.[0] as { resolvedAt: { lt: Date } }).resolvedAt.lt,
 			ISSUE_REPORT_RETENTION_DAYS,
 		);
 		expect(mockIssueReport.deleteMany).toHaveBeenCalledWith({
@@ -581,8 +584,8 @@ describe("deleteOldIssueReports", () => {
 			where?: { OR?: unknown[] };
 		};
 		expect(args?.where?.OR).toEqual([
-			{ resolvedAt: { not: null } },
-			{ status: { not: "OPEN" } },
+			{ resolvedAt: { lt: expect.any(Date) } },
+			{ resolvedAt: null, status: { not: "OPEN" }, createdAt: { lt: expect.any(Date) } },
 		]);
 		expect(mockIssueReport.deleteMany).not.toHaveBeenCalled();
 	});

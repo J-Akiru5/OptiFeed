@@ -196,6 +196,10 @@ export async function deleteOldFeedLevelLogs(batchSize = DEFAULT_BATCH_SIZE): Pr
  * that are already closed. An open alert — `resolvedAt` null, `autoCleared`
  * false and `supersededById` null — is never deleted, regardless of age.
  *
+ * The age clock is `resolvedAt` for a resolved alert, so a long-running alert
+ * that closes today is kept for the full window. Auto-cleared/superseded rows
+ * without a `resolvedAt` fall back to `createdAt`.
+ *
  * One oldest-first batch per cron run.
  */
 export async function deleteOldNotifications(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
@@ -203,11 +207,10 @@ export async function deleteOldNotifications(batchSize = DEFAULT_BATCH_SIZE): Pr
 
 	const stale = await prisma.notification.findMany({
 		where: {
-			createdAt: { lt: cutoff },
 			OR: [
-				{ resolvedAt: { not: null } },
-				{ autoCleared: true },
-				{ supersededById: { not: null } },
+				{ resolvedAt: { lt: cutoff } },
+				{ resolvedAt: null, autoCleared: true, createdAt: { lt: cutoff } },
+				{ resolvedAt: null, supersededById: { not: null }, createdAt: { lt: cutoff } },
 			],
 		},
 		orderBy: { createdAt: "asc" },
@@ -275,6 +278,9 @@ export async function deleteOldAssistantActions(batchSize = DEFAULT_BATCH_SIZE):
  * they are no longer open. A report with `status = OPEN` and no `resolvedAt`
  * is the only copy of the reporter's message and is never deleted.
  *
+ * The age clock is `resolvedAt` for a resolved report; a non-OPEN report with
+ * no resolved timestamp falls back to `createdAt`.
+ *
  * One oldest-first batch per cron run.
  */
 export async function deleteOldIssueReports(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
@@ -282,8 +288,10 @@ export async function deleteOldIssueReports(batchSize = DEFAULT_BATCH_SIZE): Pro
 
 	const stale = await prisma.issueReport.findMany({
 		where: {
-			createdAt: { lt: cutoff },
-			OR: [{ resolvedAt: { not: null } }, { status: { not: "OPEN" } }],
+			OR: [
+				{ resolvedAt: { lt: cutoff } },
+				{ resolvedAt: null, status: { not: "OPEN" }, createdAt: { lt: cutoff } },
+			],
 		},
 		orderBy: { createdAt: "asc" },
 		select: { id: true },

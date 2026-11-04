@@ -318,10 +318,11 @@ It then prints two evidence sets:
 1. **Why FCR is stale** — each report's claimed feed/gain vs the logged feed and
    the number of biomass samples in the window. This is the G2 contradiction,
    per row.
-2. **The modelled level series** — per farm day, the count, min/max percent and
-   min/max cm for the rows this run inserted. A sawtooth (a drop per machine
-   feed, a jump at a refill) is the expected shape; a flat 1.8 %-per-reading
-   line is the old, unreconciled seed.
+2. **The modelled level series** — per farm day, the count, min/max percent, min/max
+   cm and the day's machine-feed grams for every synthetic level row in the demo
+   tenant (this run's inserts plus any earlier batch). A sawtooth (a drop per
+   machine feed, a jump at a refill) is the expected shape; a flat 1.8
+   %-per-reading line is the old, unreconciled seed.
 
 A `FAIL` means stop and investigate; do not re-run blindly. The reconcile
 transaction has already committed at that point, so a failure in `verify.sql` is

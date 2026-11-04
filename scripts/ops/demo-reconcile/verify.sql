@@ -420,24 +420,45 @@ WHERE r."pondId" IN (
 ORDER BY r."periodStart";
 
 -- -----------------------------------------------------------------------------
--- Evidence: the modelled level series per farm day for the rows this run
--- inserted. A sawtooth (a drop per machine feed, a jump at a refill) is the
--- expected shape; a flat 1.8 %-per-reading line is the old, unreconciled seed.
+-- Evidence: the modelled level series per farm day for every synthetic row in
+-- the demo tenant (this run's inserts plus any earlier batch). A sawtooth (a
+-- drop per machine feed, a jump at a refill) is the expected shape; a flat
+-- 1.8 %-per-reading line is the old, unreconciled seed. The machine-feed column
+-- is the day's dispensed grams, the series the level should follow.
 -- -----------------------------------------------------------------------------
-SELECT ((l."recordedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Manila')::date AS farm_day,
-       count(*) AS readings,
-       round(min(l."levelPercent")::numeric, 2) AS min_pct,
-       round(max(l."levelPercent")::numeric, 2) AS max_pct,
-       round(min(l."distanceCm")::numeric, 2) AS min_cm,
-       round(max(l."distanceCm")::numeric, 2) AS max_cm
-FROM "FeedLevelLog" l
-WHERE l.id IN (
-    SELECT jsonb_array_elements_text(x.metadata -> 'levelLogIds')
-    FROM "DeviceStateEvent" x
-    WHERE x."eventType" = 'data_imported'
-      AND x."farmId" = 'farm_demo-farmer-1'
-      AND x.metadata ->> 'issue' = '709'
-      AND x.metadata ->> 'kind' = 'demo-history-reconcile'
+WITH synth_day AS (
+    SELECT l."deviceId" AS device_id,
+           ((l."recordedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Manila')::date AS farm_day,
+           count(*) AS readings,
+           min(l."levelPercent") AS min_pct,
+           max(l."levelPercent") AS max_pct,
+           min(l."distanceCm") AS min_cm,
+           max(l."distanceCm") AS max_cm
+    FROM "FeedLevelLog" l
+    WHERE l."dataSource" = 'synthetic'
+      AND l."deviceId" IN (
+          SELECT d.id
+          FROM "EnergyDevice" d
+          JOIN "Pond" p ON p.id = d."pondId"
+          WHERE p."ownerId" = 'demo-farmer-1'
+            AND p."farmId" = 'farm_demo-farmer-1'
+      )
+    GROUP BY 1, 2
 )
-GROUP BY 1
-ORDER BY 1;
+SELECT s.device_id,
+       s.farm_day,
+       s.readings,
+       round(s.min_pct::numeric, 2) AS min_pct,
+       round(s.max_pct::numeric, 2) AS max_pct,
+       round(s.min_cm::numeric, 2) AS min_cm,
+       round(s.max_cm::numeric, 2) AS max_cm,
+       (
+           SELECT round(coalesce(sum(e.grams), 0)::numeric, 1)
+           FROM "FeedEvent" e
+           WHERE e."deviceId" = s.device_id
+             AND e."eventType" = 'feed_dispensed'
+             AND e.source IN ('scheduled', 'dashboard', 'button')
+             AND ((e."receivedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Manila')::date = s.farm_day
+       ) AS machine_feed_g
+FROM synth_day s
+ORDER BY s.farm_day;

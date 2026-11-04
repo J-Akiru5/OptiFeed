@@ -1,7 +1,8 @@
 # #711 — Dedicated tenant DB role (Option A, Phase 1)
 
-**Status: Option A selected by the owner. Phase 1 prepared here, not applied. No data is deleted
-by this plan.**
+**Status: Option A selected by the owner. The Phase 1 migration is prepared in
+`apps/web/prisma/migrations/20261104150000_tenant_app_role_phase1` and is not applied. No data is
+deleted by this phase.**
 Prepared: 2026-11-04. Related: #711, `docs/database-rls-retention.md`,
 `docs/audits/2026-11-03-production-readiness.md` (B17).
 
@@ -19,14 +20,14 @@ migration because it must not apply itself before the switch is ready.
 
 ## 2. Non-destructive guarantee
 
-The draft SQL only contains:
+The Phase 1 migration only contains:
 
 - `CREATE ROLE` if absent,
 - `GRANT` statements,
 - `ENABLE ROW LEVEL SECURITY` (idempotent),
 - `CREATE POLICY` statements.
 
-It contains **no** `DROP`, `DELETE`, `TRUNCATE`, `ALTER COLUMN`, `UPDATE` or data backfill.
+It contains **no** `DELETE`, `TRUNCATE`, `DROP TABLE`, `ALTER COLUMN`, `INSERT` or data backfill.
 Existing rows are untouched. The current app keeps using `postgres` (BYPASSRLS), so applying the
 role/policies does not change app behaviour until the connection string is switched.
 
@@ -48,7 +49,8 @@ The app already resolves the authenticated Supabase user to `User.farmId` and th
 `Membership`/`Organization` in `lib/auth/*`. Before the switch, each transaction must set:
 
 ```sql
-SET LOCAL app.farm_id = '<Farm.id or User.farmId as appropriate>';
+SET LOCAL app.farm_ids = 'farm-a,farm-b';  -- User.farmId login slugs from OrgScope
+SET LOCAL app.pond_ids = 'pond-1,pond-2';  -- Pond ids from OrgScope
 SET LOCAL app.user_id = '<User.id>';
 SET LOCAL app.supabase_id = '<Supabase Auth user id>';
 SET LOCAL app.org_id = '<Organization.id>';
@@ -63,17 +65,22 @@ this plan branch and must be completed and tested before the connection changes.
 
 | Table | Tenant rule |
 | --- | --- |
-| `Farm` | `id = app.farm_id OR ownerId = app.farm_id` |
-| `Pond` | `farmId = app.farm_id` |
-| `User` | `farmId = app.farm_id OR supabaseId = app.supabase_id` |
+| `Farm` | `ownerId = ANY(app.farm_ids)` |
+| `Pond` | `ownerId = ANY(app.farm_ids) OR id = ANY(app.pond_ids)` |
+| `User` | `farmId = ANY(app.farm_ids) OR supabaseId = app.supabase_id` |
 | `Membership` | `orgId = app.org_id OR userId = app.user_id` |
 | `Organization` | `id = app.org_id` |
-| `FeedEvent` | `farmId = app.farm_id` OR device → pond → farm |
-| `Notification` | `farmId = app.farm_id` OR pond → farm |
-| `FeedRequest` | `farmId = app.farm_id` OR device → pond → farm |
-| `WaterTempLog` | `farmId = app.farm_id` OR device → pond → farm |
-| `FeedLevelLog` | `farmId = app.farm_id` OR device → pond → farm |
-| `DeviceStateEvent` | `farmId = app.farm_id` OR device → pond → farm |
+| `EnergyDevice` | device → pond → `ownerId = ANY(app.farm_ids)` |
+| `FeedEvent` | device → pond → `ownerId = ANY(app.farm_ids)` |
+| `Notification` | `pondId = ANY(app.pond_ids)` OR pond → `ownerId = ANY(app.farm_ids)` |
+| `FeedRequest` | device → pond → `ownerId = ANY(app.farm_ids)` |
+| `WaterTempLog` | device → pond → `ownerId = ANY(app.farm_ids)` |
+| `FeedLevelLog` | device → pond → `ownerId = ANY(app.farm_ids)` |
+| `DeviceStateEvent` | device → pond → `ownerId = ANY(app.farm_ids)` |
+
+`app.farm_ids` and `app.pond_ids` are comma-separated lists, matching `OrgScope.farmIds` and
+`OrgScope.pondIds`. An unset setting makes `= ANY(NULL)` false, so the role sees no rows by
+default.
 
 The fallback joins are needed because several historical rows predate the immutable `farmId`
 stamp and have `farmId = NULL`.
@@ -93,7 +100,7 @@ must be resolved before the switch.
 
 Before the switch, run with the app role and a two-tenant fixture:
 
-1. `SET LOCAL app.farm_id = '<farm-A>'`.
+1. `SET LOCAL app.farm_ids = '<farm-A>'` and `SET LOCAL app.pond_ids = '<pond-A>'`.
 2. `SELECT count(*) FROM "Pond"` → only farm A rows.
 3. `SELECT count(*) FROM "FeedEvent"` → only farm A rows.
 4. `SELECT count(*) FROM "Notification"` → only farm A rows.
@@ -105,7 +112,7 @@ The same assertions belong in an automated test once the app-side `withTenant` h
 ## 5. Switch plan (owner-run, planned window)
 
 1. Take a verified backup and record the restore point.
-2. Apply the draft SQL (or the reviewed migration) while the app still uses `postgres`. This is
+2. Apply `20261104150000_tenant_app_role_phase1` while the app still uses `postgres`. This is
    inert for the app.
 3. Set the `optifeed_app` password and store it in the deployment secret manager.
 4. On a staging copy, run the two-tenant proof and the app's full test suite with
@@ -120,12 +127,35 @@ remain; nothing is deleted.
 
 ## 6. What is explicitly not done here
 
-- No Prisma migration.
 - No app connection-string change.
-- No app-side `withTenant` refactor.
 - No data deletion.
 - No policy applied to any database.
 
-## 7. Draft SQL
+## 7. Phase 1 migration
 
-See `docs/security/711-tenant-role-draft.sql`. It is a review artifact, not a migration.
+See `apps/web/prisma/migrations/20261104150000_tenant_app_role_phase1/migration.sql`. It creates
+the role, grants and core policies; it is inert for the current `postgres` connection.
+
+## 8. Phase 2 implementation (this branch)
+
+- `apps/web/lib/db/tenant-context.ts` provides `withTenant()` and `applyTenantContext()`. They set
+  `app.farm_ids`, `app.pond_ids`, `app.user_id`, `app.supabase_id` and `app.org_ids` with
+  transaction-local `set_config(..., true)`. A unit test pins the order, values and omission of
+  empty arrays.
+- `apps/web/prisma/migrations/20261104160000_tenant_app_role_phase2/migration.sql` adds policies
+  for the remaining tenant tables (`BiomassLog`, `FcrReport`, `FishSample`, `CalibrationRun`,
+  `ScheduleCommand`, `PondSettingsDraft`, `PondEvent`, `MortalityLog`, `CropCycle`, `ReminderLog`,
+  `DeviceConnectivityDaily`, `ImportConfirmation`, `AssistantAction`, `BackgroundJob`,
+  `JobArtifact`, `PondOwnershipHistory`, `Device`, `FeedingEvent`, `OrgSetting`) and replaces the
+  two single-org policies with `app.org_ids`.
+- Platform-only tables remain default-deny for `optifeed_app`: `AiProviderConfig`, `PlatformAdmin`,
+  `PlatformAuditLog`, `ImpersonationSession`, `PlatformIncident`, `PlatformIncidentEvent`,
+  `PlatformSetting`, `ErrorEvent`, `IssueReport`, `CronHeartbeat`. Platform-admin paths must keep a
+  privileged connection until a separate platform context is designed.
+- The app is **not switched**. Route handlers and actions must be moved to `withTenant` (or
+  `applyTenantContext` inside an existing transaction) before the `DATABASE_URL` change. Platform
+  admin paths are excluded from the tenant role.
+- `scripts/security/tenant-isolation-proof.mjs` is the read-only two-tenant proof. It compares
+  privileged and `optifeed_app` counts for two farms and fails if a cross-tenant read is non-zero.
+  Run it on a staging copy before the switch. See `docs/security/tenant-isolation-proof.md`.
+- The switch window remains owner-run.

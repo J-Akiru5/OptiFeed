@@ -177,23 +177,7 @@ export default async function DashboardLayout({
 					<NotificationProvider pondId={pondId} initialUnreadCount={initialUnreadCount}>
 						<header className="z-30 w-full shrink-0 bg-[#0A3D62] shadow-[inset_0_-1px_0_rgba(255,255,255,0.14)]">
 							<GlobalSearch shell="farmer" />
-							<MobileHeader
-								shell="farmer"
-								isTenantAdmin={isTenantAdmin}
-								subtitle={
-									showPondChrome ? (
-										<div className="flex items-center gap-1.5">
-											<PondSelector ponds={ponds} activePondId={activePondId} />
-											{esp32Status !== "missing" && (
-												<>
-													<span aria-hidden="true">·</span>
-													<span className="shrink-0">{deviceStatusLabel}</span>
-												</>
-											)}
-										</div>
-									) : null
-								}
-							>
+							<MobileHeader>
 								<CompactHeaderActions
 									initialUser={
 										currentUser
@@ -316,7 +300,22 @@ export default async function DashboardLayout({
 						health={monitoringHealth}
 						show={showPondChrome}
 					/>
-					<BottomNav />
+					<BottomNav
+						isTenantAdmin={isTenantAdmin}
+						pondContext={
+							showPondChrome ? (
+								<div className="flex items-center gap-1.5">
+									<PondSelector ponds={ponds} activePondId={activePondId} />
+									{esp32Status !== "missing" && (
+										<>
+											<span aria-hidden="true">·</span>
+											<span className="shrink-0">{deviceStatusLabel}</span>
+										</>
+									)}
+								</div>
+							) : null
+						}
+					/>
 					<FabStack />
 				</div>
 			</OnboardingProvider>

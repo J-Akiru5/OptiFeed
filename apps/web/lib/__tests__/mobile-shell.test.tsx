@@ -71,15 +71,20 @@ describe("farmer bottom bar (E26)", () => {
 		pathname.current = "/dashboard";
 	});
 
-	it("renders exactly five tabs and marks the active one", () => {
+	it("renders four destinations plus a right-most More tab, and marks the active one", () => {
 		const html = renderToStaticMarkup(<BottomNav />);
 
-		expect(html.split("<a ").length - 1).toBe(5);
+		// Four links; the fifth slot is the More tab, which is a sheet trigger
+		// rather than an anchor, so counting links alone would miss it.
+		expect(html.split("<a ").length - 1).toBe(4);
 		expect(html.split('aria-current="page"').length - 1).toBe(1);
 
-		for (const label of ["Overview", "Schedule", "Biomass Log", "Alerts", "Me"]) {
+		for (const label of ["Overview", "Schedule", "Biomass Log", "Alerts", "More"]) {
 			expect(html).toContain(`>${label}<`);
 		}
+		// Settings is no longer a tab: it stays one tap away in the More sheet.
+		expect(html).not.toContain(">Me<");
+		expect(html.split('data-mobile-trigger="more"').length - 1).toBe(1);
 		// The bar clears the device safe area and never shows on desktop.
 		expect(html).toContain("env(safe-area-inset-bottom)");
 		expect(html).toContain("lg:hidden");

@@ -247,7 +247,7 @@ export function QuickMenu({
 	label,
 	active = false,
 	className,
-	variant = "bar",
+	tone = "navy",
 	bandContext,
 	bandActions,
 }: {
@@ -260,10 +260,10 @@ export function QuickMenu({
 	active?: boolean;
 	className?: string;
 	/**
-	 * `bar` is the bottom-bar tab (full width, icon over label); `pill` is the
-	 * 44 px header control, for the `more` trigger inside the top band.
+	 * The bottom bar this tab sits in: `navy` for the admin and platform bars,
+	 * `light` for the farmer bar, which is white with dark labels.
 	 */
-	variant?: "bar" | "pill";
+	tone?: "navy" | "light";
 	/**
 	 * Pond name / device status, shown on a navy card at the top of the sheet.
 	 * These used to sit in a second header row that cost 120 px of a phone
@@ -384,10 +384,14 @@ export function QuickMenu({
 
 	const triggerClasses = isMore
 		? cn(
-				variant === "pill"
-					? "inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none [&_svg]:h-[18px] [&_svg]:w-[18px]"
-					: "relative flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 transition-colors focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none",
-				active ? "text-white" : "text-white/75 hover:text-white",
+				"relative flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 transition-colors focus-visible:ring-2 focus-visible:ring-[#0A3D62] focus-visible:ring-inset focus-visible:outline-none dark:focus-visible:ring-[#8fc0ea]",
+				tone === "light"
+					? active
+						? "text-[#C2410C] dark:text-[#ff8a5c]"
+						: "text-[#3D5568] hover:text-[#0A3D62] dark:text-gray-300 dark:hover:text-white"
+					: active
+						? "text-white"
+						: "text-white/75 hover:text-white",
 				className,
 			)
 		: cn(triggerClass, className);

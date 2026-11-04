@@ -2,19 +2,23 @@
 
 import { Link, usePathname } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
-import { Bell, Clock, Compass, Fish, User } from "lucide-react";
+import { Bell, Clock, Compass, Fish } from "lucide-react";
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
+import { QuickMenu } from "./mobile/quick-menu";
 
 /**
  * The farmer app's five-tab bottom bar (E26).
  *
- * Five destinations, not the previous six: Overview, Schedule, Biomass Log,
- * Alerts and Me. Ponds and feeders have no farmer list page of their own (the
- * pond list lives in the tenant admin console), so the fifth slot is the
- * biomass log — the action farmers take most often — and Alerts replaces the
- * separate History tab. Every other page (Calendar, History, Growth, Harvest,
- * Audit, Settings) stays one tap away in the "+" quick menu, which is reachable
- * from every screen, so nothing becomes unreachable.
+ * Four destinations plus **More**, right-most: Overview, Schedule, Biomass Log,
+ * Alerts, More. The bar carries the navigation, which is where a phone app puts
+ * it, so the header band above stays a single thin row of brand, search, theme
+ * and account.
+ *
+ * History used to be its own tab and Settings did too; both now live in the More
+ * sheet along with Calendar, Growth, Harvest and Audit, the pond switcher, the
+ * device status and help. Nothing is unreachable: More is a permanent tab, and a
+ * page that is not one of the four stays one tap away.
  *
  * The bar is fixed, above the device safe area, and the page passes
  * `--ofd-bottom-nav-h` to its own bottom padding (`.ofd-main`) so no content is
@@ -25,12 +29,24 @@ const TABS = [
 	{ href: "/dashboard/schedule", key: "schedule", icon: Clock },
 	{ href: "/dashboard/log-sample", key: "logSample", icon: Fish },
 	{ href: "/dashboard/notifications", key: "alerts", icon: Bell },
-	{ href: "/dashboard/settings", key: "me", icon: User },
 ] as const;
 
-export function BottomNav() {
+export function BottomNav({
+	isTenantAdmin = false,
+	pondContext,
+}: {
+	isTenantAdmin?: boolean;
+	/** Pond switcher and device status, shown in the More sheet. */
+	pondContext?: ReactNode;
+}) {
 	const t = useTranslations("nav");
+	const tMobile = useTranslations("dashboard.mobile");
 	const pathname = usePathname();
+	const moreActive = !TABS.some((tab) =>
+		tab.href === "/dashboard"
+			? pathname === "/dashboard"
+			: pathname === tab.href || pathname.startsWith(`${tab.href}/`),
+	);
 
 	return (
 		<nav
@@ -82,6 +98,18 @@ export function BottomNav() {
 						</li>
 					);
 				})}
+
+				<li className="min-w-0 flex-1">
+					<QuickMenu
+						shell="farmer"
+						isTenantAdmin={isTenantAdmin}
+						trigger="more"
+						tone="light"
+						label={tMobile("more")}
+						active={moreActive}
+						bandContext={pondContext}
+					/>
+				</li>
 			</ul>
 		</nav>
 	);

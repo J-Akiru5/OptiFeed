@@ -69,7 +69,7 @@ export default async function SuperadminLayout({
 
 				<header className="sticky top-0 z-30 w-full shrink-0 bg-console-header shadow-md">
 					<GlobalSearch shell="platform" />
-					<MobileHeader shell="platform" isTenantAdmin={hasFarmDashboard} subtitle={t("console")}>
+					<MobileHeader>
 						{/* The band owns the mobile theme switch, so passing one here would
 						    render a second, differently sized toggle next to it. */}
 						{helpEnabled && <HelpButton audience="superadmin" className="h-11 w-11" />}

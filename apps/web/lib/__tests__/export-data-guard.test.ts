@@ -100,4 +100,14 @@ describe("export filenames", () => {
 		expect(header).toContain("recordedAt");
 		expect(header.length).toBeGreaterThan(0);
 	});
+
+	it("stops an aborted export before running its query (#728)", async () => {
+		const controller = new AbortController();
+		controller.abort();
+
+		await expect(buildCsvExport("farm-a", "biomass_logs", controller.signal)).rejects.toMatchObject(
+			{ name: "JobCancelledError" },
+		);
+		expect(prisma.biomassLog.findMany).not.toHaveBeenCalled();
+	});
 });

@@ -1,6 +1,7 @@
 import { notFound } from "@/lib/api/errors";
 import { resolveActivePond } from "@/lib/auth/pond-access";
 import { dateToFarmDateOnly } from "@/lib/crop-cycle/dates";
+import { throwIfAborted } from "@/lib/jobs/cancellation";
 import type { ExportArtifact } from "@/lib/jobs/export-data";
 import { formatFarmDate, safeFilenamePart } from "@/lib/jobs/pdf-export";
 import prisma from "@/lib/prisma";
@@ -166,7 +167,12 @@ function drawSummaryKpis(
 	return { nextY: y + 30, rest };
 }
 
-export async function buildReportPdf(ownerId: string, kind: ReportKind): Promise<ExportArtifact> {
+export async function buildReportPdf(
+	ownerId: string,
+	kind: ReportKind,
+	signal?: AbortSignal,
+): Promise<ExportArtifact> {
+	throwIfAborted(signal);
 	const pond = await resolveActivePond(ownerId);
 	if (!pond) throw notFound("No pond found.");
 

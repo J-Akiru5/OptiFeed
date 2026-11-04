@@ -235,7 +235,11 @@ describe("runJob exports", () => {
 	it("stores the CSV artifact and marks the job succeeded", async () => {
 		await runJob(JOB);
 
-		expect(mocks.buildCsvExport).toHaveBeenCalledWith("farm-a", "feed_events");
+		expect(mocks.buildCsvExport).toHaveBeenCalledWith(
+			"farm-a",
+			"feed_events",
+			expect.any(AbortSignal),
+		);
 		expect(mocks.updateMany).toHaveBeenCalledWith({
 			where: { id: "job_1", lockedBy: "worker-1", status: "running" },
 			data: {
@@ -295,13 +299,17 @@ describe("runJob exports", () => {
 			payload: { types: ["feed_events", "ponds"] },
 		} as unknown as BackgroundJob);
 
-		expect(mocks.buildBatchExport).toHaveBeenCalledWith("farm-a", ["feed_events", "ponds"]);
+		expect(mocks.buildBatchExport).toHaveBeenCalledWith(
+			"farm-a",
+			["feed_events", "ponds"],
+			expect.any(AbortSignal),
+		);
 	});
 
 	it("builds a PDF for the job owner", async () => {
 		await runJob({ ...JOB, type: "export_pdf", payload: {} } as unknown as BackgroundJob);
 
-		expect(mocks.buildPdfExport).toHaveBeenCalledWith("farm-a");
+		expect(mocks.buildPdfExport).toHaveBeenCalledWith("farm-a", expect.any(AbortSignal));
 		expect(mocks.buildReportPdf).not.toHaveBeenCalled();
 	});
 
@@ -312,7 +320,7 @@ describe("runJob exports", () => {
 			payload: { report: "summary" },
 		} as unknown as BackgroundJob);
 
-		expect(mocks.buildPdfExport).toHaveBeenCalledWith("farm-a");
+		expect(mocks.buildPdfExport).toHaveBeenCalledWith("farm-a", expect.any(AbortSignal));
 		expect(mocks.buildReportPdf).not.toHaveBeenCalled();
 	});
 
@@ -323,7 +331,7 @@ describe("runJob exports", () => {
 			payload: { report: "sgr" },
 		} as unknown as BackgroundJob);
 
-		expect(mocks.buildReportPdf).toHaveBeenCalledWith("farm-a", "sgr");
+		expect(mocks.buildReportPdf).toHaveBeenCalledWith("farm-a", "sgr", expect.any(AbortSignal));
 		expect(mocks.buildPdfExport).not.toHaveBeenCalled();
 	});
 
@@ -334,10 +342,11 @@ describe("runJob exports", () => {
 			payload: { types: ["biomass_logs", "feeding_schedule"] },
 		} as unknown as BackgroundJob);
 
-		expect(mocks.buildXlsxExport).toHaveBeenCalledWith("farm-a", [
-			"biomass_logs",
-			"feeding_schedule",
-		]);
+		expect(mocks.buildXlsxExport).toHaveBeenCalledWith(
+			"farm-a",
+			["biomass_logs", "feeding_schedule"],
+			expect.any(AbortSignal),
+		);
 		expect(mocks.upsert).toHaveBeenCalled();
 	});
 });

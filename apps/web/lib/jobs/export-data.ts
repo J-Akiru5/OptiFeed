@@ -3,6 +3,7 @@ import { resolveActivePond } from "@/lib/auth/pond-access";
 import { EXPORT_ROW_LIMIT } from "@/lib/constants";
 import { dateToFarmDateOnly } from "@/lib/crop-cycle/dates";
 import { type ExportableType, toCsvString } from "@/lib/csv";
+import { throwIfAborted } from "@/lib/jobs/cancellation";
 import prisma from "@/lib/prisma";
 import { buildScheduleRows } from "@/lib/schedule/sheet";
 import { type SheetType, TYPE_FIELDS } from "@/lib/xlsx/schema";
@@ -47,12 +48,17 @@ interface ExportContext {
 	deviceId: string | null;
 }
 
-export async function loadExportContext(ownerId: string): Promise<ExportContext> {
+export async function loadExportContext(
+	ownerId: string,
+	signal?: AbortSignal,
+): Promise<ExportContext> {
+	throwIfAborted(signal);
 	const pond = await resolveActivePond(ownerId);
 	// A farm with no pond is an empty state, not a server fault: the envelope
 	// maps a plain Error to 500, so throw the same 404 the PDF export uses.
 	if (!pond) throw notFound("No pond found.");
 
+	throwIfAborted(signal);
 	const deviceIds = (
 		await prisma.energyDevice.findMany({
 			where: { pondId: pond.id },
@@ -67,7 +73,9 @@ export async function loadExportContext(ownerId: string): Promise<ExportContext>
 export async function buildExportRows(
 	context: ExportContext,
 	type: ExportableType,
+	signal?: AbortSignal,
 ): Promise<ExportRow[]> {
+	throwIfAborted(signal);
 	switch (type) {
 		case "biomass_logs": {
 			const logs = await prisma.biomassLog.findMany({
@@ -207,15 +215,21 @@ export async function buildExportRows(
 export async function buildSheetRows(
 	context: ExportContext,
 	type: SheetType,
+	signal?: AbortSignal,
 ): Promise<ExportRow[]> {
 	return type === "feeding_schedule"
 		? buildScheduleRows(context.pondId)
-		: buildExportRows(context, type);
+		: buildExportRows(context, type, signal);
 }
 
-export async function buildCsvExport(ownerId: string, type: SheetType): Promise<ExportArtifact> {
-	const context = await loadExportContext(ownerId);
-	const rows = await buildSheetRows(context, type);
+export async function buildCsvExport(
+	ownerId: string,
+	type: SheetType,
+	signal?: AbortSignal,
+): Promise<ExportArtifact> {
+	const context = await loadExportContext(ownerId, signal);
+	const rows = await buildSheetRows(context, type, signal);
+	throwIfAborted(signal);
 	const csv = `${CSV_LIMIT_NOTE}${toCsvString(rows, csvFields(type))}`;
 	return {
 		// Farm-local date, like the PDF report: the UTC date rolls over at 08:00 in
@@ -242,12 +256,14 @@ function csvFields(type: SheetType): string[] {
 export async function buildBatchExport(
 	ownerId: string,
 	types: SheetType[] = BATCH_EXPORT_TYPES,
+	signal?: AbortSignal,
 ): Promise<ExportArtifact> {
-	const context = await loadExportContext(ownerId);
+	const context = await loadExportContext(ownerId, signal);
 	const zip = new JSZip();
 
 	for (const type of types) {
-		const rows = await buildSheetRows(context, type);
+		throwIfAborted(signal);
+		const rows = await buildSheetRows(context, type, signal);
 		// Every dataset gets a file, even when empty: the header row makes it a
 		// usable template instead of a 0-byte entry (#755).
 		const csv = `${CSV_LIMIT_NOTE}${toCsvString(rows, csvFields(type))}`;
@@ -271,13 +287,15 @@ export async function buildBatchExport(
 export async function buildXlsxExport(
 	ownerId: string,
 	types: SheetType[] = SHEET_EXPORT_TYPES,
+	signal?: AbortSignal,
 ): Promise<ExportArtifact> {
-	const context = await loadExportContext(ownerId);
+	const context = await loadExportContext(ownerId, signal);
 	const sheets: SheetData[] = [];
 	for (const type of types) {
+		throwIfAborted(signal);
 		let rows: ExportRow[] = [];
 		try {
-			rows = await buildSheetRows(context, type);
+			rows = await buildSheetRows(context, type, signal);
 		} catch (error) {
 			if (!(error instanceof ApiError) || error.status !== 404) throw error;
 		}

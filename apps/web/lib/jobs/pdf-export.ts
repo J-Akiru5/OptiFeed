@@ -4,6 +4,7 @@ import { PH_TZ } from "@/lib/constants";
 import { dateToFarmDateOnly } from "@/lib/crop-cycle/dates";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { formatFeedAmountLabel, isDailyTotalSource } from "@/lib/feed-figures";
+import { throwIfAborted } from "@/lib/jobs/cancellation";
 import type { ExportArtifact } from "@/lib/jobs/export-data";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
@@ -49,7 +50,11 @@ export function safeFilenamePart(value: string): string {
 	return cleaned || "pond";
 }
 
-export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
+export async function buildPdfExport(
+	ownerId: string,
+	signal?: AbortSignal,
+): Promise<ExportArtifact> {
+	throwIfAborted(signal);
 	// Same pond the dashboard and CSV exports use (first ACTIVE pond). An
 	// unfiltered findFirst could report an archived pond, and the choice was
 	// nondeterministic when a farm had more than one.
@@ -85,6 +90,7 @@ export async function buildPdfExport(ownerId: string): Promise<ExportArtifact> {
 			})
 		: [];
 
+	throwIfAborted(signal);
 	const doc = new jsPDF() as JsPDFWithAutoTable;
 	const pageWidth = doc.internal.pageSize.getWidth();
 

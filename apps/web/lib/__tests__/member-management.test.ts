@@ -7,7 +7,9 @@ const { db, tx } = vi.hoisted(() => {
 	};
 	const db = {
 		membership: { findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), update: vi.fn() },
-		user: { findMany: vi.fn() },
+		user: { findMany: vi.fn(), update: vi.fn() },
+		farm: { update: vi.fn(), delete: vi.fn() },
+		pond: { updateMany: vi.fn(), deleteMany: vi.fn() },
 		organization: { findMany: vi.fn(), findUnique: vi.fn() },
 		membershipPermission: { findMany: vi.fn() },
 		platformAdmin: { findFirst: vi.fn(), findMany: vi.fn() },
@@ -234,6 +236,19 @@ describe("tenant membership revocation", () => {
 			where: { id: "m-target" },
 			data: { revokedAt: expect.any(Date) },
 		});
+	});
+
+	it("revokes only the membership and leaves the member's own farm and login alone (#765)", async () => {
+		allowTarget("OPERATOR");
+
+		await expect(revokeMember("u-target")).resolves.toEqual({ success: true });
+
+		expect(tx.membership.update).toHaveBeenCalledTimes(1);
+		expect(db.user.update).not.toHaveBeenCalled();
+		expect(db.farm.update).not.toHaveBeenCalled();
+		expect(db.farm.delete).not.toHaveBeenCalled();
+		expect(db.pond.updateMany).not.toHaveBeenCalled();
+		expect(db.pond.deleteMany).not.toHaveBeenCalled();
 	});
 
 	it("refuses revoking your own membership", async () => {

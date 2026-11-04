@@ -169,6 +169,10 @@
 			"reason": "Scheduled worker with its own bearer secret; invoked manually in the local flow."
 		},
 		{
+			"path": "/api/v1/cron/heartbeat-watch",
+			"reason": "Scheduled dead-man's switch with its own bearer secret; it pages only on an unhealthy heartbeat and is covered by the cron-heartbeat unit tests."
+		},
+		{
 			"path": "/api/v1/chat/assistant",
 			"reason": "Streaming assistant turn for the signed-in user (withAuth); writes nothing itself, proposals become AssistantAction rows that run only on an explicit Accept. Covered by assistant-* tests."
 		},

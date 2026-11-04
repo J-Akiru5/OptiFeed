@@ -337,8 +337,6 @@ async function failJob(job: BackgroundJob, error: unknown): Promise<void> {
 	// Never serialize Prisma/stack details into the status endpoint. Only an
 	// explicitly exposed ApiError message is safe to show; everything else is
 	// logged server-side and reported generically.
-	reportError(error, { route: "jobs/worker", jobId: job.id, type: job.type });
-
 	const attempts = Math.max(1, job.attempts);
 	const timedOut = error instanceof JobTimeoutError;
 	// An import owns a transaction that can commit before the job row is
@@ -349,6 +347,13 @@ async function failJob(job: BackgroundJob, error: unknown): Promise<void> {
 	const unknownType = error instanceof Error && error.message.startsWith("Unknown job type:");
 	const retryable = job.type !== "import_confirm" && !permanent && !unknownType;
 	const terminal = !retryable || attempts >= JOB_MAX_ATTEMPTS;
+	// A retry is visible to the user and self-healing; only a job that has run
+	// out of attempts (no further retry) is silent enough to page.
+	reportError(
+		error,
+		{ route: "jobs/worker", jobId: job.id, type: job.type },
+		terminal ? "CRITICAL" : "ERROR",
+	);
 	const detail = scrubText(error instanceof Error ? error.message : String(error));
 	const message =
 		job.type === "import_confirm"

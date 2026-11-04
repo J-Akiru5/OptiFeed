@@ -1,0 +1,119 @@
+name: Uptime
+
+# External liveness probe for production (#729).
+#
+# This is deliberately NOT a required check and never runs on pull requests:
+# it is a scheduled operational signal, not a merge gate. It runs from the
+# default branch, every 15 minutes.
+#
+# No new secret is needed to probe: the URLs are public. If the owner sets the
+# optional repository secret ALERT_WEBHOOK_URL, a failed probe also posts to the
+# same provider-neutral webhook the application uses. Without it, the red run in
+# the Actions tab is the alert.
+#
+# What is checked:
+#   GET /api/health      200 + {"status":"ok"}   (Postgres reachable)
+#   GET /en/login        200                     (public login page renders)
+#   GET /api/health/cron 200                     (never-run / hung / stale cron)
+#
+# The third probe is what makes a missing or hung pg_cron job visible even when
+# the application webhook is not configured.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      test_alert:
+        description: "Post a synthetic page to ALERT_WEBHOOK_URL and exit"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: uptime probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      # Repository variable override, with the documented production host as the
+      # default. This is a public URL, not a secret.
+      BASE_URL: ${{ vars.UPTIME_BASE_URL || 'https://pakaonai.syntaxure.dev' }}
+    steps:
+      - name: Probe /api/health
+        id: health
+        run: |
+          set -euo pipefail
+          body="$(curl -fsS --max-time 15 "$BASE_URL/api/health")"
+          printf '%s\n' "$body"
+          grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"' <<<"$body"
+
+      - name: Probe /en/login
+        id: login
+        run: |
+          set -euo pipefail
+          code="$(curl -fsSL -o /dev/null -w '%{http_code}' --max-time 15 "$BASE_URL/en/login")"
+          echo "GET /en/login -> $code"
+          test "$code" = "200"
+
+      - name: Probe /api/health/cron
+        id: cron
+        run: |
+          set -euo pipefail
+          body="$(curl -fsS --max-time 15 "$BASE_URL/api/health/cron")"
+          printf '%s\n' "$body"
+
+      - name: Page the operator
+        if: failure()
+        env:
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+          OUTCOMES: health=${{ steps.health.outcome }} login=${{ steps.login.outcome }} cron=${{ steps.cron.outcome }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ALERT_WEBHOOK_URL:-}" ]; then
+            echo "::warning::ALERT_WEBHOOK_URL is not configured; this failed run is the only alert."
+            exit 0
+          fi
+          text="[OptiFeed][CRITICAL][uptime] probe failed (${OUTCOMES}) for ${BASE_URL} — ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          run="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          payload="$(jq -nc \
+            --arg text "$text" \
+            --arg run "$run" \
+            --arg outcomes "$OUTCOMES" \
+            --arg base "$BASE_URL" \
+            --arg timestamp "$timestamp" \
+            '{text: $text, content: $text, alert: {version: 1, severity: "CRITICAL", fingerprint: ("uptime:" + $base), route: "uptime", message: $text, context: {run: $run, outcomes: $outcomes}, service: "optifeed-uptime", environment: "production", timestamp: $timestamp, runbook: "https://github.com/J-Akiru5/OptiFeed/blob/main/docs/runbook.md"}}')"
+          curl -fsS --max-time 10 -X POST \
+            -H 'content-type: application/json' \
+            --data "$payload" \
+            "$ALERT_WEBHOOK_URL" > /dev/null
+
+      - name: Send a test page
+        if: github.event_name == 'workflow_dispatch' && inputs.test_alert
+        env:
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ALERT_WEBHOOK_URL:-}" ]; then
+            echo "::error::ALERT_WEBHOOK_URL is not configured; set the repository secret first."
+            exit 1
+          fi
+          text="[OptiFeed][CRITICAL][uptime] synthetic test page from ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          run="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          payload="$(jq -nc \
+            --arg text "$text" \
+            --arg run "$run" \
+            --arg timestamp "$timestamp" \
+            '{text: $text, content: $text, alert: {version: 1, severity: "CRITICAL", fingerprint: ("uptime-test:" + $timestamp), route: "uptime/test", message: $text, context: {run: $run}, service: "optifeed-uptime", environment: "production", timestamp: $timestamp, runbook: "https://github.com/J-Akiru5/OptiFeed/blob/main/docs/runbook.md"}}')"
+          curl -fsS --max-time 10 -X POST \
+            -H 'content-type: application/json' \
+            --data "$payload" \
+            "$ALERT_WEBHOOK_URL" > /dev/null

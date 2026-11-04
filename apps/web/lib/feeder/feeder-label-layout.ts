@@ -2,8 +2,8 @@ import type { FeederComponentId } from "@/lib/feeder/feeder-parts";
 import { PerspectiveCamera, Vector3 } from "three";
 
 /**
- * Pure camera projection and fixed-slot layout for the six ISO component
- * labels (model v1.2.0).
+ * Pure camera projection and fixed-slot layout for the ISO component labels
+ * (model v1.3.0).
  *
  * The slots are art direction: they never move with the orbit. Only the ISO
  * preset shows the overlay, and the leader lines connect these fixed cards to
@@ -11,8 +11,16 @@ import { PerspectiveCamera, Vector3 } from "three";
  * so the geometry can be unit-tested in Node and shared by the overlay.
  */
 
+/**
+ * The six physical parts plus the two right-side telemetry hotspots (#820).
+ *
+ * RTC and water temperature are readings, not modelled parts, so they stay out
+ * of `FeederComponentId`: the physical status/value rules remain unchanged.
+ */
+export type FeederLabelId = FeederComponentId | "rtc" | "waterTemp";
+
 export interface FeederLabelSlot {
-	id: FeederComponentId;
+	id: FeederLabelId;
 	side: "left" | "right";
 	/** Vertical centre of the label card, percent of stage height. */
 	top: number;
@@ -43,27 +51,34 @@ const STAGE_TOLERANCE_PX = 8;
  *
  * `auger` points at the top of the dispensing tube in front of the shelf
  * plank; the tube further back (z ≈ 0.08) is hidden by the plank.
+ *
+ * `rtc` sits on the chassis lid above the controller panel, and `waterTemp`
+ * in the water-probe area under the lower-right base (#820).
  */
-export const FEEDER_LABEL_ANCHORS: Record<FeederComponentId, readonly [number, number, number]> = {
+export const FEEDER_LABEL_ANCHORS: Record<FeederLabelId, readonly [number, number, number]> = {
 	hopper: [-0.0825, 0.34, 0.1275],
 	sensor: [-0.0825, 0.522, 0.17],
 	controller: [0.09, 0.17, 0.232],
 	motor: [-0.114, 0.05, -0.25],
 	auger: [-0.083, 0.079, 0.28],
 	outlet: [-0.083, 0.05, 0.392],
+	rtc: [0.0975, 0.295, 0.19],
+	waterTemp: [-0.08, -0.04, 0.255],
 };
 
 /** Fixed callout cards, in visual top-to-bottom order. */
 export const FEEDER_LABEL_SLOTS: readonly FeederLabelSlot[] = [
 	{ id: "sensor", side: "left", top: 14 },
+	{ id: "rtc", side: "right", top: 24 },
 	{ id: "hopper", side: "left", top: 34 },
 	{ id: "controller", side: "right", top: 42 },
 	{ id: "motor", side: "left", top: 58 },
-	{ id: "auger", side: "left", top: 80 },
 	{ id: "outlet", side: "right", top: 70 },
+	{ id: "auger", side: "left", top: 80 },
+	{ id: "waterTemp", side: "right", top: 88 },
 ];
 
-const FEEDER_LABEL_IDS = Object.keys(FEEDER_LABEL_ANCHORS) as FeederComponentId[];
+const FEEDER_LABEL_IDS = Object.keys(FEEDER_LABEL_ANCHORS) as FeederLabelId[];
 
 function hiddenAnchor(): FeederLabelAnchor {
 	return { x: 0, y: 0, visible: false };
@@ -74,7 +89,7 @@ function hiddenAnchor(): FeederLabelAnchor {
  * `width` × `height` CSS pixels. A point is visible only when it is in front
  * of the camera and inside the stage (with a small edge tolerance).
  *
- * Exported separately from the six label anchors so any model part — such as
+ * Exported separately from the label anchors so any model part — such as
  * the water-temperature probe — can be checked against the default camera
  * without duplicating the projection maths.
  */
@@ -110,12 +125,12 @@ export function projectModelPoint(
 	return { x, y, visible: inFront && insideStage };
 }
 
-/** Project the six model anchors through the ISO camera. */
+/** Project every label anchor through the ISO camera. */
 export function projectFeederAnchors(
 	width: number,
 	height: number,
-): Record<FeederComponentId, FeederLabelAnchor> {
-	const projected = {} as Record<FeederComponentId, FeederLabelAnchor>;
+): Record<FeederLabelId, FeederLabelAnchor> {
+	const projected = {} as Record<FeederLabelId, FeederLabelAnchor>;
 	for (const id of FEEDER_LABEL_IDS) {
 		projected[id] = projectModelPoint(width, height, FEEDER_LABEL_ANCHORS[id]);
 	}

@@ -1887,6 +1887,8 @@
 			"componentMotor": "Motor",
 			"componentAuger": "Auger",
 			"componentOutlet": "Outlet",
+			"componentRtc": "Real time clock",
+			"componentWaterTemp": "Water temperature",
 			"componentLive": "Live",
 			"componentLastKnown": "Last known",
 			"componentOnline": "Online",

@@ -211,6 +211,15 @@ export const CAMERA_PRESETS = {
 
 export type CameraPreset = keyof typeof CAMERA_PRESETS;
 
+/**
+ * #820: the ISO overlay follows the camera pose, not only the selected preset.
+ * Unlocking the camera keeps the labels; the first orbit/pan/zoom after unlock
+ * hides them until Reset view or ISO restores the pose.
+ */
+export function shouldShowFeederLabels(preset: CameraPreset, cameraMoved: boolean): boolean {
+	return preset === "iso" && !cameraMoved;
+}
+
 export const CAMERA_PRESET_LABELS: Record<CameraPreset, string> = {
 	iso: "presetIso",
 	front: "presetFront",

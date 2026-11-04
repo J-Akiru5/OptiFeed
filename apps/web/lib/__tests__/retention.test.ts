@@ -467,9 +467,7 @@ describe("deleteOldNotifications", () => {
 
 		await deleteOldNotifications(25);
 
-		expect(mockNotification.findMany).toHaveBeenCalledWith(
-			expect.objectContaining({ take: 25 }),
-		);
+		expect(mockNotification.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 25 }));
 	});
 });
 

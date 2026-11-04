@@ -2911,6 +2911,7 @@
 			"biomassDate": "Gin-sample",
 			"biomassAvgWeight": "Average nga timbang",
 			"biomassSample": "Sample",
+			"biomassSamplingInterval": "Intervalo sang sampling",
 			"fcrTitle": "Pinakabag-o nga FCR",
 			"fcrEmpty": "Wala pa sang FCR report.",
 			"fcrValue": "FCR",

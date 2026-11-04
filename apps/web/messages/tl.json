@@ -2297,6 +2297,7 @@
 			"biomassDate": "Petsa ng sample",
 			"biomassAvgWeight": "Karaniwang timbang",
 			"biomassSample": "Sample",
+			"biomassSamplingInterval": "Intervalo ng sampling",
 			"fcrTitle": "Pinakabagong FCR",
 			"fcrEmpty": "Wala pang ulat ng FCR.",
 			"fcrValue": "FCR",

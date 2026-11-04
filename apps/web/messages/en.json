@@ -2911,6 +2911,7 @@
 			"biomassDate": "Sampled",
 			"biomassAvgWeight": "Average weight",
 			"biomassSample": "Sample",
+			"biomassSamplingInterval": "Sampling interval",
 			"fcrTitle": "Latest FCR",
 			"fcrEmpty": "No FCR report yet.",
 			"fcrValue": "FCR",

@@ -235,9 +235,12 @@ export default async function PondDetailPage({
 								<Field label={t("biomassDate")}>
 									{formatDateTimeLocal(biomass.recordedAt, tDates).fullDate}
 								</Field>
-								<Field label={t("biomassAvgWeight")}>{biomass.avgWeightKg.toFixed(3)} kg</Field>
+								<Field label={t("biomassAvgWeight")}>{biomass.avgWeightKg.toFixed(3)} kg</Field>{" "}
 								<Field label={t("biomassSample")}>
 									{biomass.sampleWeightKg} kg / {biomass.sampleCount}
+								</Field>
+								<Field label={t("biomassSamplingInterval")}>
+									{t("sampleIntervalValue", { days: pond.sampleIntervalDays })}
 								</Field>
 							</dl>
 						) : (

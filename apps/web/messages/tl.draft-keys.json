@@ -1,7 +1,7 @@
 {
 	"locale": "tl",
 	"method": "machine-drafted from en.json with the glossary in docs/i18n/tagalog-glossary.md; human review pending",
-	"generatedAt": "2026-11-04",
+	"generatedAt": "2026-11-05",
 	"reviewedBaseline": 331,
 	"draftKeys": [
 		"account.menu.accountSettings",
@@ -421,6 +421,7 @@
 		"dashboard.adminPondDetail.biomassDate",
 		"dashboard.adminPondDetail.biomassEmpty",
 		"dashboard.adminPondDetail.biomassSample",
+		"dashboard.adminPondDetail.biomassSamplingInterval",
 		"dashboard.adminPondDetail.biomassTitle",
 		"dashboard.adminPondDetail.cycleDay",
 		"dashboard.adminPondDetail.cycleDayLabel",

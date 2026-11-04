@@ -33,6 +33,10 @@ const VIEWPORTS = [
  *   `report-to` endpoint, so every browser logs the inline Next.js bootstrap
  *   script as a report-only violation. It is a report-only signal, not a
  *   blocked script; the enforced policy does not use it.
+ * - WebKit does not implement the `interactive-widget` viewport key (Chromium
+ *   does, and the phone layout relies on it so the Android keyboard resizes
+ *   instead of covering a focused field). Safari logs one message per page load
+ *   and otherwise ignores the key, so it is platform noise.
  *
  * The filter is narrow on purpose: any other console error fails the test.
  */
@@ -41,7 +45,10 @@ function isKnownPlatformNoise(message: ConsoleMessage): boolean {
 	const url = message.location().url ?? "";
 	const fromVercelAssets = `${text} ${url}`.includes("/_vercel/");
 	const reportOnlyCsp = /Report[- ]Only/i.test(text);
-	return fromVercelAssets || reportOnlyCsp;
+	const unsupportedViewportKey = /Viewport argument key "interactive-widget" not recognized/i.test(
+		text,
+	);
+	return fromVercelAssets || reportOnlyCsp || unsupportedViewportKey;
 }
 
 /** Attach listeners before navigation and return the collected defects. */

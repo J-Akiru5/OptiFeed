@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Device surfaces poll adaptively instead of on a fixed interval (#731).** The browser used to re-read a device on one hard-coded interval per component (the 3D viewer and the large screen every 15 s, the dashboard's server-rendered device cards every 30 s), whether or not anything was waiting on the unit. A single policy in `apps/web/lib/live/poll-policy.ts` now decides the cadence: 5 s while the tab is visible **and** a feed request is still pending or dispatched, 30 s when the tab is visible and idle, and no timer at all while the tab is hidden — coming back to the tab re-reads immediately. An open viewer therefore drops from 240 to 120 device-state requests per hour at idle, while a feed in flight polls four times faster than before so the dispense and the new hopper level appear without a manual refresh. The firmware poll (two endpoints every 5 s) is unchanged: no protocol change, no firmware change, no new dependency. See `docs/performance/device-polling-scale-plan.md` §9.
 
+## [1.56.0] - 2026-11-04
+
+### Added
+
+- **A dedicated tenant role and fail-closed RLS policies (#711, phases 1 and 2).** `optifeed_app` is created `NOBYPASSRLS` with table and sequence grants, and the policies on the tenant tables key off a per-transaction context (`app.farm_ids`, `app.pond_ids`, `app.user_id`, `app.supabase_id`, `app.org_id`). An unset setting compares as NULL, so the role sees **no rows** rather than every row - a deliberate fail-closed default.
+
+  Phase 1 is safe to apply before the switch: the running app still uses the privileged `postgres` connection, every policy applies only to `optifeed_app`, and the migration contains no data change. Switching `DATABASE_URL` to the new role is a separate maintenance-window action and is **not** part of this release; until then tenant isolation remains application-level, exactly as before.
+
 ### Security
 
 - **A dedicated tenant database role and core RLS policies are prepared (#711).** Phase 1 migration `20261104150000_tenant_app_role_phase1` creates `optifeed_app` with `NOBYPASSRLS`, grants table/sequence access, and adds `optifeed_app`-only policies for `Farm`, `Pond`, `User`, `Membership`, `Organization`, `EnergyDevice`, `FeedEvent`, `Notification`, `FeedRequest`, `WaterTempLog`, `FeedLevelLog` and `DeviceStateEvent`. It contains no `DELETE`, `TRUNCATE`, `DROP TABLE`, column change or data backfill. The current app keeps using `postgres`, so this is inert until the Phase 2 `withTenant` context and the `DATABASE_URL` switch; the app-side context and the switch are not in this migration.

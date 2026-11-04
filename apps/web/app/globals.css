@@ -432,9 +432,7 @@
  *   ≥ 64rem     2rem   laptop/desktop — sidebar visible, bottom nav gone
  *
  * Everything that has to agree with that padding reads the token instead of
- * repeating a number: the scope banner below bleeds to the pane's edges with
- * `calc(-1 * var(--console-pane-pad))`, so its negative margins can no longer
- * drift away from the pane's own padding. `.ofd-main` is deliberately not
+ * repeating a number. `.ofd-main` is deliberately not
  * reused here: the console has a three-step scale and its own dark palette,
  * and it must not inherit the farmer dashboard's short-viewport tiers.
  */
@@ -461,24 +459,6 @@
 		--console-pane-pad: 2rem;
 		/* The bottom bar is hidden from here up, so the clearance goes away. */
 		padding-bottom: var(--console-pane-pad);
-	}
-}
-
-/*
- * Scope banner (breadcrumbs). It is the first child of the pane and pins to the
- * top of the scrollport, so it cancels the pane's padding on the top and both
- * sides and pays it back as its own inline padding. Both margins come from the
- * pane's token, so a change to the padding scale moves the banner with it.
- */
-.ofd-console-scope {
-	margin: calc(-1 * var(--console-pane-pad, 1rem)) calc(-1 * var(--console-pane-pad, 1rem)) 1rem;
-	padding-block: 0.5rem;
-	padding-inline: var(--console-pane-pad, 1rem);
-}
-
-@media (min-width: 48rem) {
-	.ofd-console-scope {
-		margin-bottom: 1.5rem;
 	}
 }
 

@@ -1945,6 +1945,8 @@
 			"componentMotor": "Motor",
 			"componentAuger": "Auger",
 			"componentOutlet": "Outlet",
+			"componentRtc": "RTC",
+			"componentWaterTemp": "Temperatura sang tubig",
 			"componentLive": "Live",
 			"componentLastKnown": "Katapusan nga nabasa",
 			"componentOnline": "Online",
@@ -3426,11 +3428,6 @@
 				"commandCenter": "Command Center",
 				"ecosystem": "Pagdumala sang Ekosistema",
 				"platformControl": "Pagkontrol sang Plataporma"
-			},
-			"scope": {
-				"label": "Sakop sang console",
-				"global": "Global nga superadmin",
-				"organization": "Organisasyon {name}"
 			}
 		},
 		"loading": {

@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Each organization in the "Feed dispensed by organization" treemap now gets its own colour (#835).** Tile fill was derived from Recharts' internal node index and tooltip path, so a node at depth 1, or a leaf whose path lookup missed, resolved to palette slot 0 — orange — and a multi-organization chart could paint entirely in that one colour. Colour is now stamped onto the datum from its top-level position (palette per theme), inherited by its ponds, and an explicit `color` overrides it; the renderer no longer reads Recharts internals. No data or schema change.
+### Removed
+
+- **The superadmin console no longer opens with a redundant sticky scope strip (#834).** The `GLOBAL SUPERADMIN` / `GLOBAL SUPERADMIN → ORG` banner repeated the sidebar's active item and the page heading while occupying a sticky row on every console page. The banner component, its layout and organization-page mounts, its URL-crumb helper, the `.ofd-console-scope` rule and the three `superadmin.shell.scope.*` strings are gone from English, Hiligaynon and Tagalog. The sidebar highlight, the page heading and the mobile header band still name where the operator is. No data or schema change.
 
 ## [1.54.0] - 2026-11-04
 

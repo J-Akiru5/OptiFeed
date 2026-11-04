@@ -67,7 +67,10 @@ Consequences for this script:
   46.5 g. The survivor rule folds the **measured day total** into the earliest
   row; the invariant is that the tenant total is unchanged.
 - The 16 `synthetic` rows are the W5 fill from the 2026-11-04 batch. They are
-  neither 1,500 g seed fixtures nor `hand_fed`, so they are left alone (see §4.6).
+  not `hand_fed`. If one matches the 1,500 g seed shape, the script still leaves
+  it alone: the seed update targets only rows whose current `dataSource` is
+  `device`. The dry run prints `synthetic_matching_seed_shape` so this is
+  visible; the rows are not retagged.
 - The 4 FCR identity violations are measured and recorded, not repaired; see §4.4.
 - The pre-run measurement was made with the old `verify.sql`. Use the new
   read-only `dry-run.sql` for the next pre-flight; it asserts nothing.
@@ -370,7 +373,7 @@ rows in each derived set remain untagged.
 | --- | ---: | ---: | --- |
 | Seed: a `feed_dispensed` row at exactly 1,500 g whose linked `FeedRequest` is also 1,500 g, `completed`, and `createdAt = FeedEvent.receivedAt` | 112 | **0** (all already `seed`) | This is exactly how `seed.ts` and `seed-dev.ts` build their fixtures (request per event, same timestamp). It selects 56 + 56 without guessing from the amount alone. |
 | Import: every surviving `hand_fed` row | 132 pre-merge / 66 post-merge | **0** (all already `import`) | The merge removes the duplicate rows. The deletion is the row-count correction; this is the label. |
-| Synthetic: `dataSource = 'synthetic'` rows | 16 | **left alone** | The 2026-11-04 W5 fill. They are not 1,500 g seed fixtures and not `hand_fed`, so they are in neither derived set. Do not silently retag them; the dry run prints `synthetic_feed_events_total`. |
+| Synthetic: `dataSource = 'synthetic'` rows | 16 | **left alone** | The 2026-11-04 W5 fill. They are not `hand_fed`; if any matches the 1,500 g seed shape, the seed update still does not touch it because the target is only `dataSource = 'device'`. The dry run prints `synthetic_feed_events_total` and `synthetic_matching_seed_shape`; do not silently retag them. |
 
 Nothing in the app filters on `dataSource` today (checked across `lib/**/*.ts`),
 so these tags **do not hide** demo history from any screen. They make a future

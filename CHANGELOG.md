@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Deployment policy is recorded as `main` + `staging` and guarded against drift (D7).** The promotion chain remains `develop` → `staging` → `main`; `develop` is validation-only, matching `apps/web/vercel.json`, and the global `main` + `develop` deployment default does not apply to this repository. Vercel Deployment Protection is now documented as a required control for preview deployments, and `scripts/ops/deployment-policy.mjs` (run inside the existing `quality` job) fails if the config, the deployment document and the documented allowlist diverge.
+- **Membership revocation is documented as an organization-access change (#765).** The revoke confirmation now says that removing a member ends their organization access while their own farm and login remain; account deletion or disable is the separate operation that ends those. A regression test pins the post-revocation behavior: empty org scope, denied writes, and own-farm reads still available. The org-pond ownership edge case is tracked in #808.
 
 ## [1.53.1] - 2026-11-04
 

@@ -217,7 +217,7 @@ function readingState(reading: FeederComponentReading): LabelState {
 function readingValue(reading: FeederComponentReading, t: ViewerTranslate): string {
 	switch (reading.id) {
 		case "hopper":
-			return reading.percent === null ? "—" : `${reading.percent}%`;
+			return reading.percent === null ? "—" : `${Math.round(reading.percent)}%`;
 		case "sensor":
 			// #810: an offline sensor is not "Reading". Only a live sensor says so.
 			if (reading.state === "offline") return "—";

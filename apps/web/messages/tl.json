@@ -4788,7 +4788,7 @@
 		"previewBiomass": "Huling sample",
 		"previewBiomassValue": "220 g",
 		"faqAside": "Ito ay research prototype. Ang koponan ng proyekto ang nagbibigay ng mga account.",
-		"footerFirmware": "Firmware v1.4.2",
+		"footerFirmware": "Firmware v{version}",
 		"teamEyebrow": "Proyekto",
 		"navWhy": "Bakit PakaonAI",
 		"heroTrust1": "Walang kailangang camera",

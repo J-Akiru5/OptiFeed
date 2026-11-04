@@ -268,8 +268,10 @@ export function FeederHero({ pondName, className, ...data }: FeederHeroProps) {
 				hopper.state === "none"
 					? "—"
 					: hopper.state === "stale"
-						? tFeedLevel("lastKnown", { percent: hopper.percent })
-						: `${hopper.percent}%`,
+						? tFeedLevel("lastKnown", {
+								percent: hopper.percent === null ? 0 : Math.round(hopper.percent),
+							})
+						: `${hopper.percent === null ? "—" : `${Math.round(hopper.percent)}%`}`,
 			detail:
 				hopper.state === "stale"
 					? hopperReading

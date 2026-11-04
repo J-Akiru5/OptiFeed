@@ -242,3 +242,19 @@ describe("FeederComponentStatusList", () => {
 		).toBe("");
 	});
 });
+
+describe("hopper percentage formatting", () => {
+	it("rounds a fractional hopper level instead of printing the raw float", () => {
+		const html = renderToStaticMarkup(
+			<FeederComponentStatusList
+				status="idle"
+				level={71.25105}
+				active
+				rtc={RTC_LIVE}
+				waterTemp={WATER_LIVE}
+			/>,
+		);
+		expect(html).toContain("71%");
+		expect(html).not.toContain("71.25105");
+	});
+});

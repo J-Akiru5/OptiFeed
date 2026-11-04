@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
 	getCurrentUser: vi.fn(),
 	isTenantAdmin: vi.fn(),
 	isPlatformAdmin: vi.fn(),
+	isPlatformAdminMfa: vi.fn(),
 	isViewingAs: vi.fn(),
 	requireStepUp: vi.fn(),
 	requestOrigin: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock("@/lib/auth/session", () => ({
 vi.mock("@/lib/auth/tenant-admin", () => ({ isCurrentTenantAdmin: mocks.isTenantAdmin }));
 vi.mock("@/lib/auth/require-platform-admin", () => ({
 	isCurrentPlatformAdmin: mocks.isPlatformAdmin,
+	isCurrentPlatformAdminMfaSatisfied: mocks.isPlatformAdminMfa,
 }));
 vi.mock("@/lib/auth/view-as", () => ({ isViewingAs: mocks.isViewingAs }));
 
@@ -97,6 +99,7 @@ beforeEach(() => {
 	mocks.getCurrentUser.mockReset().mockResolvedValue({ ...USER, mustChangePassword: false });
 	mocks.isTenantAdmin.mockReset().mockResolvedValue(true);
 	mocks.isPlatformAdmin.mockReset().mockResolvedValue(true);
+	mocks.isPlatformAdminMfa.mockReset().mockResolvedValue(true);
 	mocks.isViewingAs.mockReset().mockResolvedValue(false);
 	mocks.requireStepUp.mockReset().mockResolvedValue(new Date("2026-10-31T07:00:00.000Z"));
 	mocks.requestOrigin.mockReset().mockResolvedValue({ ip: "203.0.113.9", userAgent: "vitest" });
@@ -201,6 +204,14 @@ describe("POST /api/superadmin/backup/export", () => {
 	it("rejects a non-platform admin", async () => {
 		mocks.isPlatformAdmin.mockResolvedValue(false);
 		expect((await platformExport(post("/api/superadmin/backup/export"))).status).toBe(403);
+	});
+
+	it("rejects a platform session that has not completed the MFA challenge (#719)", async () => {
+		mocks.isPlatformAdminMfa.mockResolvedValue(false);
+		const response = await platformExport(post("/api/superadmin/backup/export"));
+		expect(response.status).toBe(403);
+		expect((await errorBody(response)).error.message).toContain("two-factor");
+		expect(mocks.prepare).not.toHaveBeenCalled();
 	});
 
 	it("rejects a read-only view-as session", async () => {

@@ -40,10 +40,17 @@ const BAND_PILL =
  */
 export function MobileHeader({
 	children,
+	showTheme = true,
 	className,
 }: {
 	/** The shell's own control (farmer account menu, console help/profile). */
 	children?: ReactNode;
+	/**
+	 * False when the shell already offers the switch in its account menu. The
+	 * farmer band keeps only search, notifications and the account control, so
+	 * adding a fourth control here would put the bar back where it started.
+	 */
+	showTheme?: boolean;
 	className?: string;
 }) {
 	return (
@@ -61,7 +68,7 @@ export function MobileHeader({
 					className="h-11 w-auto min-w-0 flex-1 border-white/15 bg-white/10"
 				/>
 
-				<DarkModeToggle className={BAND_PILL} />
+				{showTheme ? <DarkModeToggle className={BAND_PILL} /> : null}
 				{children}
 			</div>
 		</div>

@@ -2611,6 +2611,8 @@
 			},
 			"filtersTierLabel": "I-filter ayon sa tindi",
 			"filtersCategoryLabel": "I-filter ayon sa kategorya",
+			"filtersToggle": "Mga filter",
+			"filtersNone": "Walang aktibo",
 			"listLabel": "Mga Abiso",
 			"categoryHopperLow": "Mababang hopper"
 		},
@@ -5337,7 +5339,9 @@
 			"accountSettings": "Mga setting ng account",
 			"switchLanguage": "Palitan ang wika",
 			"signOut": "Mag-sign out",
-			"userFallback": "Gumagamit"
+			"userFallback": "Gumagamit",
+			"appearance": "Itsura",
+			"help": "Tulong"
 		}
 	}
 }

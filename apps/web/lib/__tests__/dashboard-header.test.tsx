@@ -96,11 +96,41 @@ describe("phone geometry keeps the notch inset and clears the bottom bar (#572)"
  * so the toggle rendered at 0 px and a farmer could not change the mode at all.
  */
 describe("the mobile band carries reachable, uniformly sized controls", () => {
-	it("renders the theme switch in the band, not only in the desktop row", () => {
-		expect(mobileHeaderSource).toContain("<DarkModeToggle className={BAND_PILL} />");
+	it("keeps the farmer band to search, notifications and the account control", () => {
+		// The theme switch is still supported by the band, but the farmer band
+		// hands it to the account menu so the bar does not grow a fourth control.
+		expect(layoutSource).toContain("<MobileHeader showTheme={false}>");
+		expect(mobileHeaderSource).toContain(
+			"{showTheme ? <DarkModeToggle className={BAND_PILL} /> : null}",
+		);
 		expect(mobileHeaderSource).toContain(
 			'import { DarkModeToggle } from "@/components/dark-mode-toggle"',
 		);
+	});
+
+	it("moves help and the theme switch into the account menu", () => {
+		const headerActions = read("components/header-actions.tsx");
+		const compact = headerActions.slice(
+			headerActions.indexOf("export function CompactHeaderActions"),
+		);
+		// The bar itself is the bell and the avatar; help left the bar entirely.
+		const bar = compact.slice(0, compact.indexOf("<ProfileMenu"));
+		expect(bar).toContain("<NotificationBell");
+		expect(bar).not.toContain("<HelpButton");
+		// Both live in the menu, which is what the band opens.
+		expect(compact).toContain("showTheme");
+		expect(compact).toContain("helpAudience={helpEnabled ?");
+		expect(headerActions).toContain('{tAccount("appearance")}');
+		expect(headerActions).toContain('{tAccount("help")}');
+	});
+
+	it("folds the notification filters away on phones", () => {
+		const page = read("app/[locale]/(dashboard)/dashboard/notifications/page.tsx");
+		// A native details/summary keeps the disclosure keyboard-operable and
+		// costs no client component; desktop keeps the chips inline.
+		expect(page).toContain("<details");
+		expect(page).toContain('{t("filtersToggle")}');
+		expect(page).toContain('className="hidden lg:block">{filterLinks}</div>');
 	});
 
 	it("gives every icon control the same 44 px pill", () => {

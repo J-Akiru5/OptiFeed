@@ -25,7 +25,7 @@ import { useRouter } from "@/i18n/routing";
 import { clearOfflineData } from "@/lib/offline/db";
 import { clearDashboardSnapshot } from "@/lib/pwa/snapshot";
 import { createClient } from "@/lib/supabase/client";
-import { Globe, LogOut, Settings, Shield, ShieldAlert, X } from "lucide-react";
+import { CircleHelp, Globe, LogOut, Settings, Shield, ShieldAlert, SunMoon, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { type RefObject, useEffect, useRef, useState } from "react";
 
@@ -96,6 +96,13 @@ interface ProfileMenuProps {
 	/** The avatar button, so Escape and the close control can restore focus. */
 	triggerRef: RefObject<HTMLButtonElement | null>;
 	className?: string;
+	/**
+	 * Mobile band only: the theme switch lives in this menu instead of the bar,
+	 * so the bar keeps just search, notifications and the account control.
+	 */
+	showTheme?: boolean;
+	/** Mobile band only: the help entry point, moved out of the bar. */
+	helpAudience?: "farmer" | "owner" | null;
 }
 
 /**
@@ -120,6 +127,8 @@ function ProfileMenu({
 	onLogout,
 	triggerRef,
 	className,
+	showTheme = false,
+	helpAudience = null,
 }: ProfileMenuProps) {
 	const router = useRouter();
 	const locale = useLocale();
@@ -211,6 +220,34 @@ function ProfileMenu({
 					</p>
 				</div>
 			</div>
+
+			{(showTheme || helpAudience) && (
+				<div className="mt-4 space-y-2">
+					{showTheme && (
+						<div
+							className={`flex min-h-14 items-center justify-between gap-3 rounded-2xl px-4 ${accountMenuTile}`}
+						>
+							<span className="flex items-center gap-3 text-sm font-black text-[#0A3D62] dark:text-gray-100">
+								<SunMoon className="h-5 w-5" aria-hidden="true" /> {tAccount("appearance")}
+							</span>
+							<DarkModeToggle className="h-11 w-11 rounded-xl border border-[#0A3D62]/15 bg-white text-[#0A3D62] hover:bg-[#F4F7F6] dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100" />
+						</div>
+					)}
+					{helpAudience && (
+						<div
+							className={`flex min-h-14 items-center justify-between gap-3 rounded-2xl px-4 ${accountMenuTile}`}
+						>
+							<span className="flex items-center gap-3 text-sm font-black text-[#0A3D62] dark:text-gray-100">
+								<CircleHelp className="h-5 w-5" aria-hidden="true" /> {tAccount("help")}
+							</span>
+							<HelpButton
+								audience={helpAudience}
+								className="h-11 w-11 rounded-xl border-[#0A3D62]/15 bg-white text-[#0A3D62] hover:bg-[#F4F7F6] dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+							/>
+						</div>
+					)}
+				</div>
+			)}
 
 			<div className="mt-4 space-y-2">
 				{isTenantAdmin && (
@@ -462,12 +499,9 @@ export function CompactHeaderActions({
 
 	return (
 		<div className="relative flex items-center gap-1.5">
-			{/* #269: the floating "?" is gone, so the band carries the same help
-			    control as the desktop header. It is the one help entry point on
-			    every dashboard width. */}
-			{helpEnabled && (
-				<HelpButton audience={isTenantAdmin ? "owner" : "farmer"} className="h-11 w-11" />
-			)}
+			{/* The band keeps search, notifications and the account control only.
+			    Help and the theme switch moved into the account menu, which is the
+			    one place on a phone where secondary actions belong. */}
 			<NotificationBell className="h-11 w-11" />
 			<button
 				ref={profileButtonRef}
@@ -497,6 +531,8 @@ export function CompactHeaderActions({
 					esp32Status="missing"
 					isTenantAdmin={isTenantAdmin}
 					isPlatformAdmin={isPlatformAdmin}
+					showTheme
+					helpAudience={helpEnabled ? (isTenantAdmin ? "owner" : "farmer") : null}
 					onClose={() => setShowProfileMenu(false)}
 					onLogout={handleLogout}
 					triggerRef={profileButtonRef}

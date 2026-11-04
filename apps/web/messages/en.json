@@ -2553,6 +2553,8 @@
 			},
 			"filtersTierLabel": "Filter by severity",
 			"filtersCategoryLabel": "Filter by category",
+			"filtersToggle": "Filters",
+			"filtersNone": "None active",
 			"listLabel": "Notifications",
 			"categoryHopperLow": "Low hopper"
 		},
@@ -5337,7 +5339,9 @@
 			"accountSettings": "Account settings",
 			"switchLanguage": "Switch language",
 			"signOut": "Sign out",
-			"userFallback": "User"
+			"userFallback": "User",
+			"appearance": "Appearance",
+			"help": "Help"
 		}
 	}
 }

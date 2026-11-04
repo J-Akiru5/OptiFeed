@@ -12,7 +12,7 @@ import { parsePage, resolvePagination } from "@/lib/pagination";
 import { getActivePond } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { getListPageSize } from "@/lib/settings/platform";
-import { Bell } from "lucide-react";
+import { Bell, SlidersHorizontal } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 export const revalidate = 0;
@@ -125,6 +125,69 @@ export default async function NotificationsPage({
 					},
 				};
 
+	const activeFilterSummary =
+		[
+			tiers.find((tier) => tier.key === (params.tier ?? "all")),
+			categories.find((category) => category.key === (params.category ?? "all")),
+		]
+			.map((entry) => (entry ? (t.has(entry.labelKey) ? t(entry.labelKey) : entry.key) : null))
+			.filter(Boolean)
+			.join(" · ") || t("filtersNone");
+
+	/**
+	 * The filter chips. Rendered twice on purpose: on a phone they sit inside the
+	 * `Filters` disclosure so the first notification is what the page opens with,
+	 * and from `lg` up they stay inline where there is room for them. A native
+	 * `<details>` keeps the disclosure keyboard-operable with no client component.
+	 */
+	const filterLinks = (
+		<>
+			<nav aria-label={t("filtersTierLabel")} className="mt-3 flex flex-wrap gap-2 lg:mt-6">
+				{tiers.map((tier) => {
+					const isActive =
+						tier.key === "all" ? !params.tier || params.tier === "all" : params.tier === tier.key;
+					return (
+						<Link
+							key={tier.key}
+							href={tierHref(tier.key)}
+							aria-current={isActive ? "page" : undefined}
+							className={`inline-flex min-h-11 items-center rounded-full px-4 py-2 text-xs font-bold uppercase transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea] ${
+								isActive
+									? "bg-[#0A3D62] text-white"
+									: "bg-[#F4F7F6] text-[#3D5568] hover:bg-[#E8EDED] dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+							}`}
+						>
+							{t.has(tier.labelKey) ? t(tier.labelKey) : tier.key}
+						</Link>
+					);
+				})}
+			</nav>
+			{/* Category filter tabs */}
+			<nav aria-label={t("filtersCategoryLabel")} className="mt-2 flex flex-wrap gap-2">
+				{categories.map((cat) => {
+					const isActive =
+						cat.key === "all"
+							? !params.category || params.category === "all"
+							: params.category === cat.key;
+					return (
+						<Link
+							key={cat.key}
+							href={categoryHref(cat.key)}
+							aria-current={isActive ? "page" : undefined}
+							className={`inline-flex min-h-11 items-center rounded-full px-3 py-2 text-[10px] font-bold uppercase transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea] ${
+								isActive
+									? "bg-[#3D5568] text-white"
+									: "bg-gray-100 text-[#3D5568] hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+							}`}
+						>
+							{t.has(cat.labelKey) ? t(cat.labelKey) : cat.key}
+						</Link>
+					);
+				})}
+			</nav>
+		</>
+	);
+
 	return (
 		<DashboardPageShell className="space-y-6 animate-in fade-in duration-150">
 			<section className="rounded-3xl border border-[#0A3D62]/5 bg-white p-4 shadow-md dark:bg-gray-900 sm:p-6 md:p-8">
@@ -136,51 +199,20 @@ export default async function NotificationsPage({
 					/>
 				</div>
 
-				{/* Tier filter tabs */}
-				<nav aria-label={t("filtersTierLabel")} className="mt-6 flex flex-wrap gap-2">
-					{tiers.map((tier) => {
-						const isActive =
-							tier.key === "all" ? !params.tier || params.tier === "all" : params.tier === tier.key;
-						return (
-							<Link
-								key={tier.key}
-								href={tierHref(tier.key)}
-								aria-current={isActive ? "page" : undefined}
-								className={`inline-flex min-h-11 items-center rounded-full px-4 py-2 text-xs font-bold uppercase transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea] ${
-									isActive
-										? "bg-[#0A3D62] text-white"
-										: "bg-[#F4F7F6] text-[#3D5568] hover:bg-[#E8EDED] dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-								}`}
-							>
-								{t.has(tier.labelKey) ? t(tier.labelKey) : tier.key}
-							</Link>
-						);
-					})}
-				</nav>
+				<details className="group mt-4 rounded-2xl border border-[#0A3D62]/10 bg-[#F4F7F6] px-3 py-1 dark:border-gray-700 dark:bg-gray-800/60 lg:hidden">
+					<summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+						<span className="flex items-center gap-2 text-[11px] font-black tracking-wide text-[#0A3D62] uppercase dark:text-gray-100">
+							<SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+							{t("filtersToggle")}
+						</span>
+						<span className="truncate text-[10px] font-bold text-[#3D5568] dark:text-gray-400">
+							{activeFilterSummary}
+						</span>
+					</summary>
+					<div className="pb-2">{filterLinks}</div>
+				</details>
 
-				{/* Category filter tabs */}
-				<nav aria-label={t("filtersCategoryLabel")} className="mt-3 flex flex-wrap gap-2">
-					{categories.map((cat) => {
-						const isActive =
-							cat.key === "all"
-								? !params.category || params.category === "all"
-								: params.category === cat.key;
-						return (
-							<Link
-								key={cat.key}
-								href={categoryHref(cat.key)}
-								aria-current={isActive ? "page" : undefined}
-								className={`inline-flex min-h-11 items-center rounded-full px-3 py-2 text-[10px] font-bold uppercase transition-colors focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea] ${
-									isActive
-										? "bg-[#3D5568] text-white"
-										: "bg-gray-100 text-[#3D5568] hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-								}`}
-							>
-								{t.has(cat.labelKey) ? t(cat.labelKey) : cat.key}
-							</Link>
-						);
-					})}
-				</nav>
+				<div className="hidden lg:block">{filterLinks}</div>
 
 				{!writeAccess && (
 					<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />

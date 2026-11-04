@@ -1,5 +1,5 @@
-import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
 /**
  * Tenant context for the dedicated `optifeed_app` database role (#711 Phase 2).

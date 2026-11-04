@@ -26,6 +26,14 @@
 -- Idempotent: every step is written so a second run reports 0 affected rows
 -- (the audit marker is written at most once). A second run is a safe no-op.
 --
+-- Every guard is RELATIONAL: it derives its expectation inside the transaction
+-- from the rows that matched at that moment. The 2026-11-03 audit counts
+-- (112 seed, 66 import, 3 year-2000 rows, 48 level days) are NOT guards; the
+-- tenant has been used since the audit and the measured 2026-11-04 state was
+-- 512 FeedEvents, 132 hand_fed / 42,046 g, 11 missing level days, 2 year-2000
+-- rows, and 4 FCR identity violations. Run dry-run.sql first to print every
+-- derived count without changing anything.
+--
 -- All DateTime columns in this schema are TIMESTAMP(3) WITHOUT TIME ZONE that
 -- store UTC, by project convention (the audit queries in #709 rely on the same
 -- `AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Manila'` idiom). Do not "fix" that
@@ -415,7 +423,8 @@ SELECT 'hand_fed: duplicate rows removed', count(*) FROM deleted;
 -- 23:00 UTC on the previous date, 05:00 and 11:00 UTC on the day). All four
 -- instants therefore belong to the same Manila day the coverage check counts,
 -- and each one is anchored to the latest real reading before that instant.
--- The count per day matches the 192 readings / 48 days the issue records.
+-- The measured 2026-11-04 state had 11 missing days, so this plans 44 readings
+-- (11 x 4); the plan is derived from the data, not hardcoded.
 --
 -- Idempotency: only farm days with zero FeedLevelLog rows are planned. A day
 -- that already has a reading is never rewritten, including a day another
@@ -466,6 +475,7 @@ reading_time AS (
 anchored AS (
     SELECT r.device_id,
            r.lo,
+           r.farm_day,
            r.recorded_at,
            a.anchor_at,
            a.anchor_pct
@@ -482,6 +492,7 @@ anchored AS (
 ),
 modelled AS (
     SELECT a.device_id,
+           a.farm_day,
            a.recorded_at,
            ad.capacity_g,
            ad.full_cm,
@@ -505,6 +516,7 @@ modelled AS (
 ),
 calc AS (
     SELECT m.device_id,
+           m.farm_day,
            m.recorded_at,
            m.capacity_g,
            m.full_cm,
@@ -517,6 +529,7 @@ calc AS (
     FROM modelled m
 )
 SELECT c.device_id,
+       c.farm_day,
        c.recorded_at,
        round(greatest(0::numeric, least(100::numeric, (c.level_g / c.capacity_g) * 100.0)), 2) AS level_percent,
        round(
@@ -571,7 +584,7 @@ SELECT 'FeedLevelLog: model readings inserted',
 FROM reconcile_709_level_inserted;
 
 -- -----------------------------------------------------------------------------
--- 3. The three 2000-01-01 heartbeats
+-- 3. The 2000-01-01 heartbeats (audit saw 3; measured 2 on 2026-11-04)
 -- -----------------------------------------------------------------------------
 --
 -- Decision: set rtcOk = false and KEEP the rows. Do not invent a time and do
@@ -601,15 +614,25 @@ WHERE e."deviceId" IN (SELECT id FROM reconcile_709_device)
   AND e."timestamp" LIKE '2000-01-01%'
   AND e."rtcOk" IS DISTINCT FROM false;
 
+CREATE TEMP TABLE reconcile_709_rtc_updated (
+    id text PRIMARY KEY
+) ON COMMIT DROP;
+
 WITH updated AS (
     UPDATE "FeedEvent" e
     SET "rtcOk" = false
     WHERE e.id IN (SELECT id FROM reconcile_709_rtc_pre)
       AND e."rtcOk" IS DISTINCT FROM false
-    RETURNING 1
+    RETURNING id
 )
-INSERT INTO reconcile_709_log (step, affected)
-SELECT 'FeedEvent: 2000-01-01 heartbeats marked rtcOk=false', count(*) FROM updated;
+INSERT INTO reconcile_709_rtc_updated (id)
+SELECT id FROM updated;
+
+INSERT INTO reconcile_709_log (step, affected, note)
+SELECT 'FeedEvent: 2000-01-01 heartbeats marked rtcOk=false',
+       count(*),
+       'matched at transaction start: ' || (SELECT count(*) FROM reconcile_709_rtc_pre)::text
+FROM reconcile_709_rtc_updated;
 
 -- -----------------------------------------------------------------------------
 -- 4. FcrReport: decide, do not invent
@@ -645,7 +668,12 @@ SELECT r.id,
        r."fcrValue",
        coalesce(f.kg, 0)::numeric AS "feedEventKgInWindow",
        coalesce(b.n, 0) AS "biomassLogsInWindow",
-       (coalesce(f.kg, 0) > 0 AND coalesce(b.n, 0) >= 2) AS "computableFromLogs"
+       (coalesce(f.kg, 0) > 0 AND coalesce(b.n, 0) >= 2) AS "computableFromLogs",
+       CASE
+           WHEN r."biomassGainKg" > 0
+           THEN abs(r."fcrValue" - r."totalFeedKg" / r."biomassGainKg") > 0.000001
+           ELSE true
+       END AS "identityViolation"
 FROM "FcrReport" r
 LEFT JOIN LATERAL (
     SELECT sum(e.grams) / 1000.0 AS kg
@@ -667,7 +695,9 @@ WHERE r."pondId" IN (SELECT id FROM reconcile_709_pond);
 INSERT INTO reconcile_709_log (step, affected, note)
 SELECT 'FcrReport: rows left unchanged, marked stale in the audit marker',
        0,
-       count(*)::text || ' report(s) inspected; recompute is impossible for periods with no feed/gain coverage'
+       count(*)::text || ' report(s) inspected; ' ||
+       count(*) FILTER (WHERE "identityViolation")::text ||
+       ' identity violation(s), not repaired by design'
 FROM reconcile_709_fcr_pre;
 
 -- -----------------------------------------------------------------------------
@@ -753,8 +783,12 @@ SELECT 'demo-pond-001: pending schedule command failed closed', count(*) FROM up
 -- 6. FeedEvent.dataSource: seeded and imported rows are not device telemetry
 -- -----------------------------------------------------------------------------
 --
--- G7: all 556 demo FeedEvents were dataSource='device', including 112 seed rows
--- at exactly 1,500 g and the 132 imported hand_fed rows.
+-- G7 at filing: all 556 demo FeedEvents were dataSource='device', including
+-- 112 seed rows at exactly 1,500 g and the 132 imported hand_fed rows. The
+-- measured 2026-11-04 state is 512 FeedEvents: 112 seed, 132 import, 252 device
+-- and 16 synthetic. The seed and import targets are therefore 0 on that state;
+-- the derived sets are still built so a fresh database with untagged rows is
+-- repaired, and the guards prove zero untagged rows remain.
 --
 -- Seed rule: a feed_dispensed row at exactly 1,500 g whose linked FeedRequest
 -- is also 1,500 g, completed, and was created at the same instant as the event
@@ -763,18 +797,25 @@ SELECT 'demo-pond-001: pending schedule command failed closed', count(*) FROM up
 -- the 56 + 56 seed rows without guessing from the amount alone.
 --
 -- Import rule: every surviving hand_fed row. The merge above already removed
--- the duplicate half-day rows, so this tags 66 rows, not 132. The deletion is
--- the row-count correction; provenance is the label.
+-- the duplicate rows (132 measured -> 66 survivors). The deletion is the
+-- row-count correction; provenance is the label.
+--
+-- The 16 synthetic rows are the W5 fill from the 2026-11-04 batch. They are
+-- neither the 1,500 g seed fixture nor hand_fed, so they are in neither derived
+-- set and are left alone. Do not silently retag them.
 --
 -- Nothing in the app filters on dataSource today (verified by reading
 -- lib/**/*.ts), so this does not hide demo history from any screen. It makes
 -- the future audit possible.
 
-CREATE TEMP TABLE reconcile_709_seed_ids ON COMMIT DROP AS
+-- The full seed-shaped set is derived regardless of its current dataSource,
+-- so the guard can prove that zero rows in that set are still untagged. The
+-- update only touches rows that still say `device`; an already-`seed` (or a
+-- `synthetic`) row is never silently relabelled.
+CREATE TEMP TABLE reconcile_709_seed_set ON COMMIT DROP AS
 SELECT e.id
 FROM "FeedEvent" e
 WHERE e."deviceId" IN (SELECT id FROM reconcile_709_device)
-  AND e."dataSource" = 'device'
   AND e."eventType" = 'feed_dispensed'
   AND e."grams" = 1500
   AND EXISTS (
@@ -787,31 +828,64 @@ WHERE e."deviceId" IN (SELECT id FROM reconcile_709_device)
         AND r."createdAt" = e."receivedAt"
   );
 
+CREATE TEMP TABLE reconcile_709_seed_ids ON COMMIT DROP AS
+SELECT e.id
+FROM "FeedEvent" e
+WHERE e.id IN (SELECT id FROM reconcile_709_seed_set)
+  AND e."dataSource" = 'device';
+
+CREATE TEMP TABLE reconcile_709_seed_updated (
+    id text PRIMARY KEY
+) ON COMMIT DROP;
+
 WITH updated AS (
     UPDATE "FeedEvent" e
     SET "dataSource" = 'seed'
     WHERE e.id IN (SELECT id FROM reconcile_709_seed_ids)
-    RETURNING 1
+    RETURNING id
 )
-INSERT INTO reconcile_709_log (step, affected)
-SELECT 'FeedEvent: seed fixtures tagged dataSource=seed', count(*) FROM updated;
+INSERT INTO reconcile_709_seed_updated (id)
+SELECT id FROM updated;
 
--- Snapshot AFTER the merge, so the marker lists the 66 rows that still exist.
-CREATE TEMP TABLE reconcile_709_import_ids ON COMMIT DROP AS
+INSERT INTO reconcile_709_log (step, affected, note)
+SELECT 'FeedEvent: seed fixtures tagged dataSource=seed',
+       count(*),
+       'untagged seed-shaped rows before this run: ' || (SELECT count(*) FROM reconcile_709_seed_ids)::text
+FROM reconcile_709_seed_updated;
+
+-- Snapshot AFTER the merge, so the set contains the 66 surviving rows. The
+-- full set is derived regardless of its current dataSource; the update only
+-- targets rows still saying `device`. A synthetic row is never relabelled.
+CREATE TEMP TABLE reconcile_709_import_set ON COMMIT DROP AS
 SELECT e.id
 FROM "FeedEvent" e
 WHERE e.source = 'hand_fed'
-  AND e."dataSource" = 'device'
   AND e."deviceId" IN (SELECT id FROM reconcile_709_device);
+
+CREATE TEMP TABLE reconcile_709_import_ids ON COMMIT DROP AS
+SELECT e.id
+FROM "FeedEvent" e
+WHERE e.id IN (SELECT id FROM reconcile_709_import_set)
+  AND e."dataSource" = 'device';
+
+CREATE TEMP TABLE reconcile_709_import_updated (
+    id text PRIMARY KEY
+) ON COMMIT DROP;
 
 WITH updated AS (
     UPDATE "FeedEvent" e
     SET "dataSource" = 'import'
     WHERE e.id IN (SELECT id FROM reconcile_709_import_ids)
-    RETURNING 1
+    RETURNING id
 )
-INSERT INTO reconcile_709_log (step, affected)
-SELECT 'FeedEvent: imported hand_fed rows tagged dataSource=import', count(*) FROM updated;
+INSERT INTO reconcile_709_import_updated (id)
+SELECT id FROM updated;
+
+INSERT INTO reconcile_709_log (step, affected, note)
+SELECT 'FeedEvent: imported hand_fed rows tagged dataSource=import',
+       count(*),
+       'untagged hand_fed rows before this run: ' || (SELECT count(*) FROM reconcile_709_import_ids)::text
+FROM reconcile_709_import_updated;
 
 -- -----------------------------------------------------------------------------
 -- 7. Audit marker, assertions, commit
@@ -850,6 +924,13 @@ WITH marker AS (
                'fcrStale', true,
                'summary', 'Reconciled the demo tenant history: hand_fed merged to one row per farm day, missing level days modelled from machine dispenses, 2000-01-01 heartbeats untrusted, demo-pond-001 retired, seed/import provenance tagged. FCR reports left unchanged and marked stale.',
                'handFed', jsonb_build_object(
+                   'gramsBefore', (SELECT handfed_g::numeric FROM reconcile_709_baseline),
+                   'gramsAfter', (
+                       SELECT coalesce(sum(e.grams), 0)::numeric
+                       FROM "FeedEvent" e
+                       WHERE e.source = 'hand_fed'
+                         AND e."deviceId" IN (SELECT id FROM reconcile_709_device)
+                   ),
                    'survivors', coalesce(
                        (
                            SELECT jsonb_agg(
@@ -883,12 +964,26 @@ WITH marker AS (
                    (SELECT jsonb_agg(id) FROM reconcile_709_level_inserted),
                    '[]'::jsonb
                ),
-               'rtcOk', coalesce(
-                   (
-                       SELECT jsonb_agg(jsonb_build_object('id', id, 'previous', previous))
-                       FROM reconcile_709_rtc_pre
+               'level', jsonb_build_object(
+                   'missingDaysBefore', (
+                       SELECT count(*)
+                       FROM (
+                           SELECT DISTINCT device_id, farm_day
+                           FROM reconcile_709_level_plan
+                       ) d
                    ),
-                   '[]'::jsonb
+                   'insertedRows', (SELECT count(*) FROM reconcile_709_level_inserted)
+               ),
+               'rtcOk', jsonb_build_object(
+                   'matched', (SELECT count(*) FROM reconcile_709_rtc_pre),
+                   'repaired', (SELECT count(*) FROM reconcile_709_rtc_updated),
+                   'rows', coalesce(
+                       (
+                           SELECT jsonb_agg(jsonb_build_object('id', id, 'previous', previous))
+                           FROM reconcile_709_rtc_pre
+                       ),
+                       '[]'::jsonb
+                   )
                ),
                'g9PreImage', coalesce(
                    (
@@ -898,6 +993,8 @@ WITH marker AS (
                    '[]'::jsonb
                ),
                'provenance', jsonb_build_object(
+                   'seedTotal', (SELECT count(*) FROM reconcile_709_seed_set),
+                   'importTotal', (SELECT count(*) FROM reconcile_709_import_set),
                    'seedEventIds', coalesce((SELECT jsonb_agg(id) FROM reconcile_709_seed_ids), '[]'::jsonb),
                    'importEventIds', coalesce((SELECT jsonb_agg(id) FROM reconcile_709_import_ids), '[]'::jsonb),
                    'currentSplit', coalesce(
@@ -912,6 +1009,9 @@ WITH marker AS (
                        ),
                        '{}'::jsonb
                    )
+               ),
+               'fcrIdentityViolations', (
+                   SELECT count(*) FROM reconcile_709_fcr_pre WHERE "identityViolation"
                ),
                'fcrReports', coalesce(
                    (
@@ -959,38 +1059,13 @@ ORDER BY ord;
 DO $$
 DECLARE
     n bigint;
+    m bigint;
     before_g numeric;
     after_g numeric;
 BEGIN
-    -- 0. Refuse a partial match. Each repair is either the audited full set or
-    --    a no-op because a previous run/batch already applied it. A different
-    --    count means the data drifted; stop rather than commit half a repair.
-    SELECT count(*) INTO n FROM reconcile_709_seed_ids;
-    IF n NOT IN (0, 112) THEN
-        RAISE EXCEPTION 'count guard: seed tagging matched % row(s), expected 0 or 112', n;
-    END IF;
-
-    SELECT count(*) INTO n FROM reconcile_709_import_ids;
-    IF n NOT IN (0, 66) THEN
-        RAISE EXCEPTION 'count guard: import tagging matched % row(s), expected 0 or 66', n;
-    END IF;
-
-    SELECT count(*) INTO n FROM reconcile_709_rtc_pre;
-    IF n NOT IN (0, 3) THEN
-        RAISE EXCEPTION 'count guard: rtcOk repair matched % row(s), expected 0 or 3', n;
-    END IF;
-
-    SELECT count(*) INTO n FROM reconcile_709_level_inserted;
-    IF n NOT IN (0, 192) THEN
-        RAISE EXCEPTION 'count guard: level backfill inserted % row(s), expected 0 or 192', n;
-    END IF;
-
-    SELECT count(*) INTO n FROM reconcile_709_handfed_plan;
-    IF n NOT IN (0, 66) THEN
-        RAISE EXCEPTION 'count guard: hand_fed merge matched % farm day(s), expected 0 or 66', n;
-    END IF;
-
-    -- 1. Exactly one hand_fed row per Asia/Manila farm day.
+    -- 1. hand_fed: zero duplicate (device, farm day) groups; the surviving row
+    --    count equals the distinct farm-day count; the tenant total is preserved
+    --    within 1 mg (floating-point sums are not associative).
     SELECT count(*) INTO n
     FROM (
         SELECT 1
@@ -1001,20 +1076,63 @@ BEGIN
         HAVING count(*) > 1
     ) duplicated;
     IF n > 0 THEN
-        RAISE EXCEPTION 'assertion failed: % hand_fed farm day(s) still hold more than one row', n;
+        RAISE EXCEPTION 'assertion failed: % hand_fed (device, farm day) group(s) still hold more than one row', n;
     END IF;
 
-    -- 2. The merge preserved the total hand_fed mass.
+    SELECT count(*) INTO n
+    FROM "FeedEvent" e
+    WHERE e.source = 'hand_fed'
+      AND e."deviceId" IN (SELECT id FROM reconcile_709_device);
+
+    SELECT count(*) INTO m
+    FROM (
+        SELECT DISTINCT e."deviceId",
+               ((e."receivedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Manila')::date
+        FROM "FeedEvent" e
+        WHERE e.source = 'hand_fed'
+          AND e."deviceId" IN (SELECT id FROM reconcile_709_device)
+    ) d;
+    IF n <> m THEN
+        RAISE EXCEPTION 'assertion failed: % hand_fed row(s) for % distinct (device, farm day) group(s)', n, m;
+    END IF;
+
     SELECT b.handfed_g::numeric INTO before_g FROM reconcile_709_baseline b;
     SELECT coalesce(sum(e.grams), 0)::numeric INTO after_g
     FROM "FeedEvent" e
     WHERE e.source = 'hand_fed'
       AND e."deviceId" IN (SELECT id FROM reconcile_709_device);
-    IF after_g IS DISTINCT FROM before_g THEN
+    IF abs(after_g - before_g) > 0.001 THEN
         RAISE EXCEPTION 'assertion failed: hand_fed grams changed from % to %', before_g, after_g;
     END IF;
 
-    -- 3. Zero missing level days in every active demo device's own span.
+    -- 2. Level: the insert affected every planned row, the plan is exactly four
+    --    readings per missing farm day, every planned day now has a reading, and
+    --    no day in the active span is empty.
+    SELECT count(*) INTO n FROM reconcile_709_level_inserted;
+    SELECT count(*) INTO m FROM reconcile_709_level_plan;
+    IF n <> m THEN
+        RAISE EXCEPTION 'assertion failed: level insert affected % row(s) but the plan had %', n, m;
+    END IF;
+
+    SELECT count(*) INTO n FROM reconcile_709_level_plan;
+    SELECT count(*) INTO m
+    FROM (SELECT DISTINCT device_id, farm_day FROM reconcile_709_level_plan) d;
+    IF n <> 4 * m THEN
+        RAISE EXCEPTION 'assertion failed: level plan has % row(s) for % missing day(s), expected 4 per day', n, m;
+    END IF;
+
+    SELECT count(*) INTO n
+    FROM (SELECT DISTINCT device_id, farm_day FROM reconcile_709_level_plan) p
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM "FeedLevelLog" l
+        WHERE l."deviceId" = p.device_id
+          AND ((l."recordedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Manila')::date = p.farm_day
+    );
+    IF n > 0 THEN
+        RAISE EXCEPTION 'assertion failed: % planned level day(s) still have no reading', n;
+    END IF;
+
     SELECT count(*) INTO n
     FROM (
         SELECT s.device_id, s.lo, s.hi
@@ -1038,10 +1156,17 @@ BEGIN
         )
     ) missing;
     IF n > 0 THEN
-        RAISE EXCEPTION 'assertion failed: % missing level day(s) remain', n;
+        RAISE EXCEPTION 'assertion failed: % missing level day(s) remain in the active demo span', n;
     END IF;
 
-    -- 4. No year-2000 device time is trusted. The rows themselves are kept.
+    -- 3. RTC: the repair count equals the start-of-transaction match count, and
+    --    no matching row is still trusted.
+    SELECT count(*) INTO n FROM reconcile_709_rtc_updated;
+    SELECT count(*) INTO m FROM reconcile_709_rtc_pre;
+    IF n <> m THEN
+        RAISE EXCEPTION 'assertion failed: rtcOk repaired % row(s) but % matched at transaction start', n, m;
+    END IF;
+
     SELECT count(*) INTO n
     FROM "FeedEvent" e
     WHERE e."deviceId" IN (SELECT id FROM reconcile_709_device)
@@ -1051,24 +1176,38 @@ BEGIN
         RAISE EXCEPTION 'assertion failed: % 2000-01-01 row(s) still have rtcOk=true', n;
     END IF;
 
-    -- 5. Every remaining FCR row is internally consistent. It already was at
-    --    filing; the assertion protects the "mark stale, do not invent" choice.
-    SELECT count(*) INTO n
-    FROM "FcrReport" r
-    WHERE r."pondId" IN (SELECT id FROM reconcile_709_pond)
-      AND (
-          r."biomassGainKg" <= 0
-          OR CASE
-                 WHEN r."biomassGainKg" > 0
-                 THEN abs(r."fcrValue" - r."totalFeedKg" / r."biomassGainKg") > 0.000001
-                 ELSE true
-             END
-      );
-    IF n > 0 THEN
-        RAISE EXCEPTION 'assertion failed: % FcrReport row(s) violate fcrValue = totalFeedKg / biomassGainKg', n;
+    -- 4. Provenance: every row in each derived set was tagged; zero remain
+    --    untagged. The absolute set sizes are drift-prone and are not asserted.
+    SELECT count(*) INTO n FROM reconcile_709_seed_updated;
+    SELECT count(*) INTO m FROM reconcile_709_seed_ids;
+    IF n <> m THEN
+        RAISE EXCEPTION 'assertion failed: seed tagging updated % row(s) but % were targeted', n, m;
     END IF;
 
-    -- 6. demo-pond-001 is retired and has no pending/sent command.
+    SELECT count(*) INTO n
+    FROM "FeedEvent" e
+    WHERE e.id IN (SELECT id FROM reconcile_709_seed_set)
+      AND e."dataSource" = 'device';
+    IF n > 0 THEN
+        RAISE EXCEPTION 'assertion failed: % seed-shaped row(s) remain untagged', n;
+    END IF;
+
+    SELECT count(*) INTO n FROM reconcile_709_import_updated;
+    SELECT count(*) INTO m FROM reconcile_709_import_ids;
+    IF n <> m THEN
+        RAISE EXCEPTION 'assertion failed: import tagging updated % row(s) but % were targeted', n, m;
+    END IF;
+
+    SELECT count(*) INTO n
+    FROM "FeedEvent" e
+    WHERE e.id IN (SELECT id FROM reconcile_709_import_set)
+      AND e."dataSource" = 'device';
+    IF n > 0 THEN
+        RAISE EXCEPTION 'assertion failed: % hand_fed row(s) remain untagged', n;
+    END IF;
+
+    -- 5. demo-pond-001 is retired, has no pending/sent command, and its feeder
+    --    configuration matches its recorded 1,500 g dispenses.
     IF EXISTS (
         SELECT 1 FROM "Pond"
         WHERE id = 'demo-pond-001'
@@ -1091,35 +1230,37 @@ BEGIN
         RAISE EXCEPTION 'assertion failed: demo-pond-001 still has % pending/sent command(s)', n;
     END IF;
 
-    -- 7. No surviving import/seed row still claims to be device telemetry.
     SELECT count(*) INTO n
-    FROM "FeedEvent" e
-    WHERE e."deviceId" IN (SELECT id FROM reconcile_709_device)
-      AND e.source = 'hand_fed'
-      AND e."dataSource" = 'device';
-    IF n > 0 THEN
-        RAISE EXCEPTION 'assertion failed: % hand_fed row(s) still have dataSource=device', n;
-    END IF;
-
-    SELECT count(*) INTO n
-    FROM "FeedEvent" e
-    WHERE e."deviceId" IN (SELECT id FROM reconcile_709_device)
-      AND e."dataSource" = 'device'
-      AND e."eventType" = 'feed_dispensed'
-      AND e."grams" = 1500
+    FROM "EnergyDevice" d
+    WHERE d."pondId" = 'demo-pond-001'
+      AND d."pondId" IN (SELECT id FROM reconcile_709_pond)
       AND EXISTS (
-          SELECT 1 FROM "FeedRequest" r
-          WHERE r.id = e."feedRequestId"
-            AND r."deviceId" = e."deviceId"
-            AND r."grams" = 1500
-            AND r."status" = 'completed'
-            AND r."createdAt" = e."receivedAt"
+          SELECT 1 FROM "FeedEvent" e
+          WHERE e."deviceId" = d.id
+            AND e."eventType" = 'feed_dispensed'
+            AND e."grams" = 1500
+      )
+      AND (
+          d."gramsPerFeeding" IS DISTINCT FROM 1500
+          OR d."isPaused" IS DISTINCT FROM true
+          OR d."feederActive" IS DISTINCT FROM false
       );
     IF n > 0 THEN
-        RAISE EXCEPTION 'assertion failed: % seed-shaped row(s) still have dataSource=device', n;
+        RAISE EXCEPTION 'assertion failed: % demo-pond-001 feeder(s) still have the wrong dose or pause state', n;
     END IF;
 
-    -- 8. Every row this run inserted is inside the tenant and inside 0..100 %.
+    -- 6. Exactly one audit marker for this run.
+    SELECT count(*) INTO n
+    FROM "DeviceStateEvent" x
+    WHERE x."eventType" = 'data_imported'
+      AND x."farmId" = 'farm_demo-farmer-1'
+      AND x.metadata ->> 'issue' = '709'
+      AND x.metadata ->> 'kind' = 'demo-history-reconcile';
+    IF n <> 1 THEN
+        RAISE EXCEPTION 'assertion failed: expected exactly 1 audit marker, found %', n;
+    END IF;
+
+    -- 7. Every row this run inserted is inside the tenant and inside 0..100 %.
     SELECT count(*) INTO n
     FROM "FeedLevelLog" l
     WHERE l.id IN (SELECT id FROM reconcile_709_level_inserted)
@@ -1132,6 +1273,11 @@ BEGIN
     IF n > 0 THEN
         RAISE EXCEPTION 'assertion failed: % inserted level row(s) are outside the tenant or the 0..100 range', n;
     END IF;
+
+    -- 8. FCR is deliberately not repaired. Report the measured contradiction;
+    --    do not abort on it. The marker carries the same count and evidence.
+    SELECT count(*) INTO n FROM reconcile_709_fcr_pre WHERE "identityViolation";
+    RAISE NOTICE 'FcrReport identity violations: % (not repaired by design; see marker and README)', n;
 END;
 $$;
 

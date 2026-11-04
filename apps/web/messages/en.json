@@ -398,7 +398,7 @@
 		"previewBiomass": "Last sample",
 		"previewBiomassValue": "220 g",
 		"faqAside": "This is a research prototype. Accounts are issued by the project team.",
-		"footerFirmware": "Firmware v1.4.2",
+		"footerFirmware": "Firmware v{version}",
 		"teamEyebrow": "Project",
 		"navWhy": "Why PakaonAI",
 		"heroTrust1": "No cameras required",

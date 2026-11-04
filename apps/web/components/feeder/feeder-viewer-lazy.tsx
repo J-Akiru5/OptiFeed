@@ -42,6 +42,8 @@ interface FeederViewerLazyProps {
 	initialFirmwareVersion?: string | null;
 	/** When the hopper level was measured. */
 	initialFeedLevelUpdatedAt?: string | null;
+	/** The unit is reachable but its ultrasonic sensor is not answering (#810). */
+	initialSensorOffline?: boolean;
 	/** Reading freshness window, from the device status policy. */
 	staleAfterMs?: number;
 	/** Large-screen treatment: bigger readings, full-height scene, no chrome. */
@@ -52,6 +54,8 @@ interface StatePayload {
 	status: FeederStatus;
 	feedLevelPercent: number | null;
 	feedLevelUpdatedAt: string | null;
+	/** Optional so an older API that predates #810 leaves the bit unchanged. */
+	sensorOffline?: boolean;
 	lastFedAt: string | null;
 	waterTempOk: boolean;
 	waterTempC: number | null;
@@ -63,9 +67,10 @@ interface StatePayload {
 }
 
 /** The client copy: health stays nullable because "not reported" is a state. */
-type ViewerState = Omit<StatePayload, "waterTempOk" | "rtcOk"> & {
+type ViewerState = Omit<StatePayload, "waterTempOk" | "rtcOk" | "sensorOffline"> & {
 	waterTempOk: boolean | null;
 	rtcOk: boolean | null;
+	sensorOffline: boolean;
 };
 
 type NavigatorWithHints = Navigator & {
@@ -139,6 +144,7 @@ export function FeederViewerLazy({
 	initialSignalDbm = null,
 	initialFirmwareVersion = null,
 	initialFeedLevelUpdatedAt = null,
+	initialSensorOffline = false,
 	staleAfterMs = DEFAULT_DEVICE_STATUS_POLICY.offlineAfterMs,
 	kiosk = false,
 }: FeederViewerLazyProps) {
@@ -152,6 +158,7 @@ export function FeederViewerLazy({
 		status: initialStatus,
 		feedLevelPercent: initialLevel,
 		feedLevelUpdatedAt: initialFeedLevelUpdatedAt,
+		sensorOffline: initialSensorOffline,
 		lastFedAt: initialLastFedAt,
 		waterTempOk: initialWaterTempOk,
 		waterTempC: initialWaterTempC,
@@ -195,10 +202,13 @@ export function FeederViewerLazy({
 				const body = (await response.json()) as { data?: StatePayload };
 				if (!active || !body.data) return;
 				const next = body.data;
-				setState({
+				setState((previous) => ({
 					status: next.status,
 					feedLevelPercent: next.feedLevelPercent,
 					feedLevelUpdatedAt: next.feedLevelUpdatedAt ?? null,
+					// An older API omits the bit; keep the last seeded value rather
+					// than resetting the sensor to healthy (#810).
+					sensorOffline: next.sensorOffline ?? previous.sensorOffline,
 					lastFedAt: next.lastFedAt,
 					// `waterTempOk` is only meaningful once the probe has reported;
 					// the column defaults to false, so a never-reported probe stays
@@ -210,7 +220,7 @@ export function FeederViewerLazy({
 					lastSeenAt: next.lastSeenAt,
 					signalDbm: next.signalDbm ?? null,
 					firmwareVersion: next.firmwareVersion ?? null,
-				});
+				}));
 			} catch {
 				// Keep the last known reading; the next tick retries.
 			}
@@ -289,6 +299,7 @@ export function FeederViewerLazy({
 						status={state.status}
 						feedLevelPercent={state.feedLevelPercent}
 						feedLevelUpdatedAt={state.feedLevelUpdatedAt}
+						sensorOffline={state.sensorOffline}
 						lastFedLabel={lastFedLabel}
 						waterTempOk={state.waterTempOk}
 						waterTempC={state.waterTempC}

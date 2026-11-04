@@ -45,6 +45,8 @@ interface FeederViewerProps {
 	staleAfterMs?: number;
 	/** When the hopper level was measured; stale levels say so with their age. */
 	feedLevelUpdatedAt?: string | null;
+	/** The unit is reachable but its ultrasonic sensor is not answering (#810). */
+	sensorOffline?: boolean;
 	/** Fresh Wi-Fi signal in dBm, or null when it is absent/stale. */
 	signalDbm?: number | null;
 	/** Firmware version reported by the heartbeat. */
@@ -216,6 +218,7 @@ export function FeederViewer({
 	lastSeenAt = null,
 	staleAfterMs = DEFAULT_DEVICE_STATUS_POLICY.offlineAfterMs,
 	feedLevelUpdatedAt = null,
+	sensorOffline = false,
 	signalDbm = null,
 	firmwareVersion = null,
 	kiosk = false,
@@ -365,9 +368,19 @@ export function FeederViewer({
 						draggingSmoothTime={0.12}
 					/>
 				</Canvas>
-				<FeederLabels status={status} level={level} active={preset === "iso"} />
+				<FeederLabels
+					status={status}
+					level={level}
+					sensorOffline={sensorOffline}
+					active={preset === "iso"}
+				/>
 			</div>
-			<FeederComponentStatusList status={status} level={level} active={preset === "iso"} />
+			<FeederComponentStatusList
+				status={status}
+				level={level}
+				sensorOffline={sensorOffline}
+				active={preset === "iso"}
+			/>
 
 			<div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 px-4 py-3">
 				<div className="flex flex-wrap gap-1" aria-label={t("presetsLabel")}>

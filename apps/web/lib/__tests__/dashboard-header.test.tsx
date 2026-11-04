@@ -79,6 +79,11 @@ describe("phone geometry keeps the notch inset and clears the bottom bar (#572)"
 	});
 
 	it("reserves the bottom bar plus its inset in the content pane", () => {
-		expect(globalsCss).toContain("calc(var(--ofd-bottom-nav-h) + env(safe-area-inset-bottom)");
+		// #880: the floating monitoring HUD sits in the same band, so the pane
+		// reserves its height as well as the bar's.
+		const mainRule = /\.ofd-main \{[^}]*\}/.exec(globalsCss)?.[0] ?? "";
+		expect(mainRule).toContain("var(--ofd-bottom-nav-h)");
+		expect(mainRule).toContain("var(--ofd-hud-h)");
+		expect(mainRule).toContain("env(safe-area-inset-bottom)");
 	});
 });

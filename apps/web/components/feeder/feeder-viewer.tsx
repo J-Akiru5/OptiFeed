@@ -10,6 +10,7 @@ import {
 	FEEDER_NODES,
 	type FeederStatus,
 	grainFillScale,
+	shouldShowFeederLabels,
 } from "@/lib/feeder/feeder-parts";
 import { type ReadingAge, isReadingStale, readingAge } from "@/lib/feeder/reading-freshness";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import {
 	FEEDER_COMPONENT_STATUS_ID,
 	FeederComponentStatusList,
+	type FeederLabelExtra,
 	FeederLabels,
 } from "./feeder-labels";
 
@@ -228,6 +230,8 @@ export function FeederViewer({
 	const tWater = useTranslations("dashboard.waterTemp");
 	const [preset, setPreset] = useState<CameraPreset>("iso");
 	const [resetToken, setResetToken] = useState(0);
+	/** #820: true once the unlocked camera leaves the ISO pose. */
+	const [cameraMoved, setCameraMoved] = useState(false);
 	const [locked, setLocked] = useState<boolean>(() => {
 		if (typeof window === "undefined") return true;
 		try {
@@ -252,7 +256,23 @@ export function FeederViewer({
 	const resetView = () => {
 		setPreset("iso");
 		setResetToken((token) => token + 1);
+		setCameraMoved(false);
 	};
+
+	/**
+	 * #820: ISO is also the way back to the overlay. Re-selecting it restores
+	 * the pose even when the preset never changed, and clears the moved flag;
+	 * every other preset hides the overlay through `labelsVisible`.
+	 */
+	const selectPreset = (next: CameraPreset) => {
+		if (next === "iso") {
+			if (preset === "iso") setResetToken((token) => token + 1);
+			setCameraMoved(false);
+		}
+		setPreset(next);
+	};
+
+	const labelsVisible = shouldShowFeederLabels(preset, cameraMoved);
 
 	const healthOf = (health: boolean | null) =>
 		health === null
@@ -287,6 +307,30 @@ export function FeederViewer({
 	const waterHealth = staleHealth(waterTempUpdatedAt) ?? healthOf(waterTempOk);
 	const rtcHealth = staleHealth(lastSeenAt) ?? healthOf(rtcOk);
 	const waterValue = waterTempC === null ? null : `${waterTempC.toFixed(1)} °C`;
+
+	/**
+	 * Stale or fault reads as paused; never reported reads as muted (#820).
+	 */
+	const healthTone = (stale: boolean, health: boolean | null): FeederLabelExtra["tone"] =>
+		stale ? "paused" : health === null ? "muted" : health ? "live" : "paused";
+	// The hotspots reuse the strip's health/value strings, not a second source.
+	const waterTempLabel: FeederLabelExtra = {
+		value: waterValue ?? "—",
+		status: waterHealth.label,
+		tone: healthTone(isReadingStale(waterTempUpdatedAt, staleAfterMs), waterTempOk),
+	};
+	const rtcStale = isReadingStale(lastSeenAt, staleAfterMs);
+	const rtcLabel: FeederLabelExtra = {
+		value: rtcHealth.label,
+		status: rtcStale
+			? t("componentLastKnown")
+			: rtcOk === null
+				? t("componentNoReading")
+				: rtcOk
+					? t("componentLive")
+					: t("statusOffline"),
+		tone: healthTone(rtcStale, rtcOk),
+	};
 	// The hopper is a sensor too: a level measured an hour ago is not a level.
 	const levelAge = readingAge(feedLevelUpdatedAt);
 	const levelStale = isReadingStale(feedLevelUpdatedAt, staleAfterMs);
@@ -337,9 +381,14 @@ export function FeederViewer({
 				)}
 				role="img"
 				aria-label={t("canvasLabel", { label })}
-				aria-describedby={preset === "iso" ? FEEDER_COMPONENT_STATUS_ID : undefined}
+				aria-describedby={labelsVisible ? FEEDER_COMPONENT_STATUS_ID : undefined}
 				data-camera-preset={preset}
 				data-camera-locked={locked ? "true" : "false"}
+				onWheel={() => {
+					// camera-controls does not emit `controlstart` for wheel dolly,
+					// so the common zoom gesture is handled here as well (#820).
+					if (!locked) setCameraMoved(true);
+				}}
 			>
 				<Canvas
 					camera={{ position: [...CAMERA_PRESETS.iso], fov: 34 }}
@@ -360,6 +409,12 @@ export function FeederViewer({
 					<CameraControls
 						makeDefault
 						enabled={!locked}
+						// `onStart` maps to camera-controls `controlstart`, which fires on
+						// pointer-down even for a bare click. `onControl` is dispatched only
+						// from the dragging path once the camera actually moves (#820).
+						onControl={() => {
+							if (!locked) setCameraMoved(true);
+						}}
 						minDistance={CAMERA_MIN_DISTANCE}
 						maxDistance={CAMERA_MAX_DISTANCE}
 						mouseButtons={CAMERA_MOUSE_BUTTONS}
@@ -372,14 +427,18 @@ export function FeederViewer({
 					status={status}
 					level={level}
 					sensorOffline={sensorOffline}
-					active={preset === "iso"}
+					active={labelsVisible}
+					rtc={rtcLabel}
+					waterTemp={waterTempLabel}
 				/>
 			</div>
 			<FeederComponentStatusList
 				status={status}
 				level={level}
 				sensorOffline={sensorOffline}
-				active={preset === "iso"}
+				active={labelsVisible}
+				rtc={rtcLabel}
+				waterTemp={waterTempLabel}
 			/>
 
 			<div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 px-4 py-3">
@@ -388,7 +447,7 @@ export function FeederViewer({
 						<button
 							key={key}
 							type="button"
-							onClick={() => setPreset(key)}
+							onClick={() => selectPreset(key)}
 							aria-pressed={preset === key}
 							className={cn(
 								"rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",

@@ -1945,6 +1945,8 @@
 			"componentMotor": "Motor",
 			"componentAuger": "Auger",
 			"componentOutlet": "Outlet",
+			"componentRtc": "RTC",
+			"componentWaterTemp": "Temperatura sang tubig",
 			"componentLive": "Live",
 			"componentLastKnown": "Katapusan nga nabasa",
 			"componentOnline": "Online",

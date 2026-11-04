@@ -543,6 +543,8 @@
 			"componentMotor": "Motor",
 			"componentAuger": "Auger",
 			"componentOutlet": "Outlet",
+			"componentRtc": "RTC",
+			"componentWaterTemp": "Temperatura ng tubig",
 			"componentLive": "Live",
 			"componentLastKnown": "Huling alam",
 			"componentOnline": "Online",

@@ -28,6 +28,9 @@ const chatFab = (page: Page) => page.locator('button[class*="ofd-fab-size"][aria
 // #269: the floating "?" was removed; help lives in the header only.
 const floatingHelp = (page: Page) => page.locator("[data-fab-help]");
 const headerHelp = (page: Page) => page.locator('[data-help="help-button"]:visible').first();
+// Below lg the band is brand, search, alerts and the account button, so Help
+// is a row inside the account menu rather than a seventh icon (#880).
+const accountMenuTrigger = (page: Page) => page.locator("[data-profile-menu-trigger]").first();
 const bottomNav = (page: Page) => page.locator('nav[class*="bottom-0"]');
 
 test.describe("FAB cluster layout (workbench L1: no overlap)", () => {
@@ -42,7 +45,18 @@ test.describe("FAB cluster layout (workbench L1: no overlap)", () => {
 			// #269: help has one visible entry point (the header's), so no floating
 			// "?" may cover the right rail.
 			await expect(floatingHelp(page)).toHaveCount(0);
-			await expect(headerHelp(page)).toBeVisible();
+			if (vp.width >= 1024) {
+				await expect(headerHelp(page)).toBeVisible();
+			} else {
+				// The phone has no help icon of its own; it is reachable from the
+				// account menu, so open the menu and prove the entry point is there.
+				await expect(headerHelp(page)).toHaveCount(0);
+				await accountMenuTrigger(page).click();
+				await expect(accountMenuTrigger(page)).toHaveAttribute("aria-expanded", "true");
+				await expect(headerHelp(page)).toBeVisible();
+				await page.keyboard.press("Escape");
+				await expect(accountMenuTrigger(page)).toHaveAttribute("aria-expanded", "false");
+			}
 
 			// BottomNav is lg:hidden, so it is on screen up to 1023px even where
 			// the desktop chat panel (md:flex) has already taken over.

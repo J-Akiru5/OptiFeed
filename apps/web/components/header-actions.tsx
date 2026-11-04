@@ -430,6 +430,7 @@ export function HeaderActions({
 				className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-[var(--ofd-cta)] text-sm font-extrabold text-white shadow-sm transition hover:bg-[var(--ofd-cta-hover)] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
 				aria-label={tAccount("open")}
 				aria-expanded={showProfileMenu}
+				data-profile-menu-trigger=""
 			>
 				<UserAvatar
 					src={avatarUrl}
@@ -510,6 +511,7 @@ export function CompactHeaderActions({
 				className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-[var(--ofd-cta)] text-sm font-extrabold text-white shadow-sm transition hover:bg-[var(--ofd-cta-hover)] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
 				aria-label={tAccount("open")}
 				aria-expanded={showProfileMenu}
+				data-profile-menu-trigger=""
 			>
 				<UserAvatar
 					src={avatarUrl}

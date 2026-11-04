@@ -136,8 +136,14 @@ test.describe("QA release-critical flows", () => {
 			await expect(page.getByText(message, { exact: true }).first()).toBeVisible({
 				timeout: 20_000,
 			});
-			await expect(page.getByText("Feeding", { exact: true }).first()).toBeVisible();
-			await expect(page.getByText("SUCCESS", { exact: true }).first()).toBeVisible();
+			// Scope to the card that carries the message: the filter chips repeat the
+			// category name, and one of the two copies is the collapsed phone panel.
+			const card = page
+				.locator("ul li")
+				.filter({ has: page.getByText(message, { exact: true }) })
+				.first();
+			await expect(card.getByText("Feeding", { exact: true })).toBeVisible();
+			await expect(card.getByText("SUCCESS", { exact: true })).toBeVisible();
 		} finally {
 			await prisma.notification.deleteMany({
 				where: { pondId: E2E.pondId, message },

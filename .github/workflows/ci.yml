@@ -283,6 +283,43 @@ jobs:
           tail -n 100 "$RUNNER_TEMP/next.log"
           exit 1
 
+      # Authenticated accessibility gate (#730). The spec logs in as the seeded
+      # e2e farmer and audits /en/dashboard and /en/dashboard/calendar (the
+      # dense harvest screen) with axe-core against the real stack, hydrated
+      # client components and production CSS. A separate step so a violation is
+      # attributed here instead of to the forty-test Playwright run.
+      #
+      # The hard assertion is zero *critical* violations, matching the existing
+      # gate. Serious/minor counts are written to the job summary as
+      # report-only calibration data: they do not decide pass/fail until the
+      # first CI runs show what this fixture actually renders.
+      #
+      # The spec also runs inside `test:e2e` below (~20 s of duplication). That
+      # is deliberate: a local `pnpm test:e2e` must stay complete, and the
+      # duplicate is cheap next to this job's stack setup.
+      - name: Authenticated accessibility gate (axe)
+        run: pnpm --filter web test:e2e:a11y
+
+      - name: Accessibility summary
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -f apps/web/test-results/a11y-summary.json ]; then
+            # Printed to the log as well as the job summary: the job summary is
+            # not readable after the run from the CLI or the API.
+            summary="$(cat apps/web/test-results/a11y-summary.json)"
+            printf '%s\n' "$summary"
+            {
+              echo '### Authenticated accessibility (axe-core)'
+              echo ''
+              echo '```json'
+              printf '%s\n' "$summary"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'No a11y summary was produced: the gate step did not finish.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       # workers: 1 and retries: 0 come from playwright.config.ts: the suite is
       # stateful against the shared fixture and must stay serial.
       - name: Run Playwright

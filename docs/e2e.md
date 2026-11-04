@@ -152,20 +152,50 @@ The release QA pass keeps two focused specs in the normal `e2e/` directory:
 - `e2e/qa-release-critical.spec.ts` — login/protected redirect, schedule
   persistence, biomass save + growth visibility, a real ingest-driven
   notification, and farmer/platform-console boundaries.
-- `e2e/qa-accessibility.spec.ts` — axe checks on the four public pages and the
-  authenticated dashboard, plus the QA-20 CTA contrast regression.
+- `e2e/qa-accessibility.spec.ts` — axe checks on the four public pages, the
+  authenticated dashboard and the Calendar & Harvest screen, plus the QA-20 CTA
+  contrast regression.
 
 They run as part of `pnpm test:e2e`, so the normal `e2e` CI job covers them on
-every pull request to `develop`. Use the focused script while iterating:
+every pull request to `develop`. Use the focused scripts while iterating:
 
 ```bash
-pnpm --filter web test:e2e:qa
+pnpm --filter web test:e2e:qa    # both release QA specs
+pnpm --filter web test:e2e:a11y  # the accessibility spec only
 ```
 
 The specs are serial like the rest of the suite and clean up the `e2e-` rows
 they create. The axe spec disables the generic color-contrast rule so it does
 not mask other findings; the dedicated CTA contrast test pins the known QA-20
 fix.
+
+### Authenticated accessibility run
+
+The authenticated part of the axe spec logs in once as the seeded `e2e-` farmer
+and audits two screens against the real stack, hydrated client components and
+production CSS:
+
+| URL | Why it is in scope |
+|---|---|
+| `/en/dashboard` | The control room every operator lands on |
+| `/en/dashboard/calendar` | The dense Calendar & Harvest screen (`/dashboard/harvest` redirects here) |
+
+The hard assertion is zero **critical** violations, the same boundary the other
+axe tests use. Each page's violation ids are grouped by impact, written to
+`apps/web/test-results/a11y-summary.json` and printed into the job summary, so
+minor/serious findings are visible without failing the build. That is
+report-only calibration data until the first CI runs show what this fixture
+actually renders; the static-markup gate in
+`apps/web/lib/__tests__/a11y-pages.test.tsx` already holds serious/critical at
+zero on the dashboard, hardware and admin pages.
+
+`ci.yml` runs the spec as its own step in the `e2e` job
+(`pnpm --filter web test:e2e:a11y`), before the full suite, so a violation is
+attributed to that step. **No required check was changed.** The context that
+would have to become required is `e2e (local supabase stack)`, which also gates
+the whole stateful Playwright suite and costs roughly ten minutes; the narrower
+alternative is to promote this step into its own job with its own context. That
+is an owner decision, not a config change made here.
 
 ## Coverage gate
 

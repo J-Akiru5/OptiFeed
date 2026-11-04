@@ -80,7 +80,9 @@ test.describe("QA release-critical flows", () => {
 		// The ration may be applied, kept by the safety guard, or skipped. All
 		// are valid outcomes for this fixture; the sample must still be saved.
 		await expect(
-			page.getByText(/Feed to dispense per feeding|Calculated dose .* not applied|Device schedule not changed/),
+			page.getByText(
+				/Feed to dispense per feeding|Calculated dose .* not applied|Device schedule not changed/,
+			),
 		).toBeVisible({ timeout: 20_000 });
 		await expect(page.getByText("Saved to")).toBeVisible();
 		await expect(page.getByText(batch, { exact: true }).first()).toBeVisible();

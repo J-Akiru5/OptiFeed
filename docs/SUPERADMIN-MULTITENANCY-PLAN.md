@@ -612,6 +612,39 @@ Open decisions OTA-1…OTA-7 are listed in the design doc §8. Tasks: T-12a firm
 
 ---
 
+## 8a. Growth-cycle workstream (tracked from 2026-11-04)
+
+The grow-out cycle is the part of the product a farmer touches between harvests, and it was the one
+workstream with no entry in this plan. It is recorded here so it is visible next to the phases rather
+than living only in issues.
+
+**Where it sits:** after the M3C console work, before the next commercial phase. It is independent of
+the tenancy model — no schema change, no authorization change — so it does not gate and is not gated
+by sections 3-5.
+
+### Defects found (audit, file:line evidence on the issues)
+
+| Issue | Severity | Defect |
+| --- | --- | --- |
+| #825 | P1 | The "Start grow-out cycle" dialog wipes typed values every 30 s and on tab refocus. `DashboardLiveRefresh` calls `router.refresh()`, the RSC payload re-deserialises `ponds`, and the reset effect in `cycle-form.tsx` is keyed on that array. `harvest-form.tsx` has the same defect. **Fixed** in #829 by keying the reset ref on a stable identity. |
+| #830 | P1 | Calendar pond/type filters revert on the same 30 s refresh — same defect class, different component. |
+| #831 | P1 | The live hopper distance snaps back to the server snapshot every 30 s — same class. |
+| #826 | Enhancement | The cycle is open-loop: target weight, duration and expected survival are global literals, and `CropCycle.actualHarvest*` is written but never read back to seed the next cycle. No calibration path exists in `lib/crop-cycle/**` or `lib/growth/**`. |
+| #828 | Enhancement | Per-farm growth defaults, per-pond override and history-based suggestions. Design-heavy; depends on #826. |
+
+### Order
+
+1. **#829** (done) — the reset-effect pattern every later fix reuses.
+2. **#830** and **#831** — independent files, can run in parallel.
+3. **#826 part 1** — date cascade and null handling, on top of #829's ref pattern.
+4. **#828 / #826 part 2** — per-farm defaults, per-pond override, history-based suggestions.
+
+### Rule this workstream establishes
+
+**A reset effect must be keyed on a stable identity, never on a server-prop array.** `DashboardLiveRefresh`
+replaces those arrays every 30 seconds by design; any effect that depends on array identity will fire
+and destroy local state. This applies to every form in the app, not only the two fixed in #829.
+
 ## 9. Order of PRs (each from its own branch to `develop`)
 
 **v2 near-term queue (2026-10-26), ahead of the v1 list below:**

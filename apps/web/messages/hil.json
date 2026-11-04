@@ -3428,11 +3428,6 @@
 				"commandCenter": "Command Center",
 				"ecosystem": "Pagdumala sang Ekosistema",
 				"platformControl": "Pagkontrol sang Plataporma"
-			},
-			"scope": {
-				"label": "Sakop sang console",
-				"global": "Global nga superadmin",
-				"organization": "Organisasyon {name}"
 			}
 		},
 		"loading": {

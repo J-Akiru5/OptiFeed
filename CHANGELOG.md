@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **The superadmin console no longer opens with a redundant sticky scope strip (#834).** The `GLOBAL SUPERADMIN` / `GLOBAL SUPERADMIN → ORG` banner repeated the sidebar's active item and the page heading while occupying a sticky row on every console page. The banner component, its layout and organization-page mounts, its URL-crumb helper, the `.ofd-console-scope` rule and the three `superadmin.shell.scope.*` strings are gone from English, Hiligaynon and Tagalog. The sidebar highlight, the page heading and the mobile header band still name where the operator is. No data or schema change.
+
 ## [1.54.0] - 2026-11-04
 
 ### Added

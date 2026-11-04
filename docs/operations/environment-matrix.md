@@ -35,7 +35,9 @@ arguments, because they would be recorded in an image layer.
 | `GEMINI_API_KEY` | No | runtime | Google AI Studio | The fallback provider is inactive. Nothing else degrades. |
 | `OPENCODE_GO_REASONING_EFFORT` | No | runtime | — | Defaults to `high` (`lib/ai-providers/reasoning.ts`). |
 | `OPENCODE_GO_MODEL` | **Unused** — see §4 | — | — | Nothing. No code reads it. |
-| `CRON_SECRET` | **Yes if cron is scheduled** | runtime | Generated secret, also stored in Supabase Vault by `docs/sql/cron-*.sql` | `withCronAuth` answers 403 `Cron secret is not configured`, so `device-watch`, `crop-watch` and `jobs` never run: no dead-device alerts, no reminders, no `ErrorEvent` retention sweep. Fails closed, never open. |
+| `CRON_SECRET` | **Yes if cron is scheduled** | runtime | Generated secret, also stored in Supabase Vault by `cron:apply` | `withCronAuth` answers 403 `Cron secret is not configured`, so `device-watch`, `crop-watch`, `jobs` and `heartbeat-watch` never run: no dead-device alerts, no reminders, no `ErrorEvent` retention sweep, no cron dead-man's switch. Fails closed, never open. |
+| `ALERT_WEBHOOK_URL` | No | runtime | Provider-neutral operator webhook (#729): Slack incoming webhook, Discord webhook or a pager adapter | No external page. One warning per process; `console.error("[obs]")`, `/api/health/cron` and the `Uptime` workflow remain the signal. The value is a secret and is never logged. |
+| `ALERT_COOLDOWN_MS` / `ALERT_TIMEOUT_MS` | No | runtime | Tuning for the same channel | Dedup window defaults to 10 min (clamped 60 s–24 h); webhook timeout defaults to 3 s (clamped 0.5–10 s). |
 | `RESEND_API_KEY` | No | runtime | Resend dashboard | E-mail is skipped and logged once per process; in-app notifications still run. |
 | `REMINDER_FROM_EMAIL` | No | runtime | Verified Resend sending domain | Harvest/sampling reminder e-mail is skipped. |
 | `INVITE_FROM_EMAIL` | No | runtime | Verified Resend sending domain | Invite e-mail is skipped. The UI shows the documented default sender (`PakaonAI <invite@syntaxure.dev>`) but does not send with it — the variable must be set for `inviteReady`. |

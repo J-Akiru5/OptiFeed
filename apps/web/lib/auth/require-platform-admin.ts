@@ -1,6 +1,7 @@
 import { redirect } from "@/i18n/routing";
 import prisma from "@/lib/prisma";
 import { getLocale } from "next-intl/server";
+import { isMfaChallengePendingForSession } from "./mfa";
 import { isPlatformAdminActive } from "./platform-admin";
 import { assertPasswordChanged, getCurrentUser } from "./session";
 
@@ -54,6 +55,13 @@ async function isPlatformAdminFarmId(farmId: string): Promise<boolean> {
  * separate from UserRole.ADMIN. The tenant /admin console is gated on an active
  * OWNER/ADMIN Membership instead (lib/auth/tenant-admin.ts), so neither flag
  * can open the other console.
+ *
+ * #719: a platform admin who has verified a TOTP factor must complete the
+ * second step before the console opens. The pending session (AAL1) is valid
+ * enough to ask for a code, so the redirect goes to /login, where the login
+ * page detects the pending factor and renders the code form. Nothing is
+ * revoked: an abandoned MFA attempt leaves the account able to sign in again,
+ * and a user with no factor never sees the gate.
  */
 export async function requirePlatformAdmin(): Promise<void> {
 	await assertPasswordChanged();
@@ -62,4 +70,23 @@ export async function requirePlatformAdmin(): Promise<void> {
 		const locale = await getLocale();
 		redirect({ href: "/dashboard", locale });
 	}
+
+	if (await isMfaChallengePendingForSession()) {
+		const locale = await getLocale();
+		redirect({ href: "/login", locale });
+	}
+}
+
+/**
+ * Platform-admin access **and** a completed MFA challenge, for the few callers
+ * that authorize on `isCurrentPlatformAdmin()` directly instead of calling
+ * `requirePlatformAdmin()` (API routes must return a response, not redirect).
+ *
+ * The console layout and every platform action use `requirePlatformAdmin()`;
+ * this helper exists so a read-only route cannot become the way around the
+ * second step.
+ */
+export async function isCurrentPlatformAdminMfaSatisfied(): Promise<boolean> {
+	if (!(await isCurrentPlatformAdmin())) return false;
+	return !(await isMfaChallengePendingForSession());
 }

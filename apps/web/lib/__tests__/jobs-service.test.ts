@@ -408,6 +408,7 @@ describe("runJob failures", () => {
 		expect(mocks.reportError).toHaveBeenCalledWith(
 			expect.objectContaining({ message: "Unknown job type: export_docx" }),
 			{ route: "jobs/worker", jobId: "job_1", type: "export_docx" },
+			"CRITICAL",
 		);
 		expect(mocks.updateMany).toHaveBeenCalledWith({
 			where: { id: "job_1", lockedBy: "worker-1", status: "running" },
@@ -510,6 +511,7 @@ describe("runJob failures", () => {
 		expect(mocks.reportError).toHaveBeenCalledWith(
 			expect.objectContaining({ message: "connection reset" }),
 			{ route: "jobs/worker", jobId: "job_1", type: "export_csv" },
+			"ERROR",
 		);
 		expect(mocks.updateMany).toHaveBeenCalledWith(
 			expect.objectContaining({

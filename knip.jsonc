@@ -25,7 +25,12 @@
 				// CI preflight (#317): run by name before `prisma migrate deploy`.
 				"scripts/e2e/check-ci-target.ts",
 				// Run by hand from docs/password-auth-plan.md; a one-off admin CLI.
-				"scripts/provision-demo-user.ts"
+				"scripts/provision-demo-user.ts",
+				// #711 read-only two-tenant proof. Run by name from
+				// `pnpm security:tenant-proof` and docs/security/tenant-isolation-proof.md,
+				// never imported. It lives here rather than in the repo root because it
+				// needs this workspace's generated Prisma client.
+				"scripts/security/tenant-isolation-proof.mjs"
 			],
 			"ignoreFiles": [
 				// Static service worker: registered at runtime by

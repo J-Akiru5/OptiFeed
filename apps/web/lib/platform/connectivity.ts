@@ -108,7 +108,7 @@ async function readRollupMarker(): Promise<ConnectivityRollupMarker | null> {
 	} catch (error) {
 		// A failed marker read only means a day may be recomputed. The replace is
 		// idempotent, so this is safe; the run itself must not fail for it.
-		reportError(error, { job: "connectivity-rollup", stage: "read-marker" });
+		reportError(error, { job: "connectivity-rollup", stage: "read-marker" }, "WARNING");
 		return null;
 	}
 }

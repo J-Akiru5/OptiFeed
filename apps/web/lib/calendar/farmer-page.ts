@@ -6,6 +6,7 @@ import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { serialiseCycle } from "@/lib/crop-cycle/serialise";
 import type { CropCycleDto, PondOption } from "@/lib/crop-cycle/types";
 import { evaluateDeviceStatus } from "@/lib/device-status";
+import { loadPondGrowthDefaultContexts } from "@/lib/growth/defaults-loader";
 import { parsePondGrowthTarget, parsePondProfile } from "@/lib/pond-profile";
 import { getActivePondId } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
@@ -82,12 +83,14 @@ export async function loadFarmerCalendarPageData(): Promise<FarmerCalendarPageDa
 			population: true,
 			notificationPrefs: true,
 			ownerId: true,
+			farmId: true,
 			sampleIntervalDays: true,
 			createdAt: true,
 		},
 	});
 	if (ponds.length === 0) return null;
 
+	const growthContexts = await loadPondGrowthDefaultContexts(ponds);
 	const writablePondIds = ponds.filter((pond) => pond.ownerId === ownerId).map((pond) => pond.id);
 	const initialPond =
 		ponds.find((pond) => pond.id === selectedPondId) ??
@@ -131,6 +134,8 @@ export async function loadFarmerCalendarPageData(): Promise<FarmerCalendarPageDa
 				savedTarget && activeCycleId !== null && savedTarget.cycleId === activeCycleId
 					? savedTarget.targetWeightG
 					: null,
+			growthDefaults: growthContexts.get(pond.id)?.resolved,
+			growthSuggestions: growthContexts.get(pond.id)?.suggestions ?? [],
 		};
 	});
 

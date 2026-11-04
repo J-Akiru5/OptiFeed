@@ -20,7 +20,7 @@ It never inserts, updates or deletes.
 DATABASE_URL="postgresql://postgres:...@<staging-host>:5432/postgres" \
 APP_DATABASE_URL="postgresql://optifeed_app:<password>@<staging-host>:5432/postgres" \
 TENANT_PROOF_CONFIRM=yes \
-node scripts/security/tenant-isolation-proof.mjs \
+node apps/web/scripts/security/tenant-isolation-proof.mjs \
   --farm-a demo-farmer-1 \
   --farm-b tenant2-admin
 ```

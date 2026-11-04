@@ -163,15 +163,24 @@ returns a `307` to `/en/login`, so Lighthouse would score the redirect, not the 
 | `/en/change-password` | `307` to login |
 | `/en/admin/devices/labels`, `/en/superadmin/devices/labels` | `307` to login (print views) |
 
-Auditing them is a follow-up that needs a seeded database and a session fixture (see
+Auditing them with Lighthouse is a follow-up that needs a seeded database and a session fixture (see
 [`api-latency.md`](./api-latency.md), which lists the same prerequisite for the DB-backed requests).
+**Accessibility is no longer part of that gap**: the seeded local Supabase stack that the `e2e` job
+already builds now runs an axe audit of `/en/dashboard` and `/en/dashboard/calendar`
+(`apps/web/e2e/qa-accessibility.spec.ts`, `pnpm --filter web test:e2e:a11y`), with zero **critical**
+violations as the boundary and serious/minor counts written to the job summary for calibration. See
+[`docs/e2e.md`](../e2e.md).
 
-**The authenticated Lighthouse/a11y gate for the whole console is still a follow-up (#730).** This
-change does not add a session to `lighthouserc.json` or change the public URLs. It adds one real
-authenticated surface — `/dashboard` — to the axe suite in
-[`apps/web/lib/__tests__/a11y-pages.test.tsx`](../../apps/web/lib/__tests__/a11y-pages.test.tsx),
-and re-baselines that route's first-load JS above. The full console gate still needs a seeded local
-stack and a repeatable session fixture.
+Authenticated **Lighthouse** collection is still not implemented. `@lhci/cli@0.15.1` does not bundle
+Puppeteer, and its `puppeteerScript` hook requires it; adding Puppeteer would mean a second browser
+stack (~100 MB download) next to the Playwright/Chromium the e2e job already installs, purely to log
+in. The axe run covers the accessibility category on those screens, and the deterministic
+`perf/bundle-budget.json` covers their JS payload, so no Lighthouse performance threshold is asserted
+for authenticated routes on purpose: a lab score over a seeded database on a shared runner moves by
+more than ten points between identical runs (see the spread in the table below), so any threshold loose
+enough not to flake would not assert anything. `/dashboard`'s first-load JS was re-baselined to the
+measured 1062.8 kB with a 1116.0 kB ceiling (+5%) rather than the usual +2%; the reasoning is recorded
+in the summary above.
 
 ### Measured baseline
 

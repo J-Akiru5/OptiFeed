@@ -51,6 +51,15 @@ const SUPABASE_KEY_PATTERN = /\bsb(?:p)?_(?:secret|publishable)?_?[A-Za-z0-9_-]{
 const EMAIL_PATTERN = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
 
 /**
+ * Credentials embedded in a URL or connection string:
+ * `postgresql://user:password@host:5432/db`. Only the userinfo is replaced, so
+ * the scheme and host stay diagnosable. This is a separate pattern from
+ * `password=` because a Prisma/Postgres error can echo the raw URL and never
+ * spells the word "password".
+ */
+const URL_USERINFO_PATTERN = /\b([a-z][a-z0-9+.-]*:\/\/)[^\s/@]+:[^\s/@]+@/gi;
+
+/**
  * Defensive last pass: 32+ hex characters (device tokens, hashes) and 40+
  * base64url characters (opaque tokens) are credentials far more often than
  * they are prose. Stack traces and file paths do not match either shape.
@@ -84,6 +93,7 @@ export function scrubText(value: string): string {
 		})
 		.replace(JWT_PATTERN, REDACTED_KEY)
 		.replace(SUPABASE_KEY_PATTERN, REDACTED_KEY)
+		.replace(URL_USERINFO_PATTERN, (_match, scheme: string) => `${scheme}${REDACTED}@`)
 		.replace(EMAIL_PATTERN, REDACTED_EMAIL)
 		.replace(LONG_HEX_PATTERN, REDACTED_TOKEN)
 		.replace(LONG_TOKEN_PATTERN, REDACTED_TOKEN);

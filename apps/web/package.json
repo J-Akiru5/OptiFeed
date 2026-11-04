@@ -1,6 +1,6 @@
 {
 	"name": "@optifeed/web",
-	"version": "1.56.1",
+	"version": "1.57.0",
 	"private": true,
 	"type": "module",
 	"scripts": {
@@ -18,13 +18,14 @@
 		"test:watch": "vitest",
 		"test:e2e": "playwright test",
 		"test:e2e:qa": "playwright test e2e/qa-release-critical.spec.ts e2e/qa-accessibility.spec.ts",
+		"test:e2e:a11y": "playwright test e2e/qa-accessibility.spec.ts",
 		"complexity": "node scripts/check-complexity.mjs",
 		"i18n:tl-coverage": "node scripts/i18n-tagalog-coverage.mjs",
 		"i18n:hil-coverage": "node scripts/i18n-hiligaynon-coverage.mjs",
 		"test:e2e:smoke": "playwright test --config=playwright.smoke.config.ts",
 		"seed:dev": "tsx prisma/seed-dev.ts",
 		"seed:tenant-b": "tsx scripts/seed-tenant-b.ts",
-		"cron:apply": "node scripts/ops/apply-cron-schedules.mjs",
+		"cron:apply": "tsx scripts/ops/apply-cron-schedules.ts",
 		"cron:health": "node scripts/ops/check-cron-health.mjs",
 		"cron:smoke": "node scripts/ops/smoke-cron-endpoints.mjs",
 		"manage-user": "tsx prisma/manage-users.ts",

@@ -1,7 +1,9 @@
 # Demo tenant reconciliation — issue #709
 
-**Status:** reviewed script, **not executed**. The orchestrator runs it after a
-full logical backup. Nothing in this directory touches a database by itself.
+**Status:** reviewed script. The 2026-11-04 production attempt rolled back on the
+old absolute guard (`rtcOk repair matched 2 row(s), expected 0 or 3`) and
+committed nothing. This revision derives every guard from the measured state and
+has **not** been executed. The orchestrator runs it after a full logical backup.
 
 **Scope:** `Pond.ownerId = 'demo-farmer-1'` **and**
 `Pond.farmId = 'farm_demo-farmer-1'` (the telemetry ownership stamp, not the

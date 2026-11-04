@@ -7,6 +7,7 @@ import { ChatWidget } from "@/components/chat/chat-widget";
 import { ChatWidgetProvider } from "@/components/chat/chat-widget-provider";
 import { DashboardContentShell } from "@/components/chat/dashboard-content-shell";
 import { DashboardLiveRefresh } from "@/components/dashboard-live-refresh";
+import { DashboardAlertsProvider } from "@/components/dashboard/alerts/dashboard-alerts-context";
 import { FabStack } from "@/components/fab-stack";
 import { CompactHeaderActions, HeaderActions } from "@/components/header-actions";
 import { MobileHeader } from "@/components/mobile/mobile-header";
@@ -271,36 +272,38 @@ export default async function DashboardLayout({
 						</header>
 
 						<DashboardContentShell>
-							<Sidebar
-								hopperLevelPct={hopperLevelPct}
-								hopperLevelUpdatedAt={hopperLevelUpdatedAt}
-								hopperCapacityG={hopperCapacityG}
-								gramsPerFeeding={hopperGramsPerFeeding}
-								feedsPerDay={hopperFeedsPerDay}
-								isOffline={esp32Status === "offline"}
-								isSensorOffline={hopperSensorOffline}
-								connection={esp32Status}
-								health={monitoringHealth}
-								showHopperWidget={showPondChrome}
-							/>
-							<main
-								id="main-content"
-								tabIndex={-1}
-								className="ofd-main ofd-main-room relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-clip p-4 focus:outline-none md:p-8"
-							>
-								<BackToDashboard />
-								{announcement && (
-									<div className="mb-4">
-										<AnnouncementBanner
-											id={announcement.id}
-											title={announcement.title}
-											body={announcement.body}
-											severity={announcement.severity}
-										/>
-									</div>
-								)}
-								{children}
-							</main>
+							<DashboardAlertsProvider>
+								<Sidebar
+									hopperLevelPct={hopperLevelPct}
+									hopperLevelUpdatedAt={hopperLevelUpdatedAt}
+									hopperCapacityG={hopperCapacityG}
+									gramsPerFeeding={hopperGramsPerFeeding}
+									feedsPerDay={hopperFeedsPerDay}
+									isOffline={esp32Status === "offline"}
+									isSensorOffline={hopperSensorOffline}
+									connection={esp32Status}
+									health={monitoringHealth}
+									showHopperWidget={showPondChrome}
+								/>
+								<main
+									id="main-content"
+									tabIndex={-1}
+									className="ofd-main ofd-main-room relative z-10 min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-clip p-4 focus:outline-none md:p-8"
+								>
+									<BackToDashboard />
+									{announcement && (
+										<div className="mb-4">
+											<AnnouncementBanner
+												id={announcement.id}
+												title={announcement.title}
+												body={announcement.body}
+												severity={announcement.severity}
+											/>
+										</div>
+									)}
+									{children}
+								</main>
+							</DashboardAlertsProvider>
 						</DashboardContentShell>
 					</NotificationProvider>
 

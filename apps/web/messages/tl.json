@@ -1492,11 +1492,19 @@
 					"offlineDetail": "Wala pang heartbeat na naipadala ang {device}.",
 					"lowHopperTitle": "Mababa ang hopper: {percent}%",
 					"lowHopperDetail": "Mag-refill bago ang susunod na pagpapakain.",
+					"rtcTitle": "Hindi tama ang orasan ng feeder",
+					"rtcDetail": "Maaaring tumakbo sa maling oras ang mga naka-iskedyul na pagpapakain hanggang maitakda ang orasan ng device.",
+					"pendingCommandTitle": "Naghihintay ang feed command",
+					"pendingCommandDetail": "Hinihintay pa ng unit na kumpirmahin ang huling feed command.",
 					"recalibrationTitle": "Huli na ng {days} araw ang rekalibrasyon",
 					"recalibrationDetail": "Magpatakbo ng target check para manatiling tama ang nailalabas na gramo.",
 					"driftTitle": "Posibleng calibration drift: {percent}% ang layo",
 					"driftDetail": "Hindi tugma ang nailabas na gramo at ang pagbaba ng hopper sa nakaraang 7 araw.",
-					"openHardware": "Buksan ang mga setting ng hardware"
+					"openHardware": "Buksan ang mga setting ng hardware",
+					"openFeedSettings": "Buksan ang mga setting ng pagpapakain",
+					"openSchedule": "Buksan ang iskedyul",
+					"openScheduleCalibration": "Itakda ang oras ng device",
+					"openCalibration": "Buksan ang calibration"
 				},
 				"charts": {
 					"feedTitle": "Pakain kada araw",

@@ -341,6 +341,15 @@ describe("control-room markup (#399)", () => {
 		expect(rail).toContain("xl:min-h-0");
 	});
 
+	it("keeps the dashboard's alert banners out of the desktop flow (#819)", () => {
+		// The page owns the alert data but the desktop surface is the sidebar.
+		expect(pageSource).toContain('<div className="px-1 lg:hidden">');
+		expect(pageSource).toContain('"lg:hidden rounded-2xl bg-[#C42B3A]');
+		expect(pageSource).toContain('CONTROL_ROOM_MOBILE_BAND, "lg:hidden"');
+		expect(layoutSource).toContain("<DashboardAlertsProvider>");
+		expect(read("components/sidebar.tsx")).toContain("<SidebarAlerts");
+	});
+
 	it("positions both scrollers so 1 px sr-only helpers cannot add a phantom scroll", () => {
 		// The blocks carry absolutely positioned `.sr-only` text alternatives and
 		// the charts' hidden tables. With no positioned ancestor inside the room

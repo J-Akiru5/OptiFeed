@@ -284,7 +284,10 @@ vi.mock("@/lib/prisma", () => ({
 		},
 		cropCycle: { findFirst: vi.fn(async () => null) },
 		mortalityLog: { aggregate: vi.fn(async () => ({ _sum: { count: 0 } })) },
-		feedRequest: { aggregate: vi.fn(async () => ({ _sum: { grams: 0 } })) },
+		feedRequest: {
+			aggregate: vi.fn(async () => ({ _sum: { grams: 0 } })),
+			count: vi.fn(async () => 0),
+		},
 		feedLevelLog: { findMany: vi.fn(async () => []) },
 		// The dashboard's chart readers use raw SQL; an empty result keeps every
 		// series on its empty state without inventing rows.

@@ -1820,7 +1820,7 @@
 			"viewOnly": "View only",
 			"revokeButton": "Revoke",
 			"confirmRevoke": "Remove from organization",
-			"revokeScope": "Removes this member from the organization. Their own farm and login remain; use account deletion or disable to end those.",
+			"revokeScope": "Removes this member from the organization. Ponds on their farm move to the organization's owner farm; their own login remains.",
 			"revokeSuccess": "Membership revoked.",
 			"revokeError": "Could not revoke the membership. Try again.",
 			"roleSuccess": "Role updated.",

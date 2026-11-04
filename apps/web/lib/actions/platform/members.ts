@@ -1,6 +1,7 @@
 "use server";
 
 import { isMemberRole } from "@/lib/auth/member-rules";
+import { transferOrgPondsOnRevoke } from "@/lib/auth/org-pond-ownership";
 import {
 	type Permission,
 	type PermissionOverride,
@@ -506,6 +507,24 @@ export async function revokeOrgMembership(input: {
 					where: { id: membership.id },
 					data: { revokedAt: new Date() },
 				});
+
+				// #808: god mode may also revoke the last member of an organization.
+				// The ponds on that member's farm move to the org's anchor farm when
+				// one exists, so a repaired organization does not lose them; when no
+				// other member remains the helper moves nothing (nobody is left to
+				// see the ponds).
+				const revokedUser = await tx.user.findUnique({
+					where: { id: input.userId },
+					select: { farmId: true },
+				});
+				if (revokedUser) {
+					await transferOrgPondsOnRevoke(tx, {
+						orgId: membership.orgId,
+						revokedUserId: input.userId,
+						revokedFarmId: revokedUser.farmId,
+					});
+				}
+
 				await auditMembership(
 					{
 						action: "platform.membership.revoke",

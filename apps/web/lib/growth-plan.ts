@@ -1,3 +1,4 @@
+import { SYSTEM_GROWTH_DEFAULTS } from "@/lib/growth/defaults";
 import { MAX_ACCEPTED_FEED_GRAMS } from "@/lib/limits";
 
 /**
@@ -7,7 +8,8 @@ import { MAX_ACCEPTED_FEED_GRAMS } from "@/lib/limits";
  */
 export const MAX_ADJUSTMENT_PCT = 0.1;
 export const ADJUSTMENT_INTERVAL_DAYS = 15;
-export const DENSITY_ADVISORY_PER_M2 = 20;
+/** The documented constant; the farm/pond default can raise or lower it (#828). */
+export const DENSITY_ADVISORY_PER_M2 = SYSTEM_GROWTH_DEFAULTS.densityAdvisoryPerM2;
 export const DEFAULT_TARGET_FCR = 1.5;
 const MIN_FCR = 0.8;
 const MAX_FCR = 2.5;

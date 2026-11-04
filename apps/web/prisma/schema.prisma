@@ -120,6 +120,7 @@ model Pond {
   pondEvents       PondEvent[]
   settingsDrafts   PondSettingsDraft[]
   mortalityLogs    MortalityLog[]
+  growthOverride   PondGrowthOverride?
 
   @@index([ownerId])
   @@index([farmId])
@@ -1017,16 +1018,46 @@ model CronHeartbeat {
 
 /// Per-organization settings (issue #190). One row per org, created on first save;
 /// readers fall back to these defaults when the row is missing.
+/// Organization settings (issue #190 / decision E6).
+///
+/// The `default*`/`density*` growth columns (#826 part 2 / #828) are nullable
+/// on purpose: null means "not set" and the documented constant in
+/// `lib/growth/defaults.ts` applies. An owner can therefore clear a value
+/// instead of freezing today's number.
 model OrgSetting {
-  orgId                 String                 @id
-  defaultFeedingRatePct Float                  @default(3)
-  hopperLowPct          Int                    @default(20)
-  offlineAfterMin       Int                    @default(30) // deprecated (I-97): kept for compatibility; offline alerts follow PlatformSetting "device.status"
-  missedFeedingAlerts   Boolean                @default(true)
-  alertRoles            MemberRole[]           @default([OWNER, ADMIN])
-  deviceRegistration    DeviceRegistrationMode @default(ADMIN_APPROVAL)
-  updatedById           String?
-  updatedAt             DateTime               @updatedAt
+  orgId                        String                 @id
+  defaultFeedingRatePct        Float                  @default(3)
+  hopperLowPct                 Int                    @default(20)
+  offlineAfterMin              Int                    @default(30) // deprecated (I-97): kept for compatibility; offline alerts follow PlatformSetting "device.status"
+  missedFeedingAlerts          Boolean                @default(true)
+  alertRoles                   MemberRole[]           @default([OWNER, ADMIN])
+  deviceRegistration           DeviceRegistrationMode @default(ADMIN_APPROVAL)
+  defaultGrowOutDays           Int?
+  defaultTargetHarvestWeightG  Float?
+  defaultExpectedSurvivalPct   Float?
+  defaultStockingAvgWeightG    Float?
+  densityAdvisoryPerM2         Float?
+  updatedById                  String?
+  updatedAt                    DateTime               @updatedAt
+}
+
+/// Per-pond override of the farm growth defaults (#828).
+///
+/// A missing row or a null column means "inherit the farm default"; the cycle
+/// dialog shows which layer supplied each value. Deleting the row is the same
+/// as clearing every field, and the write path only stores the fields the
+/// operator actually set, so an override never masks a later farm change.
+model PondGrowthOverride {
+  pondId               String   @id
+  growOutDays          Int?
+  targetHarvestWeightG Float?
+  expectedSurvivalPct  Float?
+  stockingAvgWeightG   Float?
+  densityAdvisoryPerM2 Float?
+  updatedById          String?
+  updatedAt            DateTime @updatedAt
+
+  pond Pond @relation(fields: [pondId], references: [id], onDelete: Cascade)
 }
 
 /// Every calibration attempt, kept as history (issue #191). Runs in one sitting share

@@ -10,6 +10,7 @@ import { addDays, dateOnlyToUtcDate, daysBetween, todayDateOnly } from "@/lib/cr
 import { dateOnlySchema } from "@/lib/crop-cycle/schema";
 import { syncDeviceGramsForPond } from "@/lib/feed-grams";
 import { resolveDeviceDose } from "@/lib/feeding/derive";
+import { SYSTEM_GROWTH_DEFAULTS } from "@/lib/growth/defaults";
 import {
 	feedingRatePctSchema,
 	feedsPerDaySchema,
@@ -47,7 +48,7 @@ import { z } from "zod";
 const POND_NAME_MAX = 80;
 const SAMPLE_INTERVAL_MIN = 1;
 const SAMPLE_INTERVAL_MAX = 365;
-const DEFAULT_GROW_OUT_DAYS = 135;
+const DEFAULT_GROW_OUT_DAYS = SYSTEM_GROWTH_DEFAULTS.growOutDays;
 const AUDIT_REASON = "Tenant admin changed pond management data";
 
 const hhmm = /^([01]\d|2[0-3]):[0-5]\d$/;

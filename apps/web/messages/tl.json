@@ -832,7 +832,7 @@
 				"densityValue": "{density} isda/m²",
 				"densityValueDepth": "{density} isda/m³",
 				"densityNoArea": "Magdagdag ng lawak ng pond sa Mga Setting para makita ang densidad ng stocking.",
-				"densityHigh": "Babala kapag lampas 20/m² — suriin ang aeration.",
+				"densityHigh": "Babala kapag lampas {density}/m² — suriin ang aeration.",
 				"growOutDays": "Mga araw ng grow-out",
 				"harvestDate": "Target na petsa ng ani",
 				"stockingWeight": "Timbang sa stocking (g)",
@@ -849,7 +849,11 @@
 				"saving": "Nagse-save…",
 				"cancel": "Kanselahin",
 				"successCreate": "Sinimulan ang grow-out cycle.",
-				"successUpdate": "Na-update ang plano ng grow-out."
+				"successUpdate": "Na-update ang plano ng grow-out.",
+				"sourcePond": "Pond override",
+				"sourceFarm": "Farm default",
+				"sourceSystem": "System default",
+				"defaultsHint": "Gumagamit ang mga bagong cycle ng pond override, pagkatapos ang farm default, pagkatapos ang system default."
 			},
 			"title": "Ani at Grow-out",
 			"desc": "Planuhin ang grow-out, i-iskedyul ang ani, at subaybayan ang bawat pangyayari sa pond para sa {pond}.",
@@ -1595,6 +1599,25 @@
 				"invalidNumber": "Maglagay ng numero.",
 				"deviceDailyCeiling": "Kailangan ng pond ang {pond}/araw, na lampas sa hangganan ng device na {device}/araw.",
 				"deviceRelayTime": "Ang isang pagpapakain ay {pond}, mas mahaba kaysa sa {device} na kayang patakbuhin ng feeder sa isang relay window."
+			},
+			"growthDefaultsSectionTitle": "Mga default ng paglaki",
+			"growthDefaultsSectionDesc": "I-override ang mga default ng farm para sa pond na ito.",
+			"growthDefaults": {
+				"pondTitle": "Mga default ng paglaki sa pond",
+				"pondDesc": "Ang blangkong field ay nagmamana ng farm default.",
+				"growOutDaysLabel": "Mga araw ng grow-out",
+				"targetWeightLabel": "Target na timbang sa harvest (g)",
+				"survivalLabel": "Inaasahang survival (%)",
+				"stockingWeightLabel": "Timbang ng stocking (g)",
+				"densityLabel": "Advisory sa density (isda/m²)",
+				"inheritPlaceholder": "Mana",
+				"inheritsFarm": "Nagmamana ng farm default: {value}",
+				"inheritsSystem": "Nagmamana ng system default: {value}",
+				"inheritsNone": "Walang default — mananatiling blangko ang field.",
+				"hint": "Ang override ay para sa mga bagong cycle sa pond na ito lamang. Ang mga existing na cycle ay nananatili sa mga value na na-save.",
+				"save": "I-save ang mga default",
+				"saving": "Sine-save…",
+				"saved": "Na-save ang mga default ng pond."
 			}
 		},
 		"timeCalibration": {
@@ -2371,7 +2394,21 @@
 				"ADMIN": "Admin",
 				"OPERATOR": "Operator",
 				"VIEWER": "Viewer"
-			}
+			},
+			"growthDefaultsTitle": "Mga default ng paglaki",
+			"growthDefaultsDesc": "Mga value na pinagsisimulan ng bagong grow-out cycle kapag walang override ang pond.",
+			"growOutDaysLabel": "Mga araw ng grow-out",
+			"growOutDaysHint": "Mula 30 hanggang 365 araw. Kung blangko, 135 ang gagamitin.",
+			"targetWeightLabel": "Target na timbang sa harvest (g)",
+			"targetWeightHint": "Kung blangko, 250 g ang gagamitin.",
+			"survivalLabel": "Inaasahang survival (%)",
+			"survivalHint": "Kung blangko, 85 % ang gagamitin.",
+			"stockingWeightLabel": "Timbang ng stocking (g)",
+			"stockingWeightHint": "Opsyonal. Kung blangko, walang system value.",
+			"densityLabel": "Advisory sa density (isda/m²)",
+			"densityHint": "Kapag lumampas sa density na ito, may babala sa aeration ang cycle form. Kung blangko, 20/m².",
+			"growthDefaultsHint": "Ayos ng resolution: pond override → farm default → system default. Kapag nilinis ang field, babalik sa susunod na layer.",
+			"noSystemDefault": "Walang default"
 		},
 		"adminError": {
 			"title": "Nagkaroon ng error sa admin console",

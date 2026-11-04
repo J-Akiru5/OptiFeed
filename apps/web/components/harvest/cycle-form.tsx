@@ -6,6 +6,14 @@ import { addDays, daysBetween, isValidDateOnly, todayDateOnly } from "@/lib/crop
 import type { CropCycleInput } from "@/lib/crop-cycle/schema";
 import type { CropCycleDto, PondOption } from "@/lib/crop-cycle/types";
 import { type GrowthTargetResolution, cycleTargetConflict } from "@/lib/growth-target";
+import {
+	MAX_GROW_OUT_DAYS,
+	MIN_GROW_OUT_DAYS,
+	type ResolvedGrowthDefault,
+	type ResolvedGrowthDefaults,
+	SYSTEM_GROWTH_DEFAULTS,
+	resolveGrowthDefaults,
+} from "@/lib/growth/defaults";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
@@ -38,15 +46,28 @@ function parseGrowOutDays(value: string): number | null {
 	return Number.isFinite(parsed) ? parsed : null;
 }
 
-/** Grow-out rails, mirrored from `cropCycleInputSchema` (min 30 / max 365). */
-const MIN_GROW_OUT_DAYS = 30;
-const MAX_GROW_OUT_DAYS = 365;
 /**
- * #826: documented fallback for an emptied grow-out field when the date pair
- * cannot supply one. Matches `DEFAULT_GROW_OUT_DAYS` in `lib/actions/ponds.ts`
- * and the new-cycle default below.
+ * The documented constants, resolved through the same helper the server uses
+ * (#828). `resolveGrowthDefaults(null, null)` is the pond override → farm
+ * default → constant chain with both configurable layers absent.
  */
-const DEFAULT_GROW_OUT_DAYS = 135;
+const SYSTEM_RESOLVED = resolveGrowthDefaults(null, null);
+
+/** Resolved defaults for a pond, or the constants when the payload is old. */
+function growthDefaultsForPond(ponds: PondOption[], pondId: string): ResolvedGrowthDefaults {
+	return ponds.find((pond) => pond.id === pondId)?.growthDefaults ?? SYSTEM_RESOLVED;
+}
+
+/** A usable whole-day default, never `NaN` and never outside the global rails. */
+function growOutDaysDefault(defaults: ResolvedGrowthDefaults): number {
+	const value = defaults.growOutDays.value;
+	return value !== null &&
+		Number.isInteger(value) &&
+		value >= MIN_GROW_OUT_DAYS &&
+		value <= MAX_GROW_OUT_DAYS
+		? value
+		: SYSTEM_GROWTH_DEFAULTS.growOutDays;
+}
 
 /** Whole days from `start` to `end`, or `null` when either date is unusable. */
 function growOutSpan(start: string, end: string): number | null {
@@ -74,10 +95,21 @@ function numberField(value: number | null | undefined, fallback: string): string
 	return value === null || value === undefined ? fallback : String(value);
 }
 
+/** Which layer supplied a new cycle's default (#828): pond, farm or system. */
+function DefaultSourceBadge({ label }: { label: string }) {
+	return (
+		<span className="ml-1.5 inline-flex rounded-full bg-[#0A3D62]/10 px-1.5 py-0.5 text-[9px] font-black tracking-wider text-[#0A3D62] uppercase dark:bg-white/10 dark:text-[#9cc7f0]">
+			{label}
+		</span>
+	);
+}
+
 export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle }: CycleFormProps) {
 	const t = useTranslations("dashboard.harvest.cycleForm");
 	const router = useRouter();
 	const today = todayDateOnly();
+	const initialDefaults = growthDefaultsForPond(ponds, cycle?.pondId ?? initialPondId);
+	const initialGrowOutDays = cycle?.growOutDays ?? growOutDaysDefault(initialDefaults);
 	const [pondId, setPondId] = useState(cycle?.pondId ?? initialPondId);
 	const [label, setLabel] = useState(cycle?.label ?? "");
 	const [stockingDate, setStockingDate] = useState(cycle?.stockingDate ?? today);
@@ -87,20 +119,26 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 		),
 	);
 	const [stockingAvgWeightG, setStockingAvgWeightG] = useState(
-		cycle?.stockingAvgWeightG ? String(cycle.stockingAvgWeightG) : "",
+		cycle?.stockingAvgWeightG
+			? String(cycle.stockingAvgWeightG)
+			: numberField(initialDefaults.stockingAvgWeightG.value, ""),
 	);
 	// Raw input text, not a number: an emptied field must stay empty (#825).
-	const [growOutDays, setGrowOutDays] = useState(
-		String(cycle?.growOutDays ?? DEFAULT_GROW_OUT_DAYS),
-	);
+	const [growOutDays, setGrowOutDays] = useState(String(initialGrowOutDays));
 	const [targetHarvestDate, setTargetHarvestDate] = useState(
-		cycle?.targetHarvestDate ?? addDays(today, DEFAULT_GROW_OUT_DAYS),
+		cycle?.targetHarvestDate ?? addDays(today, initialGrowOutDays),
 	);
 	const [targetHarvestWeightG, setTargetHarvestWeightG] = useState(
-		numberField(cycle?.targetHarvestWeightG, cycle ? "" : "250"),
+		numberField(
+			cycle?.targetHarvestWeightG,
+			cycle ? "" : numberField(initialDefaults.targetHarvestWeightG.value, ""),
+		),
 	);
 	const [expectedSurvivalPct, setExpectedSurvivalPct] = useState(
-		numberField(cycle?.expectedSurvivalPct, cycle ? "" : "85"),
+		numberField(
+			cycle?.expectedSurvivalPct,
+			cycle ? "" : numberField(initialDefaults.expectedSurvivalPct.value, ""),
+		),
 	);
 	const [notes, setNotes] = useState(cycle?.notes ?? "");
 	const [error, setError] = useState<string | null>(null);
@@ -121,6 +159,16 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 	 * of once per prop identity, and forget it on close so reopening resets.
 	 */
 	const initialisedFor = useRef<string | null>(null);
+	/**
+	 * #828: true once the operator changed any agronomic field. Switching pond
+	 * inside a new-cycle dialog then refreshes that pond's defaults, but must
+	 * never wipe work already typed (#825's rule, applied to pond switching).
+	 */
+	const touched = useRef(false);
+	const lastPondId = useRef(cycle?.pondId ?? initialPondId);
+	const markTouched = () => {
+		touched.current = true;
+	};
 
 	useEffect(() => {
 		if (!open) {
@@ -130,6 +178,10 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 		const key = `${cycle?.id ?? "new"}:${initialPondId}`;
 		if (initialisedFor.current === key) return;
 		initialisedFor.current = key;
+		const defaults = growthDefaultsForPond(ponds, cycle?.pondId ?? initialPondId);
+		const defaultGrowOutDays = cycle?.growOutDays ?? growOutDaysDefault(defaults);
+		lastPondId.current = cycle?.pondId ?? initialPondId;
+		touched.current = false;
 		setPondId(cycle?.pondId ?? initialPondId);
 		setLabel(cycle?.label ?? "");
 		setStockingDate(cycle?.stockingDate ?? today);
@@ -138,15 +190,56 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 				cycle?.stockingCount ?? ponds.find((pond) => pond.id === initialPondId)?.population ?? "",
 			),
 		);
-		setStockingAvgWeightG(cycle?.stockingAvgWeightG ? String(cycle.stockingAvgWeightG) : "");
-		setGrowOutDays(String(cycle?.growOutDays ?? DEFAULT_GROW_OUT_DAYS));
-		setTargetHarvestDate(cycle?.targetHarvestDate ?? addDays(today, DEFAULT_GROW_OUT_DAYS));
-		setTargetHarvestWeightG(numberField(cycle?.targetHarvestWeightG, cycle ? "" : "250"));
-		setExpectedSurvivalPct(numberField(cycle?.expectedSurvivalPct, cycle ? "" : "85"));
+		setStockingAvgWeightG(
+			cycle?.stockingAvgWeightG
+				? String(cycle.stockingAvgWeightG)
+				: numberField(defaults.stockingAvgWeightG.value, ""),
+		);
+		setGrowOutDays(String(defaultGrowOutDays));
+		setTargetHarvestDate(cycle?.targetHarvestDate ?? addDays(today, defaultGrowOutDays));
+		setTargetHarvestWeightG(
+			numberField(
+				cycle?.targetHarvestWeightG,
+				cycle ? "" : numberField(defaults.targetHarvestWeightG.value, ""),
+			),
+		);
+		setExpectedSurvivalPct(
+			numberField(
+				cycle?.expectedSurvivalPct,
+				cycle ? "" : numberField(defaults.expectedSurvivalPct.value, ""),
+			),
+		);
 		setNotes(cycle?.notes ?? "");
 		setError(null);
 		setPendingSavedWeightG(null);
 	}, [open, cycle, initialPondId, ponds, today]);
+
+	/**
+	 * #828: choosing another pond inside a new-cycle dialog applies that pond's
+	 * resolved defaults (and its population). It does nothing once the operator
+	 * has typed an agronomic value, or while editing an existing cycle (the
+	 * pond selector is disabled there anyway).
+	 */
+	useEffect(() => {
+		if (!open) return;
+		if (lastPondId.current === pondId) return;
+		lastPondId.current = pondId;
+		if (cycle || touched.current) return;
+
+		const pond = ponds.find((candidate) => candidate.id === pondId);
+		const defaults = pond?.growthDefaults ?? SYSTEM_RESOLVED;
+		const defaultGrowOutDays = growOutDaysDefault(defaults);
+		setStockingCount(String(pond?.population ?? ""));
+		setStockingAvgWeightG(numberField(defaults.stockingAvgWeightG.value, ""));
+		setGrowOutDays(String(defaultGrowOutDays));
+		setTargetHarvestWeightG(numberField(defaults.targetHarvestWeightG.value, ""));
+		setExpectedSurvivalPct(numberField(defaults.expectedSurvivalPct.value, ""));
+		setTargetHarvestDate(
+			isValidDateOnly(stockingDate)
+				? addDays(stockingDate, defaultGrowOutDays)
+				: addDays(today, defaultGrowOutDays),
+		);
+	}, [open, pondId, cycle, ponds, stockingDate, today]);
 
 	useEffect(() => {
 		if (pendingSavedWeightG === null) return;
@@ -175,6 +268,9 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 			: null;
 
 	const selectedPond = ponds.find((pond) => pond.id === pondId);
+	const activeDefaults = growthDefaultsForPond(ponds, pondId);
+	const densityAdvisoryPerM2 =
+		activeDefaults.densityAdvisoryPerM2.value ?? SYSTEM_GROWTH_DEFAULTS.densityAdvisoryPerM2;
 	const savedTargetWeightG = selectedPond?.savedTargetWeightG ?? null;
 	const pendingSavedLabel = pendingSavedWeightG === null ? null : pendingSavedWeightG.toFixed(1);
 	const pendingNextLabel =
@@ -189,6 +285,15 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 		areaM2 && averageDepthM && stockingCountNumber > 0
 			? stockingCountNumber / (areaM2 * averageDepthM)
 			: null;
+	const sourceLabel = (resolved: ResolvedGrowthDefault): string => {
+		const key =
+			resolved.source === "pond"
+				? "sourcePond"
+				: resolved.source === "farm"
+					? "sourceFarm"
+					: "sourceSystem";
+		return t(key);
+	};
 
 	/**
 	 * #826 (owner decision 3): the harvest date is the operator's anchor.
@@ -196,6 +301,7 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 	 * instead of shifting the harvest date by the same number of days.
 	 */
 	const onStockingDateChange = (value: string) => {
+		markTouched();
 		setStockingDate(value);
 		const days = usableGrowOutSpan(value, targetHarvestDate);
 		if (days !== null) setGrowOutDays(String(days));
@@ -208,6 +314,7 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 	 * shows a value that would not be saved.
 	 */
 	const onGrowOutDaysChange = (value: string) => {
+		markTouched();
 		setGrowOutDays(value);
 		const days = parseGrowOutDays(value);
 		if (
@@ -226,6 +333,7 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 	 * blocks the save until one of the dates is corrected.
 	 */
 	const onHarvestDateChange = (value: string) => {
+		markTouched();
 		setTargetHarvestDate(value);
 		const days = usableGrowOutSpan(stockingDate, value);
 		if (days !== null) setGrowOutDays(String(days));
@@ -248,7 +356,9 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 			setGrowOutDays(String(current));
 			return;
 		}
-		setGrowOutDays(String(DEFAULT_GROW_OUT_DAYS));
+		// #828: the last resort is the pond's resolved default (pond → farm →
+		// constant), not a global literal.
+		setGrowOutDays(String(growOutDaysDefault(activeDefaults)));
 	};
 
 	/** Validate the form and return the payload, or show the existing error. */
@@ -419,7 +529,10 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 							min={1}
 							max={1_000_000}
 							value={stockingCount}
-							onChange={(event) => setStockingCount(event.target.value)}
+							onChange={(event) => {
+								markTouched();
+								setStockingCount(event.target.value);
+							}}
 							className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-2.5 text-sm font-semibold text-[#0A3D62] focus:border-[#E85A2A] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
 						/>
 					</label>
@@ -439,18 +552,27 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 						) : (
 							<span>{t("densityNoArea")}</span>
 						)}
-						{densityPerM2 !== null && densityPerM2 > 20 && (
-							<span className="ml-1 font-bold text-amber-600">{t("densityHigh")}</span>
+						{densityPerM2 !== null && densityPerM2 > densityAdvisoryPerM2 && (
+							<span className="ml-1 font-bold text-amber-600">
+								{t("densityHigh", { density: densityAdvisoryPerM2 })}
+							</span>
+						)}
+						{!cycle && (
+							<span className="mt-1 block text-[11px] text-gray-500 dark:text-gray-400">
+								{t("defaultsHint")}
+							</span>
 						)}
 					</div>
 					<label className="block">
 						<span className="mb-1 block text-[10px] font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400">
 							{t("growOutDays")}
+							{!cycle && <DefaultSourceBadge label={sourceLabel(activeDefaults.growOutDays)} />}
 						</span>
 						<input
 							type="number"
 							min={MIN_GROW_OUT_DAYS}
 							max={MAX_GROW_OUT_DAYS}
+							aria-label={t("growOutDays")}
 							value={growOutDays}
 							onChange={(event) => onGrowOutDaysChange(event.target.value)}
 							onBlur={snapGrowOutDays}
@@ -473,13 +595,20 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 					<label className="block">
 						<span className="mb-1 block text-[10px] font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400">
 							{t("stockingWeight")}
+							{!cycle && activeDefaults.stockingAvgWeightG.value !== null && (
+								<DefaultSourceBadge label={sourceLabel(activeDefaults.stockingAvgWeightG)} />
+							)}
 						</span>
 						<input
 							type="number"
 							min={0}
 							step="0.1"
+							aria-label={t("stockingWeight")}
 							value={stockingAvgWeightG}
-							onChange={(event) => setStockingAvgWeightG(event.target.value)}
+							onChange={(event) => {
+								markTouched();
+								setStockingAvgWeightG(event.target.value);
+							}}
 							placeholder={t("optional")}
 							className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-2.5 text-sm font-semibold text-[#0A3D62] placeholder:text-gray-400 focus:border-[#E85A2A] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
 						/>
@@ -487,27 +616,41 @@ export function CycleForm({ open, onClose, onSaved, ponds, initialPondId, cycle 
 					<label className="block">
 						<span className="mb-1 block text-[10px] font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400">
 							{t("targetWeight")}
+							{!cycle && (
+								<DefaultSourceBadge label={sourceLabel(activeDefaults.targetHarvestWeightG)} />
+							)}
 						</span>
 						<input
 							type="number"
 							min={1}
 							step="1"
+							aria-label={t("targetWeight")}
 							value={targetHarvestWeightG}
-							onChange={(event) => setTargetHarvestWeightG(event.target.value)}
+							onChange={(event) => {
+								markTouched();
+								setTargetHarvestWeightG(event.target.value);
+							}}
 							className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-2.5 text-sm font-semibold text-[#0A3D62] focus:border-[#E85A2A] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
 						/>
 					</label>
 					<label className="block">
 						<span className="mb-1 block text-[10px] font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-400">
 							{t("survival")}
+							{!cycle && (
+								<DefaultSourceBadge label={sourceLabel(activeDefaults.expectedSurvivalPct)} />
+							)}
 						</span>
 						<input
 							type="number"
 							min={1}
 							max={100}
 							step="1"
+							aria-label={t("survival")}
 							value={expectedSurvivalPct}
-							onChange={(event) => setExpectedSurvivalPct(event.target.value)}
+							onChange={(event) => {
+								markTouched();
+								setExpectedSurvivalPct(event.target.value);
+							}}
 							className="w-full rounded-xl border border-gray-200 bg-[#F4F7F6] px-3 py-2.5 text-sm font-semibold text-[#0A3D62] focus:border-[#E85A2A] focus:outline-none focus:ring-2 focus:ring-[#E85A2A]/30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
 						/>
 					</label>

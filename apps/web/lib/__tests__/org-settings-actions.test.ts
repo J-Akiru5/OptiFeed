@@ -172,4 +172,48 @@ describe("updateOrgSettings", () => {
 		expect(result).toHaveProperty("error");
 		expect(tenancy().tables.orgSettings).toHaveLength(0);
 	});
+
+	it("saves farm growth defaults and lets the owner clear one back to the constant", async () => {
+		const first = await updateOrgSettings({
+			orgId: ORG_A_ID,
+			defaultGrowOutDays: 120,
+			defaultTargetHarvestWeightG: 300,
+			defaultExpectedSurvivalPct: 90,
+			defaultStockingAvgWeightG: 8,
+			densityAdvisoryPerM2: 25,
+		});
+
+		expect(first).toEqual({ success: true });
+		expect(tenancy().tables.orgSettings[0]).toMatchObject({
+			orgId: ORG_A_ID,
+			defaultGrowOutDays: 120,
+			defaultTargetHarvestWeightG: 300,
+			defaultExpectedSurvivalPct: 90,
+			defaultStockingAvgWeightG: 8,
+			densityAdvisoryPerM2: 25,
+		});
+
+		// `null` is "not set": the documented constant applies again, while the
+		// sibling fields keep their values.
+		const second = await updateOrgSettings({ orgId: ORG_A_ID, defaultGrowOutDays: null });
+
+		expect(second).toEqual({ success: true });
+		expect(tenancy().tables.orgSettings[0]).toMatchObject({
+			defaultGrowOutDays: null,
+			defaultTargetHarvestWeightG: 300,
+			defaultExpectedSurvivalPct: 90,
+			defaultStockingAvgWeightG: 8,
+			densityAdvisoryPerM2: 25,
+		});
+		expect(tenancy().tables.platformAuditLogs).toHaveLength(2);
+	});
+
+	it("rejects a growth default outside the documented rails", async () => {
+		const result = await updateOrgSettings({ orgId: ORG_A_ID, defaultGrowOutDays: 20 });
+
+		expect(result).toHaveProperty("error");
+		expect((result as { error: string }).error).toContain("defaultGrowOutDays");
+		expect(tenancy().tables.orgSettings).toHaveLength(0);
+		expect(tenancy().tables.platformAuditLogs).toHaveLength(0);
+	});
 });

@@ -6,6 +6,7 @@ import { resolveOrgScope } from "@/lib/auth/org-scope";
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/session";
 import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
+import { GROWTH_DEFAULT_BOUNDS } from "@/lib/growth/defaults";
 import { formatZodError } from "@/lib/limits";
 import prisma from "@/lib/prisma";
 import {
@@ -56,6 +57,39 @@ const settingsPatchSchema = z
 		missedFeedingAlerts: z.boolean().optional(),
 		alertRoles: z.array(z.enum(MEMBER_ROLES)).min(1, "Choose at least one alert role").optional(),
 		deviceRegistration: z.enum(DEVICE_REGISTRATION_MODES).optional(),
+		// #828 farm grow-out defaults. `null` clears the value so the documented
+		// constant applies; an omitted key keeps the stored value.
+		defaultGrowOutDays: z
+			.number("Grow-out days must be a number")
+			.int("Grow-out days must be a whole number")
+			.min(GROWTH_DEFAULT_BOUNDS.growOutDays.min)
+			.max(GROWTH_DEFAULT_BOUNDS.growOutDays.max)
+			.nullable()
+			.optional(),
+		defaultTargetHarvestWeightG: z
+			.number("Target weight must be a number")
+			.min(GROWTH_DEFAULT_BOUNDS.targetHarvestWeightG.min)
+			.max(GROWTH_DEFAULT_BOUNDS.targetHarvestWeightG.max)
+			.nullable()
+			.optional(),
+		defaultExpectedSurvivalPct: z
+			.number("Survival must be a number")
+			.min(GROWTH_DEFAULT_BOUNDS.expectedSurvivalPct.min)
+			.max(GROWTH_DEFAULT_BOUNDS.expectedSurvivalPct.max)
+			.nullable()
+			.optional(),
+		defaultStockingAvgWeightG: z
+			.number("Stocking weight must be a number")
+			.min(GROWTH_DEFAULT_BOUNDS.stockingAvgWeightG.min)
+			.max(GROWTH_DEFAULT_BOUNDS.stockingAvgWeightG.max)
+			.nullable()
+			.optional(),
+		densityAdvisoryPerM2: z
+			.number("Density advisory must be a number")
+			.min(GROWTH_DEFAULT_BOUNDS.densityAdvisoryPerM2.min)
+			.max(GROWTH_DEFAULT_BOUNDS.densityAdvisoryPerM2.max)
+			.nullable()
+			.optional(),
 	})
 	.strict();
 

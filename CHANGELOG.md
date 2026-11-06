@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `applyGrowthPlanForPond` is no longer a browser-callable server action that trusted the caller's `ownerId`; a static guard test prevents regressions.
 - Device-token reveals are audited and rate limited.
 
+## [Unreleased]
+
+## [1.58.0] - 2026-11-06
+
+
+### Added
+
+- **Actionable alerts in the dashboard sidebar (#819).** The dashboard home no longer carries the alert stack; the alerts that need action live in the sidebar, so a phone view does not scroll past them to reach the pond state.
+- **Phone app bar and a reflowed mobile shell (#880, #591, #592).** Brand, search, notifications, theme and account share one row with 44 px controls and a contextual title per page; the stacked dashboard fills the phone pane, the bottom bar fits the screen, and Android back is handled.
+
+- **A migration-ledger check in `quality` (#711).** `AGENTS.md` §6 calls a duplicate 14-digit migration prefix a hard reject, and one pair already reached production because nothing enforced it: `20261104130000_cron_heartbeat` and `20261104130000_notification_realtime_publication`, both applied on 2026-11-03. Prisma sorts by name and runs both, and renaming an applied migration afterwards desynchronises `_prisma_migrations`, so the only safe place to catch the next one is before it merges. `scripts/ops/migration-ledger.mjs` scans the migration directories and fails on any shared prefix. The applied pair is pinned in an allowlist with its reason rather than silently ignored, and `--strict` fails on it too so the exception cannot quietly become permanent. Six tests prove both directions, including that a *new* directory reusing a known prefix still fails.
+
+### Fixed
+
+- **The device dose is derived from the live dispense count (#709).** The dose reported for a device follows the events that actually dispensed instead of a stale running total, so the feed figure reconciles with the log.
+- **FCR feed windows derive from the sampling days (#709).** The window is computed from the days the tank was actually sampled rather than a fixed span that silently included unsampled days.
+- **The status monitoring chip stays legible in dark mode (#884).** It keeps a high-contrast treatment instead of a pill that is nearly invisible.
+- **The pond biomass summary states its sampling interval (#886).** The card says how much of the record the summary covers.
+- **WebKit smoke no longer fails on the interactive-widget viewport key.** The check accepts the documented viewport key instead of failing that browser.
+### Removed
+
+- **The orphaned `ErrorEvent` table (#729).** It had no Prisma model and no reader or writer anywhere in the repository — it was left behind when Sentry was removed and error reporting became the console line plus the `ALERT_WEBHOOK_URL` transport. Production held **zero rows**, zero foreign keys and no view referencing it (measured 2026-11-04). The drop is guarded: the migration raises if the table holds any row, so a wrong assumption at apply time aborts instead of destroying error history. Recovery, if the table is ever wanted back, is the schema history plus the pre-change logical backup.
+
 ## [1.57.0] - 2026-11-04
 
 ### Added

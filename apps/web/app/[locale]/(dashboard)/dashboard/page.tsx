@@ -8,6 +8,7 @@ import { PakoyLowHopper } from "@/components/assistant/pakoy-low-hopper";
 import { formatChartNumber } from "@/components/charts/chart-data";
 import type { ChartLabels } from "@/components/charts/chart-frame";
 import { LazyLineTrend, LazyStackedBars } from "@/components/charts/lazy";
+import { DashboardAlertsSync } from "@/components/dashboard/alerts/dashboard-alerts-context";
 import {
 	CONTROL_ROOM_MAIN,
 	CONTROL_ROOM_MOBILE_BAND,
@@ -24,7 +25,6 @@ import {
 import {
 	AdvisorSummary,
 	AlertsPanel,
-	type ControlRoomAlert,
 	GrowOutPanel,
 	PondSummary,
 	RecentFeedings,
@@ -49,14 +49,16 @@ import { getRecalibrationStatus } from "@/lib/calibration/recalibration";
 import { DEFAULT_HOPPER_RANGE, WATER_TEMP_RANGES, parseWaterTempRange } from "@/lib/chart-windows";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
 import { toPredictionCycleContext } from "@/lib/crop-cycle/prediction-context";
+import { buildDashboardAlerts } from "@/lib/dashboard/alerts";
 import { formatFarmDateTime, formatWallClockTime } from "@/lib/date-local";
 import { getDeviceHealthSafe } from "@/lib/device-health";
-import { HEALTHY_VIEW } from "@/lib/device-health-model";
+import { HEALTHY_VIEW, deviceHealthNeedsAction } from "@/lib/device-health-model";
 import { toHopperSnapshot } from "@/lib/device-hopper";
 import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
 import { feedPerMealG, totalBiomassG } from "@/lib/feed-calc";
 import { formatFeedAmountLabel } from "@/lib/feed-figures";
 import { feedSourceKey } from "@/lib/feed-sources";
+import { IN_FLIGHT_FEED_STATUSES } from "@/lib/feed/commands";
 import { getFeedNowLimitForDevice } from "@/lib/feed/feed-now-limit";
 import { getLiveCountForPond, mortalityRatePct } from "@/lib/growth/live-count";
 import type { DashboardSnapshotData } from "@/lib/offline/snapshots";
@@ -73,6 +75,7 @@ import { hopperIsLow } from "@/lib/settings/org-alerts";
 import { cn } from "@/lib/utils";
 import {
 	AlertTriangle,
+	ArrowRight,
 	Brain,
 	Calendar,
 	Clock,
@@ -227,6 +230,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		feedNowLimit,
 		deviceHealth,
 		liveCount,
+		pendingCommandCount,
 	] = await Promise.all([
 		resolveCurrentSchedule(pond.id, energyDevice?.id ?? null),
 		energyDevice
@@ -251,6 +255,16 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		// The same live-count source the growth page uses (#430/#452): stocked
 		// minus mortality, so the dashboard cannot disagree with growth.
 		getLiveCountForPond(pond.id, { population: pond.population }),
+		// #819: a dose still waiting for the unit is an actionable alert in the
+		// sidebar; the schedule keeps the retry/resync controls.
+		energyDevice
+			? prisma.feedRequest.count({
+					where: {
+						status: { in: [...IN_FLIGHT_FEED_STATUSES] },
+						deviceId: energyDevice.id,
+					},
+				})
+			: Promise.resolve(0),
 	]);
 
 	// #574: the hopper reading is only current while its sensor answers, so the
@@ -328,9 +342,9 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		: 0;
 	const daysUntilSample = Math.max(0, (pond.sampleIntervalDays ?? 14) - daysSinceSample);
 
-	// Determine Critical Alert — lazy offline detection from energyDevice.lastSeenAt
+	// Lazy offline detection from energyDevice.lastSeenAt; the alert builder
+	// turns it into the sidebar row and the mobile banner (#819).
 	const esp32Offline = connection.isOffline;
-	const criticalAlert = esp32Offline && !!energyDevice;
 	const isPaused = energyDevice?.isPaused ?? false;
 	const recalibration = getRecalibrationStatus(
 		energyDevice?.lastCalibratedAt ?? null,
@@ -430,75 +444,40 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		};
 	});
 
-	// One decision, two surfaces (#412): the rail alert and Pakoy's reminder use
-	// the same inclusive threshold as the server's `hopperAlertTier`, so at
+	// One decision, two surfaces (#412): the sidebar alert and Pakoy's reminder
+	// use the same inclusive threshold as the server's `hopperAlertTier`, so at
 	// exactly `hopperLowPct` the bell and the dashboard no longer disagree.
 	const hopperLevelPercent = energyDevice?.feedLevelPercent ?? null;
 	const hopperLow = hopperIsLow(hopperLevelPercent, orgSettings.settings.hopperLowPct);
 
-	// The rail's alerts are derived from the same reads as the cards above; the
-	// offline banner is repeated from the page-level critical alert.
-	const alerts: ControlRoomAlert[] = [];
-	if (criticalAlert && energyDevice) {
-		alerts.push({
-			id: "offline",
-			tone: "danger",
-			title: t("controlRoom.alerts.offlineTitle", {
-				duration: formatOfflineDuration(energyDevice.lastSeenAt),
-			}),
-			detail: t("controlRoom.alerts.offlineDetail", { device: device.name }),
-			href: deviceSettingsHref({ deviceId: energyDevice.id, tab: "network", anchor: "wifi-setup" }),
-			linkLabel: t("controlRoom.alerts.openHardware"),
-		});
-	}
-	if (energyDevice && hopperLevelPercent !== null && hopperLow) {
-		alerts.push({
-			id: "hopper-low",
-			tone: "warning",
-			title: t("controlRoom.alerts.lowHopperTitle", {
-				percent: Math.round(hopperLevelPercent),
-			}),
-			detail: t("controlRoom.alerts.lowHopperDetail"),
-			href: deviceSettingsHref({
-				deviceId: energyDevice.id,
-				tab: "calibration",
-				anchor: "hopper-calibration",
-			}),
-			linkLabel: t("controlRoom.alerts.openHardware"),
-		});
-	}
-	if (recalibration.isOverdue) {
-		alerts.push({
-			id: "recalibration",
-			tone: "warning",
-			title: t("controlRoom.alerts.recalibrationTitle", {
-				days: recalibration.daysOverdue,
-			}),
-			detail: t("controlRoom.alerts.recalibrationDetail"),
-			href: deviceSettingsHref({
-				deviceId: energyDevice?.id,
-				tab: "calibration",
-				anchor: "recalibration",
-			}),
-			linkLabel: t("controlRoom.alerts.openHardware"),
-		});
-	}
-	if (drift.status === "drift" && drift.diffPct !== null) {
-		alerts.push({
-			id: "drift",
-			tone: "info",
-			title: t("controlRoom.alerts.driftTitle", {
-				percent: Math.abs(drift.diffPct).toFixed(1),
-			}),
-			detail: t("controlRoom.alerts.driftDetail"),
-			href: deviceSettingsHref({
-				deviceId: energyDevice?.id,
-				tab: "calibration",
-				anchor: "recalibration",
-			}),
-			linkLabel: t("controlRoom.alerts.openHardware"),
-		});
-	}
+	// #819: one ordered list for the sidebar. Every kind owns a real destination
+	// (see lib/dashboard/alerts.ts), so the dashboard body no longer grows a
+	// banner or a rail card above the fold.
+	const alerts = buildDashboardAlerts(
+		{
+			deviceId: energyDevice?.id ?? null,
+			deviceName: device.name,
+			isOffline: esp32Offline,
+			hopperLevelPercent,
+			hopperLow,
+			rtcOk: energyDevice?.rtcOk ?? null,
+			pendingCommandCount,
+			recalibration,
+			drift,
+			offlineDuration: energyDevice ? formatOfflineDuration(energyDevice.lastSeenAt) : "",
+		},
+		t,
+	);
+	// The health card's action and a health alert with no device would be the
+	// same generic page, so only a real feeder gets a destination.
+	const hardwareHref = energyDevice
+		? deviceSettingsHref({ deviceId: energyDevice.id, anchor: "device-status" })
+		: null;
+	// The mobile banner and the sidebar row share one destination (#819).
+	const offlineAlert = alerts.find((alert) => alert.id === "offline");
+	// A healthy unit renders no health card at all, so the mobile card is only a
+	// link when there is something to fix.
+	const healthNeedsAction = deviceHealthNeedsAction(deviceHealth);
 
 	const advisorReasoning = initialPrediction.reasoning || null;
 	const pondMeta = [
@@ -536,6 +515,9 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 				data={dashboardSnapshot}
 			/>
 			<DashboardSnapshot snapshot={dashboardSnapshot} />
+			{/* #819: publish the dashboard's alerts and health to the sidebar.
+			    The page owns the reads; the shared shell only renders them. */}
+			<DashboardAlertsSync alerts={alerts} health={deviceHealth} hardwareHref={hardwareHref} />
 
 			{/* Pakoy's in-context low-hopper reminder (#221). The permanent
 			    record stays in the bell and on the hardware page. */}
@@ -543,46 +525,64 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 				<PakoyLowHopper pondId={pond.id} levelPercent={Math.round(hopperLevelPercent)} low />
 			)}
 
-			{energyDevice && (
-				<div className="px-1">
-					<HealthNotice health={deviceHealth} tone="themed" />
+			{/* The desktop surface is the sidebar footer (#819); the page keeps
+			    the detailed health card for the stacked phone/tablet layout, and
+			    the card itself links to the hardware page where it is fixed. */}
+			{energyDevice && healthNeedsAction && (
+				<div className="lg:hidden">
+					{hardwareHref ? (
+						<Link
+							href={hardwareHref}
+							className="block rounded-2xl focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea]"
+						>
+							<HealthNotice health={deviceHealth} tone="themed" />
+							<span className="mt-1 inline-flex min-h-8 items-center gap-1 text-[11px] font-black text-[#C2410C] dark:text-[#ff8a5c]">
+								{t("controlRoom.alerts.openHardware")}{" "}
+								<ArrowRight aria-hidden="true" className="h-3 w-3" />
+							</span>
+						</Link>
+					) : (
+						<HealthNotice health={deviceHealth} tone="themed" />
+					)}
 				</div>
 			)}
 
 			<ControlRoomLayout>
-				{criticalAlert && (
+				{/* #880: a band like every other stacked section, with the alert as a
+				    rounded card inside it. As a full-bleed red strip the card bled
+				    past the page gutter on a phone and read as a clipped slab. */}
+				{offlineAlert && (
 					<section
 						role="alert"
-						className={cn(
-							CONTROL_ROOM_ORDER.alert,
-							"xl:hidden rounded-2xl bg-[#C42B3A] px-4 py-3 text-white shadow-lg max-xl:rounded-none max-xl:shadow-none",
-						)}
+						className={cn(CONTROL_ROOM_ORDER.alert, "lg:hidden", CONTROL_ROOM_MOBILE_BAND)}
 					>
-						<div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-							<div className="flex items-start gap-3">
-								<div
-									aria-hidden="true"
-									className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 font-black"
+						<div className="rounded-2xl bg-[#C42B3A] px-4 py-3 text-white shadow-lg max-lg:shadow-none">
+							<div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+								<div className="flex items-start gap-3">
+									<div
+										aria-hidden="true"
+										className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 font-black"
+									>
+										!
+									</div>
+									<div>
+										<p className="text-sm font-black md:text-base">
+											{t("criticalTitle", {
+												duration: formatOfflineDuration(energyDevice?.lastSeenAt ?? null),
+											})}
+										</p>
+										<p className="text-xs font-semibold text-white/90">
+											{t("criticalDesc", { device: device.name })}
+										</p>
+									</div>
+								</div>
+								<Link
+									href={offlineAlert.href}
+									className="flex min-h-11 items-center justify-center rounded-2xl bg-white px-4 text-sm font-black text-[#C42B3A] transition hover:bg-white/90 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
 								>
-									!
-								</div>
-								<div>
-									<p className="text-sm font-black md:text-base">
-										{t("criticalTitle", {
-											duration: formatOfflineDuration(energyDevice?.lastSeenAt ?? null),
-										})}
-									</p>
-									<p className="text-xs font-semibold text-white/90">
-										{t("criticalDesc", { device: device.name })}
-									</p>
-								</div>
+									{offlineAlert.linkLabel}
+								</Link>
 							</div>
-							<Link
-								href="/dashboard/settings"
-								className="flex min-h-11 items-center justify-center rounded-2xl bg-white px-4 text-sm font-black text-[#C42B3A] transition hover:bg-white/90 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-							>
-								{t("viewDetails")}
-							</Link>
 						</div>
 					</section>
 				)}
@@ -792,7 +792,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 						</div>
 					)}
 
-					<div className={cn(CONTROL_ROOM_ORDER.alerts, CONTROL_ROOM_MOBILE_BAND)}>
+					<div className={cn(CONTROL_ROOM_ORDER.alerts, CONTROL_ROOM_MOBILE_BAND, "lg:hidden")}>
 						<ControlPanel title={t("controlRoom.alertsPanel")} icon={AlertTriangle}>
 							<AlertsPanel
 								items={alerts}

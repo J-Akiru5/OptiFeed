@@ -175,6 +175,7 @@ vi.mock("@/lib/prisma", () => ({
 		cropCycle: { findFirst: vi.fn(async () => null) },
 		feedEvent: { findMany: vi.fn(async () => []) },
 		feedLevelLog: { findMany: vi.fn(async () => []) },
+		feedRequest: { count: vi.fn(async () => 0) },
 		$queryRaw: vi.fn(async () => []),
 	},
 }));
@@ -271,7 +272,7 @@ describe("dashboard control room page", () => {
 		expect(html).not.toContain("feeder-hero-health");
 	});
 
-	it("puts the unit's safe mode at the top of the dashboard", async () => {
+	it("keeps the unit's safe mode in the mobile alert block (#819)", async () => {
 		vi.mocked(getDeviceHealthSafe).mockResolvedValueOnce({
 			...HEALTHY_VIEW,
 			safeMode: true,
@@ -327,7 +328,7 @@ describe("dashboard control room page", () => {
 		expect(html).toContain("Hopper low: 82%");
 	});
 
-	it("raises the rail alert at exactly the threshold, like the server (#412)", async () => {
+	it("raises the alert at exactly the threshold, like the server (#412)", async () => {
 		// The server warns at `level <= hopperLowPct`; the rail used a strict `<`
 		// and stayed silent at exactly the threshold. One boundary either side.
 		const renderAt = async (levelPercent: number) => {

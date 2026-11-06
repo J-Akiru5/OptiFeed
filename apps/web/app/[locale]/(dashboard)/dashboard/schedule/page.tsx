@@ -202,7 +202,7 @@ export default async function SchedulePage() {
 			    mobile order (same pattern as the dashboard control room). */}
 			<div className="flex flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
 				<div className="contents xl:flex xl:min-w-0 xl:flex-col xl:gap-6">
-					<div className="order-1 xl:order-none">
+					<div className="order-1 scroll-mt-24 xl:order-none" id="schedule-calibration">
 						<TimeCalibrationForm deviceId={energyDevice.id} canWrite={writeAccess} />
 					</div>
 					<div className="order-4 xl:order-none">

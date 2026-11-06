@@ -170,7 +170,7 @@ export function PondSelector({ ponds, activePondId, className }: PondSelectorPro
 				aria-controls={isOpen ? listId : undefined}
 				aria-label={t("labelNamed", { name: activePond?.name ?? "" })}
 				aria-busy={isPending}
-				className="inline-flex max-w-[14rem] items-center gap-1.5 rounded-lg text-xs font-bold text-white uppercase tracking-wider transition-colors hover:text-white/80 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A3D62] focus-visible:outline-none disabled:opacity-60"
+				className="inline-flex min-h-11 max-w-[14rem] items-center gap-1.5 rounded-lg text-xs font-bold text-white uppercase tracking-wider transition-colors hover:text-white/80 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A3D62] focus-visible:outline-none disabled:opacity-60"
 			>
 				<span className="truncate">{isPending ? t("switching") : activePond?.name}</span>
 				<ChevronDown

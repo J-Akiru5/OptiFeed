@@ -3,6 +3,7 @@
 		"dashboard": "Dashboard",
 		"schedule": "Iskedyul",
 		"logSample": "Talaan ng Biomass",
+		"logSampleShort": "Biomass",
 		"history": "Kasaysayan",
 		"growth": "Paglaki",
 		"harvest": "Ani",
@@ -674,6 +675,8 @@
 			"switchFailed": "Hindi mapalitan ang pond. Subukan muli."
 		},
 		"common": {
+			"themeToDark": "Lumipat sa dark mode",
+			"themeToLight": "Lumipat sa light mode",
 			"readOnlyTitle": "Tingnan lang",
 			"capability": {
 				"edit": "Naka-enable ang pag-edit",
@@ -1404,7 +1407,13 @@
 			"healthFaults": "{count, plural, one {# aktibong fault} other {# aktibong fault}}",
 			"healthClear": "Walang naiulat na fault",
 			"lastKnownShort": "Huling alam",
-			"summaryLabel": "{status}. Antas ng hopper {percent}."
+			"summaryLabel": "{status}. Antas ng hopper {percent}.",
+			"panelTitle": "Kalagayan ng device",
+			"connection": "Koneksyon",
+			"sensor": "Sensor ng hopper",
+			"sensorOk": "Tumutugon",
+			"faults": "Mga depekto",
+			"close": "Isara"
 		},
 		"home": {
 			"noData": "Wala pang pond na nakatalaga. Hilingin sa administrator na magtalaga ng isa.",
@@ -1492,11 +1501,19 @@
 					"offlineDetail": "Wala pang heartbeat na naipadala ang {device}.",
 					"lowHopperTitle": "Mababa ang hopper: {percent}%",
 					"lowHopperDetail": "Mag-refill bago ang susunod na pagpapakain.",
+					"rtcTitle": "Hindi tama ang orasan ng feeder",
+					"rtcDetail": "Maaaring tumakbo sa maling oras ang mga naka-iskedyul na pagpapakain hanggang maitakda ang orasan ng device.",
+					"pendingCommandTitle": "Naghihintay ang feed command",
+					"pendingCommandDetail": "Hinihintay pa ng unit na kumpirmahin ang huling feed command.",
 					"recalibrationTitle": "Huli na ng {days} araw ang rekalibrasyon",
 					"recalibrationDetail": "Magpatakbo ng target check para manatiling tama ang nailalabas na gramo.",
 					"driftTitle": "Posibleng calibration drift: {percent}% ang layo",
 					"driftDetail": "Hindi tugma ang nailabas na gramo at ang pagbaba ng hopper sa nakaraang 7 araw.",
-					"openHardware": "Buksan ang mga setting ng hardware"
+					"openHardware": "Buksan ang mga setting ng hardware",
+					"openFeedSettings": "Buksan ang mga setting ng pagpapakain",
+					"openSchedule": "Buksan ang iskedyul",
+					"openScheduleCalibration": "Itakda ang oras ng device",
+					"openCalibration": "Buksan ang calibration"
 				},
 				"charts": {
 					"feedTitle": "Pakain kada araw",
@@ -2280,6 +2297,7 @@
 			"biomassDate": "Petsa ng sample",
 			"biomassAvgWeight": "Karaniwang timbang",
 			"biomassSample": "Sample",
+			"biomassSamplingInterval": "Intervalo ng sampling",
 			"fcrTitle": "Pinakabagong FCR",
 			"fcrEmpty": "Wala pang ulat ng FCR.",
 			"fcrValue": "FCR",
@@ -2601,6 +2619,8 @@
 			},
 			"filtersTierLabel": "I-filter ayon sa tindi",
 			"filtersCategoryLabel": "I-filter ayon sa kategorya",
+			"filtersToggle": "Mga filter",
+			"filtersNone": "Walang aktibo",
 			"listLabel": "Mga Abiso",
 			"categoryHopperLow": "Mababang hopper"
 		},
@@ -2685,6 +2705,8 @@
 			"openMenu": "Mabilisang aksyon",
 			"menuLabel": "Mabilisang menu",
 			"moreLabel": "Iba pang seksyon",
+			"more": "Higit pa",
+			"back": "Bumalik",
 			"close": "Isara ang mabilisang menu",
 			"searchLabel": "Maghanap ng mga page at aksyon",
 			"searchPlaceholder": "Maghanap ng mga page at aksyon",
@@ -5326,7 +5348,9 @@
 			"accountSettings": "Mga setting ng account",
 			"switchLanguage": "Palitan ang wika",
 			"signOut": "Mag-sign out",
-			"userFallback": "Gumagamit"
+			"userFallback": "Gumagamit",
+			"appearance": "Itsura",
+			"help": "Tulong"
 		}
 	}
 }

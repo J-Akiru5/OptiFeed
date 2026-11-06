@@ -27,6 +27,7 @@ const LAPTOPS = [
 	{ name: "1366x768", width: 1366, height: 768 },
 	{ name: "1440x900", width: 1440, height: 900 },
 	{ name: "1536x864", width: 1536, height: 864 },
+	{ name: "1877x938 (issue #819 screenshot)", width: 1877, height: 938 },
 	{ name: "1903x873 (1920x1080 at 100 %)", width: 1903, height: 873 },
 	{ name: "1920x1080", width: 1920, height: 1080 },
 ] as const;
@@ -158,6 +159,26 @@ test("the dashboard fits one laptop screen and only the rail scrolls (#399)", as
 			60,
 		);
 	}
+});
+
+/**
+ * Issue #819: the actionable alerts moved from the dashboard body into the
+ * sidebar footer. Pin the destination and the route gate in a browser, so a
+ * future shell change cannot put the footer on every console page or drop it
+ * from the dashboard.
+ */
+test("the dashboard alerts live in the sidebar footer, not the shared shell (#819)", async ({
+	page,
+}) => {
+	await page.setViewportSize({ width: 1877, height: 938 });
+	await login(page);
+	await expect(page).toHaveURL(/\/dashboard/);
+
+	const footer = page.getByTestId("sidebar-alerts");
+	await expect(footer).toBeVisible();
+
+	await page.goto("/dashboard/history");
+	await expect(page.getByTestId("sidebar-alerts")).toHaveCount(0);
 });
 
 /**

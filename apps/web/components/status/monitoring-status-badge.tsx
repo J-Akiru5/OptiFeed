@@ -24,10 +24,9 @@ import {
  * The issue's palette is intentional: online/active is high-contrast orange,
  * a fault or safe mode is yellow, and offline is red. Every badge also carries
  * an icon and its translated label, so the state never relies on hue alone.
- */
-export const MONITORING_TONE_CLASSES: Record<MonitoringTone, string> = {
+ */ export const MONITORING_TONE_CLASSES: Record<MonitoringTone, string> = {
 	active:
-		"bg-[#C2410C] text-white ring-black/10 shadow-[0_2px_10px_rgba(194,65,12,0.35)] dark:ring-white/20",
+		"bg-[#C2410C] text-white ring-black/10 shadow-[0_2px_10px_rgba(194,65,12,0.35)] dark:bg-[#FF5A1F] dark:text-white dark:ring-white/20",
 	attention:
 		"bg-[#FACC15] text-[#3B2F00] ring-black/15 shadow-[0_2px_10px_rgba(250,204,21,0.35)] dark:ring-white/20",
 	offline:

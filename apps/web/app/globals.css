@@ -153,6 +153,25 @@
 	--ofd-band-ink: #ffffff;
 	--ofd-band-ink-muted: rgba(255, 255, 255, 0.72);
 	--ofd-bottom-nav-h: 4.5rem;
+	/*
+	 * Phone bottom bar colours (#880). They live in tokens, not in `dark:`
+	 * utilities: the light and dark utilities have equal specificity, so
+	 * whichever chunk ships first wins and dark mode can render the light
+	 * ink on the dark bar. A variable resolves once, at the element.
+	 */
+	--ofd-nav-bg: #ffffff;
+	--ofd-nav-border: #e5e7eb;
+	--ofd-nav-ink: #3d5568;
+	--ofd-nav-ink-hover: #0a3d62;
+	--ofd-nav-ink-active: #c2410c;
+	--ofd-nav-pill: rgba(10, 61, 98, 0.1);
+	--ofd-nav-fill: rgba(194, 65, 12, 0.15);
+	/*
+	 * The floating monitoring HUD (#575) sits 0.5rem above the bottom bar. Its
+	 * 3rem body plus that gap is what the pane has to reserve below the bar, or
+	 * the last rows can never be scrolled out from under it (#880).
+	 */
+	--ofd-hud-h: 3.5rem;
 
 	/* Layout tokens — bottom-right FAB cluster (help + chat assistant) */
 	--ofd-fab-size: var(--ofd-touch-min);
@@ -220,6 +239,13 @@
 }
 
 .dark {
+	--ofd-nav-bg: #101828;
+	--ofd-nav-border: #364153;
+	--ofd-nav-ink: #d1d5dc;
+	--ofd-nav-ink-hover: #ffffff;
+	--ofd-nav-ink-active: #ff8a5c;
+	--ofd-nav-pill: rgba(255, 255, 255, 0.1);
+	--ofd-nav-fill: rgba(255, 138, 92, 0.15);
 	--background: oklch(0.145 0 0);
 	--foreground: oklch(0.985 0 0);
 	--card: oklch(0.205 0 0);
@@ -390,6 +416,11 @@
  * tokens (light and dark each define their own), so the band is the same brand
  * surface as the desktop header instead of the reference app's orange.
  */
+.ofd-bottom-nav {
+	background-color: var(--ofd-nav-bg);
+	border-color: var(--ofd-nav-border);
+}
+
 .ofd-band {
 	background-image: linear-gradient(
 		135deg,
@@ -401,11 +432,20 @@
 }
 
 /*
- * Page content clears the fixed bottom bar plus the device safe area, so the
- * last row is never hidden behind it on a phone with a home indicator.
+ * Page content clears the fixed bottom bar, the floating monitoring HUD above
+ * it, and the device safe area, so the last row is never hidden behind them on
+ * a phone with a home indicator. The HUD is opaque and sits over the scrolling
+ * pane, so without its height here the final rows could not be scrolled into
+ * view at all (#880). Above `lg` the HUD is hidden and the pane falls back to
+ * `--ofd-main-pad-y` below.
  */
 .ofd-main {
-	padding-bottom: calc(var(--ofd-bottom-nav-h) + env(safe-area-inset-bottom) + 1.5rem);
+	padding-bottom: calc(
+		var(--ofd-bottom-nav-h) +
+		var(--ofd-hud-h) +
+		env(safe-area-inset-bottom) +
+		1.5rem
+	);
 }
 
 @media (min-width: 64rem) {

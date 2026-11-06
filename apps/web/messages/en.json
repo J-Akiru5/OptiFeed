@@ -74,6 +74,7 @@
 		"dashboard": "Dashboard",
 		"schedule": "Schedule",
 		"logSample": "Biomass Log",
+		"logSampleShort": "Biomass",
 		"history": "History",
 		"growth": "Growth",
 		"harvest": "Harvest",
@@ -611,7 +612,13 @@
 			"healthFaults": "{count, plural, one {# active fault} other {# active faults}}",
 			"healthClear": "No faults reported",
 			"lastKnownShort": "Last known",
-			"summaryLabel": "{status}. Hopper level {percent}."
+			"summaryLabel": "{status}. Hopper level {percent}.",
+			"panelTitle": "Device health",
+			"connection": "Connection",
+			"sensor": "Hopper sensor",
+			"sensorOk": "Responding",
+			"faults": "Faults",
+			"close": "Close"
 		},
 		"feederHero": {
 			"eyebrow": "Live monitoring",
@@ -2553,6 +2560,8 @@
 			},
 			"filtersTierLabel": "Filter by severity",
 			"filtersCategoryLabel": "Filter by category",
+			"filtersToggle": "Filters",
+			"filtersNone": "None active",
 			"listLabel": "Notifications",
 			"categoryHopperLow": "Low hopper"
 		},
@@ -2902,6 +2911,7 @@
 			"biomassDate": "Sampled",
 			"biomassAvgWeight": "Average weight",
 			"biomassSample": "Sample",
+			"biomassSamplingInterval": "Sampling interval",
 			"fcrTitle": "Latest FCR",
 			"fcrEmpty": "No FCR report yet.",
 			"fcrValue": "FCR",
@@ -3109,6 +3119,8 @@
 			"switchFailed": "Could not switch pond. Try again."
 		},
 		"common": {
+			"themeToDark": "Switch to dark mode",
+			"themeToLight": "Switch to light mode",
 			"readOnlyTitle": "View only",
 			"capability": {
 				"edit": "Editing enabled",
@@ -3164,6 +3176,8 @@
 			"openMenu": "Quick actions",
 			"menuLabel": "Quick menu",
 			"moreLabel": "More sections",
+			"more": "More",
+			"back": "Back",
 			"close": "Close quick menu",
 			"searchLabel": "Search pages and actions",
 			"searchPlaceholder": "Search pages and actions",
@@ -5334,7 +5348,9 @@
 			"accountSettings": "Account settings",
 			"switchLanguage": "Switch language",
 			"signOut": "Sign out",
-			"userFallback": "User"
+			"userFallback": "User",
+			"appearance": "Appearance",
+			"help": "Help"
 		}
 	}
 }

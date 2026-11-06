@@ -136,8 +136,17 @@ test.describe("QA release-critical flows", () => {
 			await expect(page.getByText(message, { exact: true }).first()).toBeVisible({
 				timeout: 20_000,
 			});
-			await expect(page.getByText("Feeding", { exact: true }).first()).toBeVisible();
-			await expect(page.getByText("SUCCESS", { exact: true }).first()).toBeVisible();
+			// Scope to the rendered list, not a specific view or `.first()`: the filter
+			// chips repeat the category name (and one copy is the collapsed phone
+			// panel), and the list renders a table and a card view of which only one
+			// is displayed.
+			const list = page.locator("[data-list-view]");
+			await expect(
+				list.getByText("Feeding", { exact: true }).filter({ visible: true }).first(),
+			).toBeVisible();
+			await expect(
+				list.getByText("SUCCESS", { exact: true }).filter({ visible: true }).first(),
+			).toBeVisible();
 		} finally {
 			await prisma.notification.deleteMany({
 				where: { pondId: E2E.pondId, message },

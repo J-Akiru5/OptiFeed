@@ -71,15 +71,26 @@ describe("farmer bottom bar (E26)", () => {
 		pathname.current = "/dashboard";
 	});
 
-	it("renders exactly five tabs and marks the active one", () => {
+	it("renders four destinations plus a right-most More tab, and marks the active one", () => {
 		const html = renderToStaticMarkup(<BottomNav />);
 
-		expect(html.split("<a ").length - 1).toBe(5);
+		// Four links; the fifth slot is the More tab, which is a sheet trigger
+		// rather than an anchor, so counting links alone would miss it.
+		expect(html.split("<a ").length - 1).toBe(4);
 		expect(html.split('aria-current="page"').length - 1).toBe(1);
 
-		for (const label of ["Overview", "Schedule", "Biomass Log", "Alerts", "Me"]) {
+		// Five tabs share the width of a phone, so the third one renders the short
+		// catalogue label ("Biomass"); the full name stays its accessible name.
+		// "Biomass Log" is 62 px at 10 px and the label box is 54 px at 320 px,
+		// and Hiligaynon/Tagalog are longer still ("Log sang Biomass").
+		for (const label of ["Overview", "Schedule", "Biomass", "Alerts", "More"]) {
 			expect(html).toContain(`>${label}<`);
 		}
+		expect(html).toContain('aria-label="Biomass Log"');
+		expect(html).not.toContain(">Biomass Log<");
+		// Settings is no longer a tab: it stays one tap away in the More sheet.
+		expect(html).not.toContain(">Me<");
+		expect(html.split('data-mobile-trigger="more"').length - 1).toBe(1);
 		// The bar clears the device safe area and never shows on desktop.
 		expect(html).toContain("env(safe-area-inset-bottom)");
 		expect(html).toContain("lg:hidden");
@@ -87,10 +98,15 @@ describe("farmer bottom bar (E26)", () => {
 
 	it("keeps the bar out of the way of the page content padding token", () => {
 		// `.ofd-main` and the bar share one height token, so content is never
-		// hidden behind the bar (see app/globals.css).
-		expect(readFileSync(join(__dirname, "../../app/globals.css"), "utf8")).toContain(
-			"calc(var(--ofd-bottom-nav-h) + env(safe-area-inset-bottom)",
-		);
+		// hidden behind the bar (see app/globals.css). The floating monitoring
+		// HUD sits in the same band, so its height is reserved as well (#880).
+		const mainRule =
+			/\.ofd-main \{[^}]*\}/.exec(
+				readFileSync(join(__dirname, "../../app/globals.css"), "utf8"),
+			)?.[0] ?? "";
+		expect(mainRule).toContain("var(--ofd-bottom-nav-h)");
+		expect(mainRule).toContain("var(--ofd-hud-h)");
+		expect(mainRule).toContain("env(safe-area-inset-bottom)");
 	});
 
 	it("marks whichever tab the reader is on", () => {

@@ -74,6 +74,7 @@
 		"dashboard": "Dashboard",
 		"schedule": "Schedule",
 		"logSample": "Biomass Log",
+		"logSampleShort": "Biomass",
 		"history": "History",
 		"growth": "Growth",
 		"harvest": "Harvest",
@@ -611,7 +612,13 @@
 			"healthFaults": "{count, plural, one {# active fault} other {# active faults}}",
 			"healthClear": "No faults reported",
 			"lastKnownShort": "Last known",
-			"summaryLabel": "{status}. Hopper level {percent}."
+			"summaryLabel": "{status}. Hopper level {percent}.",
+			"panelTitle": "Device health",
+			"connection": "Connection",
+			"sensor": "Hopper sensor",
+			"sensorOk": "Responding",
+			"faults": "Faults",
+			"close": "Close"
 		},
 		"feederHero": {
 			"eyebrow": "Live monitoring",
@@ -759,11 +766,19 @@
 					"offlineDetail": "{device} has not sent a heartbeat.",
 					"lowHopperTitle": "Hopper low: {percent}%",
 					"lowHopperDetail": "Refill before the next feeding.",
+					"rtcTitle": "Feeder clock is out of date",
+					"rtcDetail": "Scheduled feeds can run at the wrong time until the device clock is set.",
+					"pendingCommandTitle": "Feed command is waiting",
+					"pendingCommandDetail": "The unit has not confirmed the last feed command yet.",
 					"recalibrationTitle": "Recalibration overdue by {days} days",
 					"recalibrationDetail": "Run a target check so the dispensed grams stay accurate.",
 					"driftTitle": "Possible calibration drift: {percent}% off",
 					"driftDetail": "Dispensed grams and the hopper drop disagree over the last 7 days.",
-					"openHardware": "Open hardware settings"
+					"openHardware": "Open hardware settings",
+					"openFeedSettings": "Open feed settings",
+					"openSchedule": "Open the schedule",
+					"openScheduleCalibration": "Set the device time",
+					"openCalibration": "Open calibration"
 				},
 				"charts": {
 					"feedTitle": "Feed per day",
@@ -2545,6 +2560,8 @@
 			},
 			"filtersTierLabel": "Filter by severity",
 			"filtersCategoryLabel": "Filter by category",
+			"filtersToggle": "Filters",
+			"filtersNone": "None active",
 			"listLabel": "Notifications",
 			"categoryHopperLow": "Low hopper"
 		},
@@ -2894,6 +2911,7 @@
 			"biomassDate": "Sampled",
 			"biomassAvgWeight": "Average weight",
 			"biomassSample": "Sample",
+			"biomassSamplingInterval": "Sampling interval",
 			"fcrTitle": "Latest FCR",
 			"fcrEmpty": "No FCR report yet.",
 			"fcrValue": "FCR",
@@ -3101,6 +3119,8 @@
 			"switchFailed": "Could not switch pond. Try again."
 		},
 		"common": {
+			"themeToDark": "Switch to dark mode",
+			"themeToLight": "Switch to light mode",
 			"readOnlyTitle": "View only",
 			"capability": {
 				"edit": "Editing enabled",
@@ -3156,6 +3176,8 @@
 			"openMenu": "Quick actions",
 			"menuLabel": "Quick menu",
 			"moreLabel": "More sections",
+			"more": "More",
+			"back": "Back",
 			"close": "Close quick menu",
 			"searchLabel": "Search pages and actions",
 			"searchPlaceholder": "Search pages and actions",
@@ -5326,7 +5348,9 @@
 			"accountSettings": "Account settings",
 			"switchLanguage": "Switch language",
 			"signOut": "Sign out",
-			"userFallback": "User"
+			"userFallback": "User",
+			"appearance": "Appearance",
+			"help": "Help"
 		}
 	}
 }

@@ -1,5 +1,17 @@
-import { computeFcr } from "@/lib/analytics/fcr";
-import { describe, expect, it } from "vitest";
+import { computeFcr, feedGivenKgInWindow, feedWindowForSamples } from "@/lib/analytics/fcr";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const prismaMock = vi.hoisted(() => ({
+	findMany: vi.fn(),
+	aggregate: vi.fn(),
+}));
+
+vi.mock("@/lib/prisma", () => ({
+	default: {
+		energyDevice: { findMany: prismaMock.findMany },
+		feedEvent: { aggregate: prismaMock.aggregate },
+	},
+}));
 
 /**
  * Fixed data set for the in-app FCR (issue #453), tilapia-realistic units
@@ -51,5 +63,52 @@ describe("computeFcr (fixed data set)", () => {
 		const result = computeFcr(-5, FIRST, LAST);
 		expect(result.feedGivenKg).toBe(0);
 		expect(result.fcr).toBeCloseTo(0, 10);
+	});
+});
+
+describe("feedWindowForSamples (Asia/Manila)", () => {
+	it("covers the whole first and last sampling days, not just their timestamps", () => {
+		const window = feedWindowForSamples([
+			{ recordedAt: new Date("2026-08-22T01:00:00Z") }, // 09:00 Manila
+			{ recordedAt: new Date("2026-10-22T01:00:00Z") }, // 09:00 Manila
+		]);
+		// 00:00 Manila on Aug 22 and 00:00 Manila on Oct 23 (exclusive).
+		expect(window?.from.toISOString()).toBe("2026-08-21T16:00:00.000Z");
+		expect(window?.toExclusive.toISOString()).toBe("2026-10-22T16:00:00.000Z");
+	});
+
+	it("is not defined when there is no sample", () => {
+		expect(feedWindowForSamples([])).toBeNull();
+	});
+});
+
+describe("feedGivenKgInWindow (FCR scope)", () => {
+	beforeEach(() => {
+		prismaMock.findMany.mockReset();
+		prismaMock.aggregate.mockReset();
+	});
+
+	it("excludes seeded and synthetic rows and bounds by the sampling days", async () => {
+		prismaMock.findMany.mockResolvedValue([{ id: "device-1" }]);
+		prismaMock.aggregate.mockResolvedValue({ _sum: { grams: 33_000 } });
+
+		const window = feedWindowForSamples([
+			{ recordedAt: new Date("2026-08-22T01:00:00Z") },
+			{ recordedAt: new Date("2026-10-22T01:00:00Z") },
+		]);
+		const kg = await feedGivenKgInWindow("pond-1", window ?? { from: null });
+
+		expect(kg).toBeCloseTo(33, 10);
+		const where = prismaMock.aggregate.mock.calls[0][0].where;
+		expect(where.dataSource).toEqual({ notIn: ["seed", "synthetic"] });
+		// Feed before the first sampling day and after the last one cannot enter.
+		expect(where.receivedAt.gte.toISOString()).toBe("2026-08-21T16:00:00.000Z");
+		expect(where.receivedAt.lt.toISOString()).toBe("2026-10-22T16:00:00.000Z");
+	});
+
+	it("does not query feed for a pond with no device", async () => {
+		prismaMock.findMany.mockResolvedValue([]);
+		await expect(feedGivenKgInWindow("pond-1", { from: null })).resolves.toBe(0);
+		expect(prismaMock.aggregate).not.toHaveBeenCalled();
 	});
 });

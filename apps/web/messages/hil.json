@@ -74,6 +74,7 @@
 		"dashboard": "Dashboard",
 		"schedule": "Iskedyul",
 		"logSample": "Log sang Biomass",
+		"logSampleShort": "Biomass",
 		"history": "Kasaysayan",
 		"growth": "Pagtubo",
 		"harvest": "Pag-ani",
@@ -611,7 +612,13 @@
 			"healthFaults": "{count, plural, one {# aktibo nga fault} other {# aktibo nga fault}}",
 			"healthClear": "Wala sing na-report nga fault",
 			"lastKnownShort": "Huli nga nahibal-an",
-			"summaryLabel": "{status}. Lebel sang hopper {percent}."
+			"summaryLabel": "{status}. Lebel sang hopper {percent}.",
+			"panelTitle": "Kahimtangan sang device",
+			"connection": "Koneksyon",
+			"sensor": "Sensor sang hopper",
+			"sensorOk": "Nagasabat",
+			"faults": "Mga depekto",
+			"close": "Sirad-an"
 		},
 		"feederHero": {
 			"eyebrow": "Live nga pag-monitor",
@@ -759,11 +766,19 @@
 					"offlineDetail": "Wala nakapadala sang heartbeat ang {device}.",
 					"lowHopperTitle": "Mababa ang hopper: {percent}%",
 					"lowHopperDetail": "Pun-a antes sang masunod nga pagpakaon.",
+					"rtcTitle": "Indi husto ang orasan sang feeder",
+					"rtcDetail": "Mahimo nga indi husto ang oras sang mga naka-iskedyul nga pagpakaon asta ma-set ang orasan sang device.",
+					"pendingCommandTitle": "Naghulat ang feed command",
+					"pendingCommandDetail": "Ginahulat pa sang unit nga kumpirmahon ang katapusan nga feed command.",
 					"recalibrationTitle": "Lapaw na sa {days} ka adlaw ang recalibration",
 					"recalibrationDetail": "Maghimo sang target check agod husto ang grams.",
 					"driftTitle": "Posible nga drift: {percent}% ang diperensya",
 					"driftDetail": "Indi magkasugot ang nagwa nga grams kag ang pagbuhos sang hopper sa nagligad nga 7 ka adlaw.",
-					"openHardware": "Buksan ang seting sang hardware"
+					"openHardware": "Buksan ang seting sang hardware",
+					"openFeedSettings": "Buksan ang seting sang pagpakaon",
+					"openSchedule": "Buksan ang iskedyul",
+					"openScheduleCalibration": "I-set ang oras sang device",
+					"openCalibration": "Buksan ang calibration"
 				},
 				"charts": {
 					"feedTitle": "Pagpakaon kada adlaw",
@@ -2545,6 +2560,8 @@
 			},
 			"filtersTierLabel": "I-filter base sa kahalangan",
 			"filtersCategoryLabel": "I-filter base sa kategorya",
+			"filtersToggle": "Mga filter",
+			"filtersNone": "Wala sang aktibo",
 			"listLabel": "Mga notipikasyon",
 			"categoryHopperLow": "Mababa ang hopper"
 		},
@@ -2894,6 +2911,7 @@
 			"biomassDate": "Gin-sample",
 			"biomassAvgWeight": "Average nga timbang",
 			"biomassSample": "Sample",
+			"biomassSamplingInterval": "Intervalo sang sampling",
 			"fcrTitle": "Pinakabag-o nga FCR",
 			"fcrEmpty": "Wala pa sang FCR report.",
 			"fcrValue": "FCR",
@@ -3101,6 +3119,8 @@
 			"switchFailed": "Indi mabayluan ang punong. Tilawi liwat."
 		},
 		"common": {
+			"themeToDark": "Mag-switch sa dark mode",
+			"themeToLight": "Mag-switch sa light mode",
 			"readOnlyTitle": "Tan-aw lang",
 			"capability": {
 				"edit": "Maka-edit",
@@ -3156,6 +3176,8 @@
 			"openMenu": "Madasig nga mga aksyon",
 			"menuLabel": "Madasig nga menu",
 			"moreLabel": "Dugang nga mga seksyon",
+			"more": "Dugang",
+			"back": "Bumalik",
 			"close": "Sirad-i ang madasig nga menu",
 			"searchLabel": "Pangitaa ang mga pahina kag aksyon",
 			"searchPlaceholder": "Pangitaa ang mga pahina kag aksyon",
@@ -5326,7 +5348,9 @@
 			"accountSettings": "Mga setting sang account",
 			"switchLanguage": "Ilisan ang lengguwahe",
 			"signOut": "Mag-sign out",
-			"userFallback": "Manugamit"
+			"userFallback": "Manugamit",
+			"appearance": "Itsura",
+			"help": "Bulig"
 		}
 	}
 }

@@ -212,6 +212,15 @@ export function deviceNeedsAttention(view: DeviceHealthView): boolean {
 	return view.safeMode || view.faults.length > 0;
 }
 
+/**
+ * True when the health card has something an operator can act on: a fault, safe
+ * mode, a failed read, or a refused dose. #819 uses this to decide whether the
+ * health card in the alert surfaces should be a link at all.
+ */
+export function deviceHealthNeedsAction(view: DeviceHealthView): boolean {
+	return Boolean(view.unavailable || view.safeMode || view.faults.length > 0 || view.lastRefusal);
+}
+
 /** Pure part of `getDeviceHealth`, so the rules are testable without a database. */
 export function buildHealthView(input: {
 	health: { metadata: unknown; createdAt: Date } | null;

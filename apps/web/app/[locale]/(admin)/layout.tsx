@@ -47,7 +47,7 @@ export default async function AdminLayout({
 				{/* Header */}
 				<header className="sticky top-0 z-30 w-full shrink-0 bg-[#0A3D62] shadow-md">
 					<GlobalSearch shell="admin" />
-					<MobileHeader shell="admin" isTenantAdmin subtitle={t("panelLabel")}>
+					<MobileHeader shell="admin">
 						{helpEnabled && <HelpButton audience="owner" className="h-11 w-11" />}
 						<Link
 							href="/dashboard/settings/profile"

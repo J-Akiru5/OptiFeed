@@ -4,9 +4,11 @@ import prisma from "@/lib/prisma";
  * Live fish count derived from mortality (issue #452).
  *
  * Decision (recorded in the issue, E59): the live count is *derived at read
- * time* — never stored back. `Pond.population` keeps working exactly as before
- * (the hand-typed count) and remains the dose-path fallback; this helper only
- * changes what pages *display*.
+ * time* — never stored back. `Pond.population` remains the stock fallback when
+ * no active crop cycle exists.
+ *
+ * Issue #709: the feeding-dose path also uses the derived live count, so
+ * mortality lowers the next auto-adjust instead of being ignored.
  *
  * Stock source precedence:
  *  1. the pond's ACTIVE crop cycle `stockingCount` (authoritative stocking data);

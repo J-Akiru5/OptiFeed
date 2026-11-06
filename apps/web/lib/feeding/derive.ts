@@ -1,3 +1,4 @@
+import { deriveLiveCount, getLiveCountForPond } from "@/lib/growth/live-count";
 import { resolveDailyCapG } from "@/lib/limits-core";
 import prisma from "@/lib/prisma";
 import { getFeedingLimits } from "@/lib/settings/feeding-caps";
@@ -18,10 +19,19 @@ import { calculateNextFeeding } from "@/lib/volumeCalc";
  * write a newly derived one, so a dose the feeder cannot run in one relay
  * window still reached it — and the pond settings then refused every later
  * edit, because the saved plan was already impossible.
+ *
+ * Issue #709: the dose follows the **live** count (stocked − mortality), not
+ * `Pond.population` alone, so a pond that has lost fish is not over-fed after
+ * the next sample. A caller that is about to write a new stock count passes it
+ * as an override; mortality is still subtracted from it.
  */
 export interface DeriveOverrides {
 	feedingRatePct?: number;
 	feedsPerDay?: number;
+	/**
+	 * Stocked count for a caller that is about to write a new count. Mortality
+	 * is still subtracted, so the dose follows the live fish.
+	 */
 	population?: number | null;
 }
 
@@ -97,17 +107,26 @@ export async function resolveDeviceDose(
 		return { status: "no_biomass", grams: null, dailyG: null, maxDoseG, dailyCapG };
 	}
 
-	const population = overrides?.population !== undefined ? overrides.population : pond.population;
-	if (!population || population <= 0) {
+	// Dose from the live count, not the stocked count (#709). A caller about to
+	// write a new stock count passes it as an override; mortality is still
+	// subtracted, so the dose matches the fish actually in the pond.
+	const base = await getLiveCountForPond(pondId, { population: pond.population });
+	const stocked = overrides?.population !== undefined ? overrides.population : base.stocked;
+	const liveCount = deriveLiveCount(stocked, base.dead, base.source);
+	const population = liveCount.live;
+	if (population === null || population <= 0) {
 		await prisma.deviceStateEvent.create({
 			data: {
 				deviceId: device.id,
 				eventType: "auto_adjust_skipped",
 				source: "system",
 				metadata: {
-					reason: "population not set — cannot compute biomass without a fish count",
+					reason: "live population not set — cannot compute biomass without a fish count",
 					pondId,
 					avgWeightKg: latestBiomass.avgWeightKg,
+					stocked: liveCount.stocked,
+					dead: liveCount.dead,
+					source: liveCount.source,
 				},
 			},
 		});

@@ -45,15 +45,24 @@ export const CONTROL_ROOM_MOBILE_BAND =
  * positioned against `main` and escape the room's `overflow-hidden`, which
  * leaves the page with a phantom scroll range even when everything fits.
  *
- * Below `xl` the shell cancels the `main` pane padding (`-mx-4 -mt-4`) and drops
- * its stacking gap, so the page-owned bands run edge to edge and sit flush
- * (#476). Desktop geometry is untouched.
+ * Below `xl` the shell cancels only the *horizontal* pane padding (`-mx-4`) and
+ * drops its stacking gap, so the page-owned bands run edge to edge (#476). It
+ * has to give up `w-full` there as well: `width: 100%` is measured against the
+ * pane's content box, so a `-mx-4` box stayed 32 px short of the right edge and
+ * every band ended in a white gutter while its content was pushed left (#880).
+ * `w-auto` lets the negative margins do the widening.
+ *
+ * It deliberately does not cancel the top padding. The dashboard renders
+ * siblings above the room — the health notice, and the announcement banner from
+ * the shell — and the old `-mt-4` pulled the room's first band up over them by
+ * 16 px, clipping the last line of the "Needs a check" card whenever the
+ * offline alert was showing (#880). Desktop geometry is untouched.
  */
 export function ControlRoomLayout({ children, className }: ControlRoomLayoutProps) {
 	return (
 		<div
 			className={cn(
-				"ofd-control-room relative flex w-full min-w-0 flex-col gap-6 max-xl:-mx-4 max-xl:-mt-4 max-xl:gap-0 animate-in fade-in duration-150",
+				"ofd-control-room relative flex w-full min-w-0 flex-col gap-6 max-xl:-mx-4 max-xl:w-auto max-xl:gap-0 animate-in fade-in duration-150",
 				"xl:grid xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_22rem] xl:grid-rows-[auto_minmax(0,1fr)_auto] xl:overflow-hidden",
 				className,
 			)}

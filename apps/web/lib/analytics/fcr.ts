@@ -1,3 +1,5 @@
+import { startOfDayInTimeZone } from "@/lib/chart-windows";
+import { PH_TZ } from "@/lib/constants";
 import prisma from "@/lib/prisma";
 
 /**
@@ -58,14 +60,51 @@ export function computeFcr(
 	return { feedGivenKg: feed, biomassGainKg, fcr };
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * `dataSource` values that are not real feed and must never enter the FCR:
+ * seeded fixtures and the synthetic backfill. Hand-fed rows are real feed and
+ * keep their `import` stamp, so they are included.
+ */
+export const FCR_EXCLUDED_DATA_SOURCES = ["seed", "synthetic"] as const;
+
+export interface FcrFeedWindow {
+	/** Local midnight at the start of the first sampling day. */
+	from: Date;
+	/** Local midnight after the last sampling day (exclusive). */
+	toExclusive: Date;
+}
+
+/**
+ * The feed window must cover exactly the same days as the gain window: the
+ * Asia/Manila day of the first sample through the end of the Asia/Manila day
+ * of the last sample (the whole last sampling day is included).
+ */
+export function feedWindowForSamples(
+	samples: readonly { recordedAt: Date }[],
+	timeZone: string = PH_TZ,
+): FcrFeedWindow | null {
+	const first = samples[0]?.recordedAt;
+	const last = samples[samples.length - 1]?.recordedAt;
+	if (!first || !last) return null;
+	return {
+		from: startOfDayInTimeZone(first, timeZone),
+		toExclusive: new Date(startOfDayInTimeZone(last, timeZone).getTime() + DAY_MS),
+	};
+}
+
 /**
  * Feed actually given inside one window: the sum of FeedEvent grams from
  * feed_dispensed events (deprecated FeedingEvent rows are not counted — those
  * are no longer written).
+ *
+ * Seeded fixtures and the synthetic backfill are excluded: both are artefacts,
+ * not feed the pond received, and including them inflates the FCR several-fold.
  */
 export async function feedGivenKgInWindow(
 	pondId: string,
-	window: { from: Date | null; to: Date | null },
+	window: { from: Date | null; to?: Date | null; toExclusive?: Date | null },
 ): Promise<number> {
 	const devices = await prisma.energyDevice.findMany({
 		where: { pondId },
@@ -78,11 +117,16 @@ export async function feedGivenKgInWindow(
 			deviceId: { in: devices.map((device) => device.id) },
 			eventType: "feed_dispensed",
 			grams: { not: null },
-			...(window.from || window.to
+			dataSource: { notIn: [...FCR_EXCLUDED_DATA_SOURCES] },
+			...(window.from || window.to || window.toExclusive
 				? {
 						receivedAt: {
 							...(window.from ? { gte: window.from } : {}),
-							...(window.to ? { lte: window.to } : {}),
+							...(window.toExclusive
+								? { lt: window.toExclusive }
+								: window.to
+									? { lte: window.to }
+									: {}),
 						},
 					}
 				: {}),

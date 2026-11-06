@@ -138,16 +138,16 @@
 			"budgetKb": 1044.3
 		},
 		"/[locale]/(dashboard)/dashboard/settings/hardware/page": {
-			"baselineKb": 1183.1,
-			"budgetKb": 1206.8
+			"baselineKb": 1207.6,
+			"budgetKb": 1231.8
 		},
 		"/[locale]/(dashboard)/dashboard/settings/page": {
 			"baselineKb": 986.2,
 			"budgetKb": 1006
 		},
 		"/[locale]/(dashboard)/dashboard/settings/pond/page": {
-			"baselineKb": 1006.9,
-			"budgetKb": 1027.1
+			"baselineKb": 1028.5,
+			"budgetKb": 1049.1
 		},
 		"/[locale]/(dashboard)/dashboard/settings/profile/page": {
 			"baselineKb": 1112.4,

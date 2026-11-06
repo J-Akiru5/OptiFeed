@@ -130,6 +130,29 @@ asserts that this requirement stays documented; only the owner can confirm the
 dashboard setting and the logged-out behaviour. A passing `vercel.json` check is
 not evidence that protection is enabled.
 
+#### 2.1.1 Accepted risk: protection is not confirmed enabled (2026-11-04)
+
+**Status: unverified, accepted by the owner on 2026-11-04.** The control above
+remains the requirement; it is simply not confirmed in place, and releases are
+not gated on confirming it.
+
+The consequence, stated plainly: a `staging` (preview) URL that becomes known
+reaches the application with production credentials and the production dataset.
+Preview deployments for pull requests are disabled in `apps/web/vercel.json`, so
+the number of reachable preview URLs is small and they are not published by this
+repository — but that limits discovery, it is not access control.
+
+Reopening conditions, any one of which ends this acceptance:
+
+- evidence of unauthorised access to a preview deployment;
+- a decision to re-enable pull-request previews;
+- a new collaborator or integration that can read deployment URLs.
+
+When the setting is enabled, replace this subsection with the date it was
+enabled and the result of the logged-out verification step above. Do not delete
+the requirement in 2.1 itself — `scripts/ops/deployment-policy.mjs` asserts that
+it stays documented.
+
 Deployment Protection gates access; it does **not** isolate data. The shared
 database decision in section 6 stands, and a protected preview still writes
 production records.

@@ -283,7 +283,7 @@ export function healthAlertFor(
 	if (next.safeMode && !previous?.safeMode) {
 		return {
 			tier: "CRITICAL",
-			message: `${label} is in safe mode: its relay is locked off after repeated resets, so doses are refused. Check the power supply.`,
+			message: `${label} is in safe mode: its relay is locked off after repeated resets, so doses are refused. Check the reset reasons on its device status, then its power and wiring.`,
 		};
 	}
 	const before = previous?.faultsPresent ?? 0;

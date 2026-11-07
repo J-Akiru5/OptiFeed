@@ -37,6 +37,7 @@ import {
 	offlineEpisodeKey,
 	openEpisode,
 	pelletEpisodeKey,
+	resolveEpisodeIfOpen,
 } from "@/lib/notifications/episodes";
 import { reportError } from "@/lib/observability";
 import prisma from "@/lib/prisma";
@@ -656,11 +657,12 @@ export const POST = withApi(
 							}
 						}
 
-						// Recovery closes both hopper episodes, so the next dip opens a fresh
-						// one instead of resurrecting a resolved row.
+						// Recovery closes the hopper episode, so the next dip opens a fresh
+						// one instead of resurrecting a resolved row. This episode is owned
+						// by the level; the days-remaining episode owns its own recovery
+						// below and must not be closed here (#903).
 						if (device.pondId && !pelletTier) {
-							await closeEpisode(tx, pelletEpisodeKey(device.id));
-							await closeEpisode(tx, feedDaysEpisodeKey(device.id));
+							await resolveEpisodeIfOpen(tx, pelletEpisodeKey(device.id));
 						}
 
 						// 2-days-of-feed-remaining advance warning. The estimate is the
@@ -668,6 +670,16 @@ export const POST = withApi(
 						// both surfaces agree and a missing capacity or meal size yields null
 						// instead of a `99`-style sentinel. It runs its own episode so it
 						// cannot stack on top of the low-hopper alert (#534).
+						//
+						// #903: the episode is closed only when *this* projection recovers
+						// (or can no longer be computed). The old code closed it whenever the
+						// level tier was null — the normal state above `hopperLowPct` — and
+						// then immediately re-opened it while still inside the two-day
+						// window. Every heartbeat therefore resolved the row it had just
+						// inserted: a supersede chain of ~6,000 rows where one open episode
+						// was meant. `openEpisode` keeps the same row (tier and message
+						// updated in place), and `resolveEpisodeIfOpen` writes only when a
+						// row is actually open, so a steady condition writes nothing.
 						if (device.pondId) {
 							const deviceFull = await tx.energyDevice.findUnique({
 								where: { id: device.id },
@@ -680,21 +692,31 @@ export const POST = withApi(
 									gramsPerFeeding: deviceFull.gramsPerFeeding,
 									feedsPerDay: pondContext.feedsPerDay,
 								});
-								if (
-									daysRemaining !== null &&
-									daysRemaining <= FEED_DAYS_WARNING &&
-									daysRemaining > 0 &&
-									!pelletAlertQueued &&
-									(await hopperAlertsAllowed())
-								) {
-									await openEpisode(tx, {
-										pondId: device.pondId,
-										category: "pellet",
-										episodeKey: feedDaysEpisodeKey(device.id),
-										tier: "WARNING",
-										message: `Feed will run out in ~${Math.ceil(daysRemaining)} day(s) — refill hopper soon`,
-										linkTo: "/dashboard/settings",
-									});
+
+								if (daysRemaining === null) {
+									// No projection (capacity, meal size or schedule missing): stop
+									// reporting a days-remaining alert we can no longer justify.
+									await resolveEpisodeIfOpen(tx, feedDaysEpisodeKey(device.id));
+								} else {
+									const feedDaysWarning = daysRemaining > 0 && daysRemaining <= FEED_DAYS_WARNING;
+									if (feedDaysWarning && !pelletAlertQueued) {
+										if (await hopperAlertsAllowed()) {
+											await openEpisode(tx, {
+												pondId: device.pondId,
+												category: "pellet",
+												episodeKey: feedDaysEpisodeKey(device.id),
+												tier: "WARNING",
+												message: `Feed will run out in ~${Math.ceil(daysRemaining)} day(s) — refill hopper soon`,
+												linkTo: "/dashboard/settings",
+											});
+										}
+									} else if (daysRemaining > FEED_DAYS_WARNING) {
+										// Recovered above the window: close the episode so a later
+										// dip is a genuinely new row. An empty hopper
+										// (`daysRemaining <= 0`) is not a recovery — the CRITICAL
+										// level episode owns it.
+										await resolveEpisodeIfOpen(tx, feedDaysEpisodeKey(device.id));
+									}
 								}
 							}
 						}

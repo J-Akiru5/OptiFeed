@@ -163,9 +163,9 @@ Optional environment:
 Expected result today: all PASS except one **SKIP** for
 `GET /api/firmware/check` delivering `update:true` (the local stack is HTTP)
 and one **FAIL** for the known `ErrorEvent` cron regression in finding 7. Once
-that regression is fixed, the same run is 68 PASS / 1 SKIP. The harness still
-asserts the route fails closed and that the signed URL would serve the exact
-bytes once TLS is present.
+that regression is fixed, the same run is 68 assertions: 67 PASS / 1 SKIP. The
+harness still asserts the route fails closed and that the signed URL would
+serve the exact bytes once TLS is present.
 
 The dashboard assertions read the rows the dashboard renders (`EnergyDevice`,
 `FeedLevelLog`, `FeedRequest`, `Notification`); the harness does not create a

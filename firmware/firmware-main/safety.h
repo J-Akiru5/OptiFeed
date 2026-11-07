@@ -28,6 +28,7 @@ enum class Refusal : uint8_t {
   BUSY,
   GRAMS_OUT_OF_RANGE,
   DOSE_TOO_LONG,
+  DOSE_TOO_SHORT,
   DAILY_CAP,
   TOO_SOON,
   HOURLY_LIMIT,
@@ -45,6 +46,11 @@ inline const char *refusalReason(Refusal reason) {
     case Refusal::BUSY: return "busy";
     case Refusal::GRAMS_OUT_OF_RANGE: return "grams_out_of_range";
     case Refusal::DOSE_TOO_LONG: return "dose_time_exceeds_cap";
+    // #661: a dose whose relay on-time is shorter than the configured motor
+    // floor. Deliberately distinct from dose_time_exceeds_cap (the ceiling) and
+    // from safe_mode, so the server can tell "refused because too small" from
+    // "refused because the unit is locked off".
+    case Refusal::DOSE_TOO_SHORT: return "dose_below_min_pulse";
     case Refusal::DAILY_CAP: return "daily_gram_cap_exceeded";
     case Refusal::TOO_SOON: return "too_soon";
     case Refusal::HOURLY_LIMIT: return "hourly_limit";
@@ -64,13 +70,23 @@ struct DispenseLimits {
   float maxGramsPerDose;
   float maxGramsPerDay;
   unsigned long maxDispenseMs;
+  // #661: shortest relay on-time the auger reliably turns. A dose whose
+  // computed on-time is shorter is refused (`dose_below_min_pulse`), because a
+  // relay pulse under this floor cannot be trusted to move the auger, so the
+  // unit would report a dose it did not deliver. 250 ms is the documented
+  // default: at the shipped 4 g/s it is exactly 1 g, the smallest dose the
+  // feeding fields allow, so no dose the dashboard can request is refused out
+  // of the box. `config.h` owns the configurable value and its 50-2,000 ms
+  // envelope; the native config test pins this default to that table.
+  unsigned long minPulseMs;
 
   DispenseLimits()
       : minGapMs(10000UL),
         maxPerHour(6),
         maxGramsPerDose(5000.0f),  // 1.7.0: the daily ceiling is the only gram cap
         maxGramsPerDay(5000.0f),
-        maxDispenseMs(300000UL) {}
+        maxDispenseMs(300000UL),
+        minPulseMs(250UL) {}
 };
 
 class DispenseGate {
@@ -94,6 +110,12 @@ class DispenseGate {
                    float dailyGrams, const DispenseLimits &limits) const {
     if (!(grams > 0.0f) || grams > limits.maxGramsPerDose) return Refusal::GRAMS_OUT_OF_RANGE;
     if (durationMs > limits.maxDispenseMs) return Refusal::DOSE_TOO_LONG;
+    // #661: the floor. `durationMs == minPulseMs` is accepted (the boundary is
+    // a usable pulse); anything shorter is refused, not stretched: silently
+    // rounding a dose up would dispense more than the operator asked for.
+    // The config envelope stops the value reaching 0, so the floor cannot be
+    // disabled from the dashboard.
+    if (durationMs < limits.minPulseMs) return Refusal::DOSE_TOO_SHORT;
     if (dailyGrams + grams > limits.maxGramsPerDay) return Refusal::DAILY_CAP;
     if (count_ > 0) {
       const unsigned long last = starts_[(next_ + kSlots - 1) % kSlots];

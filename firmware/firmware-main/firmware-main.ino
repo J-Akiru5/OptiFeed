@@ -1163,6 +1163,9 @@ void applyConfigToRuntime() {
   limits.maxGramsPerDose = fw::effectiveMaxGramsPerDose(deviceConfig);
   limits.maxGramsPerDay = deviceConfig.maxGramsPerDay;
   limits.maxDispenseMs = (unsigned long)deviceConfig.maxDispenseMs;
+  // #661: the motor floor. Same apply path as every other bound, so a unit
+  // that never receives it keeps the compile-time default.
+  limits.minPulseMs = (unsigned long)deviceConfig.motorMinPulseMs;
   dispenseGate.configure(limits);
 
   buttonNoise.configure((unsigned long)deviceConfig.buttonNoiseWindowMs,
@@ -1208,11 +1211,12 @@ fw::ConfigStatus applyServerConfig(const JsonDocument &doc, const char *source) 
   persistScheduleState();
   persistConfig();
   Serial.printf("[CONFIG] applied rev %lu from %s (dose<=%.0fg day<=%.0fg gap=%lus "
-                "hourly=%u relay=%lums)\n",
+                "hourly=%u relay=%lums pulse>=%lums)\n",
                 (unsigned long)appliedConfigRev, source, fw::effectiveMaxGramsPerDose(deviceConfig),
                 deviceConfig.maxGramsPerDay, (unsigned long)deviceConfig.minDispenseGapS,
                 (unsigned)deviceConfig.maxDispensesPerHour,
-                (unsigned long)deviceConfig.maxDispenseMs);
+                (unsigned long)deviceConfig.maxDispenseMs,
+                (unsigned long)deviceConfig.motorMinPulseMs);
   return fw::ConfigStatus::OK;
 }
 
@@ -4122,6 +4126,12 @@ void dispenseFeed(float grams, const char* source, const String &requestId, bool
   const fw::Refusal refusal =
       dispenseGate.evaluate(millis(), grams, durationMs, dailyGramsDispensed, limits);
   if (refusal != fw::Refusal::NONE) {
+    // #661: say why a dose is too short with the numbers the operator needs to
+    // calibrate the floor: the computed on-time and the configured floor.
+    if (refusal == fw::Refusal::DOSE_TOO_SHORT) {
+      Serial.printf("[FEED] %.2fg needs %lums of relay, below the %lums motor floor\n", grams,
+                    durationMs, limits.minPulseMs);
+    }
     reportFeedError(refusal, grams, source);
     return;
   }

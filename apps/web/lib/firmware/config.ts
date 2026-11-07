@@ -15,7 +15,11 @@
  * - `min`/`max` per field is the outer bound a dashboard value can never leave;
  * - the daily ceiling (`max_grams_per_day`) is the only gram cap (E38);
  * - there is no per-dose cap: `max_grams_per_dose` is derived by the firmware as
- *   `min(max_grams_per_day, max_dispense_ms / 1000 * grams_per_second)`.
+ *   `min(max_grams_per_day, max_dispense_ms / 1000 * grams_per_second)`;
+ * - `motor_min_pulse_ms` is the floor (issue #661): the shortest relay on-time
+ *   the auger reliably turns. The firmware refuses a dose whose computed
+ *   on-time is shorter with `dose_below_min_pulse` instead of energizing the
+ *   relay for a pulse that cannot move the auger.
  *
  * `FIRMWARE_FIELDS` must stay in lockstep with `FW_CONFIG_FIELDS` in
  * `firmware/firmware-main/config.h`; `firmware-config-contract.test.ts` parses
@@ -175,6 +179,21 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		max: 86400,
 		integer: true,
 		defaultValue: 600,
+		group: "gate",
+		editable: true,
+	},
+	{
+		// #661: the motor floor. 250 ms is 1 g at the shipped 4 g/s rate, the
+		// smallest dose any feeding field allows, so the default refuses nothing
+		// the console can request today. Lower it only to the measured shortest
+		// pulse that still turns this auger; a sub-floor dose is refused with
+		// `dose_below_min_pulse` rather than dispensed short.
+		id: "motor_min_pulse_ms",
+		key: "motor_min_pulse_ms",
+		min: 50,
+		max: 2000,
+		integer: true,
+		defaultValue: 250,
 		group: "gate",
 		editable: true,
 	},

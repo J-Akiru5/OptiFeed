@@ -2581,6 +2581,7 @@
 			"refusalReasonBusy": "may tumatakbong dose",
 			"refusalReasonGramsOutOfRange": "wala sa saklaw ang gramo",
 			"refusalReasonDoseTooLong": "masyadong mahaba ang dose",
+			"refusalReasonDoseBelowMinPulse": "masyadong maikli ang dose para sa motor",
 			"refusalReasonDailyCap": "naabot na ang limitasyon sa araw",
 			"refusalReasonTooSoon": "masyadong maaga mula sa huling dose",
 			"refusalReasonHourlyLimit": "naabot na ang limitasyon kada oras",
@@ -4234,6 +4235,10 @@
 					"safe_mode_healthy_clear_s": {
 						"label": "Matagumpay na pagtakbo bago i-clear ang kasaysayan (s)",
 						"hint": "Buong segundo mula {min} hanggang {max}. Naki-clear ang kasaysayan ng reset pagkatapos ng ganito katagal na matagumpay na pagtakbo."
+					},
+					"motor_min_pulse_ms": {
+						"label": "Pinakamaikling pulso ng motor (ms)",
+						"hint": "Buong millisecond mula {min} hanggang {max}. Tinatanggihan ang dose na mas maikli ang oras ng relay (dose_below_min_pulse) kaysa magpatakbo ng pulso na hindi kayang paikutin ang auger."
 					}
 				},
 				"reasonLabel": "Dahilan",

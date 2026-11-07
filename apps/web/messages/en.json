@@ -670,6 +670,7 @@
 			"refusalReasonBusy": "a dose is already running",
 			"refusalReasonGramsOutOfRange": "amount out of range",
 			"refusalReasonDoseTooLong": "dose too long",
+			"refusalReasonDoseBelowMinPulse": "dose too short for the motor",
 			"refusalReasonDailyCap": "daily limit reached",
 			"refusalReasonTooSoon": "too soon after the last dose",
 			"refusalReasonHourlyLimit": "hourly limit reached",
@@ -4371,6 +4372,10 @@
 					"safe_mode_healthy_clear_s": {
 						"label": "Healthy running before clearing the history (s)",
 						"hint": "Whole seconds from {min} to {max}. The reset history is cleared after this much healthy running."
+					},
+					"motor_min_pulse_ms": {
+						"label": "Motor minimum pulse (ms)",
+						"hint": "Whole milliseconds from {min} to {max}. A dose whose relay time is shorter is refused (dose_below_min_pulse) instead of running a pulse that cannot turn the auger."
 					}
 				},
 				"reasonLabel": "Reason",

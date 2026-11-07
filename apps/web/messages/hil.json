@@ -670,6 +670,7 @@
 			"refusalReasonBusy": "may dose nga nagadagan",
 			"refusalReasonGramsOutOfRange": "indi husto ang gramo",
 			"refusalReasonDoseTooLong": "mahaba ang dose",
+			"refusalReasonDoseBelowMinPulse": "malip-ot gid ang dose para sa motor",
 			"refusalReasonDailyCap": "naabot na ang adlaw-adlaw nga limit",
 			"refusalReasonTooSoon": "sayo pa sang naulihi nga dose",
 			"refusalReasonHourlyLimit": "naabot na ang limit kada oras",
@@ -4371,6 +4372,10 @@
 					"safe_mode_healthy_clear_s": {
 						"label": "Maayo nga pagpadagan antes limpyohan ang history (s)",
 						"hint": "Bug-os nga segundo halin {min} hasta {max}. Ginatinluan ang reset history pagkatapos sini nga kalawig nga maayo nga pagpadagan."
+					},
+					"motor_min_pulse_ms": {
+						"label": "Pinakamalip-ot nga pulso sang motor (ms)",
+						"hint": "Bug-os nga millisecond halin {min} hasta {max}. Ginasikway ang dose nga mas malip-ot ang oras sang relay (dose_below_min_pulse) sa baylo nga magpadalagan sang pulso nga indi makapaikot sang auger."
 					}
 				},
 				"reasonLabel": "Rason",

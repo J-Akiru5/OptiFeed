@@ -41,6 +41,7 @@ EnergyDevice.mac`) adds one object:
   "safe_mode_abnormal_threshold": 3,
   "safe_mode_quiet_s": 1800,
   "safe_mode_healthy_clear_s": 600,
+  "motor_min_pulse_ms": 250,
   "grams_per_feeding": 150,
   "button_feed_grams": 80,
   "grams_per_second": 4,
@@ -99,6 +100,7 @@ leave. In particular:
 | post-brownout hold | ≥ 10 s (it can be lengthened, never disabled) |
 | OTA near-feed guard | ≥ 5 min either side of a scheduled feed (never disabled) |
 | relay overrun trip | 2,000 ms, compile-time, never configurable |
+| motor minimum pulse | `motor_min_pulse_ms` 50–2,000 ms (a shorter dose is refused, never rounded up) |
 | pins, NVS namespace `optifeed`, TLS roots, OTA public keys | compile-time |
 
 A per-field bound is not the only check: `hopper_full_cm < hopper_empty_cm` and
@@ -119,7 +121,9 @@ inverted pair would silently break a guard.
 
 Nothing is ever clamped on the device. A bad config can never raise a bound,
 shorten the gap or disable a guard; the server also clamps when it builds the
-object, so the two sides agree on the same envelope.
+object, so the two sides agree on the same envelope. The motor floor follows the
+same rule: a stored or served `0` is outside its envelope, so it rejects the
+object and the default `250 ms` (never "no floor") stays in force.
 
 ### Last-good storage
 
@@ -127,7 +131,7 @@ Namespace `optifeed`, **new keys only**:
 
 | Key | Content |
 |---|---|
-| `cfg_json` | the 46 operational fields as JSON (no `version`/`rev`) |
+| `cfg_json` | the 47 operational fields as JSON (no `version`/`rev`) |
 | `cfg_rev` | the `rev` last applied |
 
 `cal_gps` and every existing key are untouched. A corrupt or hand-edited blob
@@ -151,7 +155,7 @@ change.
 | `max_dispense_ms` | `PlatformSetting` `feeding.limits.maxDispenseMs` (reader clamps to 300,000) |
 | `grams_per_feeding`, `button_feed_grams`, `grams_per_second`, `temp_offset_c` | `EnergyDevice` columns |
 | `hopper_full_cm`, `hopper_empty_cm` | `EnergyDevice` columns (null → default geometry) |
-| `min_dispense_gap_s`, `max_dispenses_per_hour`, `brownout_hold_s`, `safe_mode_*` | `PlatformSetting` `firmware.gates`, edited in Superadmin → Settings → Firmware safety gates |
+| `min_dispense_gap_s`, `max_dispenses_per_hour`, `brownout_hold_s`, `safe_mode_*`, `motor_min_pulse_ms` | `PlatformSetting` `firmware.gates`, edited in Superadmin → Settings → Firmware safety gates |
 | `ota_check_interval_s`, `ota_min_uptime_s`, `ota_min_rssi_dbm`, `ota_feed_guard_min`, `ota_window_start_min`, `ota_window_end_min`, `ota_min_free_heap_bytes`, `ota_no_data_timeout_ms`, `ota_download_timeout_ms`, `ota_health_check_timeout_ms` | `PlatformSetting` `firmware.gates` (same row as the gates), edited in Superadmin → Settings → OTA rollout policy (#660) |
 | `weak_after_min`, `offline_after_min` | `PlatformSetting` `device.status` (I-95), diagnostics only: the server still classifies connectivity and E36 keeps alerts on the platform policy |
 | `hopper_low_pct` | `OrgSetting.hopperLowPct` — device pond → pond owner (farm) → active organization → row (the same chain ingest alerts use). Cached per device for 60 s; a missing/unreadable org returns 20 % |
@@ -186,10 +190,11 @@ filter warns at the organization's threshold instead of the compile-time 20 %.
 
 ## Superadmin UI
 
-Superadmin → Settings → **Firmware safety gates**: seven number inputs generated
-from the field table, inline min/max validation, a required reason of at least 10
-characters, and one `PlatformAuditLog` row (`platform.settings.firmware_gates`) in
-the same transaction as the `PlatformSetting` upsert, carrying the before/after
+Superadmin → Settings → **Firmware safety gates**: eight number inputs generated
+from the field table (the seven gates plus the motor minimum pulse), inline
+min/max validation, a required reason of at least 10 characters, and one
+`PlatformAuditLog` row (`platform.settings.firmware_gates`) in the
+same transaction as the `PlatformSetting` upsert, carrying the before/after
 values. Non-gate values already stored (OTA, calibration, button guard,
 heartbeat) are preserved on save.
 
@@ -300,6 +305,73 @@ dose or one above the derived ceiling. The server keeps its own relay-time check
 when queueing a manual feed, so a request that cannot physically run is never
 queued.
 
+## Motor minimum pulse: the floor half of #661
+
+A dose is one continuous relay on-time: `grams / grams_per_second × 1000`.
+Under a certain pulse the auger does not start from rest, so the relay closes,
+the unit logs and reports a dose, and nothing leaves the hopper. `#661` adds
+`motor_min_pulse_ms`, the shortest on-time the auger reliably turns, and the
+firmware refuses a dose below it.
+
+| | |
+|---|---|
+| Key | `motor_min_pulse_ms` |
+| Envelope | 50–2,000 ms, whole milliseconds |
+| Default | 250 ms |
+| Applied from | `PlatformSetting` `firmware.gates`, edited in Superadmin → Settings → Firmware safety gates |
+| Enforced in | `fw::DispenseGate::evaluate` (`firmware/firmware-main/safety.h`), limits filled by `applyConfigToRuntime()` |
+| Refusal | `feed_refused` with `reason: "dose_below_min_pulse"` (distinct from `dose_time_exceeds_cap` and from `safe_mode`) |
+| Serial | `[FEED] 0.50g needs 125ms of relay, below the 250ms motor floor`, then `[FEED] REFUSED dose_below_min_pulse: 0g from dashboard` |
+
+**Why 250 ms.** At the shipped 4 g/s it is exactly 1 g, the smallest dose any
+feeding field allows (`grams_per_feeding` and `button_feed_grams` both start at
+1 g), so the default refuses nothing the console can request today. It only
+refuses a dose that is already below that range.
+
+**The floor is a time; doses are grams.** The smallest feedable dose is
+`motor_min_pulse_ms / 1000 × grams_per_second`: 1 g at the default 4 g/s, 2 g
+at 8 g/s. A unit calibrated faster than 4 g/s that must keep feeding 1 g doses
+should lower the floor to the value measured on that unit; the default is a
+conservative starting point, not a platform-wide measurement. A sub-floor
+manual request is not pre-blocked by the app - the device refuses it with
+`dose_below_min_pulse` and the existing refusal handling closes the request.
+
+**Why not 0.** 0 would disable the floor, so the envelope starts at 50 ms and an
+out-of-range value rejects the whole object (and the whole NVS blob) while the
+last-good/default value stays. A missing value resolves to the default, never to
+"no floor". Nothing is clamped on the device.
+
+**Why 2,000 ms.** A calibration test dose is a whole number of seconds and at
+least 3 s (`CALIBRATION_TEST_SECONDS_MIN`), so the floor always sits below the
+calibration window and can never refuse a calibration. The floor never stretches
+a dose *up*: rounding a dose to the floor would dispense more than the operator
+asked for, and a calibration weight would then disagree with the brief.
+
+**Calibration guidance.** The floor is a property of one auger, not of the
+pellet. Feed one small weighed dose, lower the floor until the auger stops
+turning reliably, then raise it one step and record that value. The
+`grams_per_second` rate calibration is unchanged: the floor decides whether a
+pulse is allowed, never how much a gram weighs.
+
+**Wire change.** One field inside the existing object; no contract-version bump
+and no schema change:
+
+```json
+"config": {
+  "version": 1,
+  "rev": 1543210987,
+  "min_dispense_gap_s": 10,
+  "max_dispenses_per_hour": 6,
+  "motor_min_pulse_ms": 250,
+  "...": "the other 44 fields"
+}
+```
+
+**Older units.** A unit on firmware without this key ignores it (the contract is
+additive) and keeps the old behaviour: no floor. The heartbeat echoes one
+`config_rev` for the whole object, so it does not prove the floor was applied;
+a unit that has not been flashed cannot enforce it.
+
 ## Values that are deliberately fixed (#662)
 
 The calibration-coverage audit (`docs/audits/2026-11-03-calibration-coverage.md`,
@@ -320,8 +392,8 @@ reported instead of tuned.
 
 | Check | Command |
 |---|---|
-| Native contract tests | `pio test -d firmware -e native` (config parse, envelope, last-good, malformed, NVS roundtrip, E38) |
-| Board builds | `pio run -d firmware -e esp32dev`, `-e esp32dev-lan`, `-e esp32dev-relay5` |
+| Native contract tests | `pio test -d firmware -e native` (config parse, envelope, last-good, malformed, NVS roundtrip, E38, motor floor #661) |
+| Board builds | `pio run -d firmware -e esp32dev-gpio5` (CICT unit) and `-e esp32dev-gpio25` (reference board); the `-lan` variants add the bench updater |
 | Server config + action + poll | `pnpm exec vitest run lib/__tests__/firmware-config.test.ts lib/__tests__/config-centre.test.ts lib/__tests__/feed-command.test.ts lib/__tests__/ingest-ota.test.ts` (from `apps/web`) |
 | Repository gates | `pnpm lint`, `pnpm typecheck`, `pnpm api:check`, `pnpm build`, `node scripts/perf/bundle-budget.mjs` |
 
@@ -329,6 +401,11 @@ reported instead of tuned.
 
 - **Reflash** (USB bootstrap or signed OTA) after Jeff's yes. This branch does
   not flash and does not bump the app version.
+- **#661 bench run.** The native tests prove the gate's logic, not the auger:
+  confirm on the field unit that the auger actually turns at the configured
+  floor and stops turning reliably one step below it, and that the serial log
+  shows `[FEED] … below the … motor floor` and `[FEED] REFUSED
+  dose_below_min_pulse`. No ESP32 is connected to this build host.
 - Hiligaynon strings are drafts.
 - Firmware `MAX_GRAMS_PER_DISPENSE` removal (E38) ships with this reflash; the
   installed 1.6.2 units keep the 1,000 g per-dose refusal until then.

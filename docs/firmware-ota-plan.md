@@ -114,6 +114,15 @@ Use `Update` + `HTTPClient` + mbedtls SHA-256/ECDSA, not `HTTPUpdate`. `HTTPUpda
 
 ## 6. Bootstrap: making the next manual flash the last one
 
+**Current status (2026-11-08): one USB flash is still required, for a protocol reason.**
+
+Since #582 the check route refuses to offer an image to a unit that does not declare its relay wiring (`variant` + `relay_gpio`), so a wrong-pin image can never be served. The field unit runs **1.9.0**, and its published binary contains `device_id=`, `/api/firmware/check` and `X-Device-Token` but **not** `variant=` or `relay_gpio` — verified by searching the stored 1.9.0 image. The 1.10.0 image contains both. A 1.9.0 unit therefore receives `{update:false}` on every check and cannot be updated over the air, by design rather than by a fault.
+
+- **The last manual flash:** USB-flash `esp32dev-gpio5` at **1.10.0**, the first variant-aware release. It writes the bootloader, partition table and app. NVS at 0x9000 (Wi-Fi, device ID, token) survives unless someone runs `erase_flash` **(bench-verify)**. Record `esptool chip_id` while there.
+- **After that flash:** the unit sends `variant=gpio5&relay_gpio=5`, the route serves the signed channel, and every later update is OTA. No further USB access is needed for the life of the unit.
+- **Published release (2026-11-08):** `1.10.0`, variant `gpio5`, relay GPIO 5, 1,125,424 bytes, sha256 `edfc1776e8e31caa0929555281df4abb93b4cb9d533385099f6b8894515b5973`, signed with `primary`, `min_from_version 1.9.0`, targets `*`. The signature was verified against `firmware/keys/pakaonai-ota-primary-public.pem`, and the channel and image were re-downloaded from Storage and the hash re-checked.
+- **Safe mode does not block this.** `maybeCheckForUpdate()` runs outside the safe-mode gate; safe mode only prevents the relay from energising. A unit in safe mode can still check, download and install.
+
 - **Path A, recommended:** one USB flash per unit with `pio run -t upload`. It writes the bootloader, the new partition table and the app. NVS (Wi-Fi, device ID, token) at 0x9000 survives unless someone runs `erase_flash` **(bench-verify)**. Record `esptool chip_id` while there.
 - **Path B:** keep the default table and push over LAN ArduinoOTA. That works today with ~230 KB headroom, but any future repartition needs USB again.
 - **Bench test before the fleet:** 1.4.0 → 1.4.1 → a deliberately bad 1.4.2 must roll back automatically, including power pulled and a watchdog reset during pending-verify.

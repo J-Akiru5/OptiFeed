@@ -187,6 +187,12 @@ Build the CICT unit with its own environment:
 pio run -d firmware -e esp32dev-gpio5
 ```
 
+**OTA bootstrap (2026-11-08).** `1.10.0` is the first release that declares `variant` and
+`relay_gpio` on the update check, which `/api/firmware/check` requires before it will offer an
+image (#582). A unit below `1.10.0` — the field unit currently runs `1.9.0` — cannot be offered an
+update and needs one USB flash to `1.10.0`. After that, every update is over the air. The current
+signed channel is `1.10.0` for `gpio5`; see `docs/firmware-ota-plan.md` §6.
+
 `firmware/platformio.ini` sets `-DRELAY_PIN` and `-DFW_HW_VARIANT` together.
 `firmware-main.ino` `#error`s when either is missing and `static_assert`s that
 the variant maps to the compiled pin, so a build can never name `gpio5` and

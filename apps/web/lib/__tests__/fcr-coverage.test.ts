@@ -63,6 +63,8 @@ describe("storedFcrCoverageForReport", () => {
 				deviceId: { in: ["dev-1"] },
 				eventType: "feed_dispensed",
 				grams: { gt: 0 },
+				// Same scope as the computed feed: seed/synthetic are artefacts.
+				dataSource: { notIn: ["seed", "synthetic"] },
 				receivedAt: { gte: SEP, lte: OCT },
 			},
 		});
@@ -112,6 +114,9 @@ describe("loadStoredFcrAssessments", () => {
 		expect(assessments[1].coverage).toEqual({ feedEvents: 2, biomassSamples: 2 });
 		// Both periods have coverage; the arithmetic is consistent.
 		expect(assessments.every((assessment) => assessment.verified)).toBe(true);
+		// The bulk read uses the same artefact exclusion as the computed feed.
+		const where = mocks.feedEventFindMany.mock.calls[0][0].where;
+		expect(where.dataSource).toEqual({ notIn: ["seed", "synthetic"] });
 		// The caller supplied the devices, so no duplicate lookup.
 		expect(mocks.energyDeviceFindMany).not.toHaveBeenCalled();
 	});

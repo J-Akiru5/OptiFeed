@@ -14,7 +14,7 @@ export function BackToDashboard() {
 	return (
 		<Link
 			href="/dashboard"
-			className="mb-4 inline-flex items-center gap-1.5 text-sm font-bold text-[#0A3D62] transition-colors hover:text-[#E85A2A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A3D62] rounded-lg"
+			className="mb-4 hidden items-center gap-1.5 rounded-lg text-sm font-bold text-[#0A3D62] transition-colors hover:text-[#E85A2A] focus-visible:ring-2 focus-visible:ring-[#0A3D62] focus-visible:outline-none lg:inline-flex"
 		>
 			<ArrowLeft className="h-4 w-4" />
 			{t("dashboard")}

@@ -19,6 +19,8 @@ const read = (relative: string) => readFileSync(join(webRoot, relative), "utf8")
 
 const layoutSource = read("app/[locale]/(dashboard)/layout.tsx");
 const mobileHeaderSource = read("components/mobile/mobile-header.tsx");
+const darkModeToggleSource = read("components/dark-mode-toggle.tsx");
+const pondSelectorSource = read("components/pond-selector.tsx");
 const bottomNavSource = read("components/bottom-nav.tsx");
 const globalsCss = read("app/globals.css");
 
@@ -79,6 +81,92 @@ describe("phone geometry keeps the notch inset and clears the bottom bar (#572)"
 	});
 
 	it("reserves the bottom bar plus its inset in the content pane", () => {
-		expect(globalsCss).toContain("calc(var(--ofd-bottom-nav-h) + env(safe-area-inset-bottom)");
+		// #880: the floating monitoring HUD sits in the same band, so the pane
+		// reserves its height as well as the bar's.
+		const mainRule = /\.ofd-main \{[^}]*\}/.exec(globalsCss)?.[0] ?? "";
+		expect(mainRule).toContain("var(--ofd-bottom-nav-h)");
+		expect(mainRule).toContain("var(--ofd-hud-h)");
+		expect(mainRule).toContain("env(safe-area-inset-bottom)");
+	});
+});
+
+/**
+ * The band's controls are the only header a phone gets. Before this, the theme
+ * switch lived solely in the desktop row, which is `display: none` below `lg`,
+ * so the toggle rendered at 0 px and a farmer could not change the mode at all.
+ */
+describe("the mobile band carries reachable, uniformly sized controls", () => {
+	it("keeps the farmer band to search, notifications and the account control", () => {
+		// The theme switch is still supported by the band, but the farmer band
+		// hands it to the account menu so the bar does not grow a fourth control.
+		expect(layoutSource).toContain('<MobileHeader shell="farmer" showTheme={false}>');
+		expect(mobileHeaderSource).toContain(
+			"{showTheme ? <DarkModeToggle className={BAND_PILL} /> : null}",
+		);
+		expect(mobileHeaderSource).toContain(
+			'import { DarkModeToggle } from "@/components/dark-mode-toggle"',
+		);
+	});
+
+	it("moves help and the theme switch into the account menu", () => {
+		const headerActions = read("components/header-actions.tsx");
+		const compact = headerActions.slice(
+			headerActions.indexOf("export function CompactHeaderActions"),
+		);
+		// The bar itself is the bell and the avatar; help left the bar entirely.
+		const bar = compact.slice(0, compact.indexOf("<ProfileMenu"));
+		expect(bar).toContain("<NotificationBell");
+		expect(bar).not.toContain("<HelpButton");
+		// Both live in the menu, which is what the band opens.
+		expect(compact).toContain("showTheme");
+		expect(compact).toContain("helpAudience={helpEnabled ?");
+		expect(headerActions).toContain('{tAccount("appearance")}');
+		expect(headerActions).toContain('{tAccount("help")}');
+	});
+
+	it("folds the notification filters away on phones", () => {
+		const page = read("app/[locale]/(dashboard)/dashboard/notifications/page.tsx");
+		// A native details/summary keeps the disclosure keyboard-operable and
+		// costs no client component; desktop keeps the chips inline.
+		expect(page).toContain("<details");
+		expect(page).toContain('{t("filtersToggle")}');
+		expect(page).toContain('className="hidden lg:block">{filterLinks}</div>');
+	});
+
+	it("gives every icon control the same 44 px pill", () => {
+		const pill = /const BAND_PILL =\s*\n?\s*"([^"]+)"/.exec(mobileHeaderSource)?.[1] ?? "";
+		expect(pill).toContain("h-11 w-11");
+		expect(pill).toContain("rounded-full");
+	});
+
+	it("is a contextual app bar: brand on destinations, back and title below them", () => {
+		const routeInfo = read("components/mobile/use-page-title.ts");
+		// Destinations are an explicit list, so a detail route can never render the
+		// brand where a back arrow belongs.
+		expect(routeInfo).toContain("useMobileRouteInfo");
+		expect(routeInfo).toContain("TOP_LEVEL");
+		expect(mobileHeaderSource).toContain("ChevronLeft");
+		expect(mobileHeaderSource).toContain('t("back")');
+		expect(mobileHeaderSource).toContain("router.back()");
+		// Search is an action that opens the search sheet, not a permanent field.
+		expect(mobileHeaderSource).toMatch(/<SearchTrigger[\s\S]{0,120}variant="icon"/);
+		expect(mobileHeaderSource).not.toContain('variant="field"');
+	});
+
+	it("accepts the pill without losing the desktop size or the label", () => {
+		// The desktop and superadmin rows render the toggle with no className, so
+		// the default 36 px square has to stay the base of the merge.
+		expect(darkModeToggleSource).toContain("className={cn(");
+		expect(darkModeToggleSource).toContain("flex h-9 w-9");
+		// The label names the action and is translated (en/hil/tl).
+		expect(darkModeToggleSource).toContain("aria-label={label}");
+		expect(darkModeToggleSource).toContain('t("themeToLight")');
+		expect(darkModeToggleSource).toContain('t("themeToDark")');
+	});
+
+	it("gives the pond switcher a 44 px target instead of its text height", () => {
+		// It measured 16 px tall: the widest tap target in the band and the
+		// smallest hit area, which is backwards.
+		expect(pondSelectorSource).toContain("inline-flex min-h-11 max-w-[14rem]");
 	});
 });

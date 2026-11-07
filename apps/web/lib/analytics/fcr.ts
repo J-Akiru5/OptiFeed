@@ -1,3 +1,5 @@
+import { startOfDayInTimeZone } from "@/lib/chart-windows";
+import { PH_TZ } from "@/lib/constants";
 import { getLiveCountForPond } from "@/lib/growth/live-count";
 import prisma from "@/lib/prisma";
 
@@ -65,6 +67,40 @@ export function computeFcr(
 	return { feedGivenKg: feed, biomassGainKg, fcr };
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * `dataSource` values that are not real feed and must never enter the FCR:
+ * seeded fixtures and the synthetic backfill. Hand-fed rows are real feed and
+ * keep their `import` stamp, so they are included.
+ */
+export const FCR_EXCLUDED_DATA_SOURCES = ["seed", "synthetic"] as const;
+
+export interface FcrFeedWindow {
+	/** Local midnight at the start of the first sampling day. */
+	from: Date;
+	/** Local midnight after the last sampling day (exclusive). */
+	toExclusive: Date;
+}
+
+/**
+ * The feed window must cover exactly the same days as the gain window: the
+ * Asia/Manila day of the first sample through the end of the Asia/Manila day
+ * of the last sample (the whole last sampling day is included).
+ */
+export function feedWindowForSamples(
+	samples: readonly { recordedAt: Date }[],
+	timeZone: string = PH_TZ,
+): FcrFeedWindow | null {
+	const first = samples[0]?.recordedAt;
+	const last = samples[samples.length - 1]?.recordedAt;
+	if (!first || !last) return null;
+	return {
+		from: startOfDayInTimeZone(first, timeZone),
+		toExclusive: new Date(startOfDayInTimeZone(last, timeZone).getTime() + DAY_MS),
+	};
+}
+
 /**
  * The one derivation every surface uses: the window's first sampling starts the
  * biomass baseline at the stocked count, the last sampling closes it at the live
@@ -91,10 +127,13 @@ export function computeFcrFromLogs(
  * Feed actually given inside one window: the sum of FeedEvent grams from
  * feed_dispensed events (deprecated FeedingEvent rows are not counted — those
  * are no longer written).
+ *
+ * Seeded fixtures and the synthetic backfill are excluded: both are artefacts,
+ * not feed the pond received, and including them inflates the FCR several-fold.
  */
 export async function feedGivenKgInWindow(
 	pondId: string,
-	window: { from: Date | null; to: Date | null },
+	window: { from: Date | null; to?: Date | null; toExclusive?: Date | null },
 ): Promise<number> {
 	const devices = await prisma.energyDevice.findMany({
 		where: { pondId },
@@ -107,11 +146,16 @@ export async function feedGivenKgInWindow(
 			deviceId: { in: devices.map((device) => device.id) },
 			eventType: "feed_dispensed",
 			grams: { not: null },
-			...(window.from || window.to
+			dataSource: { notIn: [...FCR_EXCLUDED_DATA_SOURCES] },
+			...(window.from || window.to || window.toExclusive
 				? {
 						receivedAt: {
 							...(window.from ? { gte: window.from } : {}),
-							...(window.to ? { lte: window.to } : {}),
+							...(window.toExclusive
+								? { lt: window.toExclusive }
+								: window.to
+									? { lte: window.to }
+									: {}),
 						},
 					}
 				: {}),
@@ -177,11 +221,14 @@ export async function computeFcrForPond(
 	pondId: string,
 ): Promise<{ window: CycleWindow; computation: FcrComputation }> {
 	const window = await activeWindowForPond(pondId);
-	const [feedGivenKg, samples, liveCount] = await Promise.all([
-		feedGivenKgInWindow(pondId, window),
+	const [samples, liveCount] = await Promise.all([
 		biomassSamplesInWindow(pondId, window),
 		getLiveCountForPond(pondId),
 	]);
+	// The feed must cover the same days as the gain: first sample's Asia/Manila
+	// day through the whole last sampling day (develop's #709 scope fix).
+	const feedWindow = feedWindowForSamples(samples);
+	const feedGivenKg = feedWindow ? await feedGivenKgInWindow(pondId, feedWindow) : 0;
 	return {
 		window,
 		computation: computeFcrFromLogs(feedGivenKg, samples, liveCount),
@@ -195,7 +242,8 @@ export async function computeFcrForPond(
 /**
  * Why a stored FcrReport row cannot be presented as measured.
  *
- * - `no-feed-logs`: the period has no `feed_dispensed` FeedEvent with grams.
+ * - `no-feed-logs`: the period has no real `feed_dispensed` FeedEvent with
+ *   grams (seed and synthetic rows are artefacts and do not count).
  * - `no-biomass-samples`: fewer than two BiomassLog samples start and close
  *   the period, so the gain cannot be reproduced.
  * - `stored-contradicts-totals`: the row's own `totalFeedKg` and
@@ -330,6 +378,8 @@ export async function storedFcrCoverageForReport(
 						deviceId: { in: devices.map((device) => device.id) },
 						eventType: "feed_dispensed",
 						grams: { gt: 0 },
+						// Same scope as feedGivenKgInWindow: artefacts are not feed.
+						dataSource: { notIn: [...FCR_EXCLUDED_DATA_SOURCES] },
 						receivedAt: { gte: new Date(from), lte: new Date(to) },
 					},
 				}),
@@ -383,6 +433,8 @@ export async function loadStoredFcrAssessments<T extends StoredFcrRow>(
 						deviceId: { in: [...deviceIds] },
 						eventType: "feed_dispensed",
 						grams: { gt: 0 },
+						// Same scope as feedGivenKgInWindow: artefacts are not feed.
+						dataSource: { notIn: [...FCR_EXCLUDED_DATA_SOURCES] },
 						receivedAt: { gte: from, lte: to },
 					},
 					select: { receivedAt: true },

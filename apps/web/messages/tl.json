@@ -3,6 +3,7 @@
 		"dashboard": "Dashboard",
 		"schedule": "Iskedyul",
 		"logSample": "Talaan ng Biomass",
+		"logSampleShort": "Biomass",
 		"history": "Kasaysayan",
 		"growth": "Paglaki",
 		"harvest": "Ani",
@@ -222,6 +223,7 @@
 					"queueing": "Ini-queue ang test dose…",
 					"runAnother": "Magpatakbo ng panibagong test",
 					"blockedOffline": "Offline ang device — ikonekta ito bago magpatakbo ng test dose.",
+					"blockedSafeMode": "Naka-safe mode ang device — tinatanggihan nito ang lahat ng dose hanggang ma-clear. I-clear muna ang safe mode, pagkatapos ulitin ang test.",
 					"blockedFallow": "Fallow ang pond na ito pagkatapos ng ani. Simulan ang susunod na grow-out cycle bago magpatakbo ng test dose.",
 					"blockedReadOnly": "Wala kang pahintulot na i-calibrate ang device na ito.",
 					"blockedInvalidRate": "Invalid ang kasalukuyang rate. Gamitin ang manual entry para magtakda ng bagong rate.",
@@ -674,6 +676,8 @@
 			"switchFailed": "Hindi mapalitan ang pond. Subukan muli."
 		},
 		"common": {
+			"themeToDark": "Lumipat sa dark mode",
+			"themeToLight": "Lumipat sa light mode",
 			"readOnlyTitle": "Tingnan lang",
 			"capability": {
 				"edit": "Naka-enable ang pag-edit",
@@ -1408,7 +1412,13 @@
 			"healthFaults": "{count, plural, one {# aktibong fault} other {# aktibong fault}}",
 			"healthClear": "Walang naiulat na fault",
 			"lastKnownShort": "Huling alam",
-			"summaryLabel": "{status}. Antas ng hopper {percent}."
+			"summaryLabel": "{status}. Antas ng hopper {percent}.",
+			"panelTitle": "Kalagayan ng device",
+			"connection": "Koneksyon",
+			"sensor": "Sensor ng hopper",
+			"sensorOk": "Tumutugon",
+			"faults": "Mga depekto",
+			"close": "Isara"
 		},
 		"home": {
 			"noData": "Wala pang pond na nakatalaga. Hilingin sa administrator na magtalaga ng isa.",
@@ -2292,6 +2302,7 @@
 			"biomassDate": "Petsa ng sample",
 			"biomassAvgWeight": "Karaniwang timbang",
 			"biomassSample": "Sample",
+			"biomassSamplingInterval": "Intervalo ng sampling",
 			"fcrTitle": "Pinakabagong FCR",
 			"fcrEmpty": "Wala pang ulat ng FCR.",
 			"fcrValue": "FCR",
@@ -2489,7 +2500,7 @@
 			"advisorLink": "Buksan ang buong tagapayo",
 			"statusWeak": "Mahinang signal",
 			"healthSafeModeTitle": "Safe mode: tinatanggihan ang pagpapakain",
-			"healthSafeModeBody": "Ni-lock ng feeder ang relay matapos ang paulit-ulit na reset, kadalasan dahil sa hindi matatag na power supply. Mawawala ito matapos ang 30 tahimik na minuto, o pindutin nang 5 segundo ang Wi-Fi reset button.",
+			"healthSafeModeBody": "Ni-lock ng feeder ang relay dahil sa masyadong maraming abnormal na reset sa maikling panahon. Mawawala ito pagkatapos ng 30 tahimik na minuto. Kung panic ang dahilan, nag-crash ang controller: isyu sa firmware, hindi lang sa power supply. Kung may Wi-Fi reset button ang enclosure, pindutin ito nang 5 segundo para ma-clear at mag-restart.",
 			"healthResets": "Mga kamakailang reset: {reasons}",
 			"healthFaultsTitle": "Kailangang suriin",
 			"healthFaultHopperSensor": "Hindi sumasagot ang hopper sensor. Suriin ang mga wire ng TRIG at ECHO at ang 5 V na supply.",
@@ -2624,6 +2635,8 @@
 			},
 			"filtersTierLabel": "I-filter ayon sa tindi",
 			"filtersCategoryLabel": "I-filter ayon sa kategorya",
+			"filtersToggle": "Mga filter",
+			"filtersNone": "Walang aktibo",
 			"listLabel": "Mga Abiso",
 			"categoryHopperLow": "Mababang hopper"
 		},
@@ -2708,6 +2721,8 @@
 			"openMenu": "Mabilisang aksyon",
 			"menuLabel": "Mabilisang menu",
 			"moreLabel": "Iba pang seksyon",
+			"more": "Higit pa",
+			"back": "Bumalik",
 			"close": "Isara ang mabilisang menu",
 			"searchLabel": "Maghanap ng mga page at aksyon",
 			"searchPlaceholder": "Maghanap ng mga page at aksyon",
@@ -5365,7 +5380,9 @@
 			"accountSettings": "Mga setting ng account",
 			"switchLanguage": "Palitan ang wika",
 			"signOut": "Mag-sign out",
-			"userFallback": "Gumagamit"
+			"userFallback": "Gumagamit",
+			"appearance": "Itsura",
+			"help": "Tulong"
 		}
 	}
 }

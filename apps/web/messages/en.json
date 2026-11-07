@@ -74,6 +74,7 @@
 		"dashboard": "Dashboard",
 		"schedule": "Schedule",
 		"logSample": "Biomass Log",
+		"logSampleShort": "Biomass",
 		"history": "History",
 		"growth": "Growth",
 		"harvest": "Harvest",
@@ -611,7 +612,13 @@
 			"healthFaults": "{count, plural, one {# active fault} other {# active faults}}",
 			"healthClear": "No faults reported",
 			"lastKnownShort": "Last known",
-			"summaryLabel": "{status}. Hopper level {percent}."
+			"summaryLabel": "{status}. Hopper level {percent}.",
+			"panelTitle": "Device health",
+			"connection": "Connection",
+			"sensor": "Hopper sensor",
+			"sensorOk": "Responding",
+			"faults": "Faults",
+			"close": "Close"
 		},
 		"feederHero": {
 			"eyebrow": "Live monitoring",
@@ -644,7 +651,7 @@
 			"advisorLink": "Open the full advisor",
 			"statusWeak": "Weak signal",
 			"healthSafeModeTitle": "Safe mode: doses are refused",
-			"healthSafeModeBody": "The feeder locked its relay off after repeated resets, usually from an unstable power supply. It clears after 30 quiet minutes, or hold the Wi-Fi reset button for 5 seconds.",
+			"healthSafeModeBody": "The unit counted too many abnormal resets in a short window and locked its relay off. It clears itself after 30 quiet minutes of stable running. If the reason above is panic, the controller crashed: that is a firmware fault, not necessarily the power supply. If the enclosure has the Wi-Fi reset button, holding it 5 seconds clears this and restarts the unit.",
 			"healthResets": "Recent resets: {reasons}",
 			"healthFaultsTitle": "Needs a check",
 			"healthFaultHopperSensor": "The hopper sensor is not answering. Check the TRIG and ECHO wires and the 5 V supply.",
@@ -2269,6 +2276,7 @@
 					"queueing": "Queuing test dose…",
 					"runAnother": "Run another test",
 					"blockedOffline": "The device is offline — connect it before running a test dose.",
+					"blockedSafeMode": "Safe mode is on — the unit refuses every dose until it clears. Clear safe mode, then run the test again.",
 					"blockedFallow": "This pond is fallow after harvest. Start the next grow-out cycle before running a test dose.",
 					"blockedReadOnly": "You do not have permission to calibrate this device.",
 					"blockedInvalidRate": "The current rate is invalid. Use manual entry to set a new rate.",
@@ -2553,6 +2561,8 @@
 			},
 			"filtersTierLabel": "Filter by severity",
 			"filtersCategoryLabel": "Filter by category",
+			"filtersToggle": "Filters",
+			"filtersNone": "None active",
 			"listLabel": "Notifications",
 			"categoryHopperLow": "Low hopper"
 		},
@@ -2906,6 +2916,7 @@
 			"biomassDate": "Sampled",
 			"biomassAvgWeight": "Average weight",
 			"biomassSample": "Sample",
+			"biomassSamplingInterval": "Sampling interval",
 			"fcrTitle": "Latest FCR",
 			"fcrEmpty": "No FCR report yet.",
 			"fcrValue": "FCR",
@@ -3124,6 +3135,8 @@
 			"switchFailed": "Could not switch pond. Try again."
 		},
 		"common": {
+			"themeToDark": "Switch to dark mode",
+			"themeToLight": "Switch to light mode",
 			"readOnlyTitle": "View only",
 			"capability": {
 				"edit": "Editing enabled",
@@ -3179,6 +3192,8 @@
 			"openMenu": "Quick actions",
 			"menuLabel": "Quick menu",
 			"moreLabel": "More sections",
+			"more": "More",
+			"back": "Back",
 			"close": "Close quick menu",
 			"searchLabel": "Search pages and actions",
 			"searchPlaceholder": "Search pages and actions",
@@ -5365,7 +5380,9 @@
 			"accountSettings": "Account settings",
 			"switchLanguage": "Switch language",
 			"signOut": "Sign out",
-			"userFallback": "User"
+			"userFallback": "User",
+			"appearance": "Appearance",
+			"help": "Help"
 		}
 	}
 }

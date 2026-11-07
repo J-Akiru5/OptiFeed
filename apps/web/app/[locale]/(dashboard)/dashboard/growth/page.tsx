@@ -31,6 +31,7 @@ import {
 	biomassSamplesInWindow,
 	computeFcrFromLogs,
 	feedGivenKgInWindow,
+	feedWindowForSamples,
 	loadStoredFcrAssessments,
 	resolveFcrDisplay,
 	verifiedFcrValue,
@@ -93,10 +94,11 @@ export default async function GrowthPage() {
 	// cycle window; read-only — never writes FcrReport. When the cycle inputs
 	// are missing the page keeps the stored-report fallback.
 	const fcrWindow = await activeWindowForPond(pond.id);
-	const [feedGivenKg, fcrSamples] = await Promise.all([
-		feedGivenKgInWindow(pond.id, fcrWindow),
-		biomassSamplesInWindow(pond.id, fcrWindow),
-	]);
+	const fcrSamples = await biomassSamplesInWindow(pond.id, fcrWindow);
+	// The feed window must cover exactly the same days as the gain window:
+	// first sample's Asia/Manila day through the whole last sampling day.
+	const fcrFeedWindow = feedWindowForSamples(fcrSamples);
+	const feedGivenKg = fcrFeedWindow ? await feedGivenKgInWindow(pond.id, fcrFeedWindow) : 0;
 	const derivedFcr = computeFcrFromLogs(feedGivenKg, fcrSamples, liveCount);
 
 	// Bound the chart/table payloads: a decade of logs must not be serialized on

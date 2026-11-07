@@ -724,12 +724,12 @@ export function LogSampleForm({
 				className="min-w-0 space-y-4 xl:sticky xl:top-24 xl:col-start-2 xl:row-span-2 xl:row-start-1"
 			>
 				<div className="bg-[#0A3D62]/5 border border-[#0A3D62]/10 rounded-2xl p-6 dark:border-white/10 dark:bg-white/5">
-					<h3
+					<h2
 						id="biomass-live-preview"
 						className="text-sm font-black text-[#0A3D62] dark:text-[#5b9bd5] mb-1"
 					>
 						{tLog("livePreview")}
-					</h3>
+					</h2>
 					<p className="text-[#3D5568] dark:text-gray-400 text-xs leading-relaxed">
 						{inputMode === "individual" && (
 							<>

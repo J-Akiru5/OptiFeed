@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `applyGrowthPlanForPond` is no longer a browser-callable server action that trusted the caller's `ownerId`; a static guard test prevents regressions.
 - Device-token reveals are audited and rate limited.
 
-## [Unreleased]
+## [1.59.0] - 2026-11-07
+
+### Added
+
+- **Hardware recovery and diagnostics for safe mode (M2, #898).** M1 refused a calibration dose while safe mode was on; M2 keeps that guard and extends it: a unit that has *cleared* safe mode is still not dispensible until its hardware health is verified. A pure model derives the state from the unit's own reports — `HEALTHY`, `SAFE_MODE`, `RECOVERING`, `OFFLINE`, `FAULT`, with `MAINTENANCE` reserved — and answers five questions that the page and the action both consume: the likely cause of this boot (`panic` is an `ESP_RST_PANIC` controller crash and the copy says so explicitly; only `brownout` is treated as a power cause), whether recovery is safe (a growing abnormal-reset counter refuses it even after the quiet window), whether the 30-minute quiet gate has passed, whether all four health checks are fresh, and whether calibration may be offered. A failed health read fails open, exactly like M1, so a missing signal cannot block a repair.
+
+- **A configurable motor minimum pulse that refuses short doses (#661).** The firmware had no floor, so a unit whose auger stalls at short pulses could be calibrated to a rate that works at test length and silently fails for small doses. `motor_min_pulse_ms` is now the 47th firmware config key with default **250 ms** — exactly 1 g at the shipped 4 g/s, so it refuses nothing the console can request today — an envelope of 50–2,000 ms, and the normal `config_rev`/NVS path. A dose whose relay on-time falls below the floor is refused as `dose_below_min_pulse`, distinct from `dose_time_exceeds_cap` and `safe_mode`. The boundary value is accepted, and a dose is never silently stretched up to the floor. Proven by the native suite (71/71) and both hardware-variant builds; whether the auger actually turns at the floor still needs a bench run, and that is stated in the docs rather than assumed.
+
+- **A bench harness that proves the device loop and the OTA contract (#896).** One command exercises the server side end to end against the local stack — provision, heartbeat, connectivity rollup, a claim that must succeed exactly once, ingest with a replayed id, and the dashboard-facing reads — plus the OTA contract: a real signed manifest, the 8 KB cap, the signed-URL TTL, and rejection of a tampered manifest, a wrong hardware variant, a wrong key or a stale version. `docs/bench/device-loop-checklist.md` is the procedure for when a unit is connected, including the failure modes that look like success. It runs as a non-required step in `e2e`. It found the `ErrorEvent` regression described in 1.58.1 before any user did.
+
+### Fixed
+
+- **The hopper alert creates one notification per episode instead of one per heartbeat (#903).** Production held 6,133 pellet rows where two were open, growing by thousands a day. The episode key was never missing — `pellet-days:<deviceId>` — the recovery condition was wrong: closing was triggered by the *level* tier being null, which is the normal state above the low threshold, and the days episode was then re-opened in the same beat. The days episode now closes only when its own projection leaves the window or can no longer be computed, an open episode is updated in place, and a steady projection writes nothing at all (three write statements per heartbeat before, zero after). No migration: the existing partial unique index already enforces one open row per episode.
 
 ### Fixed
 

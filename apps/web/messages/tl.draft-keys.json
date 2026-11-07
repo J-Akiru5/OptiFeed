@@ -1883,6 +1883,8 @@
 		"dashboard.logSample.batchOptionalLabel",
 		"dashboard.logSample.batchPlaceholder",
 		"dashboard.logSample.batchSamples",
+		"dashboard.logSample.batchSamplingInterval",
+		"dashboard.logSample.batchSamplingIntervalValue",
 		"dashboard.logSample.batchesLabel",
 		"dashboard.logSample.biomassBreakdown",
 		"dashboard.logSample.calcAbw",

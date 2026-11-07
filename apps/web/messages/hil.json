@@ -885,6 +885,8 @@
 			"batchSamples": "Total nga Sample",
 			"batchAvgWeight": "Avg nga Kabug-atan",
 			"batchDateRange": "Range sang Petsa",
+			"batchSamplingInterval": "Intervalo sang sampling",
+			"batchSamplingIntervalValue": "Kada {days, plural, one {# ka adlaw} other {# ka adlaw}}",
 			"batchNoEntries": "Wala sing entry sa sini nga sampling batch.",
 			"batchIndividualSamples": "{count, plural, one {# indibidwal nga sampol sang isda} other {# indibidwal nga sampol sang isda}}",
 			"batchEntryDate": "Nasave",

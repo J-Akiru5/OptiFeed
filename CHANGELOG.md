@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Device "last seen" switches to days and keeps ticking (#891).** The hardware page counted hours without a ceiling ("93h 0m" for a three-day outage), and the relative value was computed once at render. One shared helper now switches to a day scale at a full day ("2h 5m" → "3d 21h"), and the live tile re-reads its clock every minute instead of freezing.
 
+- **The biomass batch summary states the sampling rate (#886).** The page listed entries, samples, average weight and date range but never said how often sampling is due. A fifth summary card shows "Every 14 days" from `Pond.sampleIntervalDays` through `resolveSampleIntervalDays` — the resolver the calendar event generator and the crop reminder scheduler now share, so the displayed cadence cannot drift from the schedule it describes.
+
 ## [1.58.1] - 2026-11-07
 
 ### Fixed

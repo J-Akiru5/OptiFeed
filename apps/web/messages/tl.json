@@ -1769,6 +1769,8 @@
 			"batchSamples": "Kabuuang Sample",
 			"batchAvgWeight": "Karaniwang Timbang",
 			"batchDateRange": "Saklaw ng Petsa",
+			"batchSamplingInterval": "Intervalo ng sampling",
+			"batchSamplingIntervalValue": "Tuwing {days, plural, one {# araw} other {# araw}}",
 			"batchNoEntries": "Walang tala sa sampling batch na ito.",
 			"batchIndividualSamples": "{count, plural, one {# indibidwal na sample ng isda} other {# indibidwal na sample ng isda}}",
 			"batchEntryDate": "Na-save",

@@ -885,6 +885,8 @@
 			"batchSamples": "Total Samples",
 			"batchAvgWeight": "Avg Weight",
 			"batchDateRange": "Date Range",
+			"batchSamplingInterval": "Sampling interval",
+			"batchSamplingIntervalValue": "Every {days, plural, one {# day} other {# days}}",
 			"batchNoEntries": "No entries in this sampling batch.",
 			"batchIndividualSamples": "{count, plural, one {# individual fish sample} other {# individual fish samples}}",
 			"batchEntryDate": "Saved",

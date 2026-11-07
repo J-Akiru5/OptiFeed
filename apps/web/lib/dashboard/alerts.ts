@@ -1,13 +1,14 @@
 import { deviceSettingsHref } from "@/lib/settings/device-settings-tabs";
 
 /**
- * The actionable alerts the farmer dashboard publishes to the shell (#819).
+ * The actionable alerts the farmer dashboard renders in the control room's
+ * right rail (#892).
  *
- * The alert list used to sit in the dashboard body and the right rail. That
- * pushed the control room past the viewport on a laptop: the `main` pane grew
- * a scrollbar even though every panel already fit its own box. The list now
- * lives in the left sidebar, so it needs one stable shape the shared shell can
- * render and one destination per alert.
+ * The list used to live in the dashboard body and then in the left sidebar.
+ * The body pushed the control room past the viewport on a laptop, and the
+ * sidebar put the alerts below the navigation where an operator had to hunt
+ * for them. They now own a dedicated section at the top of the right rail,
+ * which already scrolls independently, so the desktop stays one viewport.
  *
  * Every alert carries a real `href` and a visible action label. There is no
  * "dead" alert: an alert whose remedy is not a page would be a bug, not a

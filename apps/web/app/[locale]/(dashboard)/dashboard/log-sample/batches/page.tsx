@@ -19,6 +19,7 @@ import { ListView } from "@/components/ui/view-toggle";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
 import { getBatchLogPage, parseBatchFilter } from "@/lib/batch-logs";
+import { resolveSampleIntervalDays } from "@/lib/crop-cycle/sampling";
 import { formatFarmDateTime } from "@/lib/date-local";
 import { getPageCount, parsePage } from "@/lib/pagination";
 import { getActivePond } from "@/lib/pond-selection";
@@ -116,6 +117,10 @@ export default async function BatchLogsPage({ searchParams }: BatchLogsPageProps
 				? firstDate
 				: `${firstDate} – ${lastDate}`
 			: "—";
+	// #886: the summary states the cadence the operator is working to. The value
+	// comes from the same resolver the calendar and reminder scheduler use, so
+	// the card cannot drift from the schedule it describes.
+	const samplingIntervalDays = resolveSampleIntervalDays(pond.sampleIntervalDays);
 
 	return (
 		<DashboardPageShell className="min-w-0 space-y-6 pb-20 animate-in fade-in duration-150 [contain:inline-size]">
@@ -135,7 +140,7 @@ export default async function BatchLogsPage({ searchParams }: BatchLogsPageProps
 				/>
 			</div>
 
-			<section aria-label={t("savedBatches")} className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+			<section aria-label={t("savedBatches")} className="grid grid-cols-2 gap-3 lg:grid-cols-5">
 				<div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
 					<p className="text-[10px] font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">
 						{t("batchEntries")}
@@ -165,6 +170,17 @@ export default async function BatchLogsPage({ searchParams }: BatchLogsPageProps
 						{t("batchDateRange")}
 					</p>
 					<p className="mt-1 text-sm font-black text-[var(--ofd-base-deep)]">{dateRange}</p>
+				</div>
+				<div
+					data-testid="batch-sampling-interval"
+					className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700/50 dark:bg-gray-900"
+				>
+					<p className="text-[10px] font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">
+						{t("batchSamplingInterval")}
+					</p>
+					<p className="mt-1 text-sm font-black text-[var(--ofd-base-deep)]">
+						{t("batchSamplingIntervalValue", { days: samplingIntervalDays })}
+					</p>
 				</div>
 			</section>
 

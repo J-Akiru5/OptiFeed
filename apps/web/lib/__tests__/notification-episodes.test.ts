@@ -10,6 +10,7 @@ import {
 	offlineEpisodeKey,
 	openEpisode,
 	pelletEpisodeKey,
+	resolveEpisodeIfOpen,
 } from "@/lib/notifications/episodes";
 import { createTenancyDb } from "./helpers/tenancy";
 
@@ -246,6 +247,38 @@ describe("notification episodes (#534)", () => {
 			data: { autoCleared: true, read: true, resolutionReason: "condition_recovered" },
 		});
 		expect(call[0].data.resolvedAt).toBeInstanceOf(Date);
+	});
+
+	// #903: the heartbeat path resolves an episode on every beat where the
+	// condition is absent. An unconditional updateMany there is a write per beat
+	// that changes nothing, so it reads the open row first.
+	it("resolves an open episode through the one open-row predicate", async () => {
+		store.notification.findFirst.mockResolvedValue({ id: "notif-open" });
+		store.notification.updateMany.mockResolvedValue({ count: 1 });
+
+		const closed = await resolveEpisodeIfOpen(store as never, feedDaysEpisodeKey("dev-1"));
+
+		expect(closed).toBe(1);
+		expect(store.notification.findFirst).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: {
+					episodeKey: "pellet-days:dev-1",
+					resolvedAt: null,
+					autoCleared: false,
+					supersededById: null,
+				},
+			}),
+		);
+		expect(store.notification.updateMany).toHaveBeenCalledTimes(1);
+	});
+
+	it("issues no write when no episode is open", async () => {
+		store.notification.findFirst.mockResolvedValue(null);
+
+		const closed = await resolveEpisodeIfOpen(store as never, feedDaysEpisodeKey("dev-1"));
+
+		expect(closed).toBe(0);
+		expect(store.notification.updateMany).not.toHaveBeenCalled();
 	});
 });
 

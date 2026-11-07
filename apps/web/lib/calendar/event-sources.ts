@@ -14,6 +14,7 @@ import {
 	pondEventCalendarType,
 } from "@/lib/crop-cycle/calendar";
 import { addDays, dateRangeUtc, daysBetween, formatDateOnly } from "@/lib/crop-cycle/dates";
+import { resolveSampleIntervalDays } from "@/lib/crop-cycle/sampling";
 import prisma from "@/lib/prisma";
 import { resolveCurrentSchedule } from "@/lib/schedule/resolve-current";
 
@@ -261,7 +262,7 @@ export async function loadCalendarEventSources(
 
 		for (const pond of ponds) {
 			const lastSample = latestByPond.get(pond.id) ?? cycleByPond.get(pond.id) ?? pond.createdAt;
-			const interval = Math.max(1, pond.sampleIntervalDays);
+			const interval = resolveSampleIntervalDays(pond.sampleIntervalDays);
 			let next = addDays(formatDateOnly(lastSample), interval);
 			let generated = 0;
 			let guard = 0;

@@ -51,6 +51,14 @@ export interface DeviceHealthReport {
 	lastFault: string | null;
 	abnormalResets: number;
 	resetReasons: string | null;
+	/**
+	 * This boot's reset reason (`reset_reason`), e.g. `panic` or `brownout`.
+	 * M2 stores it on the health row because the counters alone cannot say what
+	 * the *last* reset was.
+	 */
+	resetReason: string | null;
+	/** `diag.uptime_s`: how long this boot has been running. */
+	uptimeS: number | null;
 }
 
 const MAX_MASK = 0xff;
@@ -91,6 +99,7 @@ export function parseDeviceHealthReport(body: unknown): DeviceHealthReport | nul
 	if (reportedSafeMode === null && !hasMasks) return null;
 
 	const abnormal = diag.reset_abnormal_count;
+	const uptime = diag.uptime_s;
 	return {
 		safeMode: reportedSafeMode === true,
 		faultsPresent: maskOf(diag.faults_present),
@@ -101,6 +110,11 @@ export function parseDeviceHealthReport(body: unknown): DeviceHealthReport | nul
 				? abnormal
 				: 0,
 		resetReasons: shortText(raw.last_reset_reasons, 64),
+		resetReason: shortText(raw.reset_reason, 32),
+		uptimeS:
+			typeof uptime === "number" && Number.isInteger(uptime) && uptime >= 0 && uptime <= 0xffffffff
+				? uptime
+				: null,
 	};
 }
 
@@ -109,6 +123,14 @@ export interface DeviceHealthKey {
 	safeMode: boolean;
 	faultsPresent: number;
 	faultsLatched: number;
+	/**
+	 * M2: the reset record is part of the change key. A boot that leaves the
+	 * relay clear still writes a row, so the recovery rules can tell "no reset
+	 * since the trip" from "no row since the trip".
+	 */
+	abnormalResets?: number | null;
+	resetReasons?: string | null;
+	resetReason?: string | null;
 }
 
 export function isHealthClear(key: DeviceHealthKey): boolean {
@@ -117,11 +139,19 @@ export function isHealthClear(key: DeviceHealthKey): boolean {
 
 /** True when `next` differs from `previous` in anything an operator would act on. */
 export function healthChanged(previous: DeviceHealthKey | null, next: DeviceHealthKey): boolean {
-	if (!previous) return !isHealthClear(next);
+	if (!previous) {
+		// First contact: a healthy unit with no reset history costs no row. A
+		// unit that arrives with faults, safe mode or a reset record does, so the
+		// baseline the recovery rules compare against is never missing.
+		return !isHealthClear(next) || (next.abnormalResets ?? 0) > 0;
+	}
 	return (
 		previous.safeMode !== next.safeMode ||
 		previous.faultsPresent !== next.faultsPresent ||
-		previous.faultsLatched !== next.faultsLatched
+		previous.faultsLatched !== next.faultsLatched ||
+		(previous.abnormalResets ?? 0) !== (next.abnormalResets ?? 0) ||
+		(previous.resetReasons ?? null) !== (next.resetReasons ?? null) ||
+		(previous.resetReason ?? null) !== (next.resetReason ?? null)
 	);
 }
 
@@ -135,6 +165,8 @@ export function healthEventMetadata(report: DeviceHealthReport): Record<string, 
 		lastFault: report.lastFault,
 		abnormalResets: report.abnormalResets,
 		resetReasons: report.resetReasons,
+		resetReason: report.resetReason,
+		uptimeS: report.uptimeS,
 	};
 }
 
@@ -149,6 +181,14 @@ export function healthFromMetadata(metadata: unknown): DeviceHealthReport {
 		lastFault: shortText(raw.lastFault, 32),
 		abnormalResets: maskOf(raw.abnormalResets),
 		resetReasons: shortText(raw.resetReasons, 64),
+		resetReason: shortText(raw.resetReason, 32),
+		uptimeS:
+			typeof raw.uptimeS === "number" &&
+			Number.isInteger(raw.uptimeS) &&
+			raw.uptimeS >= 0 &&
+			raw.uptimeS <= 0xffffffff
+				? raw.uptimeS
+				: null,
 	};
 }
 

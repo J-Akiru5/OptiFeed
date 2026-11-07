@@ -24,15 +24,35 @@ import {
  * The issue's palette is intentional: online/active is high-contrast orange,
  * a fault or safe mode is yellow, and offline is red. Every badge also carries
  * an icon and its translated label, so the state never relies on hue alone.
+ *
+ * #884: the dark "active" tone was bright orange with white text, which is only
+ * 3.1:1. It now uses near-black ink on the same orange (6.2:1), and the mobile
+ * HUD outlines the whole chip in the tone below so the surface cannot vanish
+ * into the dark page.
  */ export const MONITORING_TONE_CLASSES: Record<MonitoringTone, string> = {
 	active:
-		"bg-[#C2410C] text-white ring-black/10 shadow-[0_2px_10px_rgba(194,65,12,0.35)] dark:bg-[#FF5A1F] dark:text-white dark:ring-white/20",
+		"bg-[#C2410C] text-white ring-black/10 shadow-[0_2px_10px_rgba(194,65,12,0.35)] dark:bg-[#FF5A1F] dark:text-[#1A0A02] dark:ring-white/20",
 	attention:
 		"bg-[#FACC15] text-[#3B2F00] ring-black/15 shadow-[0_2px_10px_rgba(250,204,21,0.35)] dark:ring-white/20",
 	offline:
 		"bg-[#C42B3A] text-white ring-black/10 shadow-[0_2px_10px_rgba(196,43,58,0.35)] dark:ring-white/20",
 	neutral:
 		"bg-gray-200 text-[#0A3D62] ring-black/10 shadow-sm dark:bg-gray-700 dark:text-gray-100 dark:ring-white/15",
+};
+
+/**
+ * #884: the mobile HUD's border, keyed to the live state.
+ *
+ * The floating chip is opaque navy in both themes; on the dashboard's dark
+ * background (`#0f1419`) that fill is only 1.2:1, so the chip had no visible
+ * edge. The tone border is the component boundary, and each colour clears 3:1
+ * against the dark page (orange 8.0:1, yellow 12.1:1, red 6.7:1).
+ */
+export const MONITORING_HUD_BORDER_CLASSES: Record<MonitoringTone, string> = {
+	active: "border-[#FF8A5C]",
+	attention: "border-[#FACC15]",
+	offline: "border-[#F87171]",
+	neutral: "border-white/40",
 };
 
 /** The status accent as a solid bar, for the sidebar card and mobile HUD edges. */

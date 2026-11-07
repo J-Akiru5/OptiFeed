@@ -8,7 +8,6 @@ import { PakoyLowHopper } from "@/components/assistant/pakoy-low-hopper";
 import { formatChartNumber } from "@/components/charts/chart-data";
 import type { ChartLabels } from "@/components/charts/chart-frame";
 import { LazyLineTrend, LazyStackedBars } from "@/components/charts/lazy";
-import { DashboardAlertsSync } from "@/components/dashboard/alerts/dashboard-alerts-context";
 import {
 	CONTROL_ROOM_MAIN,
 	CONTROL_ROOM_MOBILE_BAND,
@@ -556,9 +555,6 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 				data={dashboardSnapshot}
 			/>
 			<DashboardSnapshot snapshot={dashboardSnapshot} />
-			{/* #819: publish the dashboard's alerts and health to the sidebar.
-			    The page owns the reads; the shared shell only renders them. */}
-			<DashboardAlertsSync alerts={alerts} health={deviceHealth} hardwareHref={hardwareHref} />
 
 			{/* Pakoy's in-context low-hopper reminder (#221). The permanent
 			    record stays in the bell and on the hardware page. */}
@@ -566,11 +562,12 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 				<PakoyLowHopper pondId={pond.id} levelPercent={Math.round(hopperLevelPercent)} low />
 			)}
 
-			{/* The desktop surface is the sidebar footer (#819); the page keeps
-			    the detailed health card for the stacked phone/tablet layout, and
-			    the card itself links to the hardware page where it is fixed. */}
+			{/* The desktop surface is the right rail's alerts section; the page
+			    keeps a top-of-page health card for the stacked phone/tablet
+			    layout, and the card itself links to the hardware page where it
+			    is fixed (#892). */}
 			{energyDevice && healthNeedsAction && (
-				<div className="lg:hidden">
+				<div className="xl:hidden">
 					{hardwareHref ? (
 						<Link
 							href={hardwareHref}
@@ -736,6 +733,45 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 				</div>
 
 				<ControlRoomRail label={t("controlRoom.railLabel")}>
+					{/* #892: the actionable alerts are a dedicated section at the top
+					    of the right pane, each one a real link to its remedy. The
+					    left sidebar keeps only the hopper reading and the ESP32
+					    connection state. Below `xl` the rail is `display: contents`,
+					    so the same section stacks at its mobile order. */}
+					<div
+						data-testid="dashboard-alerts"
+						className={cn(CONTROL_ROOM_ORDER.alerts, CONTROL_ROOM_MOBILE_BAND)}
+					>
+						<ControlPanel title={t("controlRoom.alertsPanel")} icon={AlertTriangle}>
+							{energyDevice && healthNeedsAction ? (
+								// The desktop copy of the health notice lives here; the
+								// page-level card above covers everything below `xl`, so
+								// the two never show at the same time.
+								<div className="mb-3 hidden xl:block">
+									{hardwareHref ? (
+										<Link
+											href={hardwareHref}
+											className="block rounded-2xl focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:focus-visible:outline-[#8fc0ea]"
+										>
+											<HealthNotice health={deviceHealth} tone="themed" />
+											<span className="inline-flex min-h-8 items-center gap-1 text-[11px] font-black text-[#C2410C] dark:text-[#ff8a5c]">
+												{t("controlRoom.alerts.openHardware")}{" "}
+												<ArrowRight aria-hidden="true" className="h-3 w-3" />
+											</span>
+										</Link>
+									) : (
+										<HealthNotice health={deviceHealth} tone="themed" />
+									)}
+								</div>
+							) : null}
+							<AlertsPanel
+								items={alerts}
+								emptyTitle={t("controlRoom.alerts.emptyTitle")}
+								emptyDescription={t("controlRoom.alerts.emptyDetail")}
+							/>
+						</ControlPanel>
+					</div>
+
 					<div className={cn(CONTROL_ROOM_ORDER.header, CONTROL_ROOM_MOBILE_BAND)}>
 						<DashboardPageHeader
 							title={
@@ -832,16 +868,6 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							}
 						</div>
 					)}
-
-					<div className={cn(CONTROL_ROOM_ORDER.alerts, CONTROL_ROOM_MOBILE_BAND, "lg:hidden")}>
-						<ControlPanel title={t("controlRoom.alertsPanel")} icon={AlertTriangle}>
-							<AlertsPanel
-								items={alerts}
-								emptyTitle={t("controlRoom.alerts.emptyTitle")}
-								emptyDescription={t("controlRoom.alerts.emptyDetail")}
-							/>
-						</ControlPanel>
-					</div>
 
 					{!pond.isFallow && energyDevice && (
 						<div className={cn(CONTROL_ROOM_ORDER.advisorSummary, "hidden xl:block")}>

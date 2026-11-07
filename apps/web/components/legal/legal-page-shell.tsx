@@ -218,10 +218,17 @@ export async function LegalPageShell({
 						</footer>
 					</article>
 
-					<aside className="hidden lg:block print:hidden">
+					{/* #893: the pane itself is the sticky box. `sticky` on the nav was
+					    inert because the aside was only as tall as the list, so the
+					    sticky box had no travel. As a grid child with `self-start` the
+					    aside spans the article's full height, and the document keeps
+					    its ordinary page scroll — the pane just stays in view. The
+					    max-height/overflow pair keeps a long table of contents
+					    reachable on a short laptop viewport without trapping focus. */}
+					<aside className="hidden lg:sticky lg:top-24 lg:block lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto print:hidden">
 						<nav
 							aria-label={t("contents")}
-							className="sticky top-24 rounded-xl border border-[#DFE7E4] bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]"
+							className="rounded-xl border border-[#DFE7E4] bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]"
 						>
 							<p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
 								{t("contents")}

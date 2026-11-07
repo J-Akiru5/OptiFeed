@@ -818,14 +818,22 @@ describe("POST /api/ingest — hopper alerts are episodes (#534, supersedes #412
 	});
 
 	it("closes the hopper episodes once the level recovers", async () => {
-		mockNotification.findFirst.mockResolvedValue(null as never);
+		// A recovered level closes the episode that was open. Since #903 the route
+		// reads the open row first and writes only when there is one, so the
+		// fixture has to contain the episode this recovery is closing; a recovery
+		// with nothing open writes nothing (covered in the #903 block below).
+		mockNotification.findFirst.mockResolvedValue({
+			id: "notif-open",
+			tier: "WARNING",
+			message: "Feed hopper is running low — schedule a refill soon",
+		} as never);
 
 		const res = await POST(ingestRequest(heartbeatBody("hb-ep-05", { feedLevelPercent: 80 })));
 
 		expect(res.status).toBe(204);
 		const closed = mockNotification.updateMany.mock.calls.filter(([arg]) =>
 			String((arg as { where?: { episodeKey?: string } }).where?.episodeKey ?? "").startsWith(
-				"pellet:",
+				"pellet",
 			),
 		);
 		expect(closed.length).toBeGreaterThan(0);
@@ -859,6 +867,229 @@ describe("POST /api/ingest — hopper alerts are episodes (#534, supersedes #412
 		});
 	});
 });
+
+describe("POST /api/ingest — one hopper alert per episode, not per heartbeat (#903)", () => {
+	// The days-remaining warning has its own episode key. Before #903 the route
+	// closed that episode on every beat where the level tier was null — the
+	// normal state above `hopperLowPct` — and immediately re-opened it while the
+	// projection was still inside the two-day window. Each beat therefore wrote
+	// one closed row and one new row: a ~6,000-row supersede chain in production.
+	//
+	// These tests run against a stateful Notification double so "one row" means
+	// one row, not one create call on a mock that always answers null.
+
+	type NotificationRow = {
+		id: string;
+		pondId: string;
+		category: string;
+		tier: string;
+		message: string;
+		linkTo: string | null;
+		episodeKey: string | null;
+		createdAt: Date;
+		resolvedAt: Date | null;
+		autoCleared: boolean;
+		supersededById: string | null;
+		resolutionReason: string | null;
+		read: boolean;
+	};
+
+	function statefulNotifications() {
+		const rows: NotificationRow[] = [];
+		let nextId = 1;
+
+		const matches = (row: NotificationRow, where: Record<string, unknown>) =>
+			Object.entries(where).every(
+				([key, value]) => (row as unknown as Record<string, unknown>)[key] === value,
+			);
+
+		mockNotification.findFirst.mockImplementation((async (args: {
+			where: Record<string, unknown>;
+		}) => {
+			const open = rows
+				.filter((row) => matches(row, args.where))
+				.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+			const found = open[0];
+			return found ? { id: found.id, tier: found.tier, message: found.message } : null;
+		}) as never);
+
+		mockNotification.create.mockImplementation((async (args: {
+			data: Omit<
+				NotificationRow,
+				| "id"
+				| "createdAt"
+				| "resolvedAt"
+				| "autoCleared"
+				| "supersededById"
+				| "resolutionReason"
+				| "read"
+			>;
+		}) => {
+			const id = `notif-${nextId}`;
+			rows.push({
+				id,
+				...args.data,
+				createdAt: new Date(Date.UTC(2026, 10, 7, 0, 0, nextId)),
+				resolvedAt: null,
+				autoCleared: false,
+				supersededById: null,
+				resolutionReason: null,
+				read: false,
+			});
+			nextId += 1;
+			return { id };
+		}) as never);
+
+		mockNotification.update.mockImplementation((async (args: {
+			where: { id: string };
+			data: Partial<NotificationRow>;
+		}) => {
+			const row = rows.find((candidate) => candidate.id === args.where.id);
+			if (!row) throw new Error(`no notification ${args.where.id}`);
+			Object.assign(row, args.data);
+			return row;
+		}) as never);
+
+		mockNotification.updateMany.mockImplementation((async (args: {
+			where: Record<string, unknown>;
+			data: Partial<NotificationRow>;
+		}) => {
+			const found = rows.filter((row) => matches(row, args.where));
+			for (const row of found) Object.assign(row, args.data);
+			return { count: found.length };
+		}) as never);
+
+		return rows;
+	}
+
+	function notificationWrites() {
+		return {
+			create: mockNotification.create.mock.calls.length,
+			update: mockNotification.update.mock.calls.length,
+			updateMany: mockNotification.updateMany.mock.calls.length,
+		};
+	}
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockEnergyDevice.findUnique.mockResolvedValue({
+			...DEVICE,
+			pondId: "pond-1",
+			lastSeenAt: new Date(Date.now() - 5000),
+			hopperCapacityG: 1000,
+			gramsPerFeeding: 150,
+		} as never);
+		mockEnergyDevice.update.mockResolvedValue({} as never);
+		mockPond.findUnique.mockResolvedValue({
+			feedsPerDay: 2,
+			ownerId: null,
+			notificationPrefs: null,
+		} as never);
+		mockFeedEvent.findFirst.mockResolvedValue({
+			receivedAt: new Date(),
+			rtcOk: true,
+			feederActive: false,
+		} as never);
+		mockFeedEvent.create.mockResolvedValue({} as never);
+		mockFeedLevelLog.findFirst.mockResolvedValue(null as never);
+		mockFeedLevelLog.create.mockResolvedValue({} as never);
+		mockWaterTempLog.findFirst.mockResolvedValue(null as never);
+		mockWaterTempLog.create.mockResolvedValue({} as never);
+		mockFeedRequest.findMany.mockResolvedValue([] as never);
+		mockFeedRequest.updateMany.mockResolvedValue({ count: 0 } as never);
+		mockDeviceStateEvent.create.mockResolvedValue({} as never);
+	});
+
+	it("keeps one row for a repeated projection and writes nothing on the second beat", async () => {
+		// 25 % of 1,000 g = 250 g; 150 g x 2 meals = 300 g/day -> 0.83 days.
+		// 25 % is above the 20 % level threshold, so this is the days episode.
+		const rows = statefulNotifications();
+
+		expect(
+			(await POST(ingestRequest(heartbeatBody("hb-903-1a", { feedLevelPercent: 25 })))).status,
+		).toBe(204);
+		expect(rows).toHaveLength(1);
+		const afterFirst = notificationWrites();
+
+		expect(
+			(await POST(ingestRequest(heartbeatBody("hb-903-1b", { feedLevelPercent: 25 })))).status,
+		).toBe(204);
+
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({
+			episodeKey: "pellet-days:dev-1",
+			tier: "WARNING",
+			resolvedAt: null,
+			autoCleared: false,
+		});
+		// A no-op heartbeat issues no write at all against Notification.
+		expect(notificationWrites()).toEqual(afterFirst);
+	});
+
+	it("rewrites the message in place when the projection drifts inside the window", async () => {
+		const rows = statefulNotifications();
+
+		// 45 % -> 1.5 days -> "~2 day(s)".
+		await POST(ingestRequest(heartbeatBody("hb-903-2a", { feedLevelPercent: 45 })));
+		expect(rows).toHaveLength(1);
+		expect(rows[0].message).toContain("~2 day(s)");
+		const firstId = rows[0].id;
+
+		// 25 % -> 0.83 days -> "~1 day(s)": the same row, reworded.
+		await POST(ingestRequest(heartbeatBody("hb-903-2b", { feedLevelPercent: 25 })));
+
+		expect(rows).toHaveLength(1);
+		expect(rows[0].id).toBe(firstId);
+		expect(rows[0].message).toContain("~1 day(s)");
+		expect(rows[0].resolvedAt).toBeNull();
+	});
+
+	it("updates the same row when the level tier changes", async () => {
+		const rows = statefulNotifications();
+
+		// 10 % -> WARNING; 3 % -> CRITICAL. Both are the `pellet:` episode.
+		await POST(ingestRequest(heartbeatBody("hb-903-3a", { feedLevelPercent: 10 })));
+		await POST(ingestRequest(heartbeatBody("hb-903-3b", { feedLevelPercent: 3 })));
+
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({
+			episodeKey: "pellet:dev-1",
+			tier: "CRITICAL",
+			resolvedAt: null,
+		});
+	});
+
+	it("resolves on a refill and opens a genuinely new row on the next dip", async () => {
+		const rows = statefulNotifications();
+
+		await POST(ingestRequest(heartbeatBody("hb-903-4a", { feedLevelPercent: 25 })));
+		await POST(ingestRequest(heartbeatBody("hb-903-4b", { feedLevelPercent: 25 })));
+		expect(rows).toHaveLength(1);
+
+		// 80 % -> 2.67 days, above the warning window: the episode closes.
+		await POST(ingestRequest(heartbeatBody("hb-903-4c", { feedLevelPercent: 80 })));
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({
+			episodeKey: "pellet-days:dev-1",
+			autoCleared: true,
+			resolutionReason: "condition_recovered",
+		});
+		expect(rows[0].resolvedAt).toBeInstanceOf(Date);
+
+		// The next dip is a second, genuinely new episode.
+		await POST(ingestRequest(heartbeatBody("hb-903-4d", { feedLevelPercent: 25 })));
+
+		expect(rows).toHaveLength(2);
+		expect(rows[0].resolvedAt).toBeInstanceOf(Date);
+		expect(rows[1]).toMatchObject({
+			episodeKey: "pellet-days:dev-1",
+			tier: "WARNING",
+			resolvedAt: null,
+			autoCleared: false,
+		});
+	});
+});
+
 describe("POST /api/ingest — water temperature history (I-06)", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();

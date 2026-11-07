@@ -10,6 +10,7 @@ import {
 } from "@/lib/notify/email";
 import prisma from "@/lib/prisma";
 import { addDays, dateToFarmDateOnly, daysBetween, formatDateOnly, todayDateOnly } from "./dates";
+import { resolveSampleIntervalDays } from "./sampling";
 
 /**
  * Crop reminder calculation and delivery (plan §4.3 / §9).
@@ -195,10 +196,7 @@ export function nextSamplingDueDate(input: {
 	sampleIntervalDays: number;
 }): string {
 	const anchor = input.lastSampleAt ?? input.stockingDate ?? input.pondCreatedAt;
-	const interval =
-		Number.isFinite(input.sampleIntervalDays) && input.sampleIntervalDays > 0
-			? Math.round(input.sampleIntervalDays)
-			: 14;
+	const interval = resolveSampleIntervalDays(input.sampleIntervalDays);
 	return addDays(formatDateOnly(anchor), interval);
 }
 

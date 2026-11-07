@@ -41,7 +41,7 @@ export function relayGpioForVariant(variant) {
 	return OTA_CONTRACT.variantRelayGpio[variant];
 }
 
-export function parseSemver(text) {
+function parseSemver(text) {
 	const match = SEMVER_PATTERN.exec(String(text).trim());
 	if (!match) return null;
 	return [Number(match[1]), Number(match[2]), Number(match[3])];

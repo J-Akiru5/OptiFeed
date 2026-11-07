@@ -12,11 +12,7 @@
 				// Offline OTA release signer: run by hand per docs/firmware-ota-plan.md,
 				// exercised by apps/web/lib/__tests__/firmware-sign-release.test.ts.
 				// Nothing imports it, which is correct for a CLI tool.
-				"scripts/ota/sign-release.mjs",
-				// Bench verification harness: run by name from
-				// docs/bench/device-loop-checklist.md and the non-required CI step.
-				// It is a CLI entry point, not a module another file imports.
-				"scripts/bench/device-loop.mjs"
+				"scripts/ota/sign-release.mjs"
 			]
 		},
 		"apps/web": {

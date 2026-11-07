@@ -22,15 +22,19 @@ import {
 import { TermInfo } from "@/components/dashboard/term-info";
 import { GrowthPlanCard } from "@/components/growth/GrowthPlanCard";
 import { SgrKpi, type SgrKpiLabels } from "@/components/growth/SgrKpi";
+import { FcrProvenanceNote, fcrProvenanceText } from "@/components/growth/fcr-provenance";
 import { MortalityForm } from "@/components/growth/mortality-form";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
 import {
 	activeWindowForPond,
 	biomassSamplesInWindow,
-	computeFcr,
+	computeFcrFromLogs,
 	feedGivenKgInWindow,
 	feedWindowForSamples,
+	loadStoredFcrAssessments,
+	resolveFcrDisplay,
+	verifiedFcrValue,
 } from "@/lib/analytics/fcr";
 import { canWrite } from "@/lib/auth/session";
 import { todayDateOnly } from "@/lib/crop-cycle/dates";
@@ -54,12 +58,13 @@ const PREVIEW_ROWS = 5;
 const GROWTH_PREVIEW_ROWS = 6;
 
 export default async function GrowthPage() {
-	const [t, tSch, tHarvest, tDates, tCommon, pond] = await Promise.all([
+	const [t, tSch, tHarvest, tDates, tCommon, tFcr, pond] = await Promise.all([
 		getTranslations("dashboard.growth"),
 		getTranslations("dashboard.schedule"),
 		getTranslations("dashboard.harvest.summary"),
 		getTranslations("dates"),
 		getTranslations("dashboard.common"),
+		getTranslations("dashboard.fcrProvenance"),
 		getActivePond(),
 	]);
 
@@ -94,15 +99,7 @@ export default async function GrowthPage() {
 	// first sample's Asia/Manila day through the whole last sampling day.
 	const fcrFeedWindow = feedWindowForSamples(fcrSamples);
 	const feedGivenKg = fcrFeedWindow ? await feedGivenKgInWindow(pond.id, fcrFeedWindow) : 0;
-	const derivedFcr = computeFcr(
-		feedGivenKg,
-		fcrSamples[0] && liveCount.stocked !== null
-			? { avgWeightKg: fcrSamples[0].avgWeightKg, count: liveCount.stocked }
-			: null,
-		fcrSamples.length > 0 && liveCount.live !== null
-			? { avgWeightKg: fcrSamples[fcrSamples.length - 1].avgWeightKg, count: liveCount.live }
-			: null,
-	);
+	const derivedFcr = computeFcrFromLogs(feedGivenKg, fcrSamples, liveCount);
 
 	// Bound the chart/table payloads: a decade of logs must not be serialized on
 	// every visit. The history page remains the unbounded, paginated view.
@@ -160,6 +157,14 @@ export default async function GrowthPage() {
 	const biomassLogs = biomassDesc.slice().reverse();
 	const fcrReports = fcrDesc.slice().reverse();
 
+	// Issue #875: the computed value wins; a stored report is only a labelled
+	// fallback, and its coverage is derived from the logs in its own period.
+	// `fcrDesc` is newest-first, which is what the resolver expects.
+	const storedFcrAssessments = await loadStoredFcrAssessments(pond.id, fcrDesc);
+	const fcrDisplay = resolveFcrDisplay(derivedFcr.fcr, storedFcrAssessments);
+	// Predictions and the PWA snapshot only consume a value the logs support.
+	const usableFcr = verifiedFcrValue(fcrDisplay);
+
 	// Newest first, with the period-over-period gains precomputed once. The
 	// compact card and the growth-history page share the same calculation.
 	const growthRows = biomassDesc.map((log, index) => {
@@ -215,8 +220,7 @@ export default async function GrowthPage() {
 		feedsPerDay: currentConfig?.feedsPerDay ?? pond.feedsPerDay,
 		population: livePopulation,
 		avgWeightKg: biomassLogs.length > 0 ? biomassLogs[biomassLogs.length - 1].avgWeightKg : null,
-		latestFcr:
-			derivedFcr.fcr ?? (fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : null),
+		latestFcr: usableFcr,
 		currentGrams: energyDevice?.gramsPerFeeding ?? null,
 		hopperCapacityG: energyDevice?.hopperCapacityG ?? null,
 		lastSampleAt: biomassLogs.length > 0 ? biomassLogs[biomassLogs.length - 1].recordedAt : null,
@@ -249,11 +253,18 @@ export default async function GrowthPage() {
 		feedLevelPreview = preview;
 	}
 
-	// Computed in-app from feed + biomass (issue #453); stored reports remain
-	// the fallback when the cycle inputs are missing, and the history chart
-	// below still renders the stored report rows.
-	const latestFcr =
-		derivedFcr.fcr ?? (fcrReports.length > 0 ? fcrReports[fcrReports.length - 1].fcrValue : null);
+	// Computed in-app from feed + biomass (issue #453). When that is impossible
+	// a stored report may still be shown, but only with its provenance label
+	// (issue #875); it is never silently presented as a measurement.
+	const latestFcr = fcrDisplay?.value ?? null;
+	const fcrProvenance = fcrProvenanceText(fcrDisplay, tFcr);
+	const fcrAssessmentById = new Map(
+		storedFcrAssessments.map((assessment) => [assessment.report.id, assessment]),
+	);
+	const unverifiedStoredCount = storedFcrAssessments.filter(
+		(assessment) => !assessment.verified,
+	).length;
+
 	const latestSample = biomassDesc[0] ?? null;
 	const latestBiomass = latestSample?.avgWeightKg ?? null;
 	const previousBiomass = biomassDesc[1]?.avgWeightKg ?? null;
@@ -263,7 +274,12 @@ export default async function GrowthPage() {
 			? ((latestBiomass - previousBiomass) / previousBiomass) * 100
 			: null;
 
-	const fcrTrendValues = fcrReports.map((report) => report.fcrValue);
+	// A trend may only compare values the logs reproduce (issue #875): mixing in
+	// an imported number would let a fabrication decide "trending down".
+	const fcrTrendValues = storedFcrAssessments
+		.filter((assessment) => assessment.verified)
+		.map((assessment) => assessment.report.fcrValue)
+		.reverse();
 	if (derivedFcr.fcr !== null) fcrTrendValues.push(derivedFcr.fcr);
 	// #752: a direction needs two comparable points. One report (or none) must
 	// not claim "trending down".
@@ -306,7 +322,9 @@ export default async function GrowthPage() {
 	const growthSnapshot: GrowthSnapshotData = {
 		pondName: pond.name,
 		latestAbwG: latestSample ? latestSample.avgWeightKg * 1000 : null,
-		latestFcr: latestFcr !== null && latestFcr > 0 ? latestFcr : null,
+		// The offline snapshot has no room for the provenance label, so only a
+		// log-backed value is cached; an unverified stored value is not.
+		latestFcr: usableFcr,
 		latestSampleAt: latestSample?.recordedAt.toISOString() ?? null,
 		cycleLabel: activeCycle?.label ?? null,
 		targetWeightG: loadedPlan?.plan.targetWeightG ?? activeCycle?.targetHarvestWeightG ?? null,
@@ -382,14 +400,15 @@ export default async function GrowthPage() {
 						</div>
 						{latestFcr === null ? (
 							<p className="text-xs text-blue-100 mt-2 max-w-md">{t("fcrNoData")}</p>
-						) : (
+						) : fcrDisplay?.source === "computed" ? (
 							<p className="text-xs text-blue-100 mt-2 max-w-md">
 								{t.rich("fcrExplain", {
 									value: latestFcr.toFixed(2),
 									bold: (chunks) => <strong>{chunks}</strong>,
 								})}
 							</p>
-						)}
+						) : null}
+						{fcrProvenance && <FcrProvenanceNote text={fcrProvenance} surface="dark" />}
 						{derivedFcr.fcr !== null && (
 							<p className="text-[11px] text-blue-200/80 mt-1.5 max-w-md">
 								{t("fcrInputs", {
@@ -400,7 +419,7 @@ export default async function GrowthPage() {
 							</p>
 						)}
 					</div>
-					{latestFcr !== null && (
+					{derivedFcr.fcr !== null && (
 						<div className="bg-white/10 px-4 py-3 rounded-2xl border border-white/10 shrink-0">
 							<p className="text-[10px] text-gray-300 uppercase tracking-widest font-mono">
 								{t("stockHealth")}
@@ -489,6 +508,8 @@ export default async function GrowthPage() {
 			{/* FCR Calculator */}
 			<FcrCalculator
 				latestFcr={latestFcr}
+				fcrSource={fcrDisplay?.source ?? null}
+				fcrUnverifiedReasons={fcrDisplay?.unverifiedReasons ?? []}
 				pondId={pond.id}
 				population={livePopulation}
 				feedsPerDay={currentConfig?.feedsPerDay ?? pond.feedsPerDay}
@@ -626,6 +647,8 @@ export default async function GrowthPage() {
 						</div>
 					</div>
 
+					{fcrProvenance && <FcrProvenanceNote text={fcrProvenance} />}
+
 					{/* FCR Bar Chart (Tailwind CSS) */}
 					{fcrReports.length === 0 ? (
 						<p className="mt-4 flex h-24 items-center text-sm text-gray-500 dark:text-gray-400">
@@ -636,6 +659,7 @@ export default async function GrowthPage() {
 							{fcrReports.map((report) => {
 								const maxFcr = Math.max(...fcrReports.map((r) => r.fcrValue), 2.5);
 								const heightPct = (report.fcrValue / maxFcr) * 100;
+								const unverified = fcrAssessmentById.get(report.id)?.verified === false;
 								return (
 									<div
 										key={report.id}
@@ -643,6 +667,7 @@ export default async function GrowthPage() {
 									>
 										<div className="text-xs font-bold text-gray-600 dark:text-gray-300 mb-1">
 											{report.fcrValue.toFixed(2)}
+											{unverified ? "*" : ""}
 										</div>
 										<div
 											className="w-full bg-blue-100 rounded-t-lg group-hover:bg-blue-300 transition-colors relative dark:bg-blue-500/15 dark:group-hover:bg-blue-500/25"
@@ -660,6 +685,11 @@ export default async function GrowthPage() {
 								);
 							})}
 						</div>
+					)}
+					{unverifiedStoredCount > 0 && (
+						<p className="mt-2 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+							{tFcr("historyCaption")}
+						</p>
 					)}
 					<span className="sr-only">
 						{t("chartSummary", {

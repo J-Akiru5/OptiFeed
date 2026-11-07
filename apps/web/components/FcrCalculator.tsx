@@ -4,6 +4,7 @@ import { TermInfo } from "@/components/dashboard/term-info";
 import { useRouter } from "@/i18n/routing";
 import { calculateFcrFeed } from "@/lib/actions/fcr";
 import { setGrowthTarget } from "@/lib/actions/growth-target";
+import type { StoredFcrUnverifiedReason } from "@/lib/analytics/fcr";
 import { Calculator, CheckCircle2, Clock, Scale, Target, TrendingUp } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
@@ -26,6 +27,10 @@ interface FcrRequestSnapshot {
 interface FcrCalculatorProps {
 	/** Null when no stored or derived FCR exists yet (#752). */
 	latestFcr: number | null;
+	/** How the page obtained `latestFcr`; a stored value is never silent (#875). */
+	fcrSource?: "computed" | "stored" | null;
+	/** Why a stored value cannot be reproduced from its period's logs (#875). */
+	fcrUnverifiedReasons?: readonly StoredFcrUnverifiedReason[];
 	/** The pond this card is shown for; the action never guesses. */
 	pondId: string;
 	/** Pond fish count, prefilled so the farmer does not retype it. */
@@ -82,6 +87,8 @@ function formatWeightResult(kilograms: number, unit: WeightUnit): string {
 
 export function FcrCalculator({
 	latestFcr,
+	fcrSource = null,
+	fcrUnverifiedReasons = [],
 	pondId,
 	population,
 	feedsPerDay,
@@ -104,6 +111,16 @@ export function FcrCalculator({
 	const [isSavingTarget, startSaveTarget] = useTransition();
 
 	const unitLabel = t(unit);
+	const hasFcr = latestFcr !== null && latestFcr > 0;
+	const fcrLabel = !hasFcr
+		? t("noFcr")
+		: fcrSource === "computed"
+			? t("usingComputedFcr", { fcr: latestFcr.toFixed(2) })
+			: fcrSource === "stored" && fcrUnverifiedReasons.length === 0
+				? t("usingStoredFcr", { fcr: latestFcr.toFixed(2) })
+				: fcrSource === "stored"
+					? t("storedUnverified", { fcr: latestFcr.toFixed(2) })
+					: t("usingFcr", { fcr: latestFcr.toFixed(2) });
 
 	const handleUnitChange = (next: WeightUnit) => {
 		if (next === unit) return;
@@ -192,15 +209,16 @@ export function FcrCalculator({
 					<p className="text-xs text-[#3D5568] dark:text-gray-400">{t("desc")}</p>
 					<p className="mt-1 text-[11px] font-semibold text-[#3D5568] dark:text-gray-400">
 						<TermInfo
-							label={
-								latestFcr !== null && latestFcr > 0
-									? t("usingFcr", { fcr: latestFcr.toFixed(2) })
-									: t("noFcr")
-							}
+							label={fcrLabel}
 							hint={tCommon("terminology.aboutFcr")}
 							description={tCommon("terminology.fcr")}
 						/>
 					</p>
+					{fcrUnverifiedReasons.length > 0 && (
+						<p className="mt-1 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+							{t("storedUnverifiedHint")}
+						</p>
+					)}
 				</div>
 			</div>
 

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `applyGrowthPlanForPond` is no longer a browser-callable server action that trusted the caller's `ownerId`; a static guard test prevents regressions.
 - Device-token reveals are audited and rate limited.
 
+## [Unreleased]
+
+### Fixed
+
+- **The legal pages' contents pane stays in view while the document scrolls (#893).** The pane was sticky inside a box that was only as tall as its own list, so it had no travel and scrolled away with the document. The sticky box is now the pane itself; it scrolls internally on a short viewport and the document keeps its ordinary page scroll.
+
 ## [1.58.1] - 2026-11-07
 
 ### Fixed

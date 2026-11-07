@@ -165,6 +165,11 @@ Expected result today: all PASS except one **SKIP** for
 HTTP. The harness still asserts the route fails closed and that the signed URL
 would serve the exact bytes once TLS is present.
 
+The dashboard assertions read the rows the dashboard renders (`EnergyDevice`,
+`FeedLevelLog`, `FeedRequest`, `Notification`); the harness does not create a
+browser session. The rendered pages themselves are covered by the Playwright
+suite in the same CI job.
+
 Cleanup: the harness deletes only rows scoped to its `bench-` ids and the
 `firmware` bucket objects it uploaded. It leaves the recomputed
 `connectivity.rollup` marker pointing at yesterday; the next run deletes it
@@ -413,9 +418,9 @@ Invoke-RestMethod -Method Post `
   -Headers $headers -ContentType "application/json" `
   -Body '{"id":"firmware","name":"firmware","public":false}'
 
-supabase storage cp --local firmware/.pio/build/esp32dev-gpio5/firmware.bin `
+supabase storage cp --local --workdir apps/web firmware/.pio/build/esp32dev-gpio5/firmware.bin `
   ss:///firmware/releases/1.10.1/firmware.bin
-supabase storage cp --local ota-out/channels/stable.json `
+supabase storage cp --local --workdir apps/web ota-out/channels/stable.json `
   ss:///firmware/channels/stable.json
 ```
 
@@ -493,9 +498,10 @@ This is the test that proves a bad download cannot brick the unit. It is a
 **corrupted image** test, not a rollback-to-old-slot test:
 
 1. Sign a valid channel for `1.10.2` as in 7.1.
-2. Upload **different bytes** to `releases/1.10.2/firmware.bin` (truncate the
-   file, or upload a byte-flipped copy). Keep the signed manifest/sha256 from
-   the real build.
+2. Upload **different bytes of the same length** to
+   `releases/1.10.2/firmware.bin` (flip one byte). Keep the signed
+   manifest/sha256 from the real build. A truncated file is refused earlier by
+   the `Content-Length` check, which is a different (also safe) failure.
 3. Let the unit check and download.
 
 Expected:

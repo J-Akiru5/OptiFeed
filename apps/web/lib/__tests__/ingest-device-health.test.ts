@@ -140,7 +140,14 @@ describe("POST /api/ingest - device health", () => {
 
 	it("writes nothing new while the stored state is unchanged", async () => {
 		mockDeviceStateEvent.findFirst.mockResolvedValue({
-			metadata: { safeMode: true, faultsPresent: 16, faultsLatched: 16 },
+			metadata: {
+				safeMode: true,
+				faultsPresent: 16,
+				faultsLatched: 16,
+				abnormalResets: 3,
+				resetReasons: "brownout",
+				resetReason: null,
+			},
 		} as never);
 
 		const res = await POST(ingestRequest(safeModeHeartbeat("hb-health-2")));
@@ -148,6 +155,26 @@ describe("POST /api/ingest - device health", () => {
 		expect(res.status).toBe(204);
 		expect(healthEventWrites()).toHaveLength(0);
 		expect(mockNotification.create).not.toHaveBeenCalled();
+	});
+
+	it("stores a boot so the recovery baseline is not stale", async () => {
+		// Same faults and safe mode, but the unit recorded another abnormal
+		// reset: M2 needs that row even though the operator-visible state matches.
+		mockDeviceStateEvent.findFirst.mockResolvedValue({
+			metadata: {
+				safeMode: true,
+				faultsPresent: 16,
+				faultsLatched: 16,
+				abnormalResets: 2,
+				resetReasons: "brownout",
+			},
+		} as never);
+
+		const res = await POST(ingestRequest(safeModeHeartbeat("hb-health-boot")));
+
+		expect(res.status).toBe(204);
+		expect(healthEventWrites()).toHaveLength(1);
+		expect(healthEventWrites()[0]?.metadata).toMatchObject({ abnormalResets: 3 });
 	});
 
 	it("records the clear so the dashboard stops warning, without a new alert", async () => {

@@ -6,7 +6,7 @@ import { isValidRecalibrationIntervalDays } from "@/lib/calibration/recalibratio
 import { isValidCalibrationSessionId } from "@/lib/calibration/session";
 import { STALE_DISPATCHED_MS } from "@/lib/constants";
 import { manilaDayRange } from "@/lib/date-local";
-import { getDeviceHealthSafe } from "@/lib/device-health";
+import { calibrationBlockError, getCalibrationGate } from "@/lib/device-recovery";
 import { isDeviceUnreachable } from "@/lib/device-status";
 import {
 	CALIBRATION_ACTUAL_GRAMS_MAX,
@@ -85,10 +85,10 @@ const TEST_SECONDS_ERROR = `Test duration must be a whole number between ${CALIB
 
 const TEST_DOSE_RANGE_ERROR = `Test dose would dispense outside the supported 1–${CALIBRATION_TEST_GRAMS_MAX} g range. Shorten the test duration.`;
 
-// Safe mode refuses every dose in firmware, so a queued test can only expire.
-// Say why instead of letting the operator wait out the 90 s poll.
-const SAFE_MODE_DOSE_ERROR =
-	"Safe mode is on — the unit refuses every dose until it clears. Wait for 30 quiet minutes or hold the Wi-Fi reset button for 5 seconds, then run the test again.";
+// M1 refused a dose while the relay was locked. M2 extends the same guard to
+// every state in which a dose cannot be verified: recovering after safe mode,
+// an active hardware fault, or a maintenance lock. A failed health read still
+// fails open (M1 precedent); the messages live in `device-recovery.ts`.
 
 // Issue #191: a target check dispenses an exact dose and corrects the rate from
 // the weighing error. Bounds and tolerance live in lib/limits.ts with the other
@@ -262,9 +262,11 @@ export async function runCalibrationTest(
 
 		// The firmware refuses the dose outright while its relay is locked, so a
 		// queued request cannot be confirmed and the UI would report a timeout.
-		const health = await getDeviceHealthSafe(deviceId);
-		if (health.safeMode) {
-			return { success: false, error: SAFE_MODE_DOSE_ERROR };
+		// M2 widens the same guard: a unit that cleared safe mode is not healthy
+		// until the recovery checks pass.
+		const gate = await getCalibrationGate(deviceId);
+		if (!gate.allowed) {
+			return { success: false, error: calibrationBlockError(gate.code) };
 		}
 
 		const inFlight = await prisma.feedRequest.findFirst({
@@ -409,9 +411,9 @@ export async function runTargetCheck(
 			};
 		}
 
-		const health = await getDeviceHealthSafe(deviceId);
-		if (health.safeMode) {
-			return { success: false, error: SAFE_MODE_DOSE_ERROR };
+		const gate = await getCalibrationGate(deviceId);
+		if (!gate.allowed) {
+			return { success: false, error: calibrationBlockError(gate.code) };
 		}
 
 		if (!(device.gramsPerSecond > 0)) {

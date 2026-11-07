@@ -214,6 +214,33 @@ describe("desktop sidebar card (#575)", () => {
 		expect(html).toContain("82%");
 		expect(html).toContain("No faults reported");
 	});
+
+	it("opens the device's 3D view when a feeder is paired (#892)", () => {
+		const html = renderToStaticMarkup(
+			<MonitoringCard
+				hopperLevelPct={82}
+				hopperLevelUpdatedAt={readingAt}
+				hopperCapacityG={22_190}
+				gramsPerFeeding={350}
+				feedsPerDay={3}
+				isOffline={false}
+				connection="online"
+				health={clearHealth}
+				deviceHref="/dashboard/devices/dev-1"
+				collapsed={false}
+			/>,
+		);
+
+		expect(html).toContain('href="/dashboard/devices/dev-1"');
+		expect(html).toContain('aria-label="Open device view"');
+	});
+
+	it("falls back to the hopper history when no device is paired (#892)", () => {
+		const html = sidebarHtml("missing", null);
+
+		expect(html).toContain('href="/dashboard/history#hopper-level"');
+		expect(html).toContain('aria-label="View hopper level history"');
+	});
 });
 
 describe("mobile floating HUD (#575)", () => {

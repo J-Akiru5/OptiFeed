@@ -1,7 +1,7 @@
 {
 	"locale": "tl",
 	"method": "machine-drafted from en.json with the glossary in docs/i18n/tagalog-glossary.md; human review pending",
-	"generatedAt": "2026-11-05",
+	"generatedAt": "2026-11-07",
 	"reviewedBaseline": 331,
 	"draftKeys": [
 		"account.menu.accountSettings",
@@ -2636,6 +2636,7 @@
 		"login.mfaSubmitting",
 		"login.mfaUseAnother",
 		"nav.logSampleShort",
+		"nav.viewDevice",
 		"nav.viewHopperLevel",
 		"resetPassword.desc",
 		"resetPassword.expiredDesc",

@@ -20,7 +20,8 @@
 		"overview": "Pangkalahatang Tanaw",
 		"alerts": "Mga Alerto",
 		"me": "Ako",
-		"viewHopperLevel": "Tingnan ang kasaysayan ng antas ng hopper"
+		"viewHopperLevel": "Tingnan ang kasaysayan ng antas ng hopper",
+		"viewDevice": "Buksan ang tanaw ng device"
 	},
 	"button": {
 		"feedNow": "Magpakain Ngayon",

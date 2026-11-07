@@ -526,6 +526,15 @@ describe("dashboard home page", () => {
 		expect(host.textContent).toContain("Feeder 1");
 		expect(host.querySelector("[data-help='dashboard-hopper']")).not.toBeNull();
 
+		// #892: the actionable alerts own a dedicated section inside the right
+		// rail. If they drift back out of the rail (or the rail disappears), the
+		// desktop layout loses the surface the issue asked for.
+		const rail = host.querySelector('aside[aria-label="Pond controls"]');
+		expect(rail, "the control-room right rail must render").not.toBeNull();
+		const alerts = rail?.querySelector('[data-testid="dashboard-alerts"]');
+		expect(alerts, "the alerts section must be inside the right rail").not.toBeNull();
+		expect(alerts?.textContent).toContain("Alerts");
+
 		await expectNoSeriousOrCriticalViolations(host);
 	});
 });

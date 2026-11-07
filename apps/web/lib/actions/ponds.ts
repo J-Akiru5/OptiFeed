@@ -643,9 +643,11 @@ export async function getPondDetail(pondId: string) {
 					recordedAt: true,
 				},
 			},
+			// The detail page shows the latest report and checks the recent
+			// history for rows whose ratio contradicts their own totals (#875).
 			fcrReports: {
 				orderBy: { periodEnd: "desc" },
-				take: 1,
+				take: 12,
 				select: {
 					id: true,
 					fcrValue: true,

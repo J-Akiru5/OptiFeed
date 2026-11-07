@@ -524,6 +524,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 								<FeederViewerLazy
 									deviceId={energyDevice.id}
 									label={feederHero.deviceLabel}
+									initialFirmwareVersion={feederHero.firmwareVersion}
 									initialStatus={
 										feederHero.connectionState === "offline"
 											? "offline"
@@ -770,6 +771,7 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 										canWrite={can.canManageSchedule && can.canControlFeeder}
 										isOffline={isDeviceOffline}
 										isFallow={pondIsFallow}
+										isSafeMode={feederHero?.health.safeMode ?? false}
 									/>
 								</DashboardSection>
 							)}

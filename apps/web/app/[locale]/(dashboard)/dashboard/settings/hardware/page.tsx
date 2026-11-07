@@ -16,6 +16,7 @@ import {
 	DashboardSection,
 	ReadOnlyNotice,
 } from "@/components/dashboard/dashboard-ui";
+import { DeviceRecoveryPanel } from "@/components/device-recovery-panel";
 import { DeviceSignalReading } from "@/components/device-signal";
 import { FeedLevelDisplay } from "@/components/feed-level-display";
 import { FeederViewerLazy } from "@/components/feeder/feeder-viewer-lazy";
@@ -35,6 +36,7 @@ import { readTemperatureCalibration } from "@/lib/calibration/temperature-histor
 import { DEVICE_COMMAND_IN_FLIGHT_MS } from "@/lib/constants";
 import { formatFarmDateTime } from "@/lib/date-local";
 import { toHopperSnapshot } from "@/lib/device-hopper";
+import { getDeviceRecoverySafe } from "@/lib/device-recovery";
 import { evaluateDeviceStatus, resolveRssiDbm } from "@/lib/device-status";
 import { type FeederHeroPond, loadFeederHero } from "@/lib/feeder-hero";
 import {
@@ -162,10 +164,11 @@ interface HardwareSettingsPageProps {
 }
 
 export default async function HardwareSettingsPage({ searchParams }: HardwareSettingsPageProps) {
-	const [t, tCommon, tDates] = await Promise.all([
+	const [t, tCommon, tDates, tRecovery] = await Promise.all([
 		getTranslations("dashboard.appSettings"),
 		getTranslations("dashboard.common"),
 		getTranslations("dates"),
+		getTranslations("dashboard.appSettings.recovery"),
 	]);
 	const writeAccess = await canWrite();
 	// Each form's save action applies `requirePermission`; mirror it so a
@@ -460,6 +463,14 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 		}));
 	}
 
+	// M2: the recovery plan reads the unit's own reset record and gates dose
+	// testing. It runs after the page's other device reads so their query order
+	// is unchanged, and a failed read returns "cannot verify" instead of taking
+	// the page down.
+	const recovery = energyDevice
+		? await getDeviceRecoverySafe({ deviceId: energyDevice.id, now, inFlight: commandInFlight })
+		: null;
+
 	const recalibration = getRecalibrationStatus(
 		energyDevice?.lastCalibratedAt ?? null,
 		energyDevice?.recalibrationIntervalDays ?? 30,
@@ -520,6 +531,9 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 					overview: (
 						<>
 							{feederHero && <HealthNotice health={feederHero.health} tone="themed" />}
+							{recovery && recovery.readState !== "unsupported" && (
+								<DeviceRecoveryPanel plan={recovery} t={tRecovery} />
+							)}
 							{feederHero && pondName && energyDevice && (
 								<FeederViewerLazy
 									deviceId={energyDevice.id}
@@ -772,6 +786,13 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 										isOffline={isDeviceOffline}
 										isFallow={pondIsFallow}
 										isSafeMode={feederHero?.health.safeMode ?? false}
+										recoveryBlockReason={
+											recovery?.calibration.code === "recovering"
+												? "recovering"
+												: recovery?.calibration.code === "fault"
+													? "fault"
+													: null
+										}
 									/>
 								</DashboardSection>
 							)}

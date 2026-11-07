@@ -43,12 +43,14 @@ describe("parseDeviceHealthReport", () => {
 		const report = parseDeviceHealthReport({
 			safe_mode: true,
 			last_reset_reasons: "brownout,task_wdt",
+			reset_reason: "brownout",
 			diag: {
 				safe_mode: true,
 				faults_present: 18,
 				faults_latched: 18,
 				last_fault: "safe_mode",
 				reset_abnormal_count: 3,
+				uptime_s: 4200,
 			},
 		});
 		expect(report).toEqual({
@@ -58,6 +60,8 @@ describe("parseDeviceHealthReport", () => {
 			lastFault: "safe_mode",
 			abnormalResets: 3,
 			resetReasons: "brownout,task_wdt",
+			resetReason: "brownout",
+			uptimeS: 4200,
 		});
 	});
 
@@ -94,6 +98,8 @@ describe("parseDeviceHealthReport", () => {
 			lastFault: null,
 			abnormalResets: 0,
 			resetReasons: null,
+			resetReason: null,
+			uptimeS: null,
 		});
 	});
 
@@ -137,6 +143,45 @@ describe("healthChanged", () => {
 			),
 		).toBe(true);
 	});
+
+	it("writes a row for a boot so the recovery baseline is never missing", () => {
+		expect(
+			healthChanged(
+				{ safeMode: false, faultsPresent: 0, faultsLatched: 0, abnormalResets: 2 },
+				{ safeMode: false, faultsPresent: 0, faultsLatched: 0, abnormalResets: 3 },
+			),
+		).toBe(true);
+		expect(
+			healthChanged(
+				{
+					safeMode: false,
+					faultsPresent: 0,
+					faultsLatched: 0,
+					abnormalResets: 3,
+					resetReasons: "panic",
+				},
+				{
+					safeMode: false,
+					faultsPresent: 0,
+					faultsLatched: 0,
+					abnormalResets: 3,
+					resetReasons: "panic",
+					resetReason: "task_wdt",
+				},
+			),
+		).toBe(true);
+	});
+
+	it("does not write a row for a healthy unit that reports no reset history", () => {
+		expect(
+			healthChanged(null, {
+				safeMode: false,
+				faultsPresent: 0,
+				faultsLatched: 0,
+				abnormalResets: 0,
+			}),
+		).toBe(false);
+	});
 });
 
 describe("stored rows", () => {
@@ -148,6 +193,8 @@ describe("stored rows", () => {
 			lastFault: "safe_mode",
 			abnormalResets: 3,
 			resetReasons: "brownout",
+			resetReason: "brownout",
+			uptimeS: 3600,
 		};
 		const metadata = healthEventMetadata(report);
 		expect(metadata.present).toEqual(["hopper_sensor", "safe_mode"]);
@@ -168,6 +215,8 @@ describe("healthAlertFor", () => {
 		lastFault: null,
 		abnormalResets: 0,
 		resetReasons: null,
+		resetReason: null,
+		uptimeS: null,
 		...over,
 	});
 
@@ -218,6 +267,8 @@ describe("buildHealthView", () => {
 					lastFault: "safe_mode",
 					abnormalResets: 3,
 					resetReasons: "brownout",
+					resetReason: "brownout",
+					uptimeS: 1800,
 				}),
 				createdAt: at("2026-11-01T11:30:00Z"),
 			},
@@ -241,6 +292,8 @@ describe("buildHealthView", () => {
 					lastFault: null,
 					abnormalResets: 0,
 					resetReasons: null,
+					resetReason: null,
+					uptimeS: null,
 				}),
 				createdAt: at("2026-11-01T11:45:00Z"),
 			},

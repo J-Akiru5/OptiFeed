@@ -161,9 +161,11 @@ Optional environment:
 | OTA TTL | a 1-second signed URL returns 4xx after 2.5 s; the 600-second token decodes to 600 s | Storage API, `OTA_SIGNED_URL_TTL_SECONDS` |
 
 Expected result today: all PASS except one **SKIP** for
-`GET /api/firmware/check` delivering `update:true`, because the local stack is
-HTTP. The harness still asserts the route fails closed and that the signed URL
-would serve the exact bytes once TLS is present.
+`GET /api/firmware/check` delivering `update:true` (the local stack is HTTP)
+and one **FAIL** for the known `ErrorEvent` cron regression in finding 7. Once
+that regression is fixed, the same run is 68 PASS / 1 SKIP. The harness still
+asserts the route fails closed and that the signed URL would serve the exact
+bytes once TLS is present.
 
 The dashboard assertions read the rows the dashboard renders (`EnergyDevice`,
 `FeedLevelLog`, `FeedRequest`, `Notification`); the harness does not create a

@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `applyGrowthPlanForPond` is no longer a browser-callable server action that trusted the caller's `ownerId`; a static guard test prevents regressions.
 - Device-token reveals are audited and rate limited.
 
-## [Unreleased]
+## [1.58.1] - 2026-11-07
+
+### Fixed
+
+- **The `ErrorEvent` table is restored, which un-breaks the `device-watch` cron.** `20261104180000_drop_dead_error_event` removed a table that was genuinely orphaned when it was written — no model, no reader, no writer, zero rows. First-party error capture (`lib/error-capture.ts`, model `ErrorEvent`) landed afterwards, so the drop became a live regression: `device-watch` threw on `prisma.errorEvent.findMany()` every five minutes, and because that call sits before the retention deletes, every cleanup after it was skipped as well — which is why `Notification` grew from 207 to 6,171 rows in three days. The table, its enum, indexes and app-role grant are restored idempotently, so the migration replays safely over the hotfix that was applied directly. Retention will work through the backlog on subsequent runs.
+
+- **The dashboard no longer offers a calibration dose the firmware will refuse (#894).** Safe mode locks the relay in firmware, so a test dose queued from the console could never dispense — and the form then reported *"The test request expired before the device confirmed it"*, which reads as a network fault and sends the operator to check Wi-Fi instead of the unit. The server now refuses up front with the real reason, the test-dose action is not offered while safe mode is on, and a device refusal is surfaced as a refusal rather than a timeout. The health guard fails open: if the health reader is unavailable, calibration is still allowed, so a missing signal cannot block a legitimate repair.
+
+- **A stored FCR that its own logs cannot reproduce is no longer presented as measured (#878).** `lib/analytics/fcr.ts` computed FCR correctly from dispensed feed and biomass samples, then silently fell back to stored `FcrReport` rows, and `calculateFcrFeed` used the latest stored `fcrValue` as a calculation input. On the demo tenant, 4 of 6 stored reports contradict their own totals and 3 periods have no feed and no biomass coverage at all — so the tile showed a number no evidence supported and the calculator sized a feed request from it. A stored report is now treated as **verified only** when its window has at least one dispensed feed event, at least two biomass samples, and a ratio that agrees with its own totals. Otherwise the tile labels it as a stored report with the reason (`no-feed-logs`, `no-biomass-samples` or `stored-contradicts-totals`), the chart marks those bars, and the calculator refuses instead of inventing a number. Seed and synthetic artefact rows are excluded from coverage in both the single and bulk reads, so artefacts cannot make a report look verified. No `FcrReport` row was rewritten or deleted.
+
+### Changed
+
+- **The device reliability roadmap (M1–M6) is the single source of truth for device work (#895).** `docs/roadmap.html` now carries the milestone table that M1 and M2 are being built against, so the ordering is recorded rather than remembered.
 
 ## [1.58.0] - 2026-11-06
 

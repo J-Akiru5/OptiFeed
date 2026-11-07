@@ -173,7 +173,10 @@ vi.mock("@/lib/prisma", () => ({
 		biomassLog: { findMany: vi.fn(async () => []) },
 		fcrReport: { findMany: vi.fn(async () => []) },
 		cropCycle: { findFirst: vi.fn(async () => null) },
-		feedEvent: { findMany: vi.fn(async () => []) },
+		feedEvent: {
+			findMany: vi.fn(async () => []),
+			aggregate: vi.fn(async () => ({ _sum: { grams: 0 } })),
+		},
 		feedLevelLog: { findMany: vi.fn(async () => []) },
 		feedRequest: { count: vi.fn(async () => 0) },
 		$queryRaw: vi.fn(async () => []),

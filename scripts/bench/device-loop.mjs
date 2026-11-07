@@ -687,10 +687,15 @@ async function runDeviceLoop({ report, config, options }) {
 				"the app server has no CRON_SECRET; restart it with the same value the harness uses",
 			);
 		} else {
+			const cronHealth = await api.request("/api/health/cron").catch(() => null);
+			const job = Array.isArray(cronHealth?.json?.jobs)
+				? cronHealth.json.jobs.find((row) => row.name === "device-watch")
+				: null;
+			const detail = job?.lastError ? `: ${job.lastError}` : "";
 			fail(
 				"connectivity",
 				"device-watch rolls yesterday's heartbeat into DeviceConnectivityDaily",
-				`/api/cron/device-watch -> ${cron.status}`,
+				`/api/cron/device-watch -> ${cron.status}${detail}`,
 			);
 		}
 

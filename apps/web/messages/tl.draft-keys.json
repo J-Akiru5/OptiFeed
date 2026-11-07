@@ -856,6 +856,8 @@
 		"dashboard.appSettings.deviceSwitcher.state.offline",
 		"dashboard.appSettings.deviceSwitcher.state.online",
 		"dashboard.appSettings.deviceSwitcher.state.weak",
+		"dashboard.appSettings.durationDays",
+		"dashboard.appSettings.durationDaysHours",
 		"dashboard.appSettings.durationHoursMinutes",
 		"dashboard.appSettings.durationMinutes",
 		"dashboard.appSettings.firmware",

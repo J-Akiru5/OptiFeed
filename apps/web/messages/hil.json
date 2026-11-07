@@ -2173,6 +2173,8 @@
 			"currentLevelLabel": "Karon nga lebel",
 			"currentLevelValue": "{percent}%",
 			"offlineFor": "Offline sa {duration}",
+			"durationDaysHours": "{days}d {hours}h",
+			"durationDays": "{days}d",
 			"durationHoursMinutes": "{hours}h {minutes}m",
 			"durationMinutes": "{minutes}m",
 			"wifiSetup": {

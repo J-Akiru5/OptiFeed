@@ -2115,6 +2115,8 @@
 			"currentLevelLabel": "Current level",
 			"currentLevelValue": "{percent}%",
 			"offlineFor": "Offline for {duration}",
+			"durationDaysHours": "{days}d {hours}h",
+			"durationDays": "{days}d",
 			"durationHoursMinutes": "{hours}h {minutes}m",
 			"durationMinutes": "{minutes}m",
 			"wifiSetup": {

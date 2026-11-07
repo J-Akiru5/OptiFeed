@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The dashboard's actionable alerts own a section in the right rail (#892).** The alert stack no longer sits in the left sidebar below the navigation. Each alert is a real link to the page that fixes it, the device-health notice shares the section, and the left sidebar keeps only the hopper reading and the ESP32 connection state. The rail already scrolls independently, so the desktop control room stays one viewport. The monitoring card now opens the paired feeder's 3D view instead of the hopper chart.
 
+- **Device "last seen" switches to days and keeps ticking (#891).** The hardware page counted hours without a ceiling ("93h 0m" for a three-day outage), and the relative value was computed once at render. One shared helper now switches to a day scale at a full day ("2h 5m" → "3d 21h"), and the live tile re-reads its clock every minute instead of freezing.
+
 ## [1.58.1] - 2026-11-07
 
 ### Fixed

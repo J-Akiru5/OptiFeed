@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The biomass batch summary states the sampling rate (#886).** The page listed entries, samples, average weight and date range but never said how often sampling is due. A fifth summary card shows "Every 14 days" from `Pond.sampleIntervalDays` through `resolveSampleIntervalDays` — the resolver the calendar event generator and the crop reminder scheduler now share, so the displayed cadence cannot drift from the schedule it describes.
 
+- **The mobile status monitoring chip is high-contrast in dark mode (#884).** The floating chip was a navy surface on a navy page (1.2:1) and its dark "active" badge put white text on bright orange (3.1:1). The chip is now opaque with a 2 px border in the live state's tone (orange 8.0:1, yellow 12.1:1, red 6.7:1 against the dark page), and the bright dark-mode orange badge uses near-black ink (6.2:1). Every label it carries measures at least 7.0:1. Ratios are pinned by `lib/__tests__/monitoring-hud-contrast.test.ts`.
+
 ## [1.58.1] - 2026-11-07
 
 ### Fixed

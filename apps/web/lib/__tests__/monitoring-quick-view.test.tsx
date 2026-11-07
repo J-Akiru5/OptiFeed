@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { cleanup, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 /**
  * Issue #575: the quick-view monitoring status must live in one place on
@@ -47,8 +48,10 @@ import {
 	monitoringHealthState,
 	summarizeMonitoring,
 } from "@/components/status/monitoring-status";
+import { expectNoSeriousOrCriticalViolations } from "./helpers/axe";
 
 const readingAt = new Date("2026-11-02T09:00:00+08:00");
+afterEach(cleanup);
 const clearHealth: MonitoringHealth = { safeMode: false, faults: [] };
 const safeMode: MonitoringHealth = { safeMode: true, faults: [] };
 const rtcFault: MonitoringHealth = { safeMode: false, faults: ["rtc"] };
@@ -258,6 +261,21 @@ describe("mobile floating HUD (#575)", () => {
 		expect(html).toContain("82%");
 	});
 
+	it("outlines the floating chip in the live tone so it cannot vanish (#884)", () => {
+		expect(hudHtml("online", clearHealth)).toContain("border-[#FF8A5C]");
+		expect(hudHtml("online", safeMode)).toContain("border-[#FACC15]");
+		expect(hudHtml("offline", clearHealth)).toContain("border-[#F87171]");
+		// The opaque surface replaced the translucent one, so page content can
+		// no longer show through the chip.
+		expect(hudHtml("online", clearHealth)).not.toContain("bg-[#06263f]/95");
+	});
+
+	it("uses dark ink on the bright dark-mode orange badge (#884)", () => {
+		const html = hudHtml("online", clearHealth);
+		expect(html).toContain("dark:bg-[#FF5A1F]");
+		expect(html).toContain("dark:text-[#1A0A02]");
+	});
+
 	it("uses the same red/yellow semantics when the unit is offline in safe mode", () => {
 		const html = hudHtml("offline", safeMode);
 
@@ -283,6 +301,21 @@ describe("mobile floating HUD (#575)", () => {
 				/>,
 			),
 		).toBe("");
+	});
+
+	it("has no serious or critical axe violations in dark mode (#884)", async () => {
+		const { container } = render(
+			<div className="dark">
+				<MobileMonitoringHud
+					levelPercent={82}
+					levelUpdatedAt={readingAt}
+					connection="offline"
+					health={safeMode}
+				/>
+			</div>,
+		);
+
+		await expectNoSeriousOrCriticalViolations(container);
 	});
 });
 

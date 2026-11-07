@@ -4,13 +4,14 @@ import { resolveOrgScope } from "@/lib/auth/org-scope";
 import { requirePermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/session";
 import { requireTenantAdmin } from "@/lib/auth/tenant-admin";
+import { type TenantContext, runWithTenant, tenantPrisma } from "@/lib/db/tenant-context";
 import {
 	DUPLICATE_MAC_MESSAGE,
 	createDeviceCredentials,
 	validateDeviceRegistration,
 } from "@/lib/device-registration";
 import prisma from "@/lib/prisma";
-import { getOrgSettings } from "@/lib/settings/org";
+import { getOrgDefaultSettings, getOrgSettings, mergeOrgSettings } from "@/lib/settings/org";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
@@ -59,26 +60,54 @@ export type TenantRegistrationOptions = {
  * Ponds a member with `claim_feeder` may register a unit on: the caller's org
  * scope only. Returns the current registration policy so the form can explain
  * whether the token appears immediately or after approval.
+ *
+ * First converted slice of #711 (option B): the tenant reads run in the
+ * request's tenant transaction and are the reference pattern for the remaining
+ * slices. The session -> user -> org scope chain that *builds* the context is
+ * still privileged (it cannot depend on a context it has not produced yet);
+ * everything the role switch will need from this path is on `tenantPrisma()`.
+ * See `docs/security/711-tenant-db-role-plan.md` §9.
  */
 export async function getTenantRegistrationOptions(): Promise<TenantRegistrationOptions | null> {
 	await requireTenantAdmin();
 	await requirePermission("claim_feeder");
 
-	const scope = await resolveOrgScope();
+	// Bootstrap, not tenant data: `resolveOrgScope` derives the scope from the
+	// session and `getCurrentUser` is the session lookup itself. Both stay on
+	// the privileged client until an identity-level context exists.
+	const [scope, user] = await Promise.all([resolveOrgScope(), getCurrentUser()]);
 	const orgId = scope.orgIds[0];
-	if (!orgId) return null;
+	if (!orgId || !user) return null;
 
-	const [org, ponds, settings] = await Promise.all([
-		prisma.organization.findUnique({ where: { id: orgId }, select: { name: true } }),
-		scope.pondIds.length > 0
-			? prisma.pond.findMany({
-					where: { id: { in: scope.pondIds } },
-					select: { id: true, name: true },
-					orderBy: { name: "asc" },
-				})
-			: Promise.resolve([]),
-		getOrgSettings(orgId),
-	]);
+	const context: TenantContext = {
+		farmIds: scope.farmIds,
+		pondIds: scope.pondIds,
+		orgIds: scope.orgIds,
+		userId: user.id,
+		supabaseId: user.supabaseId,
+	};
+
+	const { org, ponds, settingsRow } = await runWithTenant(context, async () => {
+		const db = tenantPrisma();
+		const [org, ponds, settingsRow] = await Promise.all([
+			db.organization.findUnique({ where: { id: orgId }, select: { name: true } }),
+			scope.pondIds.length > 0
+				? db.pond.findMany({
+						where: { id: { in: scope.pondIds } },
+						select: { id: true, name: true },
+						orderBy: { name: "asc" },
+					})
+				: Promise.resolve([]),
+			db.orgSetting.findUnique({ where: { orgId } }),
+		]);
+		return { org, ponds, settingsRow };
+	});
+
+	// `PlatformSetting` is a platform table the app role cannot read, so the
+	// no-row fallback stays on the privileged client on purpose. It is the same
+	// fallback `getOrgSettings` uses, minus a second tenant read, and it is not
+	// tenant data.
+	const settings = settingsRow ? mergeOrgSettings(settingsRow) : await getOrgDefaultSettings();
 
 	return {
 		orgId,

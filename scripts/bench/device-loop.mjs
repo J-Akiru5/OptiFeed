@@ -694,9 +694,30 @@ async function runDeviceLoop({ report, config, options }) {
 			const detail = job?.lastError ? `: ${job.lastError}` : "";
 			fail(
 				"connectivity",
-				"device-watch rolls yesterday's heartbeat into DeviceConnectivityDaily",
+				"device-watch completes without an internal error",
 				`/api/cron/device-watch -> ${cron.status}${detail}`,
 			);
+			// The rollup runs before the housekeeping steps. If it wrote the
+			// row, the data path is proven even though a later step failed.
+			const partialRollup = await store
+				.first(
+					"DeviceConnectivityDaily",
+					`deviceId=eq.${encodeURIComponent(ids.device)}&day=eq.${yesterdayKey}`,
+				)
+				.catch(() => null);
+			if (partialRollup?.heartbeatCount === 1) {
+				pass(
+					"connectivity",
+					"the rollup wrote yesterday's row before the later cron step failed",
+					`day ${yesterdayKey}, heartbeatCount=1, onlineMinutes=${partialRollup.onlineMinutes}`,
+				);
+			} else {
+				fail(
+					"connectivity",
+					"the rollup wrote yesterday's row before the later cron step failed",
+					"no DeviceConnectivityDaily row: the cron failed before or during the rollup",
+				);
+			}
 		}
 
 		// ---- feed command: idle config ------------------------------------

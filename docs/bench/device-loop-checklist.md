@@ -146,7 +146,7 @@ Optional environment:
 | contract | bucket `firmware`, channel path, 10-minute TTL, 8 KB cap, board, variant/GPIO map still match the source | `apps/web/lib/firmware/ota.ts`, `firmware-main.ino` |
 | provision | device row with `APPROVED` and the SHA-256 token hash, same columns the Register action writes | `lib/device-registration.ts`, `lib/device-auth.ts` |
 | heartbeat | `POST /api/ingest` 204; `EnergyDevice.lastSeenAt`, hopper level, RSSI; `connected` + `firmware_reported` state events | `app/api/ingest/route.ts` |
-| connectivity | a live beat does **not** write today's `DeviceConnectivityDaily`; `device-watch` rolls yesterday's stored heartbeat into a row (`heartbeatCount=1`, `onlineMinutes=0`) | `lib/platform/connectivity.ts`, `app/api/cron/device-watch/route.ts` |
+| connectivity | a live beat does **not** write today's `DeviceConnectivityDaily`; `device-watch` rolls yesterday's stored heartbeat into a row (`heartbeatCount=1`, `onlineMinutes=0`); if the cron fails after the rollup, the rollup row is still asserted separately | `lib/platform/connectivity.ts`, `app/api/cron/device-watch/route.ts` |
 | feed | idle poll returns the 1.7.0 `config` object (`rev`, dose sizes, `farm_offset_minutes=480`) | `app/api/feed-command/route.ts` |
 | claim | two overlapping polls claim one `FeedRequest` exactly once; the loser sees `feed_requested:false`; the row moves to `dispatched`; a later poll does not re-claim | `lib/feed/commands.ts:439` |
 | ingest | dashboard dispense completes the request, writes one `FeedEvent`, one `DeviceStateEvent`, one notification | `app/api/ingest/route.ts` |
@@ -606,6 +606,20 @@ These are recorded here and in the PR; they are **not** fixed by the harness.
    `verifyManifestSignature` as the device-side owner. A channel signed with
    the ephemeral key is therefore a contract fixture, not an installable image
    for a real unit.
+7. **`device-watch` currently returns 500 after the connectivity rollup.**
+   Migration `20261104180000_drop_dead_error_event` drops `ErrorEvent` on the
+   claim that it has "no Prisma model and no reader or writer", but
+   `apps/web/prisma/schema.prisma` still defines `model ErrorEvent` and
+   `apps/web/lib/error-capture.ts` still calls
+   `prisma.errorEvent.findMany()` from `deleteExpiredErrorEvents()`, which the
+   cron invokes. The harness's first full run proved it:
+   `Invalid prisma.errorEvent.findMany() invocation: The table
+   public.ErrorEvent does not exist in the current database` (CI run
+   `42336097695`, job `128293262951`). The rollup row is still written before
+   the failing housekeeping step, so the data path is proven; the cron as a
+   whole is not. This is an owner decision: restore the table/model, or remove
+   the stale error-capture persistence (and the superadmin errors page that
+   reads it). Do not paper over it in the harness.
 
 ---
 

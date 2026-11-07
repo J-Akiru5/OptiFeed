@@ -23,7 +23,11 @@
     (else these compile-time defaults) stays in force;
   - a present field that is absent from the object keeps the last-good value;
   - the daily ceiling is the only gram cap (E38): the per-dose ceiling is
-    derived from it and the relay-time envelope, never from a fixed 1,000 g.
+    derived from it and the relay-time envelope, never from a fixed 1,000 g;
+  - #661: `motor_min_pulse_ms` is a floor as well as a bound. A dose whose
+    computed relay on-time is shorter than it is refused
+    (`dose_below_min_pulse`) instead of energizing the relay for a pulse the
+    auger cannot start from.
 
   Arduino-free enough to unit-test on the host: only ArduinoJson is used, and
   the native test environment installs it.
@@ -62,6 +66,8 @@ static const int kConfigContractVersion = 1;
     3.0f)                                                                            \
   X(safeModeQuietS, "safe_mode_quiet_s", 60.0f, 86400.0f, true, 1800.0f)             \
   X(safeModeHealthyClearS, "safe_mode_healthy_clear_s", 60.0f, 86400.0f, true, 600.0f) \
+  /* Motor floor (#661): shortest relay on-time the auger reliably turns. */         \
+  X(motorMinPulseMs, "motor_min_pulse_ms", 50.0f, 2000.0f, true, 250.0f)             \
   /* Per-device feeding values (class B, from the device row) */                     \
   X(gramsPerFeeding, "grams_per_feeding", 1.0f, 5000.0f, false, 150.0f)              \
   X(buttonFeedGrams, "button_feed_grams", 1.0f, 500.0f, false, 80.0f)                \

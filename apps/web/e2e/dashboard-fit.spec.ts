@@ -162,23 +162,26 @@ test("the dashboard fits one laptop screen and only the rail scrolls (#399)", as
 });
 
 /**
- * Issue #819: the actionable alerts moved from the dashboard body into the
- * sidebar footer. Pin the destination and the route gate in a browser, so a
- * future shell change cannot put the footer on every console page or drop it
- * from the dashboard.
+ * Issue #892: the actionable alerts moved from the sidebar into a dedicated
+ * section at the top of the control room's right rail, each one a link to its
+ * remedy. Pin it in a browser so a future shell change cannot put the section
+ * back in the shared sidebar or drop it from the dashboard.
  */
-test("the dashboard alerts live in the sidebar footer, not the shared shell (#819)", async ({
+test("the dashboard alerts live in the right rail, not the shared shell (#892)", async ({
 	page,
 }) => {
 	await page.setViewportSize({ width: 1877, height: 938 });
 	await login(page);
 	await expect(page).toHaveURL(/\/dashboard/);
 
-	const footer = page.getByTestId("sidebar-alerts");
-	await expect(footer).toBeVisible();
+	const alerts = page.getByTestId("dashboard-alerts");
+	await expect(alerts).toBeVisible();
+	await expect(page.locator(".ofd-control-room aside").getByTestId("dashboard-alerts")).toHaveCount(
+		1,
+	);
 
 	await page.goto("/dashboard/history");
-	await expect(page.getByTestId("sidebar-alerts")).toHaveCount(0);
+	await expect(page.getByTestId("dashboard-alerts")).toHaveCount(0);
 });
 
 /**

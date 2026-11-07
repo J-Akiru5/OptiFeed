@@ -87,6 +87,7 @@ describe("firmware config defaults", () => {
 			max_dispense_ms: 300000,
 			brownout_hold_s: 60,
 			safe_mode_abnormal_threshold: 3,
+			motor_min_pulse_ms: 250,
 			grams_per_feeding: 150,
 			button_feed_grams: 80,
 			grams_per_second: 4,
@@ -96,7 +97,7 @@ describe("firmware config defaults", () => {
 		});
 	});
 
-	it("exposes exactly the seven editable gates", () => {
+	it("exposes exactly the eight editable gates", () => {
 		expect(FIRMWARE_GATE_FIELDS.map((field) => field.id)).toEqual([
 			"min_dispense_gap_s",
 			"max_dispenses_per_hour",
@@ -105,6 +106,7 @@ describe("firmware config defaults", () => {
 			"safe_mode_abnormal_threshold",
 			"safe_mode_quiet_s",
 			"safe_mode_healthy_clear_s",
+			"motor_min_pulse_ms",
 		]);
 	});
 });
@@ -139,6 +141,14 @@ describe("normalizeFirmwareValues", () => {
 		expect(value.hopper_empty_cm).toBe(30);
 		expect(value.ota_window_start_min).toBe(600);
 		expect(value.ota_window_end_min).toBe(900);
+	});
+
+	it("clamps a stored motor floor instead of sending 0 to the device (#661)", () => {
+		// 0 would disable the floor on the device; the server never sends it.
+		expect(normalizeFirmwareValues({ motor_min_pulse_ms: 0 }).motor_min_pulse_ms).toBe(50);
+		expect(normalizeFirmwareValues({ motor_min_pulse_ms: 5000 }).motor_min_pulse_ms).toBe(2000);
+		// Absent: the compile-time default, never 0.
+		expect(normalizeFirmwareValues({}).motor_min_pulse_ms).toBe(250);
 	});
 });
 
@@ -198,6 +208,19 @@ describe("buildFirmwareConfig", () => {
 		});
 		expect(config.weak_after_min).toBe(3);
 		expect(config.offline_after_min).toBe(12);
+	});
+
+	it("sends the motor floor from the gate row through the normal payload (#661)", () => {
+		const config = buildFirmwareConfig({
+			device: DEVICE,
+			gates: { ...FIRMWARE_DEFAULTS, motor_min_pulse_ms: 400 },
+		});
+		expect(config.motor_min_pulse_ms).toBe(400);
+		// 400 is inside the envelope, so no clamp changes it, and the change
+		// moves the revision the device acknowledges.
+		const defaults = buildFirmwareConfig({ device: DEVICE, gates: FIRMWARE_DEFAULTS });
+		expect(defaults.motor_min_pulse_ms).toBe(250);
+		expect(config.rev).not.toBe(defaults.rev);
 	});
 
 	it("hashes the canonical field order, not the object insertion order", () => {

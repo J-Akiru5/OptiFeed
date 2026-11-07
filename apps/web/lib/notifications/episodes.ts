@@ -73,8 +73,11 @@ export interface EpisodeResult {
 /**
  * The one definition of an open episode. `supersededById` rows were folded by
  * the #534 migration and are audit history, not live alerts.
+ *
+ * Exported so a caller that must decide whether a close is needed reads
+ * through exactly the predicate the partial unique index enforces.
  */
-function openEpisodeWhere(episodeKey: string) {
+export function openEpisodeWhere(episodeKey: string) {
 	return {
 		episodeKey,
 		resolvedAt: null,
@@ -201,16 +204,52 @@ export async function openEpisode(
  * `resolvedAt` set and `autoCleared` true, and the list keeps them collapsed.
  * This deliberately does not filter `supersededById`: a legacy folded row that
  * is still open must be closed by the same recovery.
+ *
+ * Use this when the caller already knows the episode is open (a reconnect, a
+ * known state transition). On a hot path use `resolveEpisodeIfOpen` instead:
+ * an unconditional `updateMany` is a statement that writes zero rows.
  */
-export async function closeEpisode(store: EpisodeStore, episodeKey: string): Promise<number> {
+export async function closeEpisode(
+	store: EpisodeStore,
+	episodeKey: string,
+	resolutionReason = "condition_recovered",
+): Promise<number> {
 	const { count } = await store.notification.updateMany({
 		where: { episodeKey, resolvedAt: null, autoCleared: false },
 		data: {
 			autoCleared: true,
 			read: true,
 			resolvedAt: new Date(),
-			resolutionReason: "condition_recovered",
+			resolutionReason,
 		},
 	});
 	return count;
+}
+
+/**
+ * Close `episodeKey` only when a row is actually open (#903).
+ *
+ * `closeEpisode` writes even when nothing matches. That is correct for a rare
+ * transition (a device reconnecting after an outage), but the ingest heartbeat
+ * path evaluates the hopper episodes on every beat of every device: an
+ * unconditional `updateMany` there is one write per heartbeat for a condition
+ * that has not changed. This reads the single open row through the indexed
+ * `episodeKey` first — the partial unique index
+ * `Notification_one_open_per_episode` guarantees the set is at most one row —
+ * and only then closes it, so an unchanged condition costs one index lookup and
+ * no write.
+ *
+ * Returns the number of rows closed (0 when the episode was already closed).
+ */
+export async function resolveEpisodeIfOpen(
+	store: EpisodeStore,
+	episodeKey: string,
+	resolutionReason = "condition_recovered",
+): Promise<number> {
+	const open = await store.notification.findFirst({
+		where: openEpisodeWhere(episodeKey),
+		select: { id: true },
+	});
+	if (!open) return 0;
+	return closeEpisode(store, episodeKey, resolutionReason);
 }

@@ -1,5 +1,10 @@
 "use client";
 
+import {
+	LastSeenValue,
+	formatLastSeenAge,
+	useElapsedNow,
+} from "@/components/status/last-seen-value";
 import { Link } from "@/i18n/routing";
 import { requestFeed as requestFeedAction } from "@/lib/actions/energy";
 import { type FeedNowLimit, MAX_ACCEPTED_FEED_GRAMS, formatFeedGrams } from "@/lib/limits-core";
@@ -39,18 +44,10 @@ interface EnergyControllerCardProps {
 	feedNowLimit?: FeedNowLimit | null;
 }
 
-function formatLastSeen(lastSeenAt: Date | null): string {
-	if (!lastSeenAt) return "Never";
-	const seconds = Math.floor((Date.now() - lastSeenAt.getTime()) / 1000);
-	if (seconds < 60) return `${seconds}s ago`;
-	const minutes = Math.floor(seconds / 60);
-	if (minutes < 60) return `${minutes}m ago`;
-	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours}h ago`;
-	const days = Math.floor(hours / 24);
-	return `${days}d ago`;
-}
-
+/**
+ * #891: the offline banner names the age inline, so it reads from the same
+ * minute tick the "Last seen" tile uses.
+ */
 export function EnergyControllerCard({
 	deviceId,
 	label,
@@ -83,6 +80,10 @@ export function EnergyControllerCard({
 	const { online, reason, blockIfOffline } = useFeedCommandGuard();
 	const tViewer = useTranslations("dashboard.feederViewer");
 	const tLimit = useTranslations("dashboard.feedNowModal");
+
+	// #891: "2h ago" must become "3d ago" without a reload, so the banner reads
+	// from a minute tick instead of a value frozen at first render.
+	const now = useElapsedNow();
 
 	// The daily ceiling is the only gram cap: the input accepts whatever is
 	// left of today's allowance. Without a limit, only the sanity bound applies.
@@ -189,8 +190,8 @@ export function EnergyControllerCard({
 				<div className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3">
 					<AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
 					<p className="text-xs text-red-700 dark:text-red-300 font-medium">
-						Device offline — last seen {formatLastSeen(lastSeenAt)}. Dashboard feed requests are
-						rejected while offline; device-scheduled and physical button feeds still work.
+						Device offline — last seen {formatLastSeenAge(lastSeenAt, now)}. Dashboard feed requests
+						are rejected while offline; device-scheduled and physical button feeds still work.
 					</p>
 				</div>
 			)}
@@ -228,7 +229,7 @@ export function EnergyControllerCard({
 							<div className="min-w-0">
 								<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Last seen</p>
 								<p className="text-sm text-gray-700 dark:text-gray-200">
-									{formatLastSeen(lastSeenAt)}
+									<LastSeenValue at={lastSeenAt} />
 								</p>
 							</div>
 						</div>

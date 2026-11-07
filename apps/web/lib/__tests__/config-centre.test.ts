@@ -415,6 +415,7 @@ describe("setFirmwareGates (I-100)", () => {
 		safe_mode_abnormal_threshold: 4,
 		safe_mode_quiet_s: 2400,
 		safe_mode_healthy_clear_s: 720,
+		motor_min_pulse_ms: 400,
 	};
 
 	it("saves the gates and writes one audit row with the before/after values", async () => {

@@ -36,17 +36,23 @@ export interface MonitoringCardProps {
 	sensorOffline?: boolean;
 	connection: "online" | "weak" | "offline" | "missing";
 	health: MonitoringHealth | null;
+	/**
+	 * The device's 3D viewer page (#892). When a feeder is paired the whole
+	 * card opens it; with no feeder there is no device page to open, so the
+	 * card keeps its hopper-history destination.
+	 */
+	deviceHref?: string | null;
 	collapsed: boolean;
 }
 
 /**
  * One monitoring card for the desktop sidebar (issue #575).
  *
- * It keeps the existing hopper reading and link to the hopper chart and adds
- * the device connection badge and the fault / safe-mode line, so a farmer does
- * not have to look in the header, the dashboard cards and the sidebar
- * separately. The whole card stays one link; the badge and health line are
- * plain text and icons, never nested controls.
+ * It keeps the hopper reading and the device connection badge and the fault /
+ * safe-mode line, so a farmer does not have to look in the header, the
+ * dashboard cards and the sidebar separately. Since #892 the whole card opens
+ * the device's 3D feeder view (the page that shows the unit itself); the badge
+ * and health line are plain text and icons, never nested controls.
  */
 export function MonitoringCard({
 	hopperLevelPct,
@@ -58,10 +64,16 @@ export function MonitoringCard({
 	sensorOffline = false,
 	connection,
 	health,
+	deviceHref = null,
 	collapsed,
 }: MonitoringCardProps) {
 	const t = useTranslations("nav");
 	const tMonitoring = useTranslations("dashboard.monitoring");
+
+	// #892: a paired feeder opens its own 3D view. The hopper chart stays the
+	// destination only when there is no device to show.
+	const href = deviceHref ?? "/dashboard/history#hopper-level";
+	const linkLabel = deviceHref ? t("viewDevice") : t("viewHopperLevel");
 
 	const summary: MonitoringSummary = summarizeMonitoring({ connection, health });
 	const healthState = monitoringHealthState(health);
@@ -89,13 +101,13 @@ export function MonitoringCard({
 	if (collapsed) {
 		return (
 			<Link
-				href="/dashboard/history#hopper-level"
+				href={href}
 				aria-label={tMonitoring("summaryLabel", {
 					status: statusLabel,
 					percent: percentLabel,
 				})}
 				aria-describedby={healthDescription}
-				title={t("viewHopperLevel")}
+				title={linkLabel}
 				data-monitoring-tone={summary.tone}
 				className="relative flex min-h-11 w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl border border-[#0A3D62]/10 bg-[#0A3D62]/5 p-2 transition-colors hover:border-[#0A3D62]/25 hover:bg-[#0A3D62]/10 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A3D62] dark:border-gray-700/50 dark:bg-gray-800/60 dark:hover:border-gray-600 dark:hover:bg-gray-800 dark:focus-visible:outline-[#8fc0ea]"
 			>
@@ -124,8 +136,8 @@ export function MonitoringCard({
 
 	return (
 		<Link
-			href="/dashboard/history#hopper-level"
-			aria-label={t("viewHopperLevel")}
+			href={href}
+			aria-label={linkLabel}
 			aria-describedby={
 				healthDescription
 					? `${STATUS_DESCRIPTION_ID} ${HEALTH_DESCRIPTION_ID}`

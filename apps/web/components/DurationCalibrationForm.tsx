@@ -99,6 +99,11 @@ interface DurationCalibrationFormProps {
 	isFallow?: boolean;
 	/** The unit's relay is locked off, so every dose would be refused. */
 	isSafeMode?: boolean;
+	/**
+	 * M2: safe mode has cleared but the unit is not verified healthy yet, or a
+	 * hardware fault is present. Dose testing stays locked for both.
+	 */
+	recoveryBlockReason?: "recovering" | "fault" | null;
 }
 
 function formatRate(rate: number): string {
@@ -131,6 +136,7 @@ export function DurationCalibrationForm({
 	isOffline = false,
 	isFallow = false,
 	isSafeMode = false,
+	recoveryBlockReason = null,
 }: DurationCalibrationFormProps) {
 	const t = useTranslations("dashboard.appSettings.calibration");
 	const router = useRouter();
@@ -242,6 +248,10 @@ export function DurationCalibrationForm({
 		blockReason = t("guided.blockedOffline");
 	} else if (isSafeMode) {
 		blockReason = t("guided.blockedSafeMode");
+	} else if (recoveryBlockReason === "recovering") {
+		blockReason = t("guided.blockedRecovering");
+	} else if (recoveryBlockReason === "fault") {
+		blockReason = t("guided.blockedFault");
 	} else if (isFallow) {
 		blockReason = t("guided.blockedFallow");
 	} else if (!canWrite) {
@@ -267,6 +277,10 @@ export function DurationCalibrationForm({
 		targetBlockReason = t("guided.blockedOffline");
 	} else if (isSafeMode) {
 		targetBlockReason = t("guided.blockedSafeMode");
+	} else if (recoveryBlockReason === "recovering") {
+		targetBlockReason = t("guided.blockedRecovering");
+	} else if (recoveryBlockReason === "fault") {
+		targetBlockReason = t("guided.blockedFault");
 	} else if (isFallow) {
 		targetBlockReason = t("guided.blockedFallow");
 	} else if (!canWrite) {

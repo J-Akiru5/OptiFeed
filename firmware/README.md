@@ -507,6 +507,7 @@ old server (no `config` object) changes nothing.
 | `SAFE_MODE_ABNORMAL_THRESHOLD` | `safe_mode_abnormal_threshold` | 3 (envelope 2–10) | B |
 | `SAFE_MODE_QUIET_MS` | `safe_mode_quiet_s` | 1,800 s (envelope 60–86,400) | B |
 | `SAFE_MODE_HEALTHY_CLEAR_MS` | `safe_mode_healthy_clear_s` | 600 s (envelope 60–86,400) | B |
+| — (new, #661) | `motor_min_pulse_ms` | 250 ms (envelope 50–2,000) | B |
 | `DEFAULT_SCHEDULED_GRAMS` (via `grams_per_feeding`) | `grams_per_feeding` | 150 g (envelope 1–5,000) | B |
 | `DEFAULT_BUTTON_FEED_GRAMS` | `button_feed_grams` | 80 g (envelope 1–500) | B |
 | `DEFAULT_GRAMS_PER_SECOND` | `grams_per_second` | 4 g/s (envelope 0.5–50) | B |
@@ -571,6 +572,7 @@ heartbeat interval.
   "rev": 1543210987,
   "min_dispense_gap_s": 10,
   "max_dispenses_per_hour": 6,
+  "motor_min_pulse_ms": 250,
   "...": "every field in the table above"
 }
 ```
@@ -597,7 +599,54 @@ Rules, all covered by `pio test -d firmware -e native`:
    1.6.x fields, so a mixed fleet keeps working.
 7. A refused feed still reports the existing `feed_refused` reasons with no
    contract change (`grams_out_of_range`, `dose_time_exceeds_cap`,
-   `daily_gram_cap_exceeded`, `too_soon`, `hourly_limit`, ...).
+   `dose_below_min_pulse`, `daily_gram_cap_exceeded`, `too_soon`,
+   `hourly_limit`, ...).
+
+### Motor minimum pulse (#661)
+
+A dose is one continuous relay on-time, `grams / grams_per_second × 1000`.
+Below a certain pulse the auger does not start from rest: the relay closes, the
+unit reports a dose, and no feed leaves the hopper. `motor_min_pulse_ms` is the
+shortest on-time that reliably turns the auger on this build.
+
+| | |
+|---|---|
+| Key | `motor_min_pulse_ms` |
+| Envelope | 50–2,000 ms, whole milliseconds |
+| Default | 250 ms |
+| Sources | every one, through `dispenseFeed()`: button, schedule, dashboard, calibration request |
+| Refusal | `feed_refused` with `reason: "dose_below_min_pulse"`; the serial log adds `[FEED] 0.50g needs 125ms of relay, below the 250ms motor floor` |
+| Enforced in | `fw::DispenseGate::evaluate` (`safety.h`), limits filled by `applyConfigToRuntime()` |
+| Applied log | `[CONFIG] applied rev … (… relay=…ms pulse>=…ms)` |
+
+- **Why 250 ms.** At the shipped 4 g/s that is exactly 1 g, the smallest dose any
+  feeding field allows (`grams_per_feeding` and `button_feed_grams` both start at
+  1 g), so the default refuses nothing the dashboard can request today. It only
+  refuses a dose that is already outside that range - a hand-edited config or a
+  future sub-gram feature - and says which pulse it would have needed.
+- **The floor is a time; doses are grams.** The smallest feedable dose is
+  `motor_min_pulse_ms / 1000 × grams_per_second`: 1 g at the default 4 g/s, 2 g
+  at 8 g/s. A unit calibrated faster than 4 g/s that must keep feeding 1 g
+  doses should lower the floor to the value measured on that unit - the default
+  is a conservative starting point, not a platform-wide measurement.
+- **Why not 0.** 0 is outside the envelope: a stored or served 0 rejects the
+  whole object (or the whole NVS blob) and the last-good/default value stays, so
+  the guard cannot be disabled from the dashboard. A missing field resolves to
+  250 ms, never to "no floor".
+- **Why 2,000 ms.** A calibration test dose is a whole number of seconds and at
+  least 3 s, so the floor is always below the calibration window and can never
+  refuse a calibration. The floor never stretches a dose up: rounding a dose to
+  the floor would dispense more than the operator asked for and would make a
+  calibration weight lie.
+- **Calibration.** The floor is a per-unit property of the auger, not of the
+  pellet. Feed one small weighed dose, lower the floor until the auger stops
+  turning reliably, then raise it back one step; put that value in the field.
+  The `grams_per_second` rate calibration is unchanged: the floor decides
+  *whether* a pulse is allowed, never how much a gram weighs.
+- **Older units.** A unit on firmware without this key ignores it (the contract
+  is additive) and keeps the old behaviour: no floor. The heartbeat echoes one
+  `config_rev` for the whole object, so it does not prove the floor was applied -
+  an older unit can echo the new revision while ignoring the unknown key.
 
 ### Server side
 
@@ -1265,6 +1314,7 @@ alert:
 | `ota_in_progress` | a signed update is downloading (existing) |
 | `hardware_variant_mismatch` | the running image was built for a different relay pin than the unit's provisioned variant; the relay is locked off (#582) |
 | `grams_out_of_range`, `dose_time_exceeds_cap`, `daily_gram_cap_exceeded` | existing caps |
+| `dose_below_min_pulse` | the dose's relay on-time is shorter than the configured `motor_min_pulse_ms`; the relay was never energized (#661) |
 | `ota_pending_verify`, `busy` | counted in `diag.refusals_by_reason`, not posted |
 
 > A relay overrun is reported as the existing `feed_refused` with reason `relay_overrun` rather than by
@@ -1345,6 +1395,7 @@ fields remain for firmware <= 1.6.x):
     "rev": 1543210987,
     "min_dispense_gap_s": 10,
     "max_dispenses_per_hour": 6,
+    "motor_min_pulse_ms": 250,
     "brownout_hold_s": 60,
     "safe_mode_abnormal_threshold": 3,
     "max_grams_per_day": 2000,

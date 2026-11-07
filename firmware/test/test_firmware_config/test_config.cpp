@@ -5,7 +5,8 @@
   No board, no network, no database. The tests cover exactly what the brief
   requires of the contract: parsing, the absolute envelope, the last-good
   fallback and malformed input, plus E38 (the daily ceiling is the only gram
-  cap).
+  cap) and the #661 motor minimum pulse (envelope, default fallback, floor
+  refusal and its boundary).
 */
 #include <unity.h>
 
@@ -52,6 +53,7 @@ static const char *kFullConfig =
     "\"brownout_hold_s\":90,\"safe_mode_abnormal_window_s\":900,"
     "\"safe_mode_abnormal_threshold\":4,\"safe_mode_quiet_s\":2400,"
     "\"safe_mode_healthy_clear_s\":720,"
+    "\"motor_min_pulse_ms\":500,"
     "\"grams_per_feeding\":175,\"button_feed_grams\":120,"
     "\"grams_per_second\":6.5,\"temp_offset_c\":1.5,"
     "\"hopper_full_cm\":6,\"hopper_empty_cm\":28,\"hopper_low_pct\":25,"
@@ -79,6 +81,10 @@ void test_defaults_match_the_shipped_values(void) {
   TEST_ASSERT_EQUAL_FLOAT(300000.0f, config.maxDispenseMs);
   TEST_ASSERT_EQUAL_FLOAT(5000.0f, config.calibrationMaxGrams);
   TEST_ASSERT_EQUAL_FLOAT(60.0f, config.brownoutHoldS);
+  // #661: 250 ms is 1 g at the shipped 4 g/s rate - the smallest dose any
+  // feeding field allows, so the default floor refuses nothing the dashboard
+  // can currently request.
+  TEST_ASSERT_EQUAL_FLOAT(250.0f, config.motorMinPulseMs);
   TEST_ASSERT_EQUAL_FLOAT(150.0f, config.gramsPerFeeding);
   TEST_ASSERT_EQUAL_FLOAT(80.0f, config.buttonFeedGrams);
   TEST_ASSERT_EQUAL_FLOAT(4.0f, config.gramsPerSecond);
@@ -118,6 +124,7 @@ void test_full_config_applies(void) {
   TEST_ASSERT_EQUAL_FLOAT(1.5f, config.tempOffsetC);
   TEST_ASSERT_EQUAL_FLOAT(28.0f, config.hopperEmptyCm);
   TEST_ASSERT_EQUAL_FLOAT(25.0f, config.hopperLowPct);
+  TEST_ASSERT_EQUAL_FLOAT(500.0f, config.motorMinPulseMs);
   TEST_ASSERT_EQUAL_FLOAT(360000.0f, config.otaHealthCheckTimeoutMs);
 }
 
@@ -255,6 +262,68 @@ void test_inverted_hopper_geometry_is_rejected(void) {
   TEST_ASSERT_EQUAL_INT((int)ConfigStatus::OUT_OF_RANGE, (int)status);
 }
 
+/*
+  #661: `motor_min_pulse_ms` is an ordinary envelope field with one extra
+  requirement. An absent or invalid value must resolve to the documented
+  default - never to 0, which would disable the floor, and never to a value
+  that refuses every dose.
+*/
+void test_motor_min_pulse_envelope_and_default(void) {
+  const ConfigFieldSpec *spec = findConfigSpec("motor_min_pulse_ms");
+  TEST_ASSERT_NOT_NULL(spec);
+  TEST_ASSERT_EQUAL_FLOAT(50.0f, spec->minValue);
+  TEST_ASSERT_EQUAL_FLOAT(2000.0f, spec->maxValue);
+  TEST_ASSERT_TRUE(spec->integer);
+  TEST_ASSERT_EQUAL_FLOAT(250.0f, defaultDeviceConfig().motorMinPulseMs);
+
+  // Absent from a present object: the last-good/default value stays.
+  ConfigStatus status = ConfigStatus::MISSING;
+  DeviceConfig config = applyJson("{\"config\":{\"version\":1,\"rev\":1}}", status);
+  TEST_ASSERT_EQUAL_INT((int)ConfigStatus::OK, (int)status);
+  TEST_ASSERT_EQUAL_FLOAT(250.0f, config.motorMinPulseMs);
+
+  // Both edges of the envelope are accepted.
+  status = ConfigStatus::MISSING;
+  config = applyJson("{\"config\":{\"version\":1,\"rev\":1,\"motor_min_pulse_ms\":50}}", status);
+  TEST_ASSERT_EQUAL_INT((int)ConfigStatus::OK, (int)status);
+  TEST_ASSERT_EQUAL_FLOAT(50.0f, config.motorMinPulseMs);
+
+  status = ConfigStatus::MISSING;
+  config = applyJson("{\"config\":{\"version\":1,\"rev\":1,\"motor_min_pulse_ms\":2000}}", status);
+  TEST_ASSERT_EQUAL_INT((int)ConfigStatus::OK, (int)status);
+  TEST_ASSERT_EQUAL_FLOAT(2000.0f, config.motorMinPulseMs);
+
+  // 0 would disable the floor and 4,000 ms would refuse every realistic dose;
+  // one out-of-range field rejects the whole object and keeps the default.
+  const char *badKey = nullptr;
+  const DeviceConfig before = defaultDeviceConfig();
+  status = ConfigStatus::OK;
+  const DeviceConfig rejected = applyJson(
+      "{\"config\":{\"version\":1,\"rev\":1,\"motor_min_pulse_ms\":0}}", status, badKey, before);
+  TEST_ASSERT_EQUAL_INT((int)ConfigStatus::OUT_OF_RANGE, (int)status);
+  TEST_ASSERT_EQUAL_STRING("motor_min_pulse_ms", badKey);
+  TEST_ASSERT_EQUAL_FLOAT(250.0f, rejected.motorMinPulseMs);
+
+  status = ConfigStatus::OK;
+  badKey = nullptr;
+  applyJson("{\"config\":{\"version\":1,\"rev\":1,\"motor_min_pulse_ms\":49}}", status, badKey,
+            before);
+  TEST_ASSERT_EQUAL_INT((int)ConfigStatus::OUT_OF_RANGE, (int)status);
+  TEST_ASSERT_EQUAL_STRING("motor_min_pulse_ms", badKey);
+
+  status = ConfigStatus::OK;
+  badKey = nullptr;
+  applyJson("{\"config\":{\"version\":1,\"rev\":1,\"motor_min_pulse_ms\":2001}}", status, badKey,
+            before);
+  TEST_ASSERT_EQUAL_INT((int)ConfigStatus::OUT_OF_RANGE, (int)status);
+  TEST_ASSERT_EQUAL_STRING("motor_min_pulse_ms", badKey);
+
+  // Whole milliseconds only.
+  status = ConfigStatus::OK;
+  applyJson("{\"config\":{\"version\":1,\"rev\":1,\"motor_min_pulse_ms\":250.5}}", status);
+  TEST_ASSERT_EQUAL_INT((int)ConfigStatus::MALFORMED, (int)status);
+}
+
 void test_inverted_ota_window_is_rejected(void) {
   ConfigStatus status = ConfigStatus::OK;
   applyJson(
@@ -306,6 +375,61 @@ void test_gate_accepts_a_dose_above_one_thousand_grams(void) {
                         (int)gate.evaluate(1000, 2500.0f, tooLongMs, 0.0f, limits));
 }
 
+/*
+  #661: the floor lives in the same gate as the caps, so a short dose is refused
+  by every source (button, schedule, dashboard) with its own reason. The
+  boundary value itself is a usable pulse and must be accepted; a dose is never
+  stretched up to the floor, because that would dispense more than requested.
+*/
+void test_dispense_gate_refuses_a_dose_below_the_motor_floor(void) {
+  const DeviceConfig config = defaultDeviceConfig();
+  DispenseLimits limits;
+  limits.minPulseMs = (unsigned long)config.motorMinPulseMs;  // what applyConfigToRuntime does
+  limits.maxGramsPerDose = effectiveMaxGramsPerDose(config);
+  limits.maxGramsPerDay = config.maxGramsPerDay;
+  limits.maxDispenseMs = (unsigned long)config.maxDispenseMs;
+
+  // The gate's own default is the documented default (drift guard).
+  TEST_ASSERT_EQUAL_UINT32((unsigned long)config.motorMinPulseMs,
+                           (unsigned long)DispenseLimits().minPulseMs);
+
+  DispenseGate gate;
+  gate.configure(limits);
+
+  // 0.5 g at 4 g/s is 125 ms: below the floor and refused, with its own reason.
+  TEST_ASSERT_EQUAL_INT((int)Refusal::DOSE_TOO_SHORT,
+                        (int)gate.evaluate(1000, 0.5f, 125, 0.0f, limits));
+  TEST_ASSERT_EQUAL_STRING("dose_below_min_pulse", refusalReason(Refusal::DOSE_TOO_SHORT));
+  // ...and the reason is distinct from the cap and from safe mode.
+  TEST_ASSERT_EQUAL_STRING("dose_time_exceeds_cap", refusalReason(Refusal::DOSE_TOO_LONG));
+  TEST_ASSERT_EQUAL_STRING("safe_mode", refusalReason(Refusal::SAFE_MODE));
+  TEST_ASSERT_TRUE(strcmp(refusalReason(Refusal::DOSE_TOO_SHORT),
+                          refusalReason(Refusal::DOSE_TOO_LONG)) != 0);
+  TEST_ASSERT_TRUE(strcmp(refusalReason(Refusal::DOSE_TOO_SHORT),
+                          refusalReason(Refusal::SAFE_MODE)) != 0);
+
+  // A dose above the floor is accepted, and the boundary itself is accepted.
+  TEST_ASSERT_EQUAL_INT((int)Refusal::NONE,
+                        (int)gate.evaluate(1000, 1.0f, 250, 0.0f, limits));
+  TEST_ASSERT_EQUAL_INT((int)Refusal::NONE,
+                        (int)gate.evaluate(1000, 1.0f, 251, 0.0f, limits));
+  TEST_ASSERT_EQUAL_INT((int)Refusal::NONE,
+                        (int)gate.evaluate(1000, 50.0f, 12500, 0.0f, limits));
+
+  // A configured floor is what the gate enforces, not a hard-coded 250.
+  limits.minPulseMs = 800;
+  TEST_ASSERT_EQUAL_INT((int)Refusal::DOSE_TOO_SHORT,
+                        (int)gate.evaluate(1000, 3.2f, 799, 0.0f, limits));
+  TEST_ASSERT_EQUAL_INT((int)Refusal::NONE,
+                        (int)gate.evaluate(1000, 3.2f, 800, 0.0f, limits));
+
+  // The floor never masks the ceiling: an over-cap dose is still the cap reason.
+  limits.minPulseMs = 250;
+  limits.maxDispenseMs = 1000;
+  TEST_ASSERT_EQUAL_INT((int)Refusal::DOSE_TOO_LONG,
+                        (int)gate.evaluate(1000, 100.0f, 25000, 0.0f, limits));
+}
+
 // ---------------------------------------------------------------- NVS
 
 void test_nvs_roundtrip_preserves_every_field(void) {
@@ -337,6 +461,14 @@ void test_corrupt_nvs_copy_falls_back_to_defaults(void) {
   deserializeJson(malformed, "{\"max_grams_per_day\":\"huge\"}");
   TEST_ASSERT_EQUAL_INT((int)ConfigStatus::MALFORMED,
                         (int)restoreConfig(malformed, restored, &badKey));
+
+  // #661: a stored floor below the envelope (0 would disable the guard) rejects
+  // the whole blob, so the caller keeps the compile-time default.
+  JsonDocument badFloor;
+  deserializeJson(badFloor, "{\"motor_min_pulse_ms\":0}");
+  TEST_ASSERT_EQUAL_INT((int)ConfigStatus::OUT_OF_RANGE,
+                        (int)restoreConfig(badFloor, restored, &badKey));
+  TEST_ASSERT_EQUAL_STRING("motor_min_pulse_ms", badKey);
 }
 
 void test_partial_nvs_copy_fills_gaps_with_defaults(void) {
@@ -348,6 +480,7 @@ void test_partial_nvs_copy_fills_gaps_with_defaults(void) {
   TEST_ASSERT_EQUAL_FLOAT(15.0f, restored.minDispenseGapS);
   TEST_ASSERT_EQUAL_FLOAT(5000.0f, restored.maxGramsPerDay);
   TEST_ASSERT_EQUAL_FLOAT(4.0f, restored.gramsPerSecond);
+  TEST_ASSERT_EQUAL_FLOAT(250.0f, restored.motorMinPulseMs);
 }
 
 // ---------------------------------------------------------------- runner
@@ -369,8 +502,10 @@ int main(int, char **) {
   RUN_TEST(test_out_of_range_field_rejects_the_whole_object);
   RUN_TEST(test_inverted_hopper_geometry_is_rejected);
   RUN_TEST(test_inverted_ota_window_is_rejected);
+  RUN_TEST(test_motor_min_pulse_envelope_and_default);
   RUN_TEST(test_no_per_dose_cap_daily_is_the_only_gram_cap);
   RUN_TEST(test_gate_accepts_a_dose_above_one_thousand_grams);
+  RUN_TEST(test_dispense_gate_refuses_a_dose_below_the_motor_floor);
   RUN_TEST(test_nvs_roundtrip_preserves_every_field);
   RUN_TEST(test_corrupt_nvs_copy_falls_back_to_defaults);
   RUN_TEST(test_partial_nvs_copy_fills_gaps_with_defaults);

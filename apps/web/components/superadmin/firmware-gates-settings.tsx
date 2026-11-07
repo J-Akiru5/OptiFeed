@@ -23,8 +23,9 @@ import { toast } from "sonner";
 /**
  * Firmware feed-safety gates (I-100).
  *
- * The seven values the platform admin may move inside the firmware's absolute
- * envelope. The form is generated from `FIRMWARE_GATE_FIELDS`, so a new gate is
+ * The eight values the platform admin may move inside the firmware's absolute
+ * envelope (the seven feed gates plus the motor minimum pulse, #661). The form
+ * is generated from `FIRMWARE_GATE_FIELDS`, so a new gate is
  * one entry there plus its two messages. The same bounds are enforced by the
  * server action and again by the firmware itself; this form only gives the
  * reader an inline check first.

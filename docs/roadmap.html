@@ -701,6 +701,143 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- DEVICE RELIABILITY ROADMAP (M1-M6)                          -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="arch-section" id="device-reliability">
+    <h2>Device Reliability Roadmap (M1&ndash;M6)</h2>
+    <p style="font-size: 0.9rem; color: var(--ofd-text); margin-bottom: 20px;">
+        <strong>This section is the single source of truth for device work.</strong> The numbered phases below remain
+        the feature roadmap; where the two disagree about <em>sequencing</em>, this section wins. Two rules set the
+        order: never let the interface promise an operation the hardware has already decided to reject, and never
+        build remote controls for a recovery path that is still incomplete.
+    </p>
+    <table class="task-table">
+        <thead>
+            <tr><th>Milestone</th><th>Deliverable</th><th>Priority</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>M1</td>
+                <td>Safe Mode fix in production</td>
+                <td><span class="phase-priority priority-must">Immediate</span></td>
+                <td>In review &mdash; <code>fix/safe-mode-guidance</code> (<code>61a65f9</code>), PR #894 into <code>develop</code></td>
+            </tr>
+            <tr>
+                <td>M2</td>
+                <td>Hardware recovery and diagnostics</td>
+                <td><span class="phase-priority priority-high">High</span></td>
+                <td>Next &mdash; architecture audit first, no code before the plan</td>
+            </tr>
+            <tr>
+                <td>M3</td>
+                <td>Firmware upgrade pathway</td>
+                <td><span class="phase-priority priority-high">High</span></td>
+                <td>Not started</td>
+            </tr>
+            <tr>
+                <td>M4</td>
+                <td>Device command queue</td>
+                <td><span class="phase-priority priority-medium">Medium</span></td>
+                <td>Not started</td>
+            </tr>
+            <tr>
+                <td>M5</td>
+                <td>Remote Device Actions UI</td>
+                <td><span class="phase-priority priority-medium">Medium</span></td>
+                <td>Placeholder buttons only (disabled)</td>
+            </tr>
+            <tr>
+                <td>M6</td>
+                <td>OTA and fleet management</td>
+                <td><span class="phase-priority priority-low">Later</span></td>
+                <td>Not started</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="task-group">
+        <div class="task-group-title">M1 &mdash; Safe Mode fix in production (current)</div>
+        <p style="font-size: 0.9rem; color: var(--ofd-text);">
+            Safe mode locks the relay in firmware, so the dashboard could queue a calibration dose the unit had
+            already decided to refuse. The form then reported <em>"The test request expired before the device
+            confirmed it"</em>, which reads as a network fault. M1 makes both sides tell the truth: the server
+            refuses up front with the real reason, and the form never offers the action.
+        </p>
+        <table class="task-table">
+            <thead>
+                <tr><th>Scenario</th><th>Required behaviour</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Safe mode ON</td><td>Test dose disabled, reason displayed</td></tr>
+                <tr><td>Safe mode ON</td><td>Action returns the Safe mode error rather than an expired test</td></tr>
+                <tr><td>Safe mode OFF</td><td>Test dose available</td></tr>
+                <tr><td>Health reader unavailable</td><td>Calibration still allowed (the guard fails open)</td></tr>
+                <tr><td>Device refuses a dose</td><td>The refusal is surfaced, not a timeout</td></tr>
+                <tr><td>Heartbeat delayed</td><td>No misleading timeout copy</td></tr>
+            </tbody>
+        </table>
+        <p style="font-size: 0.9rem; color: var(--ofd-text); margin-top: 12px;">
+            Promotion path: <code>fix/safe-mode-guidance</code> &rarr; <code>develop</code> &rarr; <code>staging</code>
+            &rarr; <code>main</code>, with the table above checked in staging before promotion. M1 needs no migration
+            and no firmware flash. It also cannot make a locked unit dispense &mdash; clearing Safe mode stays the
+            operator's job: 30 quiet minutes, or a 5&nbsp;s Wi-Fi reset hold on GPIO&nbsp;17 where the enclosure has
+            that button wired.
+        </p>
+    </div>
+
+    <div class="task-group">
+        <div class="task-group-title">M2 &mdash; Hardware recovery and diagnostics (next)</div>
+        <p style="font-size: 0.9rem; color: var(--ofd-text);">
+            The deliverable is a recovery procedure the dashboard, the operator and the firmware all follow:
+        </p>
+        <ol style="font-size: 0.9rem; color: var(--ofd-text); padding-left: 22px; line-height: 1.8;">
+            <li><strong>Detect the cause</strong> &mdash; reset reason, Safe mode status, uptime, power-related telemetry.</li>
+            <li><strong>Decide whether recovery is safe</strong> &mdash; has the unit had another abnormal reset?</li>
+            <li><strong>Clear Safe mode</strong> &mdash; 30 quiet minutes, or the documented reset hold where supported.</li>
+            <li><strong>Verify hardware health</strong> &mdash; heartbeat, connectivity, sensor readings, firmware version.</li>
+            <li><strong>Allow calibration</strong> &mdash; only expose dose testing once the unit is healthy.</li>
+        </ol>
+        <p style="font-size: 0.9rem; color: var(--ofd-text);">
+            <strong>Clearing Safe mode is not a repair for a recurring crash.</strong> If it re-arms, the reset cause is
+            investigated before the feeder goes back into normal operation. Reset reasons are already recorded
+            (<code>panic</code> is <code>ESP_RST_PANIC</code>, a controller crash &mdash; not a supply fault), so M2 is
+            mostly a matter of turning that record into a decision.
+        </p>
+        <p style="font-size: 0.9rem; color: var(--ofd-text);">
+            Blocking prerequisite for any <em>remote</em> recovery: the field unit on 1.9.0 must first be flashed over
+            USB. 1.9.0 reports neither <code>variant</code> nor <code>relay_gpio</code>, so
+            <code>/api/firmware/check</code> answers <code>{update:false}</code> by design and no OTA can reach it.
+        </p>
+    </div>
+
+    <div class="task-group">
+        <div class="task-group-title">Health-state authority (target model)</div>
+        <p style="font-size: 0.9rem; color: var(--ofd-text);">
+            Frontend, backend and firmware should share one vocabulary. Today only "offline" and "safe mode" exist,
+            and each layer infers them separately, which is how the calibration screen came to promise an operation
+            the hardware had already refused.
+        </p>
+        <table class="task-table">
+            <thead>
+                <tr><th>State</th><th>Meaning</th><th>Dispensing</th><th>Remote commands</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>HEALTHY</td><td>Reporting, relay permitted</td><td>Allowed</td><td>Allowed</td></tr>
+                <tr><td>SAFE_MODE</td><td>Relay locked after repeated abnormal resets</td><td>Prohibited</td><td>Recovery only</td></tr>
+                <tr><td>RECOVERING</td><td>Unit is attempting recovery</td><td>Prohibited</td><td>Restricted to recovery</td></tr>
+                <tr><td>OFFLINE</td><td>No recent communication</td><td>Unknown &mdash; treat as prohibited</td><td>Queued, never fire-and-forget</td></tr>
+                <tr><td>FAULT</td><td>Hardware or firmware fault detected</td><td>Prohibited</td><td>Diagnostics only</td></tr>
+                <tr><td>MAINTENANCE</td><td>Administrative work in progress</td><td>Prohibited</td><td>Administrative only</td></tr>
+            </tbody>
+        </table>
+        <p style="font-size: 0.9rem; color: var(--ofd-text); margin-top: 12px;">
+            Authorization stays per action: restart, factory reset, calibration and feeding each need their own rule.
+            A generic command endpoint must never become a way around a hardware protection.
+        </p>
+    </div>
+</div>
+
 <!-- PHASE 1: SECURITY & STABILITY                               -->
 <!-- ═══════════════════════════════════════════════════════════ -->
 <div class="phase phase-1 open">

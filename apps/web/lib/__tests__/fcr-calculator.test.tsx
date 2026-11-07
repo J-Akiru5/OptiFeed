@@ -31,6 +31,7 @@ const calculation = {
 	gramsPerFeeding: 500,
 	daysToTarget: 60,
 	latestFcr: 1.5,
+	fcrSource: "computed" as const,
 };
 
 function fillAndCalculate() {

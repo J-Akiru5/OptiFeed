@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `applyGrowthPlanForPond` is no longer a browser-callable server action that trusted the caller's `ownerId`; a static guard test prevents regressions.
 - Device-token reveals are audited and rate limited.
 
-## [Unreleased]
+## [1.59.1] - 2026-11-08
 
 ### Changed
 

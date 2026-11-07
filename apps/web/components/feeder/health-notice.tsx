@@ -14,6 +14,9 @@ const REFUSAL_REASON_KEYS: Record<string, string> = {
 	busy: "refusalReasonBusy",
 	grams_out_of_range: "refusalReasonGramsOutOfRange",
 	dose_time_exceeds_cap: "refusalReasonDoseTooLong",
+	// #661: the motor floor. Its own reason, so "dose too small" is not shown
+	// as an over-cap refusal.
+	dose_below_min_pulse: "refusalReasonDoseBelowMinPulse",
 	daily_gram_cap_exceeded: "refusalReasonDailyCap",
 	too_soon: "refusalReasonTooSoon",
 	hourly_limit: "refusalReasonHourlyLimit",

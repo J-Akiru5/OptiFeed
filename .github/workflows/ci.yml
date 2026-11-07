@@ -201,6 +201,10 @@ jobs:
       # anywhere, and destroyed with the stack. Secrets are deliberately not
       # used, so forked pull requests can run this job.
       E2E_PASSWORD: e2e-local-password-only
+      # Local-only cron credential for the bench device-loop step below. The
+      # app server and the harness read the same literal; it never leaves the
+      # runner and is destroyed with the stack.
+      CRON_SECRET: bench-local-cron-secret
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
@@ -332,6 +336,20 @@ jobs:
       # stateful against the shared fixture and must stay serial.
       - name: Run Playwright
         run: pnpm --filter web test:e2e
+
+      # Non-required bench harness. It provisions its own `bench-` fixture and
+      # exercises the device delivery loop plus the signed OTA contract against
+      # the same disposable stack the suite just used. This step does not
+      # change a required check name or branch protection: `quality` and
+      # `bundle budget + latency` remain the required contexts, and this job is
+      # already outside them.
+      #
+      # The local stack is HTTP. The OTA route intentionally refuses an
+      # http:// signed URL, so the harness asserts that fail-closed behaviour
+      # and reports the HTTPS delivery assertion as SKIP; an HTTPS stack runs
+      # it without a code change (see docs/bench/device-loop-checklist.md).
+      - name: Bench device loop + OTA contract
+        run: node scripts/bench/device-loop.mjs
 
       - name: Upload Playwright report
         if: failure()

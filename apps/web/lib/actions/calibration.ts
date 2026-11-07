@@ -6,6 +6,7 @@ import { isValidRecalibrationIntervalDays } from "@/lib/calibration/recalibratio
 import { isValidCalibrationSessionId } from "@/lib/calibration/session";
 import { STALE_DISPATCHED_MS } from "@/lib/constants";
 import { manilaDayRange } from "@/lib/date-local";
+import { getDeviceHealthSafe } from "@/lib/device-health";
 import { isDeviceUnreachable } from "@/lib/device-status";
 import {
 	CALIBRATION_ACTUAL_GRAMS_MAX,
@@ -83,6 +84,11 @@ export type TargetCheckDecision = "retest" | "save" | "save_anyway";
 const TEST_SECONDS_ERROR = `Test duration must be a whole number between ${CALIBRATION_TEST_SECONDS_MIN} and ${CALIBRATION_TEST_SECONDS_MAX} seconds`;
 
 const TEST_DOSE_RANGE_ERROR = `Test dose would dispense outside the supported 1–${CALIBRATION_TEST_GRAMS_MAX} g range. Shorten the test duration.`;
+
+// Safe mode refuses every dose in firmware, so a queued test can only expire.
+// Say why instead of letting the operator wait out the 90 s poll.
+const SAFE_MODE_DOSE_ERROR =
+	"Safe mode is on — the unit refuses every dose until it clears. Wait for 30 quiet minutes or hold the Wi-Fi reset button for 5 seconds, then run the test again.";
 
 // Issue #191: a target check dispenses an exact dose and corrects the rate from
 // the weighing error. Bounds and tolerance live in lib/limits.ts with the other
@@ -254,6 +260,13 @@ export async function runCalibrationTest(
 			};
 		}
 
+		// The firmware refuses the dose outright while its relay is locked, so a
+		// queued request cannot be confirmed and the UI would report a timeout.
+		const health = await getDeviceHealthSafe(deviceId);
+		if (health.safeMode) {
+			return { success: false, error: SAFE_MODE_DOSE_ERROR };
+		}
+
 		const inFlight = await prisma.feedRequest.findFirst({
 			where: { deviceId, status: { in: ["pending", "dispatched"] } },
 			select: { status: true },
@@ -394,6 +407,11 @@ export async function runTargetCheck(
 				success: false,
 				error: "Device is offline — target check rejected. Retry once the device reconnects.",
 			};
+		}
+
+		const health = await getDeviceHealthSafe(deviceId);
+		if (health.safeMode) {
+			return { success: false, error: SAFE_MODE_DOSE_ERROR };
 		}
 
 		if (!(device.gramsPerSecond > 0)) {

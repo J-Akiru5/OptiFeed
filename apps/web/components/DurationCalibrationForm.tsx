@@ -97,6 +97,8 @@ interface DurationCalibrationFormProps {
 	canWrite?: boolean;
 	isOffline?: boolean;
 	isFallow?: boolean;
+	/** The unit's relay is locked off, so every dose would be refused. */
+	isSafeMode?: boolean;
 }
 
 function formatRate(rate: number): string {
@@ -128,6 +130,7 @@ export function DurationCalibrationForm({
 	canWrite = true,
 	isOffline = false,
 	isFallow = false,
+	isSafeMode = false,
 }: DurationCalibrationFormProps) {
 	const t = useTranslations("dashboard.appSettings.calibration");
 	const router = useRouter();
@@ -237,6 +240,8 @@ export function DurationCalibrationForm({
 		blockReason = t("guided.blockedInvalidDuration");
 	} else if (isOffline) {
 		blockReason = t("guided.blockedOffline");
+	} else if (isSafeMode) {
+		blockReason = t("guided.blockedSafeMode");
 	} else if (isFallow) {
 		blockReason = t("guided.blockedFallow");
 	} else if (!canWrite) {
@@ -260,6 +265,8 @@ export function DurationCalibrationForm({
 		});
 	} else if (isOffline) {
 		targetBlockReason = t("guided.blockedOffline");
+	} else if (isSafeMode) {
+		targetBlockReason = t("guided.blockedSafeMode");
 	} else if (isFallow) {
 		targetBlockReason = t("guided.blockedFallow");
 	} else if (!canWrite) {

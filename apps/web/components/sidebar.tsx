@@ -1,6 +1,5 @@
 "use client";
 
-import { SidebarAlerts } from "@/components/dashboard/alerts/sidebar-alerts";
 import { SidebarCollapseToggle, useSidebarCollapse } from "@/components/sidebar-collapse";
 import { MonitoringCard } from "@/components/status/monitoring-card";
 import type { MonitoringConnection, MonitoringHealth } from "@/components/status/monitoring-status";
@@ -41,6 +40,8 @@ interface SidebarProps {
 	 * is farm hardware chrome a platform admin does not have.
 	 */
 	showHopperWidget?: boolean;
+	/** The paired device's 3D viewer page (#892), or null when none is paired. */
+	deviceHref?: string | null;
 }
 
 export function Sidebar({
@@ -54,6 +55,7 @@ export function Sidebar({
 	connection,
 	health = null,
 	showHopperWidget = true,
+	deviceHref = null,
 }: SidebarProps) {
 	const t = useTranslations("nav");
 	const tSidebar = useTranslations("sidebar");
@@ -122,12 +124,10 @@ export function Sidebar({
 			</nav>
 
 			<div className="mt-auto space-y-4">
-				{/* #819: actionable alerts sit above the monitoring card, at the
-				    bottom of the rail, so the dashboard body no longer grows. */}
-				<SidebarAlerts collapsed={collapsed} />
-
-				{/* #575: one card for the hopper reading, connection state and
-				    fault/safe-mode line. The whole card opens the hopper chart (#286). */}
+				{/* #575: the sidebar keeps the hopper reading, the ESP32 connection
+				    state and the fault/safe-mode line. #892 moved the actionable
+				    alerts to the control room's right rail, so the rail no longer
+				    carries a second copy of the dashboard's alert list. */}
 				{showHopperWidget && (
 					<MonitoringCard
 						hopperLevelPct={hopperLevelPct}
@@ -139,6 +139,7 @@ export function Sidebar({
 						sensorOffline={isSensorOffline}
 						connection={resolvedConnection}
 						health={health}
+						deviceHref={deviceHref}
 						collapsed={collapsed}
 					/>
 				)}

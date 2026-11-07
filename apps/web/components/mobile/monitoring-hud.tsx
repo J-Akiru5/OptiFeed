@@ -7,6 +7,7 @@ import {
 } from "@/components/status/monitoring-status";
 import {
 	MONITORING_BAR_CLASSES,
+	MONITORING_HUD_BORDER_CLASSES,
 	MonitoringStatusBadge,
 } from "@/components/status/monitoring-status-badge";
 import { Link } from "@/i18n/routing";
@@ -112,7 +113,10 @@ export function MobileMonitoringHud({
 			<div
 				id="device-health-panel"
 				hidden={!open}
-				className="absolute bottom-full left-0 mb-2 w-[min(22rem,calc(100vw-1.5rem))] rounded-2xl border border-white/15 bg-[#06263f]/97 p-3 text-white shadow-2xl backdrop-blur"
+				className={cn(
+					"absolute bottom-full left-0 mb-2 w-[min(22rem,calc(100vw-1.5rem))] rounded-2xl border-2 bg-[#06263f] p-3 text-white shadow-2xl dark:bg-[#0b3554]",
+					MONITORING_HUD_BORDER_CLASSES[summary.tone],
+				)}
 			>
 				<div className="flex items-center justify-between gap-2">
 					<p className="text-[11px] font-black tracking-wide uppercase">{t("panelTitle")}</p>
@@ -174,7 +178,10 @@ export function MobileMonitoringHud({
 				aria-expanded={open}
 				aria-controls="device-health-panel"
 				data-monitoring-tone={summary.tone}
-				className="relative flex min-h-12 min-w-0 w-full items-center gap-2 overflow-hidden rounded-2xl border border-white/15 bg-[#06263f]/95 px-2.5 py-1.5 pl-3.5 text-left text-white shadow-lg backdrop-blur transition-colors hover:bg-[#0b3554]/95 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#06263f] focus-visible:outline-none"
+				className={cn(
+					"relative flex min-h-12 min-w-0 w-full items-center gap-2 overflow-hidden rounded-2xl border-2 bg-[#06263f] px-2.5 py-1.5 pl-3.5 text-left text-white shadow-lg transition-colors hover:bg-[#0b3554] focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#06263f] focus-visible:outline-none dark:bg-[#0b3554] dark:hover:bg-[#0f4265] dark:focus-visible:ring-offset-[#0b3554]",
+					MONITORING_HUD_BORDER_CLASSES[summary.tone],
+				)}
 			>
 				<span
 					aria-hidden="true"

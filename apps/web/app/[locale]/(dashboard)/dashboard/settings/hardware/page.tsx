@@ -49,6 +49,7 @@ import { getPageCount, parsePage } from "@/lib/pagination";
 import { getActivePondId, listSelectablePonds } from "@/lib/pond-selection";
 import prisma from "@/lib/prisma";
 import { AP_PREFIX } from "@/lib/provisioning-ap";
+import { elapsedParts } from "@/lib/relative-time";
 import { buttonFeedConfirmation, loadButtonFeedReport } from "@/lib/settings/button-feed";
 import {
 	configEchoState,
@@ -490,11 +491,20 @@ export default async function HardwareSettingsPage({ searchParams }: HardwareSet
 	const setupApName = getSetupApName(energyDevice?.mac);
 
 	function formatOfflineDuration(lastSeenAt: Date): string {
-		const totalMinutes = Math.floor((now.getTime() - lastSeenAt.getTime()) / 60000);
-		const hours = Math.floor(totalMinutes / 60);
-		const minutes = totalMinutes % 60;
-		if (hours > 0) return t("durationHoursMinutes", { hours, minutes });
-		return t("durationMinutes", { minutes });
+		// #891: past a day the value switches to days instead of counting hours
+		// up forever ("3d 21h", not "93h 0m"). The parts come from the same
+		// helper the live "Last seen" tile uses.
+		const elapsed = elapsedParts(lastSeenAt, now);
+		if (!elapsed) return t("offline");
+		if (elapsed.days > 0) {
+			return elapsed.hours > 0
+				? t("durationDaysHours", { days: elapsed.days, hours: elapsed.hours })
+				: t("durationDays", { days: elapsed.days });
+		}
+		if (elapsed.hours > 0) {
+			return t("durationHoursMinutes", { hours: elapsed.hours, minutes: elapsed.minutes });
+		}
+		return t("durationMinutes", { minutes: elapsed.minutes });
 	}
 
 	const connectionLabel = isDeviceOffline

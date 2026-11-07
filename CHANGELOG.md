@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `applyGrowthPlanForPond` is no longer a browser-callable server action that trusted the caller's `ownerId`; a static guard test prevents regressions.
 - Device-token reveals are audited and rate limited.
 
+## [Unreleased]
+
+### Changed
+
+- **The device reliability roadmap marks M1 and M2 as shipped, and the OTA plan records the bootstrap constraint (#661, #898).** The roadmap still described M1 as "current" and M2 as "next" after both had reached production in v1.58.1 and v1.59.0. `docs/firmware-ota-plan.md` §6 now records what actually blocks over-the-air updates today: since #582 the check route requires `variant` and `relay_gpio`, and the published 1.9.0 image contains neither, so a 1.9.0 unit is answered `{update:false}` forever and needs one USB flash to 1.10.0 — the first variant-aware release. The current signed channel (1.10.0, `gpio5`, sha256 `edfc1776…b5973`, `min_from_version` 1.9.0) and the fact that safe mode does not gate the update check are recorded with it.
+
 ## [1.59.0] - 2026-11-07
 
 ### Added

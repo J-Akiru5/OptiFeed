@@ -1,6 +1,7 @@
 import {
 	HEALTHY_VIEW,
 	buildHealthView,
+	deviceHealthNeedsAction,
 	deviceNeedsAttention,
 	faultsFromMask,
 	healthAlertFor,
@@ -332,5 +333,51 @@ describe("buildHealthView", () => {
 			now,
 		});
 		expect(view.lastRefusal).toBeNull();
+	});
+});
+
+describe("whether health needs action now", () => {
+	const base = {
+		safeMode: false,
+		faults: [],
+		abnormalResets: 0,
+		resetReasons: null,
+		resetReason: null,
+		since: null,
+		lastRefusal: null,
+		unavailable: null,
+	} as unknown as Parameters<typeof deviceHealthNeedsAction>[0];
+
+	it("treats a current fault or safe mode as actionable", () => {
+		expect(deviceHealthNeedsAction({ ...base, safeMode: true })).toBe(true);
+		expect(
+			deviceHealthNeedsAction({ ...base, faults: ["rtc"] as never }, new Date("2026-11-08T00:00:00Z")),
+		).toBe(true);
+	});
+
+	it("treats a refusal from the last few minutes as actionable", () => {
+		const now = new Date("2026-11-08T00:30:00Z");
+		const view = {
+			...base,
+			lastRefusal: { reason: "safe_mode", source: "scheduled", grams: 1052, at: new Date("2026-11-08T00:25:00Z") },
+		} as never;
+		expect(deviceHealthNeedsAction(view, now)).toBe(true);
+	});
+
+	it("does not keep glowing for a refusal whose cause has cleared", () => {
+		const now = new Date("2026-11-08T00:30:00Z");
+		const view = {
+			...base,
+			lastRefusal: { reason: "safe_mode", source: "scheduled", grams: 1052, at: new Date("2026-11-07T22:00:00Z") },
+		} as never;
+		// The field unit refused a dose in safe mode at 22:00 and cleared safe
+		// mode at 22:30; at 00:30 nothing is wrong, so nothing should glow.
+		expect(deviceHealthNeedsAction(view, now)).toBe(false);
+	});
+
+	it("stays actionable when the health read failed, regardless of time", () => {
+		expect(
+			deviceHealthNeedsAction({ ...base, unavailable: { checkedAt: new Date(), lastSuccessAt: null } } as never),
+		).toBe(true);
 	});
 });

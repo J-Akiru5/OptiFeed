@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `applyGrowthPlanForPond` is no longer a browser-callable server action that trusted the caller's `ownerId`; a static guard test prevents regressions.
 - Device-token reveals are audited and rate limited.
 
+## [Unreleased]
+
+### Fixed
+
+- **The device page shows the firmware version, and RTC health is stated explicitly (#661).** `getDeviceDetail` read `diag.version`, but every unit reports `diag.fw`, so the version row was blank on real hardware while fixture data masked it. The loader now reads `fw` with `version` as a fallback. RTC reads "OK" or "RTC not set" instead of falling back to "No RTC", which conflated an unset clock with a missing module — the distinction matters because an unset clock still feeds, just on a drifting schedule.
+
+- **A cleared safe-mode refusal no longer keeps the dashboard's health alert glowing (#729).** `deviceHealthNeedsAction` treated any refusal inside the 24-hour lookback as an active alert, so the field unit's 22:00 safe-mode refusal kept the alerts panel lit after safe mode cleared at 22:30 — hours after nothing was wrong. A refusal is now actionable for 15 minutes; it remains visible as history for the rest of the window, and `safeMode`/`faults` stay the authority on whether the unit needs attention now.
+
 ## [1.59.1] - 2026-11-08
 
 ### Changed

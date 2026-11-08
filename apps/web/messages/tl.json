@@ -614,6 +614,7 @@
 			"perFeeding": "Bawat pagpakain",
 			"rtc": "RTC",
 			"rtcOk": "OK",
+			"rtcNotSet": "Hindi nakatakda ang RTC",
 			"rtcUnknown": "Walang RTC",
 			"deviceMac": "Device ID (MAC)",
 			"openViewer": "Buksan ang 3D view",

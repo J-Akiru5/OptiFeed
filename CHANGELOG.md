@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `applyGrowthPlanForPond` is no longer a browser-callable server action that trusted the caller's `ownerId`; a static guard test prevents regressions.
 - Device-token reveals are audited and rate limited.
 
+## [Unreleased]
+
+### Added
+
+- **A verified OTA publish path with a rollback (#896).** Publishing used to be two hand-written uploads, which is how a channel and an image drift apart. `scripts/ota/publish-release.mjs` now verifies the envelope against the binary (size, sha256), the signature against the committed public key, and the manifest against the envelope (version, size, sha, key id, variant, relay pin); refuses a version that is not newer than the live channel; uploads; then downloads both objects again and re-checks them, so "published" means readable and identical. Every publish archives `channels/history/<version>.json`, and `--rollback <version>` repoints the fleet at an archived release after re-verifying its signature and stored image — no re-signing, no rebuild. `--dry-run` performs every check and uploads nothing. Eleven tests cover the guards in both directions.
+
 ## [1.59.1] - 2026-11-08
 
 ### Changed

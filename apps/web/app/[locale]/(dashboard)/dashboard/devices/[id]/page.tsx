@@ -33,7 +33,17 @@ export default async function DeviceDetailPage({
 			value: detail.feedLevelPercent === null ? "—" : `${Math.round(detail.feedLevelPercent)}%`,
 		},
 		{ icon: Wheat, label: t("perFeeding"), value: `${detail.gramsPerFeeding} g` },
-		{ icon: Radio, label: t("rtc"), value: detail.rtcOk ? t("rtcOk") : t("rtcUnknown") },
+		// RTC health is its own signal: a unit whose clock is unset still feeds,
+		// but its schedule drifts, so "not set" must read differently from
+		// "cannot tell" and from "OK".
+		{ icon: Radio, label: t("rtc"), value: detail.rtcOk ? t("rtcOk") : t("rtcNotSet") },
+		// Reported in every heartbeat as `diag.fw`; the loader used to read the
+		// wrong field, so this row rendered empty on every real unit.
+		{
+			icon: Cpu,
+			label: t("firmware"),
+			value: detail.firmwareVersion ? `v${detail.firmwareVersion}` : "—",
+		},
 		{ icon: Ruler, label: t("deviceMac"), value: detail.mac },
 	];
 

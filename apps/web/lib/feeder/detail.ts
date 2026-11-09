@@ -156,7 +156,15 @@ export async function getDeviceDetail(
 		// Prisma types the Json column as a loose JsonValue; the sanitizer at
 		// ingest guarantees the object shape, so this cast stays safe.
 		diag,
-		firmwareVersion: typeof diag?.version === "string" ? diag.version : null,
+		// The firmware reports its version as `diag.fw` on every heartbeat.
+		// `diag.version` is accepted as a fallback for older payloads; reading
+		// only that field left this null on every unit in the field.
+		firmwareVersion:
+			typeof diag?.fw === "string"
+				? diag.fw
+				: typeof diag?.version === "string"
+					? diag.version
+					: null,
 		// A stale RSSI is not a current signal, so the resolver drops it rather
 		// than letting a wall display show a bar from an hour ago.
 		signalDbm: resolveRssiDbm({

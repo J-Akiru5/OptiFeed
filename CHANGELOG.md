@@ -7,11 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `applyGrowthPlanForPond` is no longer a browser-callable server action that trusted the caller's `ownerId`; a static guard test prevents regressions.
 - Device-token reveals are audited and rate limited.
 
-## [Unreleased]
+## [1.60.0] - 2026-11-09
 
 ### Added
 
 - **A verified OTA publish path with a rollback (#896).** Publishing used to be two hand-written uploads, which is how a channel and an image drift apart. `scripts/ota/publish-release.mjs` now verifies the envelope against the binary (size, sha256), the signature against the committed public key, and the manifest against the envelope (version, size, sha, key id, variant, relay pin); refuses a version that is not newer than the live channel; uploads; then downloads both objects again and re-checks them, so "published" means readable and identical. Every publish archives `channels/history/<version>.json`, and `--rollback <version>` repoints the fleet at an archived release after re-verifying its signature and stored image — no re-signing, no rebuild. `--dry-run` performs every check and uploads nothing. Eleven tests cover the guards in both directions.
+
+### Changed
+
+- **Dependency refresh and the Biome 2.6.5 migration (#919–#923, #928).** Supabase, Next/React, Playwright, Biome and supporting packages were updated. The Biome config was migrated to v2 while preserving the v1 file scope, import sort and a11y rule set; the combined first-load JS budgets were re-baselined from the CI measurements with the documented 2% headroom.
+- **Dashboard notifications now run inside the request-scoped tenant transaction (#711).** The read path resolves the member org scope and applies the RLS context before querying. RLS is still not enforced: the app connection remains `postgres` with `BYPASSRLS`, and the remaining slices and the role switch stay tracked in the issue.
 
 ### Fixed
 
@@ -19,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **A cleared safe-mode refusal no longer keeps the dashboard's health alert glowing (#729).** `deviceHealthNeedsAction` treated any refusal inside the 24-hour lookback as an active alert, so the field unit's 22:00 safe-mode refusal kept the alerts panel lit after safe mode cleared at 22:30 — hours after nothing was wrong. A refusal is now actionable for 15 minutes; it remains visible as history for the rest of the window, and `safeMode`/`faults` stay the authority on whether the unit needs attention now.
 
+- **The dashboard welcome greeting is back above the alerts in the right rail (#918).** The actionable alert cards now sit second, directly below the greeting.
 
 ## [1.59.1] - 2026-11-08
 

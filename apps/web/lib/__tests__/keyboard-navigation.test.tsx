@@ -46,6 +46,47 @@ afterEach(() => {
 	document.body.innerHTML = "";
 });
 
+function FieldHarness() {
+	const [value, setValue] = useState("99");
+	return (
+		<>
+			<CalibrationNumberField
+				id="hopper-full"
+				label="Full distance"
+				unit="cm"
+				value={value}
+				onValueChange={setValue}
+				min={0}
+				max={100}
+				decimals={0}
+				step={1}
+			/>
+			<button type="button">After</button>
+		</>
+	);
+}
+
+function ModalHarness() {
+	const [open, setOpen] = useState(false);
+	return (
+		<>
+			<button type="button" onClick={() => setOpen(true)}>
+				Edit cycle
+			</button>
+			<Modal
+				open={open}
+				title="Edit cycle"
+				description="Change the stocking details for this batch."
+				onClose={() => setOpen(false)}
+			>
+				<label htmlFor="cycle-label">Cycle label</label>
+				<input id="cycle-label" />
+				<button type="button">Save plan</button>
+			</Modal>
+		</>
+	);
+}
+
 describe("pond switcher", () => {
 	const PONDS = [
 		{ id: "pond-1", name: "Pond One" },
@@ -155,26 +196,6 @@ describe("chat composer", () => {
 });
 
 describe("calibration steppers", () => {
-	function FieldHarness() {
-		const [value, setValue] = useState("99");
-		return (
-			<>
-				<CalibrationNumberField
-					id="hopper-full"
-					label="Full distance"
-					unit="cm"
-					value={value}
-					onValueChange={setValue}
-					min={0}
-					max={100}
-					decimals={0}
-					step={1}
-				/>
-				<button type="button">After</button>
-			</>
-		);
-	}
-
 	it("reaches both steppers by Tab and steps with Enter and Space", async () => {
 		const user = userEvent.setup();
 		render(<FieldHarness />);
@@ -207,27 +228,6 @@ describe("calibration steppers", () => {
 });
 
 describe("harvest modal", () => {
-	function ModalHarness() {
-		const [open, setOpen] = useState(false);
-		return (
-			<>
-				<button type="button" onClick={() => setOpen(true)}>
-					Edit cycle
-				</button>
-				<Modal
-					open={open}
-					title="Edit cycle"
-					description="Change the stocking details for this batch."
-					onClose={() => setOpen(false)}
-				>
-					<label htmlFor="cycle-label">Cycle label</label>
-					<input id="cycle-label" />
-					<button type="button">Save plan</button>
-				</Modal>
-			</>
-		);
-	}
-
 	it("moves focus into the dialog, contains Tab, and Escape restores the trigger", async () => {
 		const user = userEvent.setup();
 		render(<ModalHarness />);

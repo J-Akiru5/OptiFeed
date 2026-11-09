@@ -55,9 +55,9 @@ function FeedTimeList({
 
 	return (
 		<ol aria-label={label} data-testid={testId} className="flex flex-wrap gap-2">
-			{times.map((time, index) => (
+			{times.map((time) => (
 				<li
-					key={`${index}-${time}`}
+					key={time}
 					data-testid="feed-time-slot"
 					className="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold tabular-nums text-gray-700 shadow-sm ring-1 ring-gray-100 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-700/60"
 				>

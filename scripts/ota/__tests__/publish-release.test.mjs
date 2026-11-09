@@ -6,7 +6,7 @@
  */
 
 import assert from "node:assert/strict";
-import { generateKeyPairSync, sign, createHash } from "node:crypto";
+import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import { describe, it } from "node:test";
 import { compareVersions, validateChannel, verifyChannelSignature } from "../publish-release.mjs";
 
@@ -65,7 +65,10 @@ describe("channel validation", () => {
 	});
 
 	it("refuses a storage path outside releases/", () => {
-		const problems = validateChannel(envelope({ envelope: { storage_path: "../secrets.bin" } }), binary);
+		const problems = validateChannel(
+			envelope({ envelope: { storage_path: "../secrets.bin" } }),
+			binary,
+		);
 		assert.ok(problems.some((p) => p.includes("storage_path")));
 	});
 

@@ -81,17 +81,22 @@ export function validateChannel(channel, binary) {
 	if (typeof channel.storage_path !== "string" || !channel.storage_path.startsWith("releases/")) {
 		problems.push("storage_path must start with releases/");
 	}
-	if (!Number.isInteger(channel.size) || channel.size <= 0) problems.push("size must be a positive integer");
+	if (!Number.isInteger(channel.size) || channel.size <= 0)
+		problems.push("size must be a positive integer");
 	if (typeof channel.sha256 !== "string" || !SHA256.test(channel.sha256)) {
 		problems.push("sha256 must be 64 lowercase hex characters");
 	}
-	if (channel.key_id !== "primary" && channel.key_id !== "spare") problems.push("key_id must be primary or spare");
-	if (!Array.isArray(channel.targets) && channel.targets !== "*") problems.push("targets must be * or an array of MACs");
+	if (channel.key_id !== "primary" && channel.key_id !== "spare")
+		problems.push("key_id must be primary or spare");
+	if (!Array.isArray(channel.targets) && channel.targets !== "*")
+		problems.push("targets must be * or an array of MACs");
 
 	if (binary) {
 		const actualSha = createHash("sha256").update(binary).digest("hex");
-		if (channel.size !== binary.length) problems.push(`size ${channel.size} does not match binary ${binary.length}`);
-		if (channel.sha256 !== actualSha) problems.push(`sha256 ${channel.sha256} does not match binary ${actualSha}`);
+		if (channel.size !== binary.length)
+			problems.push(`size ${channel.size} does not match binary ${binary.length}`);
+		if (channel.sha256 !== actualSha)
+			problems.push(`sha256 ${channel.sha256} does not match binary ${actualSha}`);
 	}
 
 	let manifest = null;
@@ -101,10 +106,13 @@ export function validateChannel(channel, binary) {
 		problems.push("manifest is not valid JSON");
 	}
 	if (manifest) {
-		if (manifest.version !== channel.version) problems.push("manifest.version disagrees with the envelope");
+		if (manifest.version !== channel.version)
+			problems.push("manifest.version disagrees with the envelope");
 		if (manifest.size !== channel.size) problems.push("manifest.size disagrees with the envelope");
-		if (manifest.sha256 !== channel.sha256) problems.push("manifest.sha256 disagrees with the envelope");
-		if (manifest.key_id !== channel.key_id) problems.push("manifest.key_id disagrees with the envelope");
+		if (manifest.sha256 !== channel.sha256)
+			problems.push("manifest.sha256 disagrees with the envelope");
+		if (manifest.key_id !== channel.key_id)
+			problems.push("manifest.key_id disagrees with the envelope");
 		if (channel.variant !== undefined && manifest.variant !== channel.variant) {
 			problems.push("manifest.variant disagrees with the envelope");
 		}
@@ -168,7 +176,8 @@ async function putObject(base, key, bucket, path, body, contentType) {
 		},
 		body,
 	});
-	if (!response.ok) throw new PublishError(`upload ${path}: HTTP ${response.status} ${await response.text()}`);
+	if (!response.ok)
+		throw new PublishError(`upload ${path}: HTTP ${response.status} ${await response.text()}`);
 }
 
 function loadPublicKey(keyId) {
@@ -199,17 +208,20 @@ async function main(argv) {
 
 	if (rollbackTo && rollbackTo !== true) {
 		const history = await getObject(base, key, bucket, `channels/history/${rollbackTo}.json`);
-		if (!history) throw new PublishError(`no archived channel for ${rollbackTo}; cannot roll back to it`);
+		if (!history)
+			throw new PublishError(`no archived channel for ${rollbackTo}; cannot roll back to it`);
 		const channel = JSON.parse(history.toString("utf8"));
 		const problems = validateChannel(channel);
-		if (problems.length) throw new PublishError(`archived channel is invalid: ${problems.join("; ")}`);
+		if (problems.length)
+			throw new PublishError(`archived channel is invalid: ${problems.join("; ")}`);
 		if (!verifyChannelSignature(channel, loadPublicKey(channel.key_id))) {
 			throw new PublishError("archived channel signature does not verify");
 		}
 		const image = await getObject(base, key, bucket, channel.storage_path);
 		if (!image) throw new PublishError(`${channel.storage_path} is missing; cannot roll back`);
 		const sha = createHash("sha256").update(image).digest("hex");
-		if (sha !== channel.sha256) throw new PublishError(`stored image hash ${sha} does not match the archived channel`);
+		if (sha !== channel.sha256)
+			throw new PublishError(`stored image hash ${sha} does not match the archived channel`);
 		if (dryRun) {
 			console.log(`[ota:publish] dry run: would repoint stable.json at ${channel.version}`);
 			return;
@@ -231,7 +243,9 @@ async function main(argv) {
 		throw new PublishError(`refusing to publish:\n${problems.map((p) => `  - ${p}`).join("\n")}`);
 	}
 	if (!verifyChannelSignature(channel, loadPublicKey(channel.key_id))) {
-		throw new PublishError(`signature does not verify against the committed "${channel.key_id}" public key`);
+		throw new PublishError(
+			`signature does not verify against the committed "${channel.key_id}" public key`,
+		);
 	}
 
 	const current = await getObject(base, key, bucket, "channels/stable.json");
@@ -259,17 +273,26 @@ async function main(argv) {
 	const readBack = await getObject(base, key, bucket, channel.storage_path);
 	const readBackSha = readBack ? createHash("sha256").update(readBack).digest("hex") : null;
 	if (readBackSha !== channel.sha256) {
-		throw new PublishError(`uploaded image read-back hash ${readBackSha} does not match ${channel.sha256}`);
+		throw new PublishError(
+			`uploaded image read-back hash ${readBackSha} does not match ${channel.sha256}`,
+		);
 	}
 
-	await putObject(base, key, bucket, `channels/history/${channel.version}.json`, channelBuffer, "application/json");
+	await putObject(
+		base,
+		key,
+		bucket,
+		`channels/history/${channel.version}.json`,
+		channelBuffer,
+		"application/json",
+	);
 	await publishChannel(base, key, bucket, channelBuffer, channel.version);
 	console.log(
 		`[ota:publish] done: ${channel.version} is live for ${Array.isArray(channel.targets) ? "the listed units" : "all units"}`,
 	);
 }
 
-if (process.argv[1] && process.argv[1].endsWith("publish-release.mjs")) {
+if (process.argv[1]?.endsWith("publish-release.mjs")) {
 	main(process.argv.slice(2)).catch((error) => {
 		console.error(`[ota:publish] ${error.message}`);
 		process.exitCode = error instanceof PublishError ? error.code : 1;

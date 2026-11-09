@@ -49,12 +49,7 @@ function factor(overrides: Record<string, unknown> = {}) {
 }
 
 function client(
-	overrides: {
-		list?: unknown;
-		enroll?: unknown;
-		verify?: unknown;
-		unenroll?: unknown;
-	} = {},
+	overrides: { list?: unknown; enroll?: unknown; verify?: unknown; unenroll?: unknown } = {},
 ) {
 	const mfa = {
 		listFactors: vi.fn(async () => overrides.list ?? { data: { all: [] }, error: null }),

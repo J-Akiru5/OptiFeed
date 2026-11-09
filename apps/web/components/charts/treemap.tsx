@@ -134,8 +134,8 @@ function TreemapTable({
 				</tr>
 			</thead>
 			<tbody>
-				{rows.map((row, index) => (
-					<tr key={`${row.path}-${index}`}>
+				{rows.map((row) => (
+					<tr key={row.path}>
 						<th scope="row">{row.path}</th>
 						<td>{row.value}</td>
 					</tr>

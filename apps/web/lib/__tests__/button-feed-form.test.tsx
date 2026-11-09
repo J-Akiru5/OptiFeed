@@ -42,11 +42,7 @@ function makeReport(overrides: Partial<ButtonFeedFormReport> = {}): ButtonFeedFo
 }
 
 function renderForm(
-	options: {
-		report?: ButtonFeedFormReport;
-		canWrite?: boolean;
-		result?: SaveResult;
-	} = {},
+	options: { report?: ButtonFeedFormReport; canWrite?: boolean; result?: SaveResult } = {},
 ) {
 	const {
 		report = makeReport(),

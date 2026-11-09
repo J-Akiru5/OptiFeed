@@ -377,13 +377,7 @@ export function TableFrame({
 }
 
 /** One `<li>` in the mobile card list that replaces a wide table below `md`. */
-export function MobileCard({
-	children,
-	className,
-}: {
-	children: ReactNode;
-	className?: string;
-}) {
+export function MobileCard({ children, className }: { children: ReactNode; className?: string }) {
 	return <li className={cn(CARD, "min-w-0 space-y-3 p-4", className)}>{children}</li>;
 }
 

@@ -28,11 +28,7 @@ interface SaveResult {
 }
 
 function renderForm(
-	options: {
-		currentCapG?: number | null;
-		canWrite?: boolean;
-		result?: SaveResult;
-	} = {},
+	options: { currentCapG?: number | null; canWrite?: boolean; result?: SaveResult } = {},
 ) {
 	const { currentCapG = 2000, canWrite = true, result = { success: true } } = options;
 	const saveAction = vi.fn(async (_deviceId: string, _dailyCapG: number) => result);

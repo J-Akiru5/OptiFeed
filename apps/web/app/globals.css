@@ -673,13 +673,19 @@
    never takes its click. */
 @keyframes help-ring-pulse {
 	0% {
-		box-shadow: 0 0 0 3px rgba(232, 90, 42, 0.95), 0 0 0 8px rgba(232, 90, 42, 0.3);
+		box-shadow:
+			0 0 0 3px rgba(232, 90, 42, 0.95),
+			0 0 0 8px rgba(232, 90, 42, 0.3);
 	}
 	70% {
-		box-shadow: 0 0 0 3px rgba(232, 90, 42, 0.95), 0 0 0 16px rgba(232, 90, 42, 0);
+		box-shadow:
+			0 0 0 3px rgba(232, 90, 42, 0.95),
+			0 0 0 16px rgba(232, 90, 42, 0);
 	}
 	100% {
-		box-shadow: 0 0 0 3px rgba(232, 90, 42, 0.95), 0 0 0 8px rgba(232, 90, 42, 0.3);
+		box-shadow:
+			0 0 0 3px rgba(232, 90, 42, 0.95),
+			0 0 0 8px rgba(232, 90, 42, 0.3);
 	}
 }
 

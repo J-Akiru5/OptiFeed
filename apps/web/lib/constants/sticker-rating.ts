@@ -170,10 +170,7 @@ export function parseStickerRatingParams(
  * `voltage` still uses the saved current.
  */
 export function resolveStickerRating(
-	input: {
-		override?: StickerRatingOverride | null;
-		saved?: StickerRatingValues | null;
-	} = {},
+	input: { override?: StickerRatingOverride | null; saved?: StickerRatingValues | null } = {},
 ): ResolvedStickerRating {
 	const override = input.override ?? {};
 	const saved = input.saved ?? null;

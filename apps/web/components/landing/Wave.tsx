@@ -28,7 +28,11 @@ function Crest({
 	variant,
 	opacity,
 	seconds,
-}: { variant: "a" | "b"; opacity: number; seconds: number }) {
+}: {
+	variant: "a" | "b";
+	opacity: number;
+	seconds: number;
+}) {
 	return (
 		<svg
 			viewBox="0 0 2880 120"

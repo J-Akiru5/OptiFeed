@@ -14,13 +14,7 @@ import { useState } from "react";
  * the sheet are one component so the sheet can hand focus back to the control
  * that opened it.
  */
-export function HelpButton({
-	audience,
-	className,
-}: {
-	audience: HelpRole;
-	className?: string;
-}) {
+export function HelpButton({ audience, className }: { audience: HelpRole; className?: string }) {
 	const t = useTranslations("help");
 	const [open, setOpen] = useState(false);
 

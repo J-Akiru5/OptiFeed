@@ -36,13 +36,7 @@ export function useElapsedNow(intervalMs: number = TICK_MS): number {
 	return now;
 }
 
-export function LastSeenValue({
-	at,
-	className,
-}: {
-	at: Date | null;
-	className?: string;
-}) {
+export function LastSeenValue({ at, className }: { at: Date | null; className?: string }) {
 	const now = useElapsedNow();
 	return (
 		<span className={className} suppressHydrationWarning>

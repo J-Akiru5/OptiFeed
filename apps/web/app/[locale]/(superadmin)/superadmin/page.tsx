@@ -74,6 +74,29 @@ function settledValue<T>(result: PromiseSettledResult<T>): T | null {
 	return null;
 }
 
+function AttentionCard({
+	title,
+	action,
+	empty,
+	children,
+}: {
+	title: string;
+	action?: ReactNode;
+	empty: boolean;
+	children: ReactNode;
+}) {
+	return (
+		<Card className="flex h-full flex-col">
+			<SectionTitle title={title} actions={action} />
+			{empty ? (
+				<p className="px-5 py-6 text-sm text-[#3D5568] dark:text-slate-400">{children}</p>
+			) : (
+				<ul className="divide-y divide-gray-100 dark:divide-[#24304A]">{children}</ul>
+			)}
+		</Card>
+	);
+}
+
 export default async function SuperadminOverviewPage({
 	searchParams,
 }: {
@@ -300,27 +323,6 @@ export default async function SuperadminOverviewPage({
 				{t("rangeHint")}
 			</p>
 		</div>
-	);
-
-	const AttentionCard = ({
-		title,
-		action,
-		empty,
-		children,
-	}: {
-		title: string;
-		action?: ReactNode;
-		empty: boolean;
-		children: ReactNode;
-	}) => (
-		<Card className="flex h-full flex-col">
-			<SectionTitle title={title} actions={action} />
-			{empty ? (
-				<p className="px-5 py-6 text-sm text-[#3D5568] dark:text-slate-400">{children}</p>
-			) : (
-				<ul className="divide-y divide-gray-100 dark:divide-[#24304A]">{children}</ul>
-			)}
-		</Card>
 	);
 
 	return (

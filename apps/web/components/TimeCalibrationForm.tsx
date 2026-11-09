@@ -10,7 +10,10 @@ import { toast } from "sonner";
 export function TimeCalibrationForm({
 	deviceId,
 	canWrite = true,
-}: { deviceId: string; canWrite?: boolean }) {
+}: {
+	deviceId: string;
+	canWrite?: boolean;
+}) {
 	const t = useTranslations("dashboard.timeCalibration");
 	// Start empty on both server and client, then fill the local wall time after
 	// hydration. Computing it during render would use the server's timezone on

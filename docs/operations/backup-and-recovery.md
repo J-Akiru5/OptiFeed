@@ -7,16 +7,36 @@ point and points here for the full drill.
 
 ## Document status
 
-**No restore drill has been executed.** The values in section 4 are decisions, not measurements.
-Everything that has not been verified is marked as unverified below rather than described as if
-it worked.
+**The CI logical dump/restore drill has executed and passes. The provider-level drill has not.**
+[`restore-drill.yml`](../../.github/workflows/restore-drill.yml) takes a logical dump, drops the
+schema, restores it, and verifies row counts, schema objects and a Prisma round-trip against a
+disposable PostgreSQL container. That proves **our own** dump/restore path, not that Supabase keeps
+a recoverable backup or PITR copy. The provider side still requires owner action (§4.1). The
+values in section 4 are decisions, not measurements. Everything that has not been verified is
+marked as unverified below rather than described as if it worked.
+
+Recent successful runs (`gh run list --workflow restore-drill.yml`, checked 2026-11-09):
+
+| Run | Date (UTC) | Branch | Trigger | Result |
+| --- | --- | --- | --- | --- |
+| [`42609383341`](https://github.com/J-Akiru5/OptiFeed/actions/runs/42609383341) | 2026-11-09 | `staging` | `schedule` | success |
+| [`42351515135`](https://github.com/J-Akiru5/OptiFeed/actions/runs/42351515135) | 2026-11-07 | `main` | `push` | success |
+| [`42350846591`](https://github.com/J-Akiru5/OptiFeed/actions/runs/42350846591) | 2026-11-07 | `staging` | `push` | success |
+| [`42349130989`](https://github.com/J-Akiru5/OptiFeed/actions/runs/42349130989) | 2026-11-07 | `develop` | `push` | success |
+| [`41484877376`](https://github.com/J-Akiru5/OptiFeed/actions/runs/41484877376) | 2026-11-02 | `main` | `push` | success |
+| [`41480567986`](https://github.com/J-Akiru5/OptiFeed/actions/runs/41480567986) | 2026-11-02 | `staging` | `push` | success |
+
+The workflow schedules a weekly run on the default branch (`staging`) and also runs on a push that
+changes the drill files. [`restore-drill.md`](./restore-drill.md) explains exactly what it covers
+and what it deliberately does not.
 
 | Item | State |
 | --- | --- |
 | Policy and procedure written | 2026-10-29, targeting v1.30.0 |
-| Provider backup configuration confirmed | **No** — open item H7 in `docs/OPTIFEED-INDUSTRY-GRADE-PLAN v3.md` |
-| First restore drill executed | **No** — the record template `restore-drill-record.md` is empty |
-| RPO/RTO measured | **No** — see section 4 |
+| CI logical dump/restore drill (`restore-drill.yml`) | **Executed and passing** — recent runs above |
+| Provider backup/PITR configuration verified | **Not verified** — owner action required (§4.1); open item H7 in `docs/OPTIFEED-INDUSTRY-GRADE-PLAN v3.md` |
+| Provider-level restore drill executed | **No** — the record template `restore-drill-record.md` is empty, and the CI logical drill does not substitute for it |
+| RPO/RTO measured | **No** — see section 4; the CI drill's restore time is a smoke test, not an RTO |
 | Restore performed against production | **Never**, and it must not happen without the owner's explicit decision (mission decision E4) |
 
 Scope: the production Supabase project (`xjjnkikgkraixlfhhvoh`, Singapore) that serves
@@ -45,15 +65,18 @@ database and one recovery target**; a staging incident is a production incident.
 ## 2. What is backed up today
 
 "Verified" means someone has observed the mechanism working for this project. Nothing in this
-table has been verified end to end; the repository has no backup automation and no drill record.
+provider-backup table has been verified end to end. The repository does have CI automation for
+**our own** logical dump/restore ([`restore-drill.yml`](../../.github/workflows/restore-drill.yml),
+Document status), but that does not verify provider backups, and the provider-level drill record
+is empty.
 
 | Asset | Where it lives | Mechanism | Cadence | Verified? |
 | --- | --- | --- | --- | --- |
-| Postgres data: all Prisma tables in the `public` schema (farms, ponds, cycles, biomass logs, feed events, devices, memberships, audit rows, and the rest) | Supabase project `xjjnkikgkraixlfhhvoh` | Supabase provider backups, if the project's plan includes them | Assumed daily; **plan not confirmed** | **No** |
+| Postgres data: all Prisma tables in the `public` schema (farms, ponds, cycles, biomass logs, feed events, devices, memberships, audit rows, and the rest) | Supabase project `xjjnkikgkraixlfhhvoh` | Supabase provider backups, if the project's plan includes them | Assumed daily; **plan/PITR not verified (§4.1)** | **No** — provider side not verified; the CI drill covers only our logical dump/restore |
 | Postgres schema history | Same database, `_prisma_migrations` | Carried inside the same database backup; migrations themselves are in `apps/web/prisma/migrations/` (38 at v1.29.0) | Continuous in Git | Yes in Git; backup coverage follows the row above |
-| Supabase Auth identities (`auth.users`, password hashes, provider links) | Supabase Auth schema | Only if the provider backup includes the auth schema. The application's own SQL export (Backup page, issue #353) now carries a **minimal identity manifest** — `id`, `supabaseId`, `email`, `farmId`, role and organization links — so a logical restore can recreate the identities and re-link them (§7.5). It never carries credentials. Earlier JSON table exports **did not include `auth.users`** (`docs/login-domain-rename-plan.md`, rollback row) | Follows the provider backup | **No for provider backups; the manifest is the app-level mitigation** |
+| Supabase Auth identities (`auth.users`, password hashes, provider links) | Supabase Auth schema | Only if the provider backup includes the auth schema. The application's own SQL export (Backup page, issue #353) now carries a **minimal identity manifest** — `id`, `supabaseId`, `email`, `farmId`, role and organization links — so a logical restore can recreate the identities and re-link them (§7.5). It never carries credentials. Earlier JSON table exports **did not include `auth.users`** (`docs/login-domain-rename-plan.md`, rollback row) | Follows the provider backup | **Provider backup coverage not verified; the manifest is the app-level mitigation** |
 | Pre-migration snapshot | Taken by the owner before a migration | Manual `pg_dump`, or JSON table exports. Historical exports were written to `C:/Users/Lenovo/Documents/PakaonAI/db-backups/` outside the repository | Event-driven, not scheduled | Partly: exports are recorded in mission logs; no full `pg_dump` is recorded |
-| Storage: `avatars` bucket (optional profile photos) | Supabase Storage | Provider backup coverage unconfirmed; the objects themselves are the only guaranteed copy | Unknown | **No** |
+| Storage: `avatars` bucket (optional profile photos) | Supabase Storage | Provider backup coverage **not verified** (§4.1); the objects themselves are the only guaranteed copy | Unknown | **No** |
 | Storage: `firmware` bucket (OTA binaries) | Supabase Storage | No archival copy recorded; binaries are rebuildable from source and the offline signing key | On release | **No** |
 | Configuration: Vercel environment variables (`DATABASE_URL`, `DIRECT_URL`, Supabase keys, device token, AI keys) | Vercel project `opti-feed-web`, scoped to Production and Preview | None. The names are listed in `docs/deployment-workflow.md` §6; values are held by the owner | Manual | Values are owner-held only |
 | Configuration: database extensions, `pg_cron` schedules, Vault secrets | Supabase | Job definitions are in `docs/sql/*.sql`; Vault secrets are not in Git | Manual | Partly |
@@ -62,9 +85,9 @@ table has been verified end to end; the repository has no backup automation and 
 
 ### What this means in practice
 
-- The only mechanism with a cadence anyone can state is the provider backup. If the project's
-  plan does not include automated backups, the effective RPO is **"since the last manual
-  dump"**, which is unbounded.
+- The only mechanism with a cadence anyone can state is the assumed provider backup. If the
+  project's plan does not include automated backups — still unverified, §4.1 — the effective RPO
+  is **"since the last manual dump"**, which is unbounded.
 - A restore of Postgres alone is not a restored service: the app also needs the matching
   environment variables, the Auth identities that its `User.supabaseId` values point at, and the
   Storage objects that `User.avatarPath` names.
@@ -77,12 +100,12 @@ table has been verified end to end; the repository has no backup automation and 
 ## 3. Restore paths
 
 There are three, in descending order of preference. Which ones the provider actually offers has
-not yet been confirmed; the first drill records that.
+not yet been verified for this project; §4.1 and the provider-level drill record that.
 
 | Path | What it restores | Limits |
 | --- | --- | --- |
-| **Provider point-in-time recovery (PITR)** | The database to a chosen timestamp | Paid add-on on most plans; may create a new project rather than restoring in place. `docs/runbook.md` §4 describes this as preferred and as creating a new project; that description is **unverified for this project** and must be checked in the drill. |
-| **Provider daily backup restore** | The database to the most recent daily snapshot | Granularity is a day; a restore may create a new project. Whether Storage and Auth are included is plan-dependent and unconfirmed. |
+| **Provider point-in-time recovery (PITR)** | The database to a chosen timestamp | Paid add-on on most plans; may create a new project rather than restoring in place. `docs/runbook.md` §4 describes this as preferred and as creating a new project; that description is **unverified for this project** and must be checked in §4.1 and the provider-level drill. |
+| **Provider daily backup restore** | The database to the most recent daily snapshot | Granularity is a day; a restore may create a new project. Whether Storage and Auth are included is plan-dependent and not verified for this project (§4.1). |
 | **Logical restore** (`pg_dump` / `pg_restore`) | Whatever the dump contains — schema and data as dumped | Only as fresh as the last manual dump; `auth.users` is absent unless explicitly dumped; large objects and Storage are not included. |
 
 Because every path may produce a **new** project rather than repairing the old one, a real
@@ -94,8 +117,8 @@ step is part of the RTO, not an afterthought.
 ## 4. RPO and RTO — decisions
 
 These numbers are chosen, not observed. They exist so that an incident has a target to measure
-against and so that "is this acceptable?" has an answer. The first drill measures the real
-duration; after it, either the procedure improves or the target is re-decided in writing.
+against and so that "is this acceptable?" has an answer. The first provider-level drill measures
+the real duration; after it, either the procedure improves or the target is re-decided in writing.
 
 ### RPO: 24 hours
 
@@ -103,9 +126,9 @@ duration; after it, either the procedure improves or the target is re-decided in
 
 Rationale:
 
-1. **It is what the mechanism can deliver.** Provider backups are daily, and no WAL archiving,
-   PITR window, or scheduled dump has been confirmed. A 1-hour RPO would be a claim the system
-   cannot support today.
+1. **It is what the mechanism can deliver.** Provider backups are assumed daily, and no WAL
+   archiving, PITR window, or scheduled dump has been verified for this project (§4.1). A 1-hour
+   RPO would be a claim the system cannot support today.
 2. **The data is re-enterable at that horizon.** Biomass samples are taken on a weekly cadence
    and recorded on data sheets; daily feed totals are reconciled against the feeder's own
    records and the operator's log. Losing one day is recoverable by re-entry. Losing a week is
@@ -116,9 +139,9 @@ Rationale:
 4. **The blast radius is one project.** There is no second database to reconcile. Restoring the
    one project to a known-good point restores the whole service.
 
-**Condition:** this target only holds if automated daily backups actually exist. If the first
-drill finds that they do not, the effective RPO becomes "since the last manual dump" and this
-section must be amended, not quietly ignored.
+**Condition:** this target only holds if automated daily backups actually exist. If §4.1 or the
+first provider-level drill finds that they do not, the effective RPO becomes "since the last
+manual dump" and this section must be amended, not quietly ignored.
 
 ### RTO: 24 hours
 
@@ -155,6 +178,35 @@ in section 10, not an implicit "zero".
 longer than a day in the drill, real customer data with contractual obligations, or the isolation
 of staging onto its own database (which would add a second recovery target).
 
+### 4.1 Provider backup / PITR verification — owner action required
+
+**Status: Not verified.** The CI drill cited in Document status proves that we can rebuild the
+schema and data from a logical dump we took ourselves. It does **not** prove that Supabase retains
+a backup or PITR window for project `xjjnkikgkraixlfhhvoh`; the workflow never talks to Supabase
+(see [`restore-drill.md`](./restore-drill.md) §Scope). Only the owner, who holds the Supabase
+organization credentials, can fill this table.
+
+**Where to check:** **Supabase Dashboard → project `xjjnkikgkraixlfhhvoh` → Database → Backups**.
+That page shows the plan's retention window and whether Point-in-Time Recovery is enabled. PITR is
+a paid add-on and is off on the free tier. The connection string in `apps/web/.env` points at the
+Supabase pooler, so the project above is the one that holds the data, not Vercel.
+
+Record the observed values here; do not infer them from another project or from the plan's
+marketing page.
+
+| Field | Value | Evidence / notes |
+| --- | --- | --- |
+| Supabase plan name | **Not verified** | Record the plan shown for this project, not the account's billing label |
+| PITR enabled? (yes / no) | **Not verified** | Record what Database → Backups shows |
+| Backup retention (days) | **Not verified** | Provider retention setting; compare with the 30-day Privacy Policy maximum (§5) |
+| Earliest restorable timestamp | **Not verified** | The oldest point the dashboard offers today |
+| Date checked (UTC) | **Not verified** | Name the checker; this is the evidence date |
+
+Do not mark any row verified without a dashboard value and a date. Until the table is filled, treat
+the provider path as unavailable; the safety net is the pre-migration manual dump (§2), with Plan B
+(§6) as the drill fallback. When the table is filled, also update `restore-drill-record.md` §2 if a
+provider-level drill is run.
+
 ---
 
 ## 5. Retention
@@ -168,7 +220,7 @@ not a licence to keep data indefinitely.
 
 | Data | Retention | Basis | Enforced by |
 | --- | --- | --- | --- |
-| Provider database backups | **30 days maximum** | Privacy Policy retention table | Provider retention setting; confirm it in the drill and record the actual value |
+| Provider database backups | **30 days maximum** | Privacy Policy retention table | Provider retention setting; **not verified** — confirm it in §4.1 and the provider-level drill, then record the actual value |
 | Pre-migration manual dumps and exports | **30 days** after the migration is verified, then deleted | Privacy Policy; data minimisation | Owner, manually; record the deletion |
 | Restored scratch project or local dump used for a drill | **Deleted at the end of the drill**, same day | Data minimisation | Operator, recorded in the drill record |
 | `ErrorEvent` rows | **30 days** | This document, section 5.1 | Scheduled purge; not yet implemented (see 5.1) |
@@ -223,11 +275,11 @@ the operator is available, the drill still proceeds and the record is reviewed a
 
 ### Cadence
 
-- **First drill: before the v1.30.0 production deployment**, because that release carries the
-  additive `ErrorEvent` migration and `CONTRIBUTING.md` §9 requires a backup before a release
-  with migrations.
-- Then **once per semester**, and after any change to the Supabase plan, the backup mechanism,
-  or the restore procedure.
+- **First provider-level drill: before the v1.30.0 production deployment**, because that release
+  carries the additive `ErrorEvent` migration and `CONTRIBUTING.md` §9 requires a backup before a
+  release with migrations. The CI logical drill does not replace this.
+- Then **once per semester** for the provider-level drill, and after any change to the Supabase
+  plan, the backup mechanism, or the restore procedure.
 - Every drill gets its own filled record. A drill with no record did not happen.
 
 ### Plan A — provider restore into a disposable project (preferred)
@@ -245,8 +297,8 @@ real recovery would use.
    are read-only queries; run them against production through the SQL editor.
 3. Open **Database → Backups** and record what is actually offered: the latest backup timestamp,
    the backup type, whether PITR is available, and the retention setting. **This answers the open
-   H7 question, whatever the outcome.** If no automated backup exists, stop Plan A, switch to
-   Plan C, and record that finding as the drill's most important result.
+   H7 question, whatever the outcome.** Record the values in §4.1. If no automated backup exists,
+   stop Plan A, switch to Plan C, and record that finding as the drill's most important result.
 4. Choose the **recovery point**: normally the most recent completed backup. Record its
    timestamp before restoring.
 
@@ -530,9 +582,11 @@ reading this section.
 
 ## 9. What to record afterwards
 
-Every drill and every production restore gets a filled copy of
+Every provider-level drill and every production restore gets a filled copy of
 [`restore-drill-record.md`](./restore-drill-record.md), committed to this folder as
-`restore-drill-YYYY-MM-DD.md`. The record is evidence; a summary in a chat message is not.
+`restore-drill-YYYY-MM-DD.md`. The record is evidence; a summary in a chat message is not. The CI
+logical drill's evidence is separate: the workflow run URL plus its uploaded
+`restore-drill-report.md`, as listed in Document status.
 
 The record must include the operator, the recovery point, both project refs, the measured
 duration, every verification result including the ones that were not run, what was deleted during
@@ -545,14 +599,17 @@ the procedure or amend section 4 — do not leave the target and the evidence di
 
 These are real and current. None of them is fixed by writing this document.
 
-1. **The drill has never been executed.** There is no measured restore time and no proof that
-   any backup is restorable.
-2. **Provider backup configuration is unconfirmed.** `docs/OPTIFEED-INDUSTRY-GRADE-PLAN v3.md`
+1. **The provider-level drill has never been executed.** The CI logical dump/restore drill runs and
+   passes (Document status), but it uses a synthetic fixture and a disposable container: it cannot
+   prove that a Supabase backup or PITR point is restorable, and it measures a smoke-test restore
+   time, not a production RTO.
+2. **Provider backup/PITR configuration is not verified.** `docs/OPTIFEED-INDUSTRY-GRADE-PLAN v3.md`
    still lists H7 as open: "Confirm backups and do one restore test". The Privacy Policy says
-   backups exist; that is a commitment, not a verification.
-3. **PITR is described as available in `docs/runbook.md` §4 but has never been confirmed for
-   this project.** The plan and the retention setting are unknown. Treat that sentence as an
-   aspiration until the drill records what the dashboard offers.
+   backups exist; that is a commitment, not a verification. Record the dashboard values in §4.1
+   (owner action required).
+3. **PITR is described as available in `docs/runbook.md` §4 but has not been verified for this
+   project.** The plan and the retention setting are unknown until §4.1 is filled. Treat that
+   sentence as an aspiration until the dashboard values are recorded.
 4. **No scheduled `pg_dump`.** Backups before migrations are manual, event-driven, and depend on
    someone remembering. Nothing alerts if they stop happening.
 5. **The historical JSON exports exclude `auth.users`.** A restore from them leaves `User` rows
@@ -571,9 +628,10 @@ These are real and current. None of them is fixed by writing this document.
    unmeasured and depends on dashboard access that only the owner holds.
 10. **One person holds every recovery credential.** The RTO assumes the owner is reachable; there
     is no deputy and no break-glass procedure.
-11. **No backup-failure monitoring and no restore test in CI.** A silent backup failure would be
-    discovered only during an incident. (The export restore check itself runs in CI as a
-    self-test; that is a format check, not a backup test.)
+11. **No provider-backup-failure monitoring, and the CI restore drill is not a provider-backup
+    test.** A silent provider backup failure would be discovered only during an incident. The
+    logical dump/restore drill runs weekly and the export restore check runs as a CI self-test,
+    but both use synthetic data and neither observes the Supabase project.
 12. **`ErrorEvent` retention (30 days) has no enforcement yet.** The model and the purge job are
     both unlanded; see section 5.1.
 13. **The published 30-day backup retention has not been reconciled with the provider's actual
@@ -584,6 +642,8 @@ These are real and current. None of them is fixed by writing this document.
 
 ## 11. References
 
+- [`.github/workflows/restore-drill.yml`](../../.github/workflows/restore-drill.yml) — the CI
+  logical dump/restore drill cited in Document status.
 - [`docs/operations/restore-drill.md`](./restore-drill.md) — the dump/restore drill CI automates,
   including `scripts/ops/restore-check.mjs` for an application SQL export.
 - Issue **#353** — the Backup page, the SQL export, the audit trail and the allow-list.

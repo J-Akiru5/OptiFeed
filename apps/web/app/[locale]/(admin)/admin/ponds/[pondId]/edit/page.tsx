@@ -21,11 +21,7 @@ function formatTime(date: Date): string {
  * Same action and validation as create; changing the owner is a within-org move
  * that the action re-checks against the caller's scope.
  */
-export default async function EditPondPage({
-	params,
-}: {
-	params: Promise<{ pondId: string }>;
-}) {
+export default async function EditPondPage({ params }: { params: Promise<{ pondId: string }> }) {
 	const { pondId } = await params;
 	if (!(await hasPermission("manage_farms_ponds"))) notFound();
 	const [detail, owners, t] = await Promise.all([

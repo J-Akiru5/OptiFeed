@@ -30,11 +30,7 @@ const NEEDS_ORG: Record<Kind, boolean> = {
 	INDEPENDENT_FARMER: false,
 };
 
-export function NewAccountForm({
-	orgs,
-}: {
-	orgs: { id: string; name: string; type: string }[];
-}) {
+export function NewAccountForm({ orgs }: { orgs: { id: string; name: string; type: string }[] }) {
 	const t = useTranslations("superadmin.newAccount");
 	const tCommon = useTranslations("superadmin.common");
 	const tRoot = useTranslations("superadmin");

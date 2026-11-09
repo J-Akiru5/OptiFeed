@@ -12,11 +12,7 @@ import { requirePasswordChanged } from "@/lib/auth/session";
  * admin/devices/labels/layout.tsx (requireTenantAdmin) and
  * superadmin/devices/labels/layout.tsx (requirePlatformAdmin).
  */
-export default async function PrintLayout({
-	children,
-}: {
-	children: React.ReactNode;
-}) {
+export default async function PrintLayout({ children }: { children: React.ReactNode }) {
 	await requirePasswordChanged();
 
 	return <div className="min-h-screen bg-[#F4F7F6] print:min-h-0 print:bg-white">{children}</div>;

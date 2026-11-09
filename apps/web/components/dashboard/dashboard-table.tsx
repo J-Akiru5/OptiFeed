@@ -79,13 +79,7 @@ export function DashboardTr({ children }: { children: ReactNode }) {
 	);
 }
 
-export function DashboardTd({
-	children,
-	className,
-}: {
-	children: ReactNode;
-	className?: string;
-}) {
+export function DashboardTd({ children, className }: { children: ReactNode; className?: string }) {
 	return <td className={cn("px-4 py-4 align-middle", className)}>{children}</td>;
 }
 
@@ -127,13 +121,7 @@ export function DashboardCard({
 }
 
 /** Label/value pair inside a mobile card. */
-export function DashboardCardRow({
-	label,
-	children,
-}: {
-	label: ReactNode;
-	children: ReactNode;
-}) {
+export function DashboardCardRow({ label, children }: { label: ReactNode; children: ReactNode }) {
 	return (
 		<div className="flex items-baseline justify-between gap-3 py-1">
 			<span className="text-[10px] font-black uppercase tracking-wider text-[#3D5568] dark:text-gray-400">

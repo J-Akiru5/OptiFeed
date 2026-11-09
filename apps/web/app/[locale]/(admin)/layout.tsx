@@ -18,11 +18,7 @@ import { isFeatureEnabled } from "@/lib/settings/flags";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
 
-export default async function AdminLayout({
-	children,
-}: {
-	children: React.ReactNode;
-}) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
 	const currentUser = await requirePasswordChanged();
 	await requireTenantAdmin();
 	const [t, avatarUrls, helpEnabled, announcement] = await Promise.all([

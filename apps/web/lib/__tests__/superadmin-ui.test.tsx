@@ -12,14 +12,8 @@ vi.mock("next-intl", async () => {
 vi.mock("@/i18n/routing", async () => {
 	const react = await import("react");
 	return {
-		Link: ({
-			href,
-			children,
-			...rest
-		}: {
-			href: string;
-			children?: React.ReactNode;
-		}) => react.createElement("a", { href, ...rest }, children),
+		Link: ({ href, children, ...rest }: { href: string; children?: React.ReactNode }) =>
+			react.createElement("a", { href, ...rest }, children),
 		usePathname: () => pathname.current,
 	};
 });

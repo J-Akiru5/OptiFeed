@@ -34,11 +34,7 @@ import Image from "next/image";
  * active tenant member (E18, #199): everyone else has no tenant dashboard to
  * open, and the `/dashboard` gate would send them straight back here.
  */
-export default async function SuperadminLayout({
-	children,
-}: {
-	children: React.ReactNode;
-}) {
+export default async function SuperadminLayout({ children }: { children: React.ReactNode }) {
 	const currentUser = await requirePasswordChanged();
 	await requirePlatformAdmin();
 	const [t, avatarUrls, hasFarmDashboard, helpEnabled] = await Promise.all([

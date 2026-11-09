@@ -10,8 +10,8 @@
 	--pk-muted: #5a6b82;
 	--pk-line: #d6dfeb;
 	--pk-mono: ui-monospace, "JetBrains Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
-	--pk-sans: var(--font-inter), Inter, "Segoe UI", system-ui, -apple-system, Roboto, Arial,
-		sans-serif;
+	--pk-sans:
+		var(--font-inter), Inter, "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
 
 	width: 95mm;
 	height: 66mm;

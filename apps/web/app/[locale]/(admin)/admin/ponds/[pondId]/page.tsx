@@ -55,11 +55,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
  * pond mutation is a guarded tenant action, and the add-feeder flow is the
  * existing org-policy-driven one with this pond preselected.
  */
-export default async function PondDetailPage({
-	params,
-}: {
-	params: Promise<{ pondId: string }>;
-}) {
+export default async function PondDetailPage({ params }: { params: Promise<{ pondId: string }> }) {
 	const { pondId } = await params;
 	const [detail, canClaim, canManage, t, tCommon, tDates, tFcr, statusPolicy] = await Promise.all([
 		getPondDetail(pondId),

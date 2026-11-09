@@ -171,15 +171,7 @@ export function Heatmap({
 	);
 }
 
-function HeatmapLegend({
-	theme,
-	less,
-	more,
-}: {
-	theme: ChartTheme;
-	less: string;
-	more: string;
-}) {
+function HeatmapLegend({ theme, less, more }: { theme: ChartTheme; less: string; more: string }) {
 	return (
 		<div className="mt-3 flex items-center justify-end gap-2 text-[10px] font-bold text-[#3D5568] dark:text-gray-300">
 			<span>{less}</span>

@@ -86,13 +86,7 @@ export async function StickerDefaultCard({ rating }: { rating: StickerRatingValu
 	);
 }
 
-export async function AiProvidersCard({
-	enabled,
-	total,
-}: {
-	enabled: number;
-	total: number;
-}) {
+export async function AiProvidersCard({ enabled, total }: { enabled: number; total: number }) {
 	const t = await getTranslations("superadmin.settings");
 
 	return (

@@ -7,7 +7,7 @@
 	"scripts": {
 		"build": "pnpm --filter web build",
 		"dev": "pnpm --filter web dev",
-		"lint": "biome check .",
+		"lint": "biome check --max-diagnostics=200 .",
 		"lint:fix": "biome check . --write",
 		"format": "biome format . --write",
 		"prisma:generate": "pnpm --filter web run prisma:generate",

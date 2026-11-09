@@ -176,3 +176,46 @@ describe("getDeviceDetail", () => {
 		});
 	});
 });
+
+describe("firmware version", () => {
+	it("reads diag.fw, the field a real unit sends on every heartbeat", async () => {
+		vi.mocked(getCurrentUser).mockResolvedValue(ADMIN);
+		vi.mocked(resolveOrgScope).mockResolvedValue({ pondIds: ["pond-a"] } as never);
+		vi.mocked(prisma.energyDevice.findFirst).mockResolvedValue({
+			...DEVICE,
+			diag: { fw: "1.9.0", uptime_s: 8461 },
+		} as never);
+
+		const detail = await getDeviceDetail("dev-1", NOW);
+
+		// The version row on the device page was blank on every unit because the
+		// loader read diag.version, which the firmware never sends.
+		expect(detail?.firmwareVersion).toBe("1.9.0");
+	});
+
+	it("keeps diag.version as a fallback for older payloads", async () => {
+		vi.mocked(getCurrentUser).mockResolvedValue(ADMIN);
+		vi.mocked(resolveOrgScope).mockResolvedValue({ pondIds: ["pond-a"] } as never);
+		vi.mocked(prisma.energyDevice.findFirst).mockResolvedValue({
+			...DEVICE,
+			diag: { version: "1.8.1" },
+		} as never);
+
+		const detail = await getDeviceDetail("dev-1", NOW);
+
+		expect(detail?.firmwareVersion).toBe("1.8.1");
+	});
+
+	it("returns null when the unit reports no version at all", async () => {
+		vi.mocked(getCurrentUser).mockResolvedValue(ADMIN);
+		vi.mocked(resolveOrgScope).mockResolvedValue({ pondIds: ["pond-a"] } as never);
+		vi.mocked(prisma.energyDevice.findFirst).mockResolvedValue({
+			...DEVICE,
+			diag: { uptime_s: 10 },
+		} as never);
+
+		const detail = await getDeviceDetail("dev-1", NOW);
+
+		expect(detail?.firmwareVersion).toBeNull();
+	});
+});

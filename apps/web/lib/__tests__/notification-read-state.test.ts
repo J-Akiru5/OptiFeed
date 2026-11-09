@@ -131,7 +131,10 @@ beforeEach(() => {
 	mockNotification.updateMany.mockImplementation((async ({
 		where,
 		data,
-	}: { where: Filter; data: Partial<NotificationRow> }) => {
+	}: {
+		where: Filter;
+		data: Partial<NotificationRow>;
+	}) => {
 		const targets = state.rows.filter((value) => matches(value, where));
 		for (const target of targets) Object.assign(target, data);
 		return { count: targets.length };
@@ -149,18 +152,23 @@ beforeEach(() => {
 
 	mockEnergyDevice.findFirst.mockImplementation((async ({
 		where,
-	}: { where: { pondId: string } }) =>
-		where.pondId === "pond-x" ? null : { id: `dev-${where.pondId}` }) as never);
+	}: {
+		where: { pondId: string };
+	}) => (where.pondId === "pond-x" ? null : { id: `dev-${where.pondId}` })) as never);
 	mockEnergyDevice.findMany.mockImplementation((async ({
 		where,
-	}: { where: { pondId: { in: string[] } } }) =>
+	}: {
+		where: { pondId: { in: string[] } };
+	}) =>
 		where.pondId.in
 			.filter((pondId) => pondId !== "pond-x")
 			.sort()
 			.map((pondId) => ({ id: `dev-${pondId}`, pondId }))) as never);
 	mockDeviceStateEvent.create.mockImplementation((async ({
 		data,
-	}: { data: Record<string, unknown> }) => {
+	}: {
+		data: Record<string, unknown>;
+	}) => {
 		state.events.push(data);
 		return data;
 	}) as never);

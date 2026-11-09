@@ -53,10 +53,7 @@ function sidebarHtml(levelPercent = snapshot.levelPercent) {
 	);
 }
 
-function cardHtml(props: {
-	levelPercent: number | null;
-	isOffline: boolean;
-}) {
+function cardHtml(props: { levelPercent: number | null; isOffline: boolean }) {
 	return renderToStaticMarkup(
 		<FeedLevelCard
 			levelPercent={props.levelPercent}

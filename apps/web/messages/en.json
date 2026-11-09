@@ -1940,6 +1940,7 @@
 			"perFeeding": "Per feeding",
 			"rtc": "RTC",
 			"rtcOk": "OK",
+			"rtcNotSet": "RTC not set",
 			"rtcUnknown": "No RTC",
 			"deviceMac": "Device ID (MAC)",
 			"openViewer": "Open 3D view",

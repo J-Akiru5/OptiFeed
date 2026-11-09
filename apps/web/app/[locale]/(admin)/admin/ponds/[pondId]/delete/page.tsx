@@ -26,11 +26,7 @@ const BLOCKER_KEYS = [
  * A pond with any history or hardware is never deleted: the page explains why
  * and points at Archive. An empty pond needs the typed name and a step-up.
  */
-export default async function DeletePondPage({
-	params,
-}: {
-	params: Promise<{ pondId: string }>;
-}) {
+export default async function DeletePondPage({ params }: { params: Promise<{ pondId: string }> }) {
 	const { pondId } = await params;
 	if (!(await hasPermission("manage_farms_ponds"))) notFound();
 	const [check, t] = await Promise.all([

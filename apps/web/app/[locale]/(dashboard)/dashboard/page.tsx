@@ -733,11 +733,45 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 				</div>
 
 				<ControlRoomRail label={t("controlRoom.railLabel")}>
-					{/* #892: the actionable alerts are a dedicated section at the top
-					    of the right pane, each one a real link to its remedy. The
-					    left sidebar keeps only the hopper reading and the ESP32
-					    connection state. Below `xl` the rail is `display: contents`,
-					    so the same section stacks at its mobile order. */}
+					{/* #918: the welcome header is always the first block in the
+					    right rail, so the greeting is the first thing a farmer
+					    reads. `xl:order-none` keeps the rail in DOM order. */}
+					<div className={cn(CONTROL_ROOM_ORDER.header, CONTROL_ROOM_MOBILE_BAND)}>
+						<DashboardPageHeader
+							title={
+								currentUser?.displayName
+									? t("welcome", { name: currentUser.displayName })
+									: t("welcomeBack")
+							}
+							description={t.rich("monitoring", {
+								pond: pond.name,
+								bold: (chunks) => <strong>{chunks}</strong>,
+							})}
+							mascot="idle"
+							summary={
+								isPaused
+									? t("greetingPaused")
+									: nextFeedingSlot
+										? t("greetingNextFeeding", { time: nextFeedingTimeStr })
+										: undefined
+							}
+							actions={<ExportPdfButton />}
+						>
+							{!writeAccess && (
+								<ReadOnlyNotice
+									title={tCommon("readOnlyTitle")}
+									description={tCommon("readOnlyDesc")}
+								/>
+							)}
+						</DashboardPageHeader>
+					</div>
+
+					{/* #892/#918: the actionable alerts are a dedicated section in
+					    the right pane, each one a real link to its remedy. It sits
+					    second, directly under the welcome header. The left sidebar
+					    keeps only the hopper reading and the ESP32 connection
+					    state. Below `xl` the rail is `display: contents`, so the
+					    same section stacks at its mobile order. */}
 					<div
 						data-testid="dashboard-alerts"
 						className={cn(CONTROL_ROOM_ORDER.alerts, CONTROL_ROOM_MOBILE_BAND)}
@@ -770,36 +804,6 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 								emptyDescription={t("controlRoom.alerts.emptyDetail")}
 							/>
 						</ControlPanel>
-					</div>
-
-					<div className={cn(CONTROL_ROOM_ORDER.header, CONTROL_ROOM_MOBILE_BAND)}>
-						<DashboardPageHeader
-							title={
-								currentUser?.displayName
-									? t("welcome", { name: currentUser.displayName })
-									: t("welcomeBack")
-							}
-							description={t.rich("monitoring", {
-								pond: pond.name,
-								bold: (chunks) => <strong>{chunks}</strong>,
-							})}
-							mascot="idle"
-							summary={
-								isPaused
-									? t("greetingPaused")
-									: nextFeedingSlot
-										? t("greetingNextFeeding", { time: nextFeedingTimeStr })
-										: undefined
-							}
-							actions={<ExportPdfButton />}
-						>
-							{!writeAccess && (
-								<ReadOnlyNotice
-									title={tCommon("readOnlyTitle")}
-									description={tCommon("readOnlyDesc")}
-								/>
-							)}
-						</DashboardPageHeader>
 					</div>
 
 					<div className={cn(CONTROL_ROOM_ORDER.pond, CONTROL_ROOM_MOBILE_BAND)}>

@@ -1,13 +1,13 @@
 {
 	"name": "optifeed",
-	"version": "1.59.1",
+	"version": "1.60.0",
 	"private": true,
 	"type": "module",
 	"packageManager": "pnpm@10.33.3",
 	"scripts": {
 		"build": "pnpm --filter web build",
 		"dev": "pnpm --filter web dev",
-		"lint": "biome check .",
+		"lint": "biome check --max-diagnostics=200 .",
 		"lint:fix": "biome check . --write",
 		"format": "biome format . --write",
 		"prisma:generate": "pnpm --filter web run prisma:generate",
@@ -24,6 +24,7 @@
 		"audit:gate": "node scripts/security/audit-gate.mjs",
 		"security:overrides": "node scripts/security/check-overrides.mjs",
 		"security:tenant-proof": "node apps/web/scripts/security/tenant-isolation-proof.mjs",
+		"ota:publish": "node scripts/ota/publish-release.mjs",
 		"dead-code": "knip",
 		"complexity": "pnpm --filter web complexity",
 		"perf:bundle": "node scripts/perf/bundle-budget.mjs",
@@ -37,11 +38,11 @@
 		"extends": ["@commitlint/config-conventional"]
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^1.9.4",
+		"@biomejs/biome": "^2.6.6",
 		"@commitlint/cli": "^21.2.4",
 		"@commitlint/config-conventional": "^21.2.4",
 		"husky": "^9.1.7",
-		"knip": "6.44.0",
+		"knip": "6.44.1",
 		"lint-staged": "^17.6.0"
 	}
 }

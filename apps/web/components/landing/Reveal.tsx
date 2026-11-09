@@ -55,7 +55,11 @@ export function RevealList({
 	children,
 	className,
 	as = "div",
-}: { children: ReactNode; className?: string; as?: "div" | "ul" | "ol" | "dl" | "tbody" }) {
+}: {
+	children: ReactNode;
+	className?: string;
+	as?: "div" | "ul" | "ol" | "dl" | "tbody";
+}) {
 	const Tag = motion[as] as ElementType;
 	return (
 		<Tag

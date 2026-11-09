@@ -1998,6 +1998,7 @@
 			"perFeeding": "Kada pagpakaon",
 			"rtc": "RTC",
 			"rtcOk": "OK",
+			"rtcNotSet": "Wala pa ma-set ang RTC",
 			"rtcUnknown": "Wala sing RTC",
 			"deviceMac": "Device ID (MAC)",
 			"openViewer": "Buksan ang 3D view",

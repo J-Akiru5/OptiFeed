@@ -155,3 +155,43 @@ Since #582 the check route refuses to offer an image to a unit that does not dec
 | T-12a | Firmware bootstrap build (§5 firmware) + bench test plan | OTA-1…OTA-7; human OK + reflash |
 | T-12b | Server, no schema: heartbeat `firmware_version`, OTA event types, `/api/firmware/check` with a signed JSON manifest | OTA-4 (key format) |
 | T-12c | Migration + superadmin Releases/Rollouts UI | the Supabase dev project (T-08), OTA-4 |
+
+## 10. Publishing and rolling back
+
+Publishing is one command, not two hand-written uploads. `scripts/ota/publish-release.mjs`
+verifies before it uploads and verifies again after:
+
+```sh
+pio run -d firmware -e esp32dev-gpio5
+node scripts/ota/sign-release.mjs --variant gpio5 --version 1.10.1 \
+  --key ../ota-signing-keys/pakaonai-ota-primary-private.pem \
+  --key-id primary --min-from 1.9.0 --targets all --out ota-out
+
+SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=... \
+pnpm ota:publish --channel ota-out/channels/stable.json \
+  --bin firmware/.pio/build/esp32dev-gpio5/firmware.bin
+```
+
+It refuses to publish when the envelope `size`/`sha256` disagree with the binary, when the
+signature does not verify against the committed public key, when the manifest disagrees with the
+envelope (version, size, sha, key id, variant, relay pin), when `storage_path` escapes
+`releases/`, or when the version is not newer than the live channel. After uploading it downloads
+both objects again and re-checks the hash, so "published" means readable and identical.
+
+`--dry-run` performs every check and uploads nothing.
+
+**Rollout targeting.** `--targets all` publishes to the fleet; a comma-separated MAC list publishes
+only to those units (case-insensitive). Publishing to the field unit first is the canary step.
+
+**Rollback.** Every successful publish also writes `channels/history/<version>.json`. Repointing
+the fleet at an earlier release re-verifies that archived channel and the stored image, then swaps
+`stable.json`; nothing is re-signed and no new image is built:
+
+```sh
+pnpm ota:publish --rollback 1.10.0
+```
+
+**What this does not do.** It does not stage a rollback by itself; the device's A/B slots and
+pending-verify health check are what save a bad release. It also does not prove a device
+installed anything: the firmware reboots immediately after install, so the only evidence is the
+`ota_valid` event and the reported version afterwards.

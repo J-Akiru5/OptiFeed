@@ -12,7 +12,11 @@
 				// Offline OTA release signer: run by hand per docs/firmware-ota-plan.md,
 				// exercised by apps/web/lib/__tests__/firmware-sign-release.test.ts.
 				// Nothing imports it, which is correct for a CLI tool.
-				"scripts/ota/sign-release.mjs"
+				"scripts/ota/sign-release.mjs",
+				// Publish-guard tests: run by path with
+				// `node --test scripts/ota/__tests__/publish-release.test.mjs`
+				// (the command is in the file header). No module imports a test file.
+				"scripts/ota/__tests__/publish-release.test.mjs"
 			]
 		},
 		"apps/web": {
@@ -25,12 +29,7 @@
 				// CI preflight (#317): run by name before `prisma migrate deploy`.
 				"scripts/e2e/check-ci-target.ts",
 				// Run by hand from docs/password-auth-plan.md; a one-off admin CLI.
-				"scripts/provision-demo-user.ts",
-				// #711 read-only two-tenant proof. Run by name from
-				// `pnpm security:tenant-proof` and docs/security/tenant-isolation-proof.md,
-				// never imported. It lives here rather than in the repo root because it
-				// needs this workspace's generated Prisma client.
-				"scripts/security/tenant-isolation-proof.mjs"
+				"scripts/provision-demo-user.ts"
 			],
 			"ignoreFiles": [
 				// Static service worker: registered at runtime by

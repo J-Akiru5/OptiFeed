@@ -280,8 +280,8 @@ export function HelpSheet({
 												{t(section.intro)}
 											</p>
 											<ol className="mt-3 grid list-decimal gap-2.5 pl-5 text-[13px] leading-5">
-												{section.items.map((item, index) => (
-													<li key={`${section.id}-${index}`} className="grid gap-1.5">
+												{section.items.map((item) => (
+													<li key={`${section.id}-${item.text}`} className="grid gap-1.5">
 														<span>{t(item.text)}</span>
 														{item.target && (
 															<button

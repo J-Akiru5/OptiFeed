@@ -127,6 +127,7 @@ export function ChatConversation({
 			>
 				{messages.map((m, i) => (
 					<div
+						// biome-ignore lint/suspicious/noArrayIndexKey: chat history is append-only and has no id; position is stable until reset.
 						key={`${m.role}-${i}`}
 						className={cn(
 							"flex max-w-[85%] gap-2",

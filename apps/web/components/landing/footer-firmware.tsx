@@ -11,8 +11,8 @@ import { useTranslations } from "next-intl";
  * literal — the old copy said "Firmware v1.4.2" while the fleet was on 1.9.0.
  */
 export function FooterFirmware({ version }: { version: string | null }) {
+	const t = useTranslations("landing");
 	if (!version) return null;
 
-	const t = useTranslations("landing");
 	return <p className="font-mono tracking-wide">{t("footerFirmware", { version })}</p>;
 }

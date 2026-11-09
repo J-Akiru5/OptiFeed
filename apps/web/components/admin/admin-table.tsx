@@ -84,13 +84,7 @@ export function AdminTr({ children }: { children: ReactNode }) {
 	);
 }
 
-export function AdminTd({
-	children,
-	className,
-}: {
-	children: ReactNode;
-	className?: string;
-}) {
+export function AdminTd({ children, className }: { children: ReactNode; className?: string }) {
 	return <td className={cn("px-4 py-4 align-middle", className)}>{children}</td>;
 }
 
@@ -99,13 +93,7 @@ export function AdminCardList({ children }: { children: ReactNode }) {
 	return <ul className="data-list-cards space-y-3 md:hidden">{children}</ul>;
 }
 
-export function AdminCard({
-	children,
-	className,
-}: {
-	children: ReactNode;
-	className?: string;
-}) {
+export function AdminCard({ children, className }: { children: ReactNode; className?: string }) {
 	return (
 		<li
 			className={cn(
@@ -119,13 +107,7 @@ export function AdminCard({
 }
 
 /** Label/value pair inside a mobile card. */
-export function AdminCardRow({
-	label,
-	children,
-}: {
-	label: string;
-	children: ReactNode;
-}) {
+export function AdminCardRow({ label, children }: { label: string; children: ReactNode }) {
 	return (
 		<div className="flex items-baseline justify-between gap-3 py-1">
 			<span className="text-[10px] font-black uppercase tracking-wider text-[#3D5568] dark:text-gray-400">

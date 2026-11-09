@@ -53,13 +53,17 @@ SET LOCAL app.farm_ids = 'farm-a,farm-b';  -- User.farmId login slugs from OrgSc
 SET LOCAL app.pond_ids = 'pond-1,pond-2';  -- Pond ids from OrgScope
 SET LOCAL app.user_id = '<User.id>';
 SET LOCAL app.supabase_id = '<Supabase Auth user id>';
-SET LOCAL app.org_id = '<Organization.id>';
+SET LOCAL app.org_ids = '<Organization.id>,<other org id>';
 ```
 
 `SET LOCAL` is transaction-scoped, so pooled connections do not leak the context. The app-side
 work is a `withTenant` helper (Prisma interactive transaction) that sets these values before any
 tenant query; routes/actions are migrated to it before the switch. That refactor is **not** in
-this plan branch and must be completed and tested before the connection changes.
+this plan branch and must be completed and tested before the connection changes. Slice 1 of that
+refactor is described in §9.
+
+> `app.org_ids` is the multi-org list the Phase 2 policies read. The earlier singular `app.org_id`
+> draft in this section was superseded by `20261104160000_tenant_app_role_phase2`.
 
 ### 3.3 Policy matrix (Phase 1 core tables)
 
@@ -138,10 +142,12 @@ the role, grants and core policies; it is inert for the current `postgres` conne
 
 ## 8. Phase 2 implementation (this branch)
 
-- `apps/web/lib/db/tenant-context.ts` provides `withTenant()` and `applyTenantContext()`. They set
-  `app.farm_ids`, `app.pond_ids`, `app.user_id`, `app.supabase_id` and `app.org_ids` with
-  transaction-local `set_config(..., true)`. A unit test pins the order, values and omission of
-  empty arrays.
+- `apps/web/lib/db/tenant-context.ts` provides the request-scoped context: `runWithTenant()`,
+  `tenantPrisma()`, `getTenantContext()`, `applyTenantContext()` and `runWithTenantClient()`.
+  `withTenant()` remains as a deprecated alias. They set `app.farm_ids`, `app.pond_ids`,
+  `app.user_id`, `app.supabase_id` and `app.org_ids` with transaction-local
+  `set_config(..., true)`. A unit test pins the order, values and omission of empty arrays — see
+  §9 for the runtime plumbing and the first converted slice.
 - `apps/web/prisma/migrations/20261104160000_tenant_app_role_phase2/migration.sql` adds policies
   for the remaining tenant tables (`BiomassLog`, `FcrReport`, `FishSample`, `CalibrationRun`,
   `ScheduleCommand`, `PondSettingsDraft`, `PondEvent`, `MortalityLog`, `CropCycle`, `ReminderLog`,
@@ -152,10 +158,182 @@ the role, grants and core policies; it is inert for the current `postgres` conne
   `PlatformAuditLog`, `ImpersonationSession`, `PlatformIncident`, `PlatformIncidentEvent`,
   `PlatformSetting`, `ErrorEvent`, `IssueReport`, `CronHeartbeat`. Platform-admin paths must keep a
   privileged connection until a separate platform context is designed.
-- The app is **not switched**. Route handlers and actions must be moved to `withTenant` (or
-  `applyTenantContext` inside an existing transaction) before the `DATABASE_URL` change. Platform
-  admin paths are excluded from the tenant role.
+- The app is **not switched**. Two read paths are converted to the request-scoped context (§9); every
+  other route handler, action and job still calls the privileged client directly. They must be moved
+  to `runWithTenant` (or `applyTenantContext` inside an existing transaction) before the
+  `DATABASE_URL` change. Platform admin paths are excluded from the tenant role.
 - `apps/web/scripts/security/tenant-isolation-proof.mjs` is the read-only two-tenant proof. It compares
   privileged and `optifeed_app` counts for two farms and fails if a cross-tenant read is non-zero.
   Run it on a staging copy before the switch. See `docs/security/tenant-isolation-proof.md`.
 - The switch window remains owner-run.
+
+## 9. Slice 1 — request-scoped tenant context (option B, landed)
+
+**Status: implemented, not enforcing.** The app connection is still `postgres` (`BYPASSRLS`) and
+`optifeed_app` still has no password (the issue's 2026-11-07 status comment), so the settings below
+change visibility for nobody. What changed is that a request can carry a correct context, two read
+paths use it, and a missing context now fails loudly. RLS begins to enforce only when the connection
+role changes (§5). Nothing in this slice switches the role, sets a password, or alters a policy.
+
+### 9.1 Context API
+
+`apps/web/lib/db/tenant-context.ts`:
+
+| Export | Purpose |
+| --- | --- |
+| `TenantContext` | `farmIds`, `pondIds`, `userId`, `supabaseId`, `orgIds` — the five settings the policies read. |
+| `runWithTenant(context, work)` | Opens one interactive transaction, applies `set_config('app.…', …, true)` on it, then runs `work` with that client published through `AsyncLocalStorage`. |
+| `tenantPrisma()` | The transaction client bound to the current context. **Throws `MissingTenantContextError` outside a tenant unit of work** — there is no privileged fallback. |
+| `getTenantContext()` | Read-only view of the active context, or `null`. |
+| `applyTenantContext(tx, context)` | Applies the settings to a transaction the caller already owns. |
+| `runWithTenantClient(tx, context, work)` | Publishes an existing transaction as the current tenant client. |
+| `withTenant(context, work)` | Deprecated alias of `runWithTenant`, kept for the Phase 2 test. |
+
+`AsyncLocalStorage` keeps the transaction client out of every function signature while making a
+missing context a loud failure. The store exists only for the callback's async chain, so concurrent
+requests cannot see each other's tenant; there is no module-level mutable "current tenant". The
+settings are issued on the same connection as the queries and `set_config(..., true)` is
+transaction-local, so a pooled connection cannot carry one request's tenant into the next.
+
+A missing context is a bug, not a reason to fall back: `tenantPrisma()` throwing is the property that
+keeps a half-converted request from silently reading with the privileged client while its neighbours
+read with the tenant role.
+
+### 9.2 Converted slice: tenant device registration options
+
+`getTenantRegistrationOptions()` in `apps/web/lib/actions/device-registration.ts` — the pond list a
+tenant admin picks a new feeder from on `/[locale]/(admin)/admin/devices`.
+
+Why this one: it is the smallest read path that is still security-relevant. It reads exactly three
+tables a wrong-context bug would expose (`Organization`, `Pond`, `OrgSetting`), it is gated by
+`requireTenantAdmin()` + `claim_feeder`, and its result decides which pond a device may be registered
+on. It also already resolves the full five-field context (`resolveOrgScope()` + `getCurrentUser()`),
+so the conversion added no queries and no new dependency.
+
+- Tenant reads inside the slice: `Organization.findUnique`, `Pond.findMany`,
+  `OrgSetting.findUnique` — all on `tenantPrisma()`.
+- Bootstrap reads that stay privileged: `getCurrentUser()` (session → `User`) and
+  `resolveOrgScope()` (membership → org → members → farms → ponds). They *produce* the context and
+  cannot depend on it. This is not a mechanical context change either: `User` allows the caller's own
+  row via `app.supabase_id`, but `resolveOrgScope` then reads *co-members'* `User` rows by id before
+  it knows their `farmId`, which no current policy permits. Resolving scope under the app role needs
+  its own policy/query design — a separate decision, not part of this slice.
+- `PlatformSetting` remains privileged: the app role cannot read platform tables by design (§8), so
+  the settings default fallback stays on the privileged client and is not tenant data.
+
+### 9.3 What an unconverted path still does
+
+Every other path calls the privileged client directly. At this commit, 145 non-test modules under
+`apps/web/lib` and `apps/web/app` still import the scoped `prisma` client, and none of them set
+`app.*`. That is why enforcement is still zero.
+
+The consequence for planning: under `optifeed_app`, an unconverted query does **not** "return the
+same rows with RLS on". With no context, `ANY(string_to_array(current_setting(...), ','))` compares
+as `NULL`, so the role sees **no rows** and refuses writes. A page whose data loaders are not
+converted goes blank; an action whose writes are not converted fails. Do not switch the role until
+the paths that serve a request are converted.
+
+### 9.4 What slice 1 proved, and what it did not
+
+Proved without a database (the tests are named in §9.6):
+
+- A query issued through `tenantPrisma()` runs on the transaction that already executed the five
+  `set_config` calls, in order, for the current tenant.
+- `tenantPrisma()` outside a tenant unit of work throws `MissingTenantContextError`; it never returns
+  the privileged client.
+- Concurrent `runWithTenant` calls keep their own context and transaction, and the context does not
+  survive the request.
+- The converted slice's tenant reads (`Organization`, `Pond`, `OrgSetting`) use the transaction
+  client, its bootstrap reads stay privileged, and its result is scoped to the caller's org
+  (org B's pond never appears).
+- `withTenant` publishes the context too, so the Phase 2 alias cannot diverge.
+
+Not proved: that Postgres accepted a setting, that `optifeed_app` sees fewer rows, or that the
+policies compile against a live connection. Those need a real database and the §4 two-tenant proof.
+The tests use a Prisma double that records `$executeRaw` and delegate calls; they assert the
+application boundary, not database behaviour.
+
+### 9.5 Remaining slices, rough order
+
+Ordered by blast radius and verification cost: read-only tenant-console surfaces first, then shared
+reads, then writes, then the hot path. Each slice is one worktree, one PR, and the same gate:
+converted path + a test that pins the transaction/`set_config` boundary + the two-tenant proof (§4)
+on a staging copy.
+
+1. **Tenant console reads.** The device list (`getDevices` / `getPendingDevices` in
+   `lib/actions/admin.ts`), the admin overview (`lib/actions/admin-overview.ts`), and the pond/settings
+   reads in `lib/actions/ponds.ts` and `lib/settings/*`. Small, gated, easy to verify.
+2. **Tenant-console writes.** `addTenantDevice`, `decidePendingDevice`, pond CRUD. This is where the
+   INSERT/UPDATE/DELETE `WITH CHECK` clauses become load-bearing, so it needs a negative
+   cross-tenant write test, not just a read count.
+3. **Shared dashboard reads.** `lib/pond-selection.ts` (`getActivePond`, `listSelectablePonds`),
+   `lib/pond-charts.ts`, `lib/analytics/*`, `lib/calendar/*`. These serve every farmer page and need
+   the org scope to be resolvable under the app role before they can be converted.
+4. **Notifications and alerts (partially converted).** The dashboard page read is converted
+   (slice 2, §9.7). `lib/actions/notifications.ts` acknowledgement writes, `lib/notifications/*`
+   jobs and the `lib/feed/*` read paths remain. The policies here key on `app.pond_ids`, so the
+   context must carry the pond list, not just the farm.
+5. **Ingest and device routes.** `app/api/*` telemetry writes — every heartbeat and reading. This is
+   the hot path the issue's option A warned about: measure p95 before and after, and do not put a
+   transaction around per-row ingest work without that measurement.
+6. **Cron, jobs and exports.** `lib/jobs/*` and `app/api/cron/*`: long-running work must not hold one
+   tenant transaction open for the whole job; scope the transaction to the unit of work.
+7. **Platform admin.** Excluded from the tenant role until a platform context exists (§8). It must
+   not be "converted" to `tenantPrisma()`.
+
+Identity/scope resolution is the shared prerequisite: until `getCurrentUser`/`resolveOrgScope` can
+run under the app role, each slice keeps that one bootstrap step privileged. As §9.2 notes, the
+current `User` policy cannot grant the co-member read the scope chain needs, so this is a policy
+decision to make before the enforcement switch — not a mechanical conversion.
+
+### 9.6 Tests
+
+`apps/web/lib/__tests__/tenant-context-runtime.test.ts`:
+
+- `tenantPrisma > throws MissingTenantContextError instead of returning the privileged client`
+- `tenantPrisma > returns the transaction client that runWithTenant opened`
+- `tenantPrisma > runs a tenantPrisma query on the transaction that already applied set_config`
+- `tenantPrisma > keeps concurrent contexts on their own transaction`
+- `tenantPrisma > publishes the context through the deprecated withTenant alias`
+
+`apps/web/lib/__tests__/tenant-context-slice.test.ts`:
+
+- `getTenantRegistrationOptions > applies the caller's context before reading the org, the ponds and the settings`
+- `getTenantRegistrationOptions > keeps the context bootstrap on the privileged client`
+- `getTenantRegistrationOptions > reads the org's own registration policy through the tenant client`
+- `getTenantRegistrationOptions > never opens the tenant transaction for a caller who is not a tenant admin`
+
+`apps/web/lib/__tests__/tenant-context-notifications.test.ts`:
+
+- `loadDashboardNotifications > reads the page inside runWithTenant with the member org context`
+- `loadDashboardNotifications > re-reads a clamped page through the same tenant client`
+- `loadDashboardNotifications > refuses to read without an authenticated user`
+
+`apps/web/lib/__tests__/tenant-context.test.ts` (Phase 2, unchanged) still pins the setting order,
+values and omission of empty arrays.
+
+### 9.7 Slice 2 — dashboard notification read (landed)
+
+**Status: implemented, not enforcing.** Same caveat as §9.1: the connection is still `postgres`, so
+this slice changes the client identity and the settings applied, not the rows returned.
+
+`apps/web/app/[locale]/(dashboard)/dashboard/notifications/page.tsx` no longer calls
+`prisma.notification.count/findMany` directly. The read moved to
+`loadDashboardNotifications()` in `apps/web/lib/notifications/dashboard.ts`, which:
+
+- resolves the caller's **member** org scope (`resolveMemberOrgScope`) and `getCurrentUser()`. The
+  admin-only `resolveOrgScope` would leave an OPERATOR or VIEWER with an empty context and blank
+  this page on the day the role switches;
+- builds the five-field `TenantContext` and runs both notification queries, including the clamped
+  pagination re-read, on `tenantPrisma()` inside one `runWithTenant` transaction;
+- keeps `getActivePond()` and the identity/scope chain privileged: they produce the context and
+  belong to the shared-read slice, not this one.
+
+Converted tenant reads: `Notification.count` and `Notification.findMany`. Bootstrap reads that stay
+privileged: `resolveMemberOrgScope()` (`Membership`, `Organization`, `User`, `Pond`) and
+`getCurrentUser()`.
+
+Known blockers for this path under `optifeed_app`: the `User` policy still cannot grant the
+co-member read the scope chain needs (§9.2), and read-only view-as resolves the platform admin's
+scope rather than the viewed farm's. Both are policy/context decisions that must be made before the
+connection switch; neither changes behaviour today.

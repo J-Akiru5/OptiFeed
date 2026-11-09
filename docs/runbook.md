@@ -223,8 +223,11 @@ message, context, service, environment, timestamp, runbook}}`. Slack reads
 
 The full procedure, RPO/RTO, retention and the drill record live in
 `docs/operations/backup-and-recovery.md`. This section is the short incident form.
-PITR availability on this project has **not** been confirmed; check it there before
-relying on it.
+PITR availability on this project has **not** been verified; check
+**Supabase Dashboard → project → Database → Backups** and record it in
+[`backup-and-recovery.md`](operations/backup-and-recovery.md) §4.1 before relying on it.
+The CI logical dump/restore drill (`restore-drill.yml`) runs and passes weekly, but it proves
+our own dump/restore, not provider PITR or provider backups.
 
 - **Supabase PITR** (preferred, if the plan provides it): Database → Backups →
   point-in-time restore to just before the incident. This creates a new project — repoint
@@ -235,8 +238,8 @@ relying on it.
 - After any restore: run `pnpm --filter web exec prisma migrate deploy` to
   ensure the migration history is current, then spot-check the last pond's
   biomass logs and the most recent `FeedEvent` rows.
-- Backups are a human responsibility (H7): take one before any batch that
-  includes migrations (the `batchLabel` migration rides the current PR).
+- Provider backups are **not verified** (H7): take a manual dump before any
+  batch that includes migrations (the `batchLabel` migration rides the current PR).
 
 ## 5. An account cannot sign in
 

@@ -89,10 +89,10 @@ the result.
 
 | Process | Documented | Verified | Note |
 | --- | --- | --- | --- |
-| Incident triage (feeder, device, database) | Yes | Partly | Procedures come from real incidents; the restore path is unexercised |
+| Incident triage (feeder, device, database) | Yes | Partly | Procedures come from real incidents; the provider restore path is unexercised (the CI logical drill passes) |
 | Error capture and triage | Yes | Yes (tests) | Capture, scrub and console have unit tests; no alerting |
-| Backup and recovery | Yes | **No** | Provider backup configuration is unconfirmed (H7, issue #325); RPO/RTO are decisions, not measurements |
-| Restore drill | Yes (procedure + record) | **No** | No drill has been executed; the record template is empty |
+| Backup and recovery | Yes | Partly | CI logical dump/restore drill passes; provider backup/PITR not verified (§4.1, H7, issue #325); RPO/RTO are decisions, not measurements |
+| Restore drill | Yes (procedure + record) | Partly | CI logical drill passes weekly (`restore-drill.yml`); no provider-level drill has been executed and the manual record template is empty |
 | Production deployment and rollback | Yes | Yes | The Vercel Git integration is the only mechanism; rollback is documented |
 | Container deployment | Yes | **No** | The image has never been built or run (no Docker in the authoring environment) |
 | Environment configuration | Yes | Partly | The matrix is measured from `process.env`; platform/dashboard settings are not all observable from the repo |
@@ -106,10 +106,11 @@ the result.
 
 Known gaps that block a fully honest "operations are covered" claim:
 
-1. **No restore has ever been executed.** The backup and recovery document says
-   so explicitly; the drill record is a blank template.
-2. **Provider backup configuration is unverified.** The Privacy Policy commits to
-   backups; issue #325 tracks the mismatch.
+1. **No provider-level restore has ever been executed.** The CI logical dump/restore drill runs
+   and passes, but it does not cover provider backups; the provider-level record is a blank
+   template. See [`backup-and-recovery.md`](./backup-and-recovery.md) §4.1.
+2. **Provider backup/PITR configuration is not verified.** The Privacy Policy commits to
+   backups; issue #325 tracks the mismatch and §4.1 records the owner action.
 3. **No alerting on application errors.** Errors are pull-based
    ([error handling](./error-handling.md) section 7).
 4. **One production operator.** The incident plan records that no one else has

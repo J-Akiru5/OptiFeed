@@ -111,7 +111,7 @@ are marked **[owner decision]**. Nothing here is automated.
 | Stop a leaked anon key | Rotate the anon key and redeploy (`NEXT_PUBLIC_*` is baked into the build) | RLS is what bounds the anon key; check the policies before assuming rotation is enough |
 | Stop data exfiltration through the Data API | Disable the Data API / restrict it in the Supabase dashboard **[owner decision]** | The app talks to Postgres directly, so it keeps working |
 | Last resort: take the database offline | Pause the Supabase project **[owner decision]** | Every tenant loses the app; devices keep feeding from their RTC schedule |
-| Recover data | Follow [`backup-and-recovery.md`](../operations/backup-and-recovery.md) | A restore is an owner decision (mission decision E4) and has never been drilled |
+| Recover data | Follow [`backup-and-recovery.md`](../operations/backup-and-recovery.md) | A restore is an owner decision (mission decision E4). The CI logical drill passes, but the provider-level restore path has never been drilled and provider backups/PITR are not verified |
 
 Check for a rogue change before restoring: compare `_prisma_migrations` against the repository,
 inspect `PlatformAuditLog` and `Membership` rows, and look for new Supabase API keys or users in
@@ -217,8 +217,8 @@ Recorded so the plan is not mistaken for a capability it does not have:
 | --- | --- | --- |
 | One person holds all production access | No containment while that person is unavailable | Add a second operator with scoped access, or document a break-glass procedure |
 | No 24/7 monitoring or paging | Detection can lag by days; the `SECURITY.md` response targets are best-effort | At minimum, an external uptime check on `/api/health` and alerting on the Vercel error rate |
-| No restore drill has been executed | RTO/RPO are targets, not measurements; a restore during an incident is the first attempt | Execute the drill in [`restore-drill-record.md`](../operations/restore-drill-record.md) |
-| Provider backups unconfirmed | The effective RPO may be "since the last manual dump" | Confirm the Supabase plan's backup coverage (plan H7) |
+| No provider-level restore drill has been executed | RTO/RPO are targets, not measurements; a provider restore during an incident is the first attempt. The CI logical drill passes but does not cover provider backups | Execute the provider-level drill in [`restore-drill-record.md`](../operations/restore-drill-record.md) |
+| Provider backups/PITR not verified | The effective RPO may be "since the last manual dump" | Confirm the Supabase plan's backup coverage in **Supabase Dashboard → project → Database → Backups**, then record it in [`backup-and-recovery.md`](../operations/backup-and-recovery.md) §4.1 (plan H7) |
 | No DPA/retention evidence for processors | A processor incident is hard to bound | Record provider terms and retention before onboarding farms outside the study |
 | Staging shares the production database | A staging incident is a production incident | Provision a separate dev/test project (plan H8) |
 | No security mailbox | Reports can sit in a personal inbox | Keep the GitHub private-advisory path working; do not invent a `security@` address |

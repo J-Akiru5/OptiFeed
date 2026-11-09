@@ -32,7 +32,8 @@ It deliberately does **not** claim the following:
 | Application and firmware behaviour after a restore | Out of scope; covered by the regular test suites. |
 
 The workflow schedules a weekly run **in addition to** manual dispatch. It is not
-a substitute for the provider-level backup check in #325.
+a substitute for the provider-level backup check in #325; record that check in
+[`backup-and-recovery.md`](./backup-and-recovery.md) §4.1.
 
 ## How CI runs it
 
@@ -326,4 +327,5 @@ artefacts are still uploaded because those steps run with `if: always()`.
   recovery, including Supabase PITR.
 - Issue **#322** — `auth.users` coverage; the SQL export now carries a minimal identity manifest.
 - Issue **#353** — the Backup page, the SQL export and `scripts/ops/restore-check.mjs`.
-- Issue **#325** — Supabase provider backup / PITR verification.
+- Issue **#325** — Supabase provider backup / PITR verification; record the dashboard values in
+  [`backup-and-recovery.md`](./backup-and-recovery.md) §4.1.

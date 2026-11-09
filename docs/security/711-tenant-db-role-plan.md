@@ -158,7 +158,7 @@ the role, grants and core policies; it is inert for the current `postgres` conne
   `PlatformAuditLog`, `ImpersonationSession`, `PlatformIncident`, `PlatformIncidentEvent`,
   `PlatformSetting`, `ErrorEvent`, `IssueReport`, `CronHeartbeat`. Platform-admin paths must keep a
   privileged connection until a separate platform context is designed.
-- The app is **not switched**. One read path is converted to the request-scoped context (§9); every
+- The app is **not switched**. Two read paths are converted to the request-scoped context (§9); every
   other route handler, action and job still calls the privileged client directly. They must be moved
   to `runWithTenant` (or `applyTenantContext` inside an existing transaction) before the
   `DATABASE_URL` change. Platform admin paths are excluded from the tenant role.
@@ -171,8 +171,8 @@ the role, grants and core policies; it is inert for the current `postgres` conne
 
 **Status: implemented, not enforcing.** The app connection is still `postgres` (`BYPASSRLS`) and
 `optifeed_app` still has no password (the issue's 2026-11-07 status comment), so the settings below
-change visibility for nobody. What changed is that a request can carry a correct context, one read
-path uses it, and a missing context now fails loudly. RLS begins to enforce only when the connection
+change visibility for nobody. What changed is that a request can carry a correct context, two read
+paths use it, and a missing context now fails loudly. RLS begins to enforce only when the connection
 role changes (§5). Nothing in this slice switches the role, sets a password, or alters a policy.
 
 ### 9.1 Context API
@@ -269,9 +269,10 @@ on a staging copy.
 3. **Shared dashboard reads.** `lib/pond-selection.ts` (`getActivePond`, `listSelectablePonds`),
    `lib/pond-charts.ts`, `lib/analytics/*`, `lib/calendar/*`. These serve every farmer page and need
    the org scope to be resolvable under the app role before they can be converted.
-4. **Notifications and alerts.** `lib/actions/notifications.ts`, `lib/notifications/*`,
-   `lib/feed/*` read paths. The policies here key on `app.pond_ids`, so the context must carry the
-   pond list, not just the farm.
+4. **Notifications and alerts (partially converted).** The dashboard page read is converted
+   (slice 2, §9.7). `lib/actions/notifications.ts` acknowledgement writes, `lib/notifications/*`
+   jobs and the `lib/feed/*` read paths remain. The policies here key on `app.pond_ids`, so the
+   context must carry the pond list, not just the farm.
 5. **Ingest and device routes.** `app/api/*` telemetry writes — every heartbeat and reading. This is
    the hot path the issue's option A warned about: measure p95 before and after, and do not put a
    transaction around per-row ingest work without that measurement.
@@ -302,5 +303,37 @@ decision to make before the enforcement switch — not a mechanical conversion.
 - `getTenantRegistrationOptions > reads the org's own registration policy through the tenant client`
 - `getTenantRegistrationOptions > never opens the tenant transaction for a caller who is not a tenant admin`
 
+`apps/web/lib/__tests__/tenant-context-notifications.test.ts`:
+
+- `loadDashboardNotifications > reads the page inside runWithTenant with the member org context`
+- `loadDashboardNotifications > re-reads a clamped page through the same tenant client`
+- `loadDashboardNotifications > refuses to read without an authenticated user`
+
 `apps/web/lib/__tests__/tenant-context.test.ts` (Phase 2, unchanged) still pins the setting order,
 values and omission of empty arrays.
+
+### 9.7 Slice 2 — dashboard notification read (landed)
+
+**Status: implemented, not enforcing.** Same caveat as §9.1: the connection is still `postgres`, so
+this slice changes the client identity and the settings applied, not the rows returned.
+
+`apps/web/app/[locale]/(dashboard)/dashboard/notifications/page.tsx` no longer calls
+`prisma.notification.count/findMany` directly. The read moved to
+`loadDashboardNotifications()` in `apps/web/lib/notifications/dashboard.ts`, which:
+
+- resolves the caller's **member** org scope (`resolveMemberOrgScope`) and `getCurrentUser()`. The
+  admin-only `resolveOrgScope` would leave an OPERATOR or VIEWER with an empty context and blank
+  this page on the day the role switches;
+- builds the five-field `TenantContext` and runs both notification queries, including the clamped
+  pagination re-read, on `tenantPrisma()` inside one `runWithTenant` transaction;
+- keeps `getActivePond()` and the identity/scope chain privileged: they produce the context and
+  belong to the shared-read slice, not this one.
+
+Converted tenant reads: `Notification.count` and `Notification.findMany`. Bootstrap reads that stay
+privileged: `resolveMemberOrgScope()` (`Membership`, `Organization`, `User`, `Pond`) and
+`getCurrentUser()`.
+
+Known blockers for this path under `optifeed_app`: the `User` policy still cannot grant the
+co-member read the scope chain needs (§9.2), and read-only view-as resolves the platform admin's
+scope rather than the viewed farm's. Both are policy/context decisions that must be made before the
+connection switch; neither changes behaviour today.

@@ -4,6 +4,12 @@
 during the drill, and commit the filled copy. Leave this file blank so the next drill starts from
 a clean form. A drill without a filled record did not happen.
 
+This record is for the **manual** drill (Plan A provider restore, Plan B logical dump, or Plan C
+no-backup finding). The CI logical dump/restore drill is recorded by its workflow run and
+`restore-drill-report.md`, not by this file. An empty template means no manual drill has been
+recorded, not that no drill has ever run; see
+[`backup-and-recovery.md`](./backup-and-recovery.md) Document status.
+
 Instructions:
 
 - Write times as `HH:MM` with the date and timezone (`Asia/Manila` unless stated otherwise).

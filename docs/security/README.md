@@ -104,7 +104,9 @@ exact versions and the checksum step.
   a one-line `next.config.ts` change outside this CI-and-docs workstream.
 - The authorization review records defects A1–A5 ([`authz-review.md`](./authz-review.md) §5); none
   is fixed here.
-- No restore drill has been executed; the RPO/RTO remain targets
-  ([`incident-response.md`](./incident-response.md) §8).
+- No provider-level restore drill has been executed; the CI logical dump/restore drill passes but
+  does not cover provider backups, so the RPO/RTO remain targets
+  ([`incident-response.md`](./incident-response.md) §8,
+  [`backup-and-recovery.md`](../operations/backup-and-recovery.md) §4.1).
 - The threat model's residual-risk register is only as good as the code review behind it; it was
   written by reading the guards, not by executing an attack.

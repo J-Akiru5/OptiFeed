@@ -2230,7 +2230,7 @@ footer.doc-foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--line
       <li>Provider backups and point-in-time recovery have not been exercised.</li>
       <li><span class="mono">auth.users</span> is outside the logical dump, so authentication records are not covered by the drill.</li>
       <li>The 293 ms restore time is a fixture measurement, not an RTO.</li>
-      <li>The operations index still says no drill has been executed. That document is stale and should be corrected before the defense.</li>
+      <li>The provider backup/PITR fields in <span class="mono">backup-and-recovery.md</span> §4.1 are still unverified; only the owner can fill them from Supabase Dashboard &rarr; Database &rarr; Backups.</li>
     </ul>
 
     <p class="note">If asked â€œcan you recover from a database loss?â€, the accurate answer is: â€œWe have proven our logical dump and restore path on a synthetic dataset. We have not proven the provider's backup or point-in-time recovery, and authentication records are not in our dump. That is a known gap.â€</p>

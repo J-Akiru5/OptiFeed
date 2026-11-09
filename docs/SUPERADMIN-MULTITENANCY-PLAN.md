@@ -697,10 +697,10 @@ Recorded so the next agent does not have to reconstruct it from the issue tracke
 | **Lane H — #628** shell, tokens, theme parity, responsive | open, **unowned in practice** — assigned to `freebuff`, which has no running session |
 | **Lane K — #631** independent QA matrix | open, `op3`, runs after Lane H |
 | #658–#662 | firmware calibration and observability follow-ups from the #617 audit |
-| #665, #668, #669, #672 | offline replay; **staging runs on production credentials**; `deleteUser` Supabase removal inside the DB transaction; provider backups/PITR unconfirmed and the runbook contradicting the drill |
+| #665, #668, #669, #672 | offline replay; **staging runs on production credentials**; `deleteUser` Supabase removal inside the DB transaction; provider backups/PITR not verified (owner action in `backup-and-recovery.md` §4.1); the runbook's contradiction of the CI drill was corrected |
 | #538, #563, #572 | older backlog (dependency pass, CI watch, sticky header) |
 
-Highest-risk pair on that list: **#668** and **#672**. A shared production database plus unconfirmed backups is what makes every other boundary softer, and the RLS migration was promoted to `main` on the strength of that backup story.
+Highest-risk pair on that list: **#668** and **#672**. A shared production database plus unverified provider backups is what makes every other boundary softer, and the RLS migration was promoted to `main` on the strength of that backup story.
 
 ---
 

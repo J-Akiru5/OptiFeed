@@ -597,8 +597,8 @@ export function DataImportDialog({ canWrite = true }: { canWrite?: boolean }) {
 										</thead>
 										<tbody className="divide-y divide-gray-100 dark:divide-gray-800">
 											{prepared.preview.map((row, i) => (
-												// biome-ignore lint/suspicious/noArrayIndexKey: preview rows are read-only and may repeat; position is the only stable key.
 												<tr
+													// biome-ignore lint/suspicious/noArrayIndexKey: preview rows are read-only and may repeat; position is the only stable key.
 													key={`row-${i}-${JSON.stringify(row)}`}
 													className="hover:bg-gray-50 dark:hover:bg-gray-800/60"
 												>

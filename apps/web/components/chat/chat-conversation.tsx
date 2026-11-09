@@ -126,8 +126,8 @@ export function ChatConversation({
 				className={cn("flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4", chatMessageList)}
 			>
 				{messages.map((m, i) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: chat history is append-only and has no id; position is stable until reset.
 					<div
+						// biome-ignore lint/suspicious/noArrayIndexKey: chat history is append-only and has no id; position is stable until reset.
 						key={`${m.role}-${i}`}
 						className={cn(
 							"flex max-w-[85%] gap-2",

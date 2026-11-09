@@ -8,9 +8,9 @@ import {
 import { Pagination } from "@/components/ui/pagination";
 import { Link } from "@/i18n/routing";
 import { canWrite } from "@/lib/auth/session";
-import { parsePage, resolvePagination } from "@/lib/pagination";
+import { loadDashboardNotifications } from "@/lib/notifications/dashboard";
+import { parsePage } from "@/lib/pagination";
 import { getActivePond } from "@/lib/pond-selection";
-import prisma from "@/lib/prisma";
 import { getListPageSize } from "@/lib/settings/platform";
 import { Bell, SlidersHorizontal } from "lucide-react";
 import { getTranslations } from "next-intl/server";
@@ -40,33 +40,13 @@ export default async function NotificationsPage({
 		);
 	}
 
-	const where: Record<string, unknown> = { pondId: pond.id, supersededById: null };
-	if (params.tier && params.tier !== "all") {
-		where.tier = params.tier;
-	}
-	if (params.category && params.category !== "all") {
-		where.category = params.category;
-	}
-
-	const [total, firstFetch] = await Promise.all([
-		prisma.notification.count({ where }),
-		prisma.notification.findMany({
-			where,
-			orderBy: { createdAt: "desc" },
-			skip: (page - 1) * pageSize,
-			take: pageSize,
-		}),
-	]);
-	const paging = resolvePagination(page, pageSize, total);
-	const notifications =
-		paging.page === page
-			? firstFetch
-			: await prisma.notification.findMany({
-					where,
-					orderBy: { createdAt: "desc" },
-					skip: paging.offset,
-					take: paging.pageSize,
-				});
+	const { total, notifications, paging } = await loadDashboardNotifications({
+		pondId: pond.id,
+		tier: params.tier,
+		category: params.category,
+		page,
+		pageSize,
+	});
 	const firstRow = total === 0 ? 0 : (paging.page - 1) * paging.pageSize + 1;
 	const lastRow = Math.min(paging.page * paging.pageSize, total);
 

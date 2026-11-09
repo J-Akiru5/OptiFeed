@@ -57,6 +57,24 @@ vi.mock("@/lib/pond-selection", () => ({
 	getActivePond: vi.fn(async () => ({ id: "pond-1", name: "Pond 1", ownerId: "farm-1" })),
 }));
 
+// The notification loader has its own tenant-context suite; these tests only
+// care about what the page renders.
+vi.mock("@/lib/notifications/dashboard", () => ({
+	loadDashboardNotifications: vi.fn(async () => ({
+		total: 0,
+		notifications: [],
+		paging: {
+			page: 1,
+			pageSize: 20,
+			total: 0,
+			pageCount: 1,
+			firstRow: 0,
+			lastRow: 0,
+			offset: 0,
+		},
+	})),
+}));
+
 vi.mock("@/lib/prisma", () => ({
 	default: {
 		notification: {

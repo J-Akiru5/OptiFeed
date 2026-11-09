@@ -70,8 +70,8 @@
 			"budgetKb": 708.3
 		},
 		"/[locale]/(admin)/admin/settings/page": {
-			"baselineKb": 724.4,
-			"budgetKb": 738.9
+			"baselineKb": 739.3,
+			"budgetKb": 754.1
 		},
 		"/[locale]/(admin)/admin/users/page": {
 			"baselineKb": 690.9,

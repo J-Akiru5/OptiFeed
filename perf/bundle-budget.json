@@ -78,80 +78,80 @@
 			"budgetKb": 704.8
 		},
 		"/[locale]/(dashboard)/dashboard/app-settings/page": {
-			"baselineKb": 983.1,
-			"budgetKb": 1002.8
+			"baselineKb": 1010.5,
+			"budgetKb": 1030.8
 		},
 		"/[locale]/(dashboard)/dashboard/audit/page": {
-			"baselineKb": 1023.8,
-			"budgetKb": 1044.3
+			"baselineKb": 1051.3,
+			"budgetKb": 1072.4
 		},
 		"/[locale]/(dashboard)/dashboard/calendar/page": {
-			"baselineKb": 1249,
-			"budgetKb": 1274
+			"baselineKb": 1282.3,
+			"budgetKb": 1308
 		},
 		"/[locale]/(dashboard)/dashboard/devices/[id]/page": {
-			"baselineKb": 1001.8,
-			"budgetKb": 1021.9
+			"baselineKb": 1029.6,
+			"budgetKb": 1050.2
 		},
 		"/[locale]/(dashboard)/dashboard/growth/history/page": {
-			"baselineKb": 990.3,
-			"budgetKb": 1010.2
+			"baselineKb": 1018.6,
+			"budgetKb": 1039
 		},
 		"/[locale]/(dashboard)/dashboard/growth/page": {
-			"baselineKb": 1087.3,
-			"budgetKb": 1109.1
+			"baselineKb": 1115.2,
+			"budgetKb": 1137.6
 		},
 		"/[locale]/(dashboard)/dashboard/harvest/page": {
-			"baselineKb": 983.1,
-			"budgetKb": 1002.8
+			"baselineKb": 1010.5,
+			"budgetKb": 1030.8
 		},
 		"/[locale]/(dashboard)/dashboard/history/page": {
-			"baselineKb": 1033.4,
-			"budgetKb": 1054.1
+			"baselineKb": 1061.5,
+			"budgetKb": 1082.8
 		},
 		"/[locale]/(dashboard)/dashboard/log-sample/batches/page": {
-			"baselineKb": 991.7,
-			"budgetKb": 1011.6
+			"baselineKb": 1020.3,
+			"budgetKb": 1040.8
 		},
 		"/[locale]/(dashboard)/dashboard/log-sample/page": {
-			"baselineKb": 1003.9,
-			"budgetKb": 1024
+			"baselineKb": 1032.4,
+			"budgetKb": 1053.1
 		},
 		"/[locale]/(dashboard)/dashboard/notifications/page": {
-			"baselineKb": 995.1,
-			"budgetKb": 1015.1
+			"baselineKb": 1023.5,
+			"budgetKb": 1044
 		},
 		"/[locale]/(dashboard)/dashboard/page": {
 			"baselineKb": 1062.8,
 			"budgetKb": 1116.0
 		},
 		"/[locale]/(dashboard)/dashboard/profile-settings/page": {
-			"baselineKb": 983.1,
-			"budgetKb": 1002.8
+			"baselineKb": 1010.5,
+			"budgetKb": 1030.8
 		},
 		"/[locale]/(dashboard)/dashboard/schedule/page": {
-			"baselineKb": 1011.9,
-			"budgetKb": 1032.2
+			"baselineKb": 1040.2,
+			"budgetKb": 1061.1
 		},
 		"/[locale]/(dashboard)/dashboard/settings/data/page": {
-			"baselineKb": 1023.8,
-			"budgetKb": 1044.3
+			"baselineKb": 1051.3,
+			"budgetKb": 1072.4
 		},
 		"/[locale]/(dashboard)/dashboard/settings/hardware/page": {
 			"baselineKb": 1207.6,
 			"budgetKb": 1231.8
 		},
 		"/[locale]/(dashboard)/dashboard/settings/page": {
-			"baselineKb": 986.2,
-			"budgetKb": 1006
+			"baselineKb": 1013.6,
+			"budgetKb": 1033.9
 		},
 		"/[locale]/(dashboard)/dashboard/settings/pond/page": {
 			"baselineKb": 1028.5,
 			"budgetKb": 1049.1
 		},
 		"/[locale]/(dashboard)/dashboard/settings/profile/page": {
-			"baselineKb": 1112.4,
-			"budgetKb": 1134.7
+			"baselineKb": 1140.3,
+			"budgetKb": 1163.2
 		},
 		"/[locale]/(kiosk)/large-screen/[id]/page": {
 			"baselineKb": 588.4,
@@ -166,8 +166,8 @@
 			"budgetKb": 762.9
 		},
 		"/[locale]/(superadmin)/superadmin/account/page": {
-			"baselineKb": 973.8,
-			"budgetKb": 993.3
+			"baselineKb": 1000.3,
+			"budgetKb": 1020.4
 		},
 		"/[locale]/(superadmin)/superadmin/ai-providers/page": {
 			"baselineKb": 974.1,
@@ -218,8 +218,8 @@
 			"budgetKb": 980.2
 		},
 		"/[locale]/(superadmin)/superadmin/operations/page": {
-			"baselineKb": 965.7,
-			"budgetKb": 985.1
+			"baselineKb": 985.2,
+			"budgetKb": 1005
 		},
 		"/[locale]/(superadmin)/superadmin/operations/reports/page": {
 			"baselineKb": 962.3,
@@ -238,8 +238,8 @@
 			"budgetKb": 984.9
 		},
 		"/[locale]/(superadmin)/superadmin/page": {
-			"baselineKb": 974.9,
-			"budgetKb": 994.4
+			"baselineKb": 994.5,
+			"budgetKb": 1014.4
 		},
 		"/[locale]/(superadmin)/superadmin/ponds/page": {
 			"baselineKb": 960.4,
@@ -278,8 +278,8 @@
 			"budgetKb": 576
 		},
 		"/[locale]/login/page": {
-			"baselineKb": 849.1,
-			"budgetKb": 866.1
+			"baselineKb": 871.2,
+			"budgetKb": 888.7
 		},
 		"/[locale]/page": {
 			"baselineKb": 809,

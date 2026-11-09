@@ -535,6 +535,13 @@ describe("dashboard home page", () => {
 		expect(alerts, "the alerts section must be inside the right rail").not.toBeNull();
 		expect(alerts?.textContent).toContain("Alerts");
 
+		// #918: the welcome header is the rail's first block and the alerts
+		// section is second. Every rail child is `xl:order-none`, so this DOM
+		// order is also the desktop reading order.
+		const railBlocks = [...(rail?.querySelectorAll("h1, [data-testid='dashboard-alerts']") ?? [])];
+		expect(railBlocks[0]?.tagName, "the welcome header must come first").toBe("H1");
+		expect(railBlocks[1]?.getAttribute("data-testid")).toBe("dashboard-alerts");
+
 		await expectNoSeriousOrCriticalViolations(host);
 	});
 });

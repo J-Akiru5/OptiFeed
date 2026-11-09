@@ -24,6 +24,7 @@
 		"audit:gate": "node scripts/security/audit-gate.mjs",
 		"security:overrides": "node scripts/security/check-overrides.mjs",
 		"security:tenant-proof": "node apps/web/scripts/security/tenant-isolation-proof.mjs",
+		"ota:publish": "node scripts/ota/publish-release.mjs",
 		"dead-code": "knip",
 		"complexity": "pnpm --filter web complexity",
 		"perf:bundle": "node scripts/perf/bundle-budget.mjs",

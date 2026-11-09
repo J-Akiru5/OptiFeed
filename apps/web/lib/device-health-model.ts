@@ -227,6 +227,19 @@ export interface DeviceHealthView {
 /** How far back a refused dose still counts as news. */
 export const REFUSAL_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * How long a refused dose still counts as an "act now" signal.
+ *
+ * The refusal stays in the view for `REFUSAL_LOOKBACK_MS` so the dashboard can
+ * show what happened and when, but it is only an *alert* while it could still
+ * be the current state of the unit. A refusal whose cause has since cleared —
+ * the field unit refused a dose in safe mode at 22:00 and cleared safe mode at
+ * 22:30 — is history, not a glowing indicator. The health fields themselves
+ * (`safeMode`, `faults`) remain the authority on whether something is wrong
+ * right now.
+ */
+export const REFUSAL_ATTENTION_MS = 15 * 60 * 1000;
+
 export const HEALTHY_VIEW: DeviceHealthView = {
 	safeMode: false,
 	faults: [],
@@ -257,8 +270,10 @@ export function deviceNeedsAttention(view: DeviceHealthView): boolean {
  * mode, a failed read, or a refused dose. #819 uses this to decide whether the
  * health card in the alert surfaces should be a link at all.
  */
-export function deviceHealthNeedsAction(view: DeviceHealthView): boolean {
-	return Boolean(view.unavailable || view.safeMode || view.faults.length > 0 || view.lastRefusal);
+export function deviceHealthNeedsAction(view: DeviceHealthView, now: Date = new Date()): boolean {
+	if (view.unavailable || view.safeMode || view.faults.length > 0) return true;
+	if (!view.lastRefusal) return false;
+	return now.getTime() - view.lastRefusal.at.getTime() <= REFUSAL_ATTENTION_MS;
 }
 
 /** Pure part of `getDeviceHealth`, so the rules are testable without a database. */

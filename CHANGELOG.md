@@ -4,8 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
 - `applyGrowthPlanForPond` is no longer a browser-callable server action that trusted the caller's `ownerId`; a static guard test prevents regressions.
 - Device-token reveals are audited and rate limited.
+
+## [1.60.1] - 2026-11-10
+
+### Fixed
+
+- **The feed-button GPIO interrupt is masked while the relay is on, fixing a field panic.** A 500 g dose on the CICT unit reproduced `LoadProhibited` in `__onPinInterrupt` (`esp32-hal-gpio.c:155`); the core dump showed the button ISR firing on motor noise while `feederActive`, with a corrupted handler pointer. The firmware now disables the button's GPIO interrupt before energizing the relay and re-enables it after the post-dose quiet window, with a 200 ms grace for any latched edge. The button is already ignored during a dispense, so no feeding behavior changes. An RC filter on GPIO23 is still recommended to reduce the line noise itself.
 
 ## [1.60.0] - 2026-11-09
 
@@ -19,8 +28,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dashboard notifications now run inside the request-scoped tenant transaction (#711).** The read path resolves the member org scope and applies the RLS context before querying. RLS is still not enforced: the app connection remains `postgres` with `BYPASSRLS`, and the remaining slices and the role switch stay tracked in the issue.
 
 ### Fixed
-
-- **The feed-button GPIO interrupt is masked while the relay is on, fixing a field panic.** A 500 g dose on the CICT unit reproduced `LoadProhibited` in `__onPinInterrupt` (`esp32-hal-gpio.c:155`); the core dump showed the button ISR firing on motor noise while `feederActive`, with a corrupted handler pointer. The firmware now disables the button's GPIO interrupt before energizing the relay and re-enables it after the post-dose quiet window, with a 200 ms grace for any latched edge. The button is already ignored during a dispense, so no feeding behavior changes. An RC filter on GPIO23 is still recommended to reduce the line noise itself.
 
 - **The device page shows the firmware version, and RTC health is stated explicitly (#661).** `getDeviceDetail` read `diag.version`, but every unit reports `diag.fw`, so the version row was blank on real hardware while fixture data masked it. The loader now reads `fw` with `version` as a fallback. RTC reads "OK" or "RTC not set" instead of falling back to "No RTC", which conflated an unset clock with a missing module — the distinction matters because an unset clock still feeds, just on a drifting schedule.
 

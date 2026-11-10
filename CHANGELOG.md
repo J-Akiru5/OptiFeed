@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The feed-button GPIO interrupt is masked while the relay is on, fixing a field panic.** A 500 g dose on the CICT unit reproduced `LoadProhibited` in `__onPinInterrupt` (`esp32-hal-gpio.c:155`); the core dump showed the button ISR firing on motor noise while `feederActive`, with a corrupted handler pointer. The firmware now disables the button's GPIO interrupt before energizing the relay and re-enables it after the post-dose quiet window, with a 200 ms grace for any latched edge. The button is already ignored during a dispense, so no feeding behavior changes. An RC filter on GPIO23 is still recommended to reduce the line noise itself.
+
 - **The device page shows the firmware version, and RTC health is stated explicitly (#661).** `getDeviceDetail` read `diag.version`, but every unit reports `diag.fw`, so the version row was blank on real hardware while fixture data masked it. The loader now reads `fw` with `version` as a fallback. RTC reads "OK" or "RTC not set" instead of falling back to "No RTC", which conflated an unset clock with a missing module — the distinction matters because an unset clock still feeds, just on a drifting schedule.
 
 - **A cleared safe-mode refusal no longer keeps the dashboard's health alert glowing (#729).** `deviceHealthNeedsAction` treated any refusal inside the 24-hour lookback as an active alert, so the field unit's 22:00 safe-mode refusal kept the alerts panel lit after safe mode cleared at 22:30 — hours after nothing was wrong. A refusal is now actionable for 15 minutes; it remains visible as history for the rest of the window, and `safeMode`/`faults` stay the authority on whether the unit needs attention now.

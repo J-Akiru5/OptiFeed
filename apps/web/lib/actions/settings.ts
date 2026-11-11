@@ -453,7 +453,7 @@ export async function updateDeviceDailyCap(
  * dispensed the 80 g schema default. This is a feeding control like the daily
  * ceiling, so it uses the same revocable `control_feeder` permission.
  *
- * The window is the firmware's own `button_feed_grams` envelope (1-500 g,
+ * The window is the firmware's own `button_feed_grams` envelope (1-5,000 g,
  * `firmware/firmware-main/config.h`); the schema mirrors it and refuses an
  * out-of-range value before any read or write. The update and its
  * `button_feed_changed` audit row commit together, and the hardware page is

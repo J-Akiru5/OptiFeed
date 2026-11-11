@@ -49,6 +49,9 @@
       declares RELAY_PIN and FW_HW_VARIANT, the signed manifest carries variant
       and relay_gpio, and a mismatch is refused before any dose (hardware.h).
       Heartbeats report the variant, pin, provisioned variant and refusal.
+    - 1.11.0: the physical button dose cap is raised from 500 g to 5,000 g so a
+      button press can match a scheduled per-meal dose. The daily cap, hourly
+      limit, safe mode and relay-time envelope still bound every press.
 
   MACHINE STATUS INTERFACE (1.8.0, status.h):
     - Four panel lamps, each switched by an NPN transistor from its GPIO:
@@ -134,7 +137,7 @@
 
 // Reported at boot and in the heartbeat body so the fleet and the OTA rollout
 // can tell builds apart. Bump on every firmware change.
-#define FW_VERSION "1.10.0"
+#define FW_VERSION "1.11.0"
 // Board string the signed manifest must carry. One value for every unit this
 // firmware runs on (ESP32-WROOM-32U); a manifest for another board is refused.
 #define FW_BOARD "wroom32u"

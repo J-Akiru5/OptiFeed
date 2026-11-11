@@ -10,7 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `applyGrowthPlanForPond` is no longer a browser-callable server action that trusted the caller's `ownerId`; a static guard test prevents regressions.
 - Device-token reveals are audited and rate limited.
 
-## [1.60.1] - 2026-11-10
+## [1.61.0] - 2026-11-11
+
+### Added
+
+- **The physical button dose can now match a scheduled meal above 500 g.** The firmware's `button_feed_grams` envelope, the server field table/schema, and the dashboard input now share a 1-5,000 g range (previously 1-500 g). The button remains a manual trigger: the daily ceiling, the rolling-hour limit, safe mode and the relay-time envelope still refuse an unsafe dose. The device applies the new value on its next poll; once this image is installed, no further reflash is needed to change the button dose within that range.
 
 ### Fixed
 

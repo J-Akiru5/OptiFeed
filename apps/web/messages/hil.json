@@ -2214,7 +2214,7 @@
 			"buttonFeed": "Kantidad sang pakaon sa button",
 			"buttonFeedDesc": "Kon pila ka pakaon ang mabubo sa isa ka pagpindot sang physical button sang feeder. Ipadala ini sa device sa sunod nga poll.",
 			"buttonFeedLabel": "Dose sa isa ka pagpindot (g)",
-			"buttonFeedHint": "1-500 g. Default 80 g. Indi batunon sang firmware ang gwa sa sini nga range.",
+			"buttonFeedHint": "1-5,000 g. Default 80 g. Indi batunon sang firmware ang gwa sa sini nga range.",
 			"buttonFeedSave": "I-save ang button dose",
 			"buttonFeedSaved": "Naisave ang button dose. I-confirm ini sang device pagkatapos sang sunod nga poll.",
 			"buttonFeedError": "Indi maisave ang button dose.",

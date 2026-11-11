@@ -213,7 +213,7 @@ export const FIRMWARE_FIELDS: readonly FirmwareFieldSpec[] = [
 		id: "button_feed_grams",
 		key: "button_feed_grams",
 		min: 1,
-		max: 500,
+		max: 5000,
 		integer: false,
 		defaultValue: 80,
 		group: "device",

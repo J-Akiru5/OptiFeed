@@ -515,7 +515,7 @@ old server (no `config` object) changes nothing.
 | `SAFE_MODE_HEALTHY_CLEAR_MS` | `safe_mode_healthy_clear_s` | 600 s (envelope 60–86,400) | B |
 | — (new, #661) | `motor_min_pulse_ms` | 250 ms (envelope 50–2,000) | B |
 | `DEFAULT_SCHEDULED_GRAMS` (via `grams_per_feeding`) | `grams_per_feeding` | 150 g (envelope 1–5,000) | B |
-| `DEFAULT_BUTTON_FEED_GRAMS` | `button_feed_grams` | 80 g (envelope 1–500) | B |
+| `DEFAULT_BUTTON_FEED_GRAMS` | `button_feed_grams` | 80 g (envelope 1–5,000) | B |
 | `DEFAULT_GRAMS_PER_SECOND` | `grams_per_second` | 4 g/s (envelope 0.5–50) | B |
 | `TEMP_OFFSET_C` (backend) | `temp_offset_c` | 0 °C (envelope -20–20) | B |
 | `HOPPER_FULL_CM` (backend) | `hopper_full_cm` | 5 cm (envelope 0.1–200) | B |

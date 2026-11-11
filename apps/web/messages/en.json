@@ -2156,7 +2156,7 @@
 			"buttonFeed": "Button feed amount",
 			"buttonFeedDesc": "How much feed one press of the feeder's physical button dispenses. The device applies a new amount on its next poll.",
 			"buttonFeedLabel": "Dose per press (g)",
-			"buttonFeedHint": "1-500 g. Default 80 g. The firmware rejects anything outside this range.",
+			"buttonFeedHint": "1-5,000 g. Default 80 g. The firmware rejects anything outside this range.",
 			"buttonFeedSave": "Save button dose",
 			"buttonFeedSaved": "Button dose saved. The device confirms it after its next poll.",
 			"buttonFeedError": "Could not save the button dose.",

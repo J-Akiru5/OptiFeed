@@ -38,7 +38,7 @@ interface ButtonFeedFormProps {
 }
 
 // The firmware's own `button_feed_grams` envelope (`firmware/firmware-main/config.h`)
-// is 1-500 g; the server schema imports the same constants, so the input refuses
+// is 1-5,000 g; the server schema imports the same constants, so the input refuses
 // an out-of-range value before any request is made.
 const BUTTON_FEED_RULES = {
 	min: BUTTON_FEED_GRAMS_MIN,

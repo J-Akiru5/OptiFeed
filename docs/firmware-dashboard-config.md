@@ -228,7 +228,7 @@ same transaction as the update, and a page revalidation so the reported block
 re-reads immediately.
 
 The input is bound to the firmware's own `button_feed_grams` envelope
-(`firmware/firmware-main/config.h`: 1-500 g). `BUTTON_FEED_GRAMS_MIN/MAX` in
+(`firmware/firmware-main/config.h`: 1-5,000 g). `BUTTON_FEED_GRAMS_MIN/MAX` in
 `lib/limits.ts` carry the same numbers, `buttonFeedGramsSchema` refuses outside
 it, and a unit test parses the header so the two cannot drift.
 

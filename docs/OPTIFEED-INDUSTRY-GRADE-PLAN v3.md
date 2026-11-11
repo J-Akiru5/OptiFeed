@@ -108,7 +108,7 @@ Every task has an ID, the change, the acceptance test, and a check. "Check" mean
 | `MAX_DISPENSE_MS` | 300000 (approved) |
 | `FEEDING_RATE_PCT` range | 0.1 to 10 |
 | `FEEDS_PER_DAY` range | 1 to 24, integer |
-| `BUTTON_FEED_GRAMS` range | 1 to 500 |
+| `BUTTON_FEED_GRAMS` range | 1 to 5,000 |
 | `POPULATION` range | 1 to 1,000,000, integer |
 | `SAMPLE_COUNT`, `sampleWeightKg`, `sampleLengthCm` | integer at least 1, number greater than 0, number greater than 0 |
 

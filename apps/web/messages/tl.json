@@ -432,7 +432,7 @@
 			"buttonFeed": "Dami ng pakain sa button",
 			"buttonFeedDesc": "Kung gaano karaming pakain ang inilalabas sa isang pindot ng physical button ng feeder. Ipinapadala ito sa device sa susunod na poll.",
 			"buttonFeedLabel": "Dose bawat pindot (g)",
-			"buttonFeedHint": "1-500 g. Default na 80 g. Tinatanggihan ng firmware ang labas sa saklaw na ito.",
+			"buttonFeedHint": "1-5,000 g. Default na 80 g. Tinatanggihan ng firmware ang labas sa saklaw na ito.",
 			"buttonFeedSave": "I-save ang button dose",
 			"buttonFeedSaved": "Na-save ang button dose. Kukumpirmahin ito ng device pagkatapos ng susunod na poll.",
 			"buttonFeedError": "Hindi ma-save ang button dose.",

@@ -183,6 +183,6 @@ describe("telemetry and the existing paths keep working", () => {
 	});
 
 	it("is firmware 1.10.0", () => {
-		expect(firmware).toContain('#define FW_VERSION "1.10.0"');
+		expect(firmware).toContain('#define FW_VERSION "1.11.0"');
 	});
 });

@@ -25,7 +25,6 @@ import {
 import { TermInfo } from "@/components/dashboard/term-info";
 import { GrowthPlanCard } from "@/components/growth/GrowthPlanCard";
 import { SgrKpi, type SgrKpiLabels } from "@/components/growth/SgrKpi";
-import { FcrProvenanceNote, fcrProvenanceText } from "@/components/growth/fcr-provenance";
 import { MortalityForm } from "@/components/growth/mortality-form";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
@@ -62,13 +61,12 @@ const PREVIEW_ROWS = 5;
 const GROWTH_PREVIEW_ROWS = 6;
 
 export default async function GrowthPage() {
-	const [t, tSch, tHarvest, tDates, tCommon, tFcr, pond] = await Promise.all([
+	const [t, tSch, tHarvest, tDates, tCommon, pond] = await Promise.all([
 		getTranslations("dashboard.growth"),
 		getTranslations("dashboard.schedule"),
 		getTranslations("dashboard.harvest.summary"),
 		getTranslations("dates"),
 		getTranslations("dashboard.common"),
-		getTranslations("dashboard.fcrProvenance"),
 		getActivePond(),
 	]);
 
@@ -257,16 +255,8 @@ export default async function GrowthPage() {
 	}
 
 	// Computed in-app from feed + biomass (issue #453). When that is impossible
-	// a stored report may still be shown, but only with its provenance label
-	// (issue #875); it is never silently presented as a measurement.
+	// the latest stored report is shown.
 	const latestFcr = fcrDisplay?.value ?? null;
-	const fcrProvenance = fcrProvenanceText(fcrDisplay, tFcr);
-	const fcrAssessmentById = new Map(
-		storedFcrAssessments.map((assessment) => [assessment.report.id, assessment]),
-	);
-	const unverifiedStoredCount = storedFcrAssessments.filter(
-		(assessment) => !assessment.verified,
-	).length;
 
 	const latestSample = biomassDesc[0] ?? null;
 	const latestBiomass = latestSample?.avgWeightKg ?? null;
@@ -398,7 +388,6 @@ export default async function GrowthPage() {
 								})}
 							</p>
 						) : null}
-						{fcrProvenance && <FcrProvenanceNote text={fcrProvenance} surface="dark" />}
 						{derivedFcr.fcr !== null && (
 							<p className="text-[11px] text-blue-200/80 mt-1.5 max-w-md">
 								{t("fcrInputs", {
@@ -498,8 +487,6 @@ export default async function GrowthPage() {
 			{/* FCR Calculator */}
 			<FcrCalculator
 				latestFcr={latestFcr}
-				fcrSource={fcrDisplay?.source ?? null}
-				fcrUnverifiedReasons={fcrDisplay?.unverifiedReasons ?? []}
 				pondId={pond.id}
 				population={livePopulation}
 				feedsPerDay={currentConfig?.feedsPerDay ?? pond.feedsPerDay}
@@ -612,8 +599,6 @@ export default async function GrowthPage() {
 						</div>
 					</div>
 
-					{fcrProvenance && <FcrProvenanceNote text={fcrProvenance} />}
-
 					{/* FCR Bar Chart (Tailwind CSS) */}
 					{fcrReports.length === 0 ? (
 						<p className="mt-4 flex h-24 items-center text-sm text-gray-500 dark:text-gray-400">
@@ -624,7 +609,6 @@ export default async function GrowthPage() {
 							{fcrReports.map((report) => {
 								const maxFcr = Math.max(...fcrReports.map((r) => r.fcrValue), 2.5);
 								const heightPct = (report.fcrValue / maxFcr) * 100;
-								const unverified = fcrAssessmentById.get(report.id)?.verified === false;
 								return (
 									<div
 										key={report.id}
@@ -632,7 +616,6 @@ export default async function GrowthPage() {
 									>
 										<div className="text-xs font-bold text-gray-600 dark:text-gray-300 mb-1">
 											{report.fcrValue.toFixed(2)}
-											{unverified ? "*" : ""}
 										</div>
 										<div
 											className="w-full bg-blue-100 rounded-t-lg group-hover:bg-blue-300 transition-colors relative dark:bg-blue-500/15 dark:group-hover:bg-blue-500/25"
@@ -650,11 +633,6 @@ export default async function GrowthPage() {
 								);
 							})}
 						</div>
-					)}
-					{unverifiedStoredCount > 0 && (
-						<p className="mt-2 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
-							{tFcr("historyCaption")}
-						</p>
 					)}
 					<span className="sr-only">
 						{t("chartSummary", {

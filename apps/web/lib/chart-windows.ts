@@ -1,4 +1,4 @@
-import { buildDayKeys } from "@/components/charts/chart-data";
+import { buildDayKeys, buildHourKeys } from "@/components/charts/chart-data";
 import { PH_TZ } from "@/lib/constants";
 
 /**
@@ -127,18 +127,42 @@ export interface WaterTempWindow {
 	end: Date;
 	/** `hour` for the 24 h view, `day` for the 7 d view. */
 	bucket: "hour" | "day";
+	/** One label per bucket in the window, oldest first. */
+	keys: string[];
 }
 
 /**
  * The water-temperature window. 24 h gives 24 hourly buckets so a handful of
  * readings still draws a trend; a week is bucketed per day.
+ *
+ * `startAt` is the active cycle's stocking date. When it falls inside the
+ * requested window, the axis starts there instead of showing hours before the
+ * fish were released. A missing or older date leaves the normal window intact.
  */
-export function resolveWaterTempWindow(range: WaterTempRange, now = new Date()): WaterTempWindow {
+export function resolveWaterTempWindow(
+	range: WaterTempRange,
+	now = new Date(),
+	startAt: Date | null = null,
+): WaterTempWindow {
+	let start: Date;
+	let end = now;
+	let bucket: "hour" | "day";
+
 	if (range === "24h") {
-		const end = now;
-		const start = new Date(startOfHourInTimeZone(end).getTime() - 23 * HOUR_MS);
-		return { start, end, bucket: "hour" };
+		start = new Date(startOfHourInTimeZone(end).getTime() - 23 * HOUR_MS);
+		bucket = "hour";
+	} else {
+		const window = resolveDayWindow(7, now);
+		start = window.start;
+		end = window.end;
+		bucket = "day";
 	}
-	const window = resolveDayWindow(7, now);
-	return { start: window.start, end: window.end, bucket: "day" };
+
+	if (startAt) {
+		const releaseStart = startOfDayInTimeZone(startAt);
+		if (releaseStart > start && releaseStart < end) start = releaseStart;
+	}
+
+	const keys = bucket === "hour" ? buildHourKeys(start, end) : buildDayKeys(start, end);
+	return { start, end, bucket, keys };
 }

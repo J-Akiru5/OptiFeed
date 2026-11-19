@@ -37,6 +37,11 @@ export interface LineTrendProps extends ChartProps {
 	/** Show a dot for every reading, not only the latest/hovered one. */
 	showDots?: boolean;
 	/**
+	 * Join across null buckets. Water temperature changes slowly enough that a
+	 * missing hour can be connected; hopper level must keep its gaps visible.
+	 */
+	connectGaps?: boolean;
+	/**
 	 * Mark the most recent non-null reading with a dot and print its value on
 	 * the plot, so a sparse series still tells the reader what the last
 	 * observation was (#947).
@@ -58,6 +63,7 @@ export function LineTrend({
 	aux,
 	temporal = false,
 	showDots = false,
+	connectGaps = false,
 	markLatest = false,
 	className,
 	plotClassName,
@@ -146,7 +152,7 @@ export function LineTrend({
 						}
 						activeDot={{ r: 4 }}
 						isAnimationActive={false}
-						connectNulls={false}
+						connectNulls={connectGaps}
 					/>
 					{markLatest && latest ? (
 						<ReferenceDot

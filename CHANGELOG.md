@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `applyGrowthPlanForPond` is no longer a browser-callable server action that trusted the caller's `ownerId`; a static guard test prevents regressions.
 - Device-token reveals are audited and rate limited.
 
+## [1.61.1] - 2026-11-19
+
 ### Fixed
 
 - **Hopper history shows the readings that exist, and the growth charts show their values (#947).** The History page opened on a seven-day window; when the feeder had been offline for most of that week the chart collapsed to a single unlabelled dot even though older readings existed. It now opens on the 30-day window, returns every day in the window (a missing day is a gap, not 0 %), counts only days that actually reported, and labels the newest reading on the plot. The Growth page's feed-level and ABW sparklines were custom SVGs with no axes, no values and no hover state; both use the shared line chart now, so they have date/value axes, point tooltips, a latest-point value label and a hidden data table. The feed-level chart also queries the 30-day daily series instead of the last 30 rows, and the ABW card states the latest sample date (#947).

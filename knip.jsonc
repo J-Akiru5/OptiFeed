@@ -29,7 +29,10 @@
 				// CI preflight (#317): run by name before `prisma migrate deploy`.
 				"scripts/e2e/check-ci-target.ts",
 				// Run by hand from docs/password-auth-plan.md; a one-off admin CLI.
-				"scripts/provision-demo-user.ts"
+				"scripts/provision-demo-user.ts",
+				// Chart-history backfill: dry-run by default and applied manually.
+				// It has no importer because it is a standalone ops CLI.
+				"scripts/ops/backfill-chart-history.mjs"
 			],
 			"ignoreFiles": [
 				// Static service worker: registered at runtime by

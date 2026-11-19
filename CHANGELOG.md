@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `applyGrowthPlanForPond` is no longer a browser-callable server action that trusted the caller's `ownerId`; a static guard test prevents regressions.
 - Device-token reveals are audited and rate limited.
 
+## [1.61.4] - 2026-11-19
+
+### Changed
+
+- **The growth page and FCR calculator no longer carry the stored-report provenance note and markers (#966).** The note and the visual markers around a stored-report figure were removed; the FCR shown is computed from the current sampling window.
+
 ## [1.61.3] - 2026-11-19
 
 ### Changed

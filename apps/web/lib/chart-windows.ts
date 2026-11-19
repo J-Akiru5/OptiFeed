@@ -20,18 +20,27 @@ export const FEED_CHART_DAYS = 30;
 export const HOPPER_RANGE_DAYS = [7, 30] as const;
 export type HopperRange = (typeof HOPPER_RANGE_DAYS)[number];
 export const DEFAULT_HOPPER_RANGE: HopperRange = 7;
+/**
+ * The History page opens on the month window. A feeder that was offline for
+ * most of the last week can still have older readings, and a week containing a
+ * single day would otherwise render as one lonely dot.
+ */
+export const DEFAULT_HISTORY_HOPPER_RANGE: HopperRange = 30;
 
 /** Water temperature on the dashboard: the last day or the last week. */
 export const WATER_TEMP_RANGES = ["24h", "7d"] as const;
 export type WaterTempRange = (typeof WATER_TEMP_RANGES)[number];
 export const DEFAULT_WATER_TEMP_RANGE: WaterTempRange = "24h";
 
-/** Accept only the two supported hopper windows; anything else is 7 days. */
-export function parseHopperRange(value: string | null | undefined): HopperRange {
+/** Accept only the two supported hopper windows; anything else uses `fallback`. */
+export function parseHopperRange(
+	value: string | null | undefined,
+	fallback: HopperRange = DEFAULT_HOPPER_RANGE,
+): HopperRange {
 	const parsed = Number.parseInt(value ?? "", 10);
 	return (HOPPER_RANGE_DAYS as readonly number[]).includes(parsed)
 		? (parsed as HopperRange)
-		: DEFAULT_HOPPER_RANGE;
+		: fallback;
 }
 
 /** Accept only the two supported water windows; anything else is 24 hours. */

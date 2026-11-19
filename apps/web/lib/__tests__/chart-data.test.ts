@@ -6,6 +6,7 @@ import {
 	computePointDelta,
 	countSeriesValues,
 	fillDailySeries,
+	fillSparseDailySeries,
 	formatAxisDay,
 	peakPoint,
 	sharePct,
@@ -94,6 +95,34 @@ describe("fillDailySeries", () => {
 			{ label: "2026-10-01", value: 5 },
 			{ label: "2026-10-02", value: 0 },
 			{ label: "2026-10-03", value: 0 },
+		]);
+	});
+});
+
+describe("fillSparseDailySeries", () => {
+	const keys = ["2026-10-01", "2026-10-02", "2026-10-03"];
+
+	it("keeps days without a reading as gaps, not zeros", () => {
+		expect(fillSparseDailySeries([{ label: "2026-10-02", value: 4 }], keys)).toEqual([
+			{ label: "2026-10-01", value: null },
+			{ label: "2026-10-02", value: 4 },
+			{ label: "2026-10-03", value: null },
+		]);
+	});
+
+	it("drops non-finite readings and ignores unknown days", () => {
+		expect(
+			fillSparseDailySeries(
+				[
+					{ label: "2026-10-01", value: Number.NaN },
+					{ label: "2026-09-30", value: 99 },
+				],
+				keys,
+			),
+		).toEqual([
+			{ label: "2026-10-01", value: null },
+			{ label: "2026-10-02", value: null },
+			{ label: "2026-10-03", value: null },
 		]);
 	});
 });

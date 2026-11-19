@@ -152,23 +152,24 @@ describe("history charts (#188)", () => {
 		expect(html).toContain("(daily totals)");
 	});
 
-	it("defaults to the seven-day hopper window and links to the thirty-day one", async () => {
+	it("defaults to the thirty-day hopper window and links to the seven-day one", async () => {
 		const html = renderToStaticMarkup(await HistoryPage({ searchParams: Promise.resolve({}) }));
 
-		expect(getHopperLevelSeries).toHaveBeenCalledWith(["device-1"], 7);
-		expect(html).toContain('href="/dashboard/history?hopper=30"');
+		expect(getHopperLevelSeries).toHaveBeenCalledWith(["device-1"], 30);
+		expect(html).toContain('href="/dashboard/history?hopper=7"');
+		expect(html).toContain("Average hopper level over the last 30 days: 2 daily readings");
 		expect(html).toContain('aria-current="page"');
 	});
 
-	it("reads the thirty-day hopper window from the URL", async () => {
-		renderToStaticMarkup(await HistoryPage({ searchParams: Promise.resolve({ hopper: "30" }) }));
+	it("reads the seven-day hopper window from the URL", async () => {
+		renderToStaticMarkup(await HistoryPage({ searchParams: Promise.resolve({ hopper: "7" }) }));
 
-		expect(getHopperLevelSeries).toHaveBeenCalledWith(["device-1"], 30);
+		expect(getHopperLevelSeries).toHaveBeenCalledWith(["device-1"], 7);
 	});
 
 	it("ignores an unsupported hopper window", async () => {
 		renderToStaticMarkup(await HistoryPage({ searchParams: Promise.resolve({ hopper: "365" }) }));
 
-		expect(getHopperLevelSeries).toHaveBeenCalledWith(["device-1"], 7);
+		expect(getHopperLevelSeries).toHaveBeenCalledWith(["device-1"], 30);
 	});
 });

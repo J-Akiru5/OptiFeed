@@ -16,6 +16,7 @@ import {
 	updatePondEvent,
 } from "@/lib/actions/pond-event";
 import { ApiClientError, apiGet } from "@/lib/api-client";
+import type { CalendarCapability } from "@/lib/calendar/capability";
 import {
 	farmDateTimeToUtcDate,
 	fullCalendarValueToFarmValue,
@@ -53,7 +54,7 @@ import { useLocale, useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { CalendarTypeFilters } from "./calendar-controls";
+import { CalendarCapabilityBadge, CalendarTypeFilters } from "./calendar-controls";
 import { CalendarErrorBoundary } from "./calendar-error-boundary";
 import { CycleForm } from "./cycle-form";
 import { DayEventsPanel } from "./day-events-panel";
@@ -106,6 +107,9 @@ interface HarvestCalendarProps {
 	heading?: "harvest" | "calendar";
 	/** Console pages render their own page header; hide the in-body one. */
 	showHeader?: boolean;
+	/** Permission indicator for the compact page header; it is not an action. */
+	headerCapability?: CalendarCapability;
+	headerCapabilityLabels?: Record<"edit" | "ownFarm" | "read", string>;
 	today: string;
 	hopperLevelPct?: number | null;
 	hopperFeedLevelUpdatedAt?: string | null;
@@ -170,6 +174,8 @@ export function HarvestCalendar({
 	canManageCycles: canManageCyclesProp,
 	heading = "harvest",
 	showHeader = true,
+	headerCapability,
+	headerCapabilityLabels,
 	today,
 	hopperLevelPct,
 	hopperFeedLevelUpdatedAt,
@@ -731,7 +737,7 @@ export function HarvestCalendar({
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-4" data-help="harvest-calendar">
 			<div
-				className={`flex flex-none flex-col gap-3 xl:flex-row xl:items-start ${
+				className={`flex flex-none flex-col gap-3 xl:flex-row xl:items-center ${
 					showHeader ? "xl:justify-between" : "xl:justify-end"
 				}`}
 			>
@@ -753,7 +759,7 @@ export function HarvestCalendar({
 					</div>
 				)}
 
-				<div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center xl:justify-end">
+				<div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center xl:flex-1 xl:flex-wrap xl:justify-end">
 					{allPonds ? (
 						<>
 							<div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-gray-100 bg-white px-4 py-2.5 shadow-sm dark:border-gray-700/60 dark:bg-gray-900">
@@ -882,6 +888,13 @@ export function HarvestCalendar({
 						</>
 					)}
 				</div>
+				{showHeader && headerCapability && headerCapabilityLabels ? (
+					<CalendarCapabilityBadge
+						capability={headerCapability}
+						labels={headerCapabilityLabels}
+						className="shrink-0 self-start xl:self-center"
+					/>
+				) : null}
 			</div>
 
 			{!allPonds && selectedCycle && metrics && cycleDetailsOpen && (

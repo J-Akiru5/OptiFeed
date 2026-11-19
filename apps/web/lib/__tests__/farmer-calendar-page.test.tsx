@@ -63,6 +63,7 @@ vi.mock("@/components/harvest/harvest-calendar", () => ({
 		writablePondIds?: string[];
 		apiScope?: string;
 		heading?: string;
+		headerCapability?: string;
 		activeCycle?: { id: string } | null;
 		activeCycles?: Array<{ id: string }>;
 		recentCycles?: Array<{ id: string }>;
@@ -77,6 +78,7 @@ vi.mock("@/components/harvest/harvest-calendar", () => ({
 			data-writable={props.writablePondIds?.join(",") ?? "all"}
 			data-scope={props.apiScope}
 			data-heading={props.heading}
+			data-header-capability={props.headerCapability}
 			data-active-cycle={props.activeCycle?.id ?? ""}
 			data-active-cycles={props.activeCycles?.map((cycle) => cycle.id).join(",") ?? ""}
 			data-recent-cycles={props.recentCycles?.map((cycle) => cycle.id).join(",") ?? ""}
@@ -195,10 +197,11 @@ describe("/dashboard/calendar page", () => {
 		expect(html).toContain('data-hopper-offline="true"');
 	});
 
-	it("keeps the merged page heading", async () => {
+	it("keeps the merged page heading and places the capability badge in the calendar header", async () => {
 		const html = renderToStaticMarkup(await FarmerCalendarPage());
 
-		expect(html).toContain("Calendar &amp; Harvest");
+		expect(html).toContain('data-heading="calendar"');
+		expect(html).toContain('data-header-capability="edit"');
 	});
 
 	it("falls back to the caller's own farm when they have no org", async () => {

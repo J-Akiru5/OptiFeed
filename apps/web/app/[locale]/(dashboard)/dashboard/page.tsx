@@ -251,7 +251,9 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 					take: 5,
 				})
 			: Promise.resolve([]),
-		energyDevice ? getWaterTempSeries([energyDevice.id], waterRange) : Promise.resolve([]),
+		energyDevice
+			? getWaterTempSeries([energyDevice.id], waterRange, now, activeCycle?.stockingDate ?? null)
+			: Promise.resolve([]),
 		getFeedPerDayBySource(deviceIds),
 		getHopperLevelSeries(deviceIds, DEFAULT_HOPPER_RANGE),
 		// One loader for every surface (#6): device output only, seven days.
@@ -408,6 +410,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		energyDevice?.waterTempOk && energyDevice.waterTempC !== null
 			? `${energyDevice.waterTempC.toFixed(1)}°C`
 			: "—";
+	const waterTempReadings = waterTempPoints.filter((point) => point.value !== null).length;
 
 	const sourceSeriesLabels = Object.fromEntries(
 		feedChart.stack.sources.map((source) => [source, tHist(`source_${feedSourceKey(source)}`)]),
@@ -723,7 +726,7 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							title={t("waterChartTitle")}
 							summary={t("waterChartSummary", {
 								range: waterRangeLabel,
-								points: waterTempPoints.length,
+								points: waterTempReadings,
 								latest: latestWaterTemp,
 							})}
 							labels={{ ...chartLabels, empty: t("waterChartEmpty") }}
@@ -731,6 +734,8 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							unit="°C"
 							decimals={1}
 							height="100%"
+							showDots
+							connectGaps
 						/>
 					</div>
 				</div>

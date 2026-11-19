@@ -98,6 +98,9 @@ describe("resolveWaterTempWindow", () => {
 		expect(window.bucket).toBe("hour");
 		expect(window.end).toBe(NOW);
 		expect(window.start.toISOString()).toBe("2026-10-26T05:00:00.000Z");
+		expect(window.keys).toHaveLength(24);
+		expect(window.keys[0]).toBe("2026-10-26 13:00");
+		expect(window.keys.at(-1)).toBe("2026-10-27 12:00");
 	});
 
 	it("uses seven daily buckets for the week view", () => {
@@ -105,5 +108,30 @@ describe("resolveWaterTempWindow", () => {
 
 		expect(window.bucket).toBe("day");
 		expect(window.start.toISOString()).toBe("2026-10-20T16:00:00.000Z");
+		expect(window.keys).toHaveLength(7);
+		expect(window.keys[0]).toBe("2026-10-21");
+		expect(window.keys.at(-1)).toBe("2026-10-27");
+	});
+
+	it("starts the 24-hour view at the release date when it falls inside the window", () => {
+		const window = resolveWaterTempWindow("24h", NOW, new Date("2026-10-27T00:00:00.000Z"));
+
+		expect(window.start.toISOString()).toBe("2026-10-26T16:00:00.000Z");
+		expect(window.keys).toHaveLength(13);
+		expect(window.keys[0]).toBe("2026-10-27 00:00");
+		expect(window.keys.at(-1)).toBe("2026-10-27 12:00");
+	});
+
+	it("starts the week view at the release date when it falls inside the window", () => {
+		const window = resolveWaterTempWindow("7d", NOW, new Date("2026-10-25T00:00:00.000Z"));
+
+		expect(window.start.toISOString()).toBe("2026-10-24T16:00:00.000Z");
+		expect(window.keys).toEqual(["2026-10-25", "2026-10-26", "2026-10-27"]);
+	});
+
+	it("leaves the normal window alone when the release date is older", () => {
+		const window = resolveWaterTempWindow("24h", NOW, new Date("2026-10-01T00:00:00.000Z"));
+
+		expect(window.start.toISOString()).toBe("2026-10-26T05:00:00.000Z");
 	});
 });

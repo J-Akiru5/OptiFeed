@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The water-temperature trend keeps a continuous timeline and starts at the release date (#951).** The 24-hour view returned only the hours that had a reading, so a short burst of telemetry compressed the axis and made the trend look broken. The window now returns every hour (or every day in the 7-day view) with `null` for a missing reading, the line connects those gaps for temperature while hopper keeps its gaps visible, the summary counts actual readings, and the axis starts at the active cycle's stocking date when that falls inside the selected window.
+
 - **Hopper history shows the readings that exist, and the growth charts show their values (#947).** The History page opened on a seven-day window; when the feeder had been offline for most of that week the chart collapsed to a single unlabelled dot even though older readings existed. It now opens on the 30-day window, returns every day in the window (a missing day is a gap, not 0 %), counts only days that actually reported, and labels the newest reading on the plot. The Growth page's feed-level and ABW sparklines were custom SVGs with no axes, no values and no hover state; both use the shared line chart now, so they have date/value axes, point tooltips, a latest-point value label and a hidden data table. The feed-level chart also queries the 30-day daily series instead of the last 30 rows, and the ABW card states the latest sample date (#947).
 
 ## [1.61.0] - 2026-11-11

@@ -15,7 +15,11 @@ vi.mock("recharts", async () => {
 		ResponsiveContainer: passthrough,
 		LineChart: passthrough,
 		CartesianGrid: () => null,
-		Line: () => null,
+		Line: ({ connectNulls }: { connectNulls?: boolean }) =>
+			React.createElement("span", {
+				"data-testid": "line",
+				"data-connect-nulls": String(connectNulls),
+			}),
 		Tooltip: () => null,
 		XAxis: () => null,
 		YAxis: () => null,
@@ -64,5 +68,29 @@ describe("LineTrend", () => {
 		);
 
 		expect(html).toContain(LABELS.empty);
+	});
+
+	it("keeps gaps broken by default and connects them only when asked", () => {
+		const points = [
+			{ label: "2026-11-19 09:00", value: 30 },
+			{ label: "2026-11-19 10:00", value: null },
+			{ label: "2026-11-19 11:00", value: 31 },
+		];
+
+		const broken = renderToStaticMarkup(
+			<LineTrend title="Temperature" summary="Temperature" labels={LABELS} points={points} />,
+		);
+		expect(broken).toContain('data-connect-nulls="false"');
+
+		const connected = renderToStaticMarkup(
+			<LineTrend
+				title="Temperature"
+				summary="Temperature"
+				labels={LABELS}
+				points={points}
+				connectGaps
+			/>,
+		);
+		expect(connected).toContain('data-connect-nulls="true"');
 	});
 });

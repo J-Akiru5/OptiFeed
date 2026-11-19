@@ -19,11 +19,8 @@ vi.mock("recharts", async () => {
 		Tooltip: () => null,
 		XAxis: () => null,
 		YAxis: () => null,
-		ReferenceDot: ({
-			label,
-		}: {
-			label?: { value?: string };
-		}) => React.createElement("span", { "data-testid": "latest-dot" }, label?.value),
+		ReferenceDot: ({ label }: { label?: { value?: string } }) =>
+			React.createElement("span", { "data-testid": "latest-dot" }, label?.value),
 	};
 });
 

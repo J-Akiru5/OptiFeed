@@ -31,17 +31,23 @@ describe("calendar parity", () => {
 	});
 
 	it("renders exactly one page heading per route", () => {
-		// The console page owns the h1; the embedded calendar hides its own.
-		expect(read(PAGES.farmer)).toContain("showHeader={false}");
+		// The farmer calendar combines its page h1 with cycle controls in the
+		// shared header row. The tenant-admin page keeps its own page heading.
+		expect(read(PAGES.farmer)).toContain('heading="calendar"');
+		expect(read(PAGES.farmer)).toContain("showHeader");
 		expect(read(PAGES.admin)).toContain("showHeader={false}");
 		// The platform calendar never rendered an in-body heading.
 		expect(read("components/superadmin/platform-calendar.tsx")).not.toContain("<h1");
 	});
 
 	it("shows the same capability badge on every calendar console", () => {
-		for (const page of Object.values(PAGES)) {
+		for (const page of [PAGES.admin, PAGES.platform]) {
 			expect(read(page), page).toContain("CalendarCapabilityBadge");
 		}
+		// The farmer page passes the capability to the shared calendar header,
+		// which renders the same non-interactive badge.
+		expect(read(PAGES.farmer)).toContain("headerCapability={capability}");
+		expect(read("components/harvest/harvest-calendar.tsx")).toContain("CalendarCapabilityBadge");
 	});
 
 	it("keeps one definition of the filter-chip sizing", () => {

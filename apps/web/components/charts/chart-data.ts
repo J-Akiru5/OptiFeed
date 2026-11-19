@@ -13,6 +13,15 @@ export interface ChartPoint {
 	value: number;
 }
 
+/**
+ * A point on a continuous time axis. `null` means the bucket had no reading;
+ * a line chart draws a gap instead of pretending the reading was zero.
+ */
+export interface SparseChartPoint {
+	label: string;
+	value: number | null;
+}
+
 export interface ChartDelta {
 	/** Percentage change, or null when a percentage is meaningless. */
 	pct: number | null;
@@ -156,6 +165,25 @@ export function fillDailySeries(
 		);
 	}
 	return keys.map((label) => ({ label, value: byDay.get(label) ?? 0 }));
+}
+
+/**
+ * Align raw day buckets to a continuous key list, leaving days without a
+ * reading as `null`.
+ *
+ * Unlike counts (where a quiet day is a real 0), a missing sensor reading must
+ * not be plotted as 0 %. The line breaks at the gap instead of drawing a
+ * straight segment through days the device never reported.
+ */
+export function fillSparseDailySeries(
+	rows: ReadonlyArray<DailyRow>,
+	keys: ReadonlyArray<string>,
+): SparseChartPoint[] {
+	const byDay = new Map<string, number>();
+	for (const row of rows) {
+		if (Number.isFinite(row.value)) byDay.set(row.label, row.value);
+	}
+	return keys.map((label) => ({ label, value: byDay.get(label) ?? null }));
 }
 
 export interface FeedBucketRow {

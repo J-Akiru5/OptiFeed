@@ -1,6 +1,9 @@
 import { DataExportButton, DataImportDialog } from "@/components/DataImportExport";
 import { FcrCalculator } from "@/components/FcrCalculator";
 import { FeedingPredictionCard } from "@/components/FeedingPredictionCard";
+import type { SparseChartPoint } from "@/components/charts/chart-data";
+import type { ChartLabels } from "@/components/charts/chart-frame";
+import { LazyLineTrend } from "@/components/charts/lazy";
 import {
 	DashboardCard,
 	DashboardCardList,
@@ -44,6 +47,7 @@ import { loadGrowthPlanForPond } from "@/lib/growth-plan-loader";
 import { fcrTrendDirection } from "@/lib/growth/fcr-trend";
 import { getLiveCountForPond, mortalityRatePct } from "@/lib/growth/live-count";
 import type { GrowthSnapshotData } from "@/lib/offline/snapshots";
+import { getHopperLevelSeries } from "@/lib/pond-charts";
 import { getActivePond } from "@/lib/pond-selection";
 import { computeDeterministicPrediction } from "@/lib/prediction";
 import prisma from "@/lib/prisma";
@@ -228,7 +232,7 @@ export default async function GrowthPage() {
 		cycle: cycleContext,
 	});
 
-	let feedLevelLogs: Awaited<ReturnType<typeof prisma.feedLevelLog.findMany>> = [];
+	let feedLevelPoints: SparseChartPoint[] = [];
 	let feedLevelPreview: {
 		id: string;
 		recordedAt: Date;
@@ -236,12 +240,11 @@ export default async function GrowthPage() {
 		distanceCm: number;
 	}[] = [];
 	if (energyDevice) {
-		const [recentLevels, preview] = await Promise.all([
-			prisma.feedLevelLog.findMany({
-				where: { deviceId: energyDevice.id },
-				orderBy: { recordedAt: "desc" },
-				take: 30,
-			}),
+		const [points, preview] = await Promise.all([
+			// Chart the same 30-day, gap-aware series as the History page. The
+			// previous query took the last 30 rows regardless of age, which put
+			// every point in one afternoon and hid the rest of the month.
+			getHopperLevelSeries([energyDevice.id], 30),
 			prisma.feedLevelLog.findMany({
 				where: { deviceId: energyDevice.id },
 				orderBy: { recordedAt: "desc" },
@@ -249,7 +252,7 @@ export default async function GrowthPage() {
 				select: { id: true, recordedAt: true, levelPercent: true, distanceCm: true },
 			}),
 		]);
-		feedLevelLogs = recentLevels.slice().reverse();
+		feedLevelPoints = points;
 		feedLevelPreview = preview;
 	}
 
@@ -287,37 +290,24 @@ export default async function GrowthPage() {
 
 	const formatDate = (d: Date) => formatFarmDateTime(d, tDates).date;
 
-	// Custom SVG Line Chart generator for Biomass
-	const maxBiomass = Math.max(...biomassLogs.map((l) => l.avgWeightKg), 0.01) * 1.1; // Add 10% padding top
-	const minBiomass = Math.min(...biomassLogs.map((l) => l.avgWeightKg), 0);
-
-	const generateBiomassPath = () => {
-		if (biomassLogs.length < 2) return "";
-		const w = 400;
-		const h = 100;
-		const points = biomassLogs.map((log, i) => {
-			const x = (i / (biomassLogs.length - 1)) * w;
-			const y = h - ((log.avgWeightKg - minBiomass) / (maxBiomass - minBiomass)) * h;
-			return `${x},${y}`;
-		});
-		return `M ${points.join(" L ")}`;
+	// Chart inputs (#947): the ABW card plots every loaded sample, and the feed
+	// level card plots the same 30-day series the History page uses. Both feed
+	// the shared line chart so axes, tooltips and the hidden data table exist.
+	const chartLabels: ChartLabels = {
+		period: tCommon("charts.period"),
+		value: tCommon("charts.value"),
+		name: tCommon("charts.name"),
+		empty: tCommon("charts.empty"),
 	};
-
-	// Feed level sparkline
-	const maxLevel = Math.max(...feedLevelLogs.map((l) => l.levelPercent), 50);
-	const minLevel = Math.min(...feedLevelLogs.map((l) => l.levelPercent), 0);
-
-	const generateFeedLevelPath = () => {
-		if (feedLevelLogs.length < 2) return "";
-		const w = 400;
-		const h = 100;
-		const points = feedLevelLogs.map((log, i) => {
-			const x = (i / (feedLevelLogs.length - 1)) * w;
-			const y = h - ((log.levelPercent - minLevel) / (maxLevel - minLevel)) * h;
-			return `${x},${y}`;
-		});
-		return `M ${points.join(" L ")}`;
-	};
+	const biomassChartPoints = biomassLogs.map((log) => ({
+		label: formatDate(log.recordedAt),
+		value: Math.round(log.avgWeightKg * 1000 * 10) / 10,
+	}));
+	const latestBiomassLabel = latestBiomass === null ? "—" : (latestBiomass * 1000).toFixed(1);
+	const latestBiomassDate = latestSample ? formatDate(latestSample.recordedAt) : "—";
+	const feedLevelReadings = feedLevelPoints.filter((point) => point.value !== null).length;
+	const feedLevelLatest =
+		[...feedLevelPoints].reverse().find((point) => point.value !== null)?.value ?? null;
 
 	const growthSnapshot: GrowthSnapshotData = {
 		pondName: pond.name,
@@ -542,11 +532,16 @@ export default async function GrowthPage() {
 								/>
 							</p>
 							<p className="text-4xl font-extrabold text-[var(--ofd-base-deep)] mt-1">
-								{latestBiomass === null ? "—" : (latestBiomass * 1000).toFixed(1)}{" "}
+								{latestBiomassLabel}{" "}
 								{latestBiomass !== null && (
 									<span className="text-lg text-gray-500 font-medium">g</span>
 								)}
 							</p>
+							{latestSample && (
+								<p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+									{t("latestSampleOn", { date: latestBiomassDate })}
+								</p>
+							)}
 							{biomassGrowthPct !== null && biomassGrowthPct > 0 && (
 								<p className="text-sm text-green-700 font-medium mt-1 flex items-center gap-1 dark:text-green-400">
 									<TrendingUp aria-hidden="true" className="h-4 w-4" />{" "}
@@ -559,56 +554,26 @@ export default async function GrowthPage() {
 						</div>
 					</div>
 
-					{/* Biomass Chart */}
-					<div className="h-24 w-full relative mt-4">
-						<svg
-							viewBox="0 0 400 100"
-							preserveAspectRatio="none"
-							className="h-full w-full overflow-visible"
-							role="img"
-							aria-label={t("biomassChartLabel")}
-						>
-							<title>{t("biomassChartLabel")}</title>
-							<defs>
-								<linearGradient id="bioGrad" x1="0" y1="0" x2="0" y2="1">
-									<stop offset="0%" stopColor="var(--ofd-action)" stopOpacity="0.2" />
-									<stop offset="100%" stopColor="var(--ofd-action)" stopOpacity="0" />
-								</linearGradient>
-							</defs>
-							<path d={`${generateBiomassPath()} L 400,100 L 0,100 Z`} fill="url(#bioGrad)" />
-							<path
-								d={generateBiomassPath()}
-								fill="none"
-								stroke="var(--ofd-action)"
-								strokeWidth="4"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								className="drop-shadow-md"
-							/>
-							{biomassLogs.map((log, i) => {
-								if (biomassLogs.length < 2) return null;
-								const x = (i / (biomassLogs.length - 1)) * 400;
-								const y = 100 - ((log.avgWeightKg - minBiomass) / (maxBiomass - minBiomass)) * 100;
-								return (
-									<circle
-										key={log.id}
-										cx={x}
-										cy={y}
-										r="5"
-										fill="white"
-										stroke="var(--ofd-action)"
-										strokeWidth="3"
-									/>
-								);
-							})}
-						</svg>
-						<span className="sr-only">
-							{t("chartSummary", {
+					{/* Biomass Chart (#947): axes, hover values and the latest point label. */}
+					<div className="mt-4 flex-1">
+						<LazyLineTrend
+							className="h-full border-0 bg-transparent p-0 shadow-none max-xl:border-0 max-xl:border-b-0 max-xl:p-0 max-xl:pb-0 dark:bg-transparent"
+							title={t("biomassChartLabel")}
+							description={t("biomassChartDesc")}
+							summary={t("abwChartSummary", {
 								count: biomassLogs.length,
-								latest: latestBiomass === null ? "—" : (latestBiomass * 1000).toFixed(1),
-								fcr: latestFcr === null ? "—" : latestFcr.toFixed(2),
+								latest: latestBiomassLabel,
+								date: latestBiomassDate,
 							})}
-						</span>
+							labels={{ ...chartLabels, empty: t("noSamples") }}
+							points={biomassChartPoints}
+							unit="g"
+							decimals={1}
+							height={160}
+							color="var(--ofd-action)"
+							showDots
+							markLatest
+						/>
 					</div>
 				</div>
 
@@ -710,73 +675,24 @@ export default async function GrowthPage() {
 				/>
 			</div>
 
-			{/* Feed Level Trend Card */}
-			{feedLevelLogs.length > 0 && (
-				<div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50">
-					<div className="flex items-center justify-between mb-4">
-						<div>
-							<h2 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-								{t("feedLevelTitle")}
-							</h2>
-							<p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-								{t("feedLevelDesc")}
-							</p>
-						</div>
-						<Package aria-hidden="true" className="h-6 w-6 text-orange-600" />
-					</div>
-					<div className="h-24 w-full relative">
-						<svg
-							viewBox="0 0 400 100"
-							preserveAspectRatio="none"
-							className="h-full w-full overflow-visible"
-							role="img"
-							aria-label={t("feedLevelTitle")}
-						>
-							<title>{t("feedLevelTitle")}</title>
-							<defs>
-								<linearGradient id="feedLevelGrad" x1="0" y1="0" x2="0" y2="1">
-									<stop offset="0%" stopColor="#f97316" stopOpacity="0.2" />
-									<stop offset="100%" stopColor="#f97316" stopOpacity="0" />
-								</linearGradient>
-							</defs>
-							<path
-								d={`${generateFeedLevelPath()} L 400,100 L 0,100 Z`}
-								fill="url(#feedLevelGrad)"
-							/>
-							<path
-								d={generateFeedLevelPath()}
-								fill="none"
-								stroke="#f97316"
-								strokeWidth="4"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								className="drop-shadow-md"
-							/>
-							{feedLevelLogs.length >= 2 &&
-								feedLevelLogs.map((log, i) => {
-									const x = (i / (feedLevelLogs.length - 1)) * 400;
-									const y = 100 - ((log.levelPercent - minLevel) / (maxLevel - minLevel)) * 100;
-									return (
-										<circle
-											key={log.id}
-											cx={x}
-											cy={y}
-											r="5"
-											fill="white"
-											stroke="#f97316"
-											strokeWidth="3"
-										/>
-									);
-								})}
-						</svg>
-						<span className="sr-only">
-							{t("feedChartSummary", {
-								count: feedLevelLogs.length,
-								latest: Math.round(feedLevelLogs[feedLevelLogs.length - 1]?.levelPercent ?? 0),
-							})}
-						</span>
-					</div>
-				</div>
+			{/* Feed Level Trend (30-day, gap-aware; axes and hover values are visible). */}
+			{feedLevelReadings > 0 && (
+				<LazyLineTrend
+					title={t("feedLevelTitle")}
+					description={t("feedLevelDesc")}
+					summary={t("feedChartSummary", {
+						count: feedLevelReadings,
+						latest: feedLevelLatest === null ? "—" : Math.round(feedLevelLatest),
+					})}
+					labels={{ ...chartLabels, empty: t("noFeedLevel") }}
+					points={feedLevelPoints}
+					unit="%"
+					decimals={1}
+					height={180}
+					color="#f97316"
+					showDots
+					markLatest
+				/>
 			)}
 
 			{/* Feed Level Log preview */}

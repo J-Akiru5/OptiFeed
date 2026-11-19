@@ -81,7 +81,7 @@ export function LineTrend({
 		for (let index = visible.length - 1; index >= 0; index -= 1) {
 			const point = visible[index];
 			if (point.value !== null && Number.isFinite(point.value)) {
-				return { label: point.label, value: point.value };
+				return { label: point.label, value: point.value, index };
 			}
 		}
 		return null;
@@ -159,7 +159,7 @@ export function LineTrend({
 							ifOverflow="extendDomain"
 							label={{
 								value: formatChartNumber(latest.value, unit),
-								position: "left",
+								position: latest.index === 0 ? "right" : "left",
 								offset: 8,
 								fill: theme.axis,
 								fontSize: 11,

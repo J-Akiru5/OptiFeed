@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="color-scheme" content="light">
+	<title>OptiFeed — Feeding Data Model</title>
+	<style>
+		:root {
+			--ink: #142b3b;
+			--muted: #5b6b78;
+			--paper: #f4f7f8;
+			--card: #fff;
+			--line: #d9e2e8;
+			--navy: #53698f;
+			--green: #159a78;
+			--purple: #7860c8;
+			--red: #d95353;
+			--orange: #b9792d;
+			--gold: #dfa900;
+			--blue: #347dde;
+			--shadow: 0 14px 38px rgba(17, 42, 59, .09);
+		}
+		* { box-sizing: border-box; }
+		body {
+			margin: 0;
+			background: var(--paper);
+			color: var(--ink);
+			font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+			line-height: 1.5;
+		}
+		header {
+			background: #102f45;
+			color: white;
+			padding: clamp(28px, 5vw, 62px) clamp(20px, 5vw, 76px) 34px;
+		}
+		.header-inner, main { max-width: 1720px; margin: 0 auto; }
+		.eyebrow { color: #8ddbc4; font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+		h1 { margin: 10px 0 8px; font-size: clamp(30px, 4.5vw, 54px); line-height: 1.08; letter-spacing: -.035em; }
+		.subtitle { margin: 0; max-width: 760px; color: #d3e1e8; font-size: clamp(15px, 1.5vw, 18px); }
+		main { padding: 24px clamp(14px, 3vw, 48px) 56px; }
+		.tldr {
+			display: grid;
+			grid-template-columns: minmax(230px, 1.2fr) repeat(3, minmax(150px, .7fr));
+			gap: 12px;
+			margin: 0 0 18px;
+		}
+		.tldr-card, .panel {
+			background: var(--card);
+			border: 1px solid var(--line);
+			border-radius: 16px;
+			box-shadow: var(--shadow);
+		}
+		.tldr-card { padding: 16px 18px; }
+		.tldr-card strong { display: block; margin-bottom: 4px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+		.tldr-card span { font-size: 15px; font-weight: 750; }
+		.tldr-card.main-point { background: #eaf7f3; border-color: #b9e4d7; }
+		.tldr-card.main-point strong { color: #11775e; }
+		.panel { overflow: hidden; }
+		.toolbar {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			padding: 15px 18px;
+			border-bottom: 1px solid var(--line);
+			background: #fbfcfd;
+		}
+		.toolbar h2 { margin: 0; font-size: 16px; letter-spacing: -.01em; }
+		.toolbar p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+		.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+		button {
+			min-height: 42px;
+			border: 1px solid #c7d4dc;
+			border-radius: 10px;
+			padding: 0 14px;
+			background: white;
+			color: var(--ink);
+			font: inherit;
+			font-size: 13px;
+			font-weight: 750;
+			cursor: pointer;
+		}
+		button.primary { color: white; background: #167b69; border-color: #167b69; }
+		button:hover { filter: brightness(.96); }
+		button:focus-visible { outline: 3px solid #84c9ba; outline-offset: 2px; }
+		.diagram-scroll { overflow: auto; overscroll-behavior-x: contain; padding: 18px; }
+		#erd { display: block; width: 100%; min-width: 1120px; height: auto; background: #fbfcfd; border-radius: 12px; }
+		.legend {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 10px 20px;
+			padding: 14px 20px 18px;
+			border-top: 1px solid var(--line);
+			color: #415565;
+			font-size: 12px;
+		}
+		.legend-item { display: inline-flex; align-items: center; gap: 7px; }
+		.sample-line { width: 28px; height: 0; border-top: 2px solid #536575; }
+		.sample-line.dashed { border-top-style: dashed; }
+		.dot { width: 10px; height: 10px; border-radius: 3px; background: #159a78; }
+		.notes {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 14px;
+			margin-top: 18px;
+		}
+		.note { padding: 18px 20px; }
+		.note h3 { margin: 0 0 7px; font-size: 14px; }
+		.note p { margin: 0; color: #526574; font-size: 13px; }
+		.note.warning { border-left: 4px solid #d18a27; }
+		.note.scope { border-left: 4px solid #347dde; }
+		.note.roles { border-left: 4px solid #159a78; }
+		.source { margin: 18px 2px 0; color: var(--muted); font-size: 11px; }
+		footer { padding: 18px clamp(20px, 5vw, 76px); color: #d4e1e7; background: #102f45; font-size: 12px; }
+		@media (max-width: 760px) {
+			.tldr { grid-template-columns: 1fr 1fr; }
+			.tldr-card.main-point { grid-column: 1 / -1; }
+			.toolbar { align-items: flex-start; flex-direction: column; }
+			.actions { width: 100%; }
+			.actions button { flex: 1; }
+			.notes { grid-template-columns: 1fr; }
+			.diagram-scroll { padding: 10px; }
+		}
+		@media print {
+			body { background: white; }
+			header, footer { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+			.actions { display: none; }
+			.panel, .tldr-card { box-shadow: none; }
+			.diagram-scroll { overflow: visible; }
+			#erd { min-width: 0; width: 100%; }
+		}
+	</style>
+</head>
+<body>
+<header>
+	<div class="header-inner">
+		<div class="eyebrow">OptiFeed · simplified current-state ERD</div>
+		<h1>Feeding data model</h1>
+		<p class="subtitle">Tenant ownership, pond planning, device commands and the records that prove a feed happened. Focused for feeding; not a complete inventory of every application table.</p>
+	</div>
+</header>
+<main>
+	<section class="tldr" aria-label="Diagram summary">
+		<div class="tldr-card main-point"><strong>TL;DR</strong><span>Farm owner and tenant membership are separate relationships; devices dispense against pond plans.</span></div>
+		<div class="tldr-card"><strong>Current device</strong><span>EnergyDevice</span></div>
+		<div class="tldr-card"><strong>Feed evidence</strong><span>FeedEvent</span></div>
+		<div class="tldr-card"><strong>Schema source</strong><span>Prisma · origin/main</span></div>
+	</section>
+
+	<section class="panel" aria-labelledby="erd-heading">
+		<div class="toolbar">
+			<div><h2 id="erd-heading">Entities and relationships</h2><p>Solid lines are database relations; dashed lines are logical ID links enforced by the app, not Prisma foreign keys.</p></div>
+			<div class="actions">
+				<button class="primary" id="export-svg" type="button">Download SVG</button>
+				<button id="export-png" type="button">Download PNG</button>
+			</div>
+		</div>
+		<div class="diagram-scroll" role="region" aria-label="Scrollable ERD diagram" tabindex="0">
+		<svg id="erd" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1840 1240" role="img" aria-labelledby="svg-title svg-desc">
+			<title id="svg-title">OptiFeed feeding-focused entity relationship diagram</title>
+			<desc id="svg-desc">Shows users, farms, tenant organization memberships, platform administrators, ponds, crop cycles, biomass sampling, energy devices, schedules, feed requests, feed events, and device telemetry logs.</desc>
+			<style>
+				.svg-bg { fill: #fbfcfd; }
+				.rel { fill: none; stroke: #596d7c; stroke-width: 2.2; }
+				.rel.logical { stroke-dasharray: 8 7; stroke: #728392; }
+				.rel-label-bg { fill: #fbfcfd; stroke: #e2e9ee; stroke-width: 1; }
+				.rel-label { fill: #334d5e; font: 700 12px Inter,system-ui,sans-serif; }
+				.card { fill: #fff; stroke-width: 2.4; }
+				.header { rx: 9; }
+				.entity-title { fill: #fff; font: 800 15px Inter,system-ui,sans-serif; letter-spacing: .06em; }
+				.entity-subtitle { fill: rgba(255,255,255,.82); font: 600 10px Inter,system-ui,sans-serif; }
+				.attr { fill: #263d4c; font: 12px Inter,system-ui,sans-serif; }
+				.key { fill: #526978; font: 800 10px Inter,system-ui,sans-serif; text-anchor: end; }
+				.card-note { fill: #5a6e7b; font: italic 10px Inter,system-ui,sans-serif; }
+				.role-chip { fill: #e8f6f1; stroke: #b4e2d3; }
+				.role-text { fill: #11735b; font: 800 9px Inter,system-ui,sans-serif; }
+				.group-label { fill: #71818c; font: 800 11px Inter,system-ui,sans-serif; letter-spacing: .14em; }
+				.card-shadow { filter: drop-shadow(0 5px 8px rgba(18, 42, 57, .08)); }
+			</style>
+			<defs>
+				<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#596d7c"/></marker>
+				<marker id="arrow-soft" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#728392"/></marker>
+			</defs>
+			<rect class="svg-bg" width="1840" height="1240" rx="10"/>
+			<text class="group-label" x="60" y="42">TENANT IDENTITY &amp; ACCESS</text>
+			<text class="group-label" x="60" y="385">FEEDING DOMAIN</text>
+			<text class="group-label" x="1190" y="355">DEVICE COMMANDS &amp; EVIDENCE</text>
+
+			<!-- Relationships sit behind the entity cards. -->
+			<path class="rel" d="M330 150 H390" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+			<rect class="rel-label-bg" x="332" y="124" width="56" height="19" rx="8"/><text class="rel-label" x="360" y="138" text-anchor="middle">1 : 0..1</text>
+			<text class="rel-label" x="360" y="166" text-anchor="middle">owner</text>
+
+			<path class="rel logical" d="M185 270 V330" marker-start="url(#arrow-soft)" marker-end="url(#arrow-soft)"/>
+			<rect class="rel-label-bg" x="194" y="289" width="42" height="18" rx="8"/><text class="rel-label" x="215" y="302" text-anchor="middle">1 : 0..1</text>
+			<text class="rel-label" x="244" y="321">userId · app link</text>
+
+			<path class="rel logical" d="M330 235 L354 286 H1060 V176 H1100" marker-start="url(#arrow-soft)" marker-end="url(#arrow-soft)"/>
+			<rect class="rel-label-bg" x="648" y="272" width="156" height="20" rx="8"/><text class="rel-label" x="726" y="286" text-anchor="middle">userId · logical link</text>
+			<path class="rel logical" d="M1020 156 H1100" marker-start="url(#arrow-soft)" marker-end="url(#arrow-soft)"/>
+			<rect class="rel-label-bg" x="1026" y="130" width="66" height="18" rx="8"/><text class="rel-label" x="1059" y="143" text-anchor="middle">1 : 0..N</text>
+
+			<path class="rel" d="M520 220 V420" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+			<rect class="rel-label-bg" x="530" y="294" width="54" height="18" rx="8"/><text class="rel-label" x="557" y="307" text-anchor="middle">1 : N</text>
+
+			<path class="rel" d="M330 210 L352 238 H365 V468 H390" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+			<rect class="rel-label-bg" x="337" y="337" width="135" height="20" rx="8"/><text class="rel-label" x="404" y="351" text-anchor="middle">ownerId → User.farmId</text>
+
+			<path class="rel" d="M680 525 H760" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+			<rect class="rel-label-bg" x="685" y="497" width="70" height="18" rx="8"/><text class="rel-label" x="720" y="510" text-anchor="middle">1 : 0..N</text>
+			<text class="rel-label" x="720" y="544" text-anchor="middle">pondId?</text>
+
+			<path class="rel" d="M520 650 V720" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+			<rect class="rel-label-bg" x="530" y="674" width="44" height="18" rx="8"/><text class="rel-label" x="552" y="687" text-anchor="middle">1 : N</text>
+
+			<path class="rel" d="M390 600 L350 770" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+			<rect class="rel-label-bg" x="337" y="679" width="45" height="18" rx="8" transform="rotate(-70 359 688)"/><text class="rel-label" x="360" y="693" text-anchor="middle">1 : N</text>
+
+			<path class="rel" d="M195 940 V1000" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+			<rect class="rel-label-bg" x="203" y="957" width="44" height="18" rx="8"/><text class="rel-label" x="225" y="970" text-anchor="middle">1 : N</text>
+
+			<path class="rel" d="M1060 470 H1160" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+			<rect class="rel-label-bg" x="1064" y="444" width="70" height="18" rx="8"/><text class="rel-label" x="1099" y="457" text-anchor="middle">1 : 0..N</text>
+
+			<path class="rel" d="M1060 575 L1160 702" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+			<rect class="rel-label-bg" x="1075" y="625" width="44" height="18" rx="8" transform="rotate(50 1097 634)"/><text class="rel-label" x="1098" y="640" text-anchor="middle">1 : N</text>
+
+			<path class="rel" d="M930 650 V720" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+			<rect class="rel-label-bg" x="941" y="674" width="44" height="18" rx="8"/><text class="rel-label" x="963" y="687" text-anchor="middle">1 : N</text>
+
+			<path class="rel" d="M680 608 L760 760" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+			<rect class="rel-label-bg" x="693" y="672" width="44" height="18" rx="8" transform="rotate(62 715 681)"/><text class="rel-label" x="715" y="688" text-anchor="middle">1 : N</text>
+
+			<path class="rel" d="M1010 420 V330 H1645 V400" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+			<rect class="rel-label-bg" x="1340" y="313" width="44" height="18" rx="8"/><text class="rel-label" x="1362" y="326" text-anchor="middle">1 : N</text>
+
+			<path class="rel" d="M1060 590 H1490 V700 H1510" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+			<rect class="rel-label-bg" x="1262" y="572" width="44" height="18" rx="8"/><text class="rel-label" x="1284" y="585" text-anchor="middle">1 : N</text>
+
+			<path class="rel" d="M1060 612 H1470 V900 H1510" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+			<rect class="rel-label-bg" x="1262" y="594" width="44" height="18" rx="8"/><text class="rel-label" x="1284" y="607" text-anchor="middle">1 : N</text>
+
+			<path class="rel logical" d="M1310 570 V650" marker-start="url(#arrow-soft)" marker-end="url(#arrow-soft)"/>
+			<rect class="rel-label-bg" x="1312" y="598" width="144" height="18" rx="8"/><text class="rel-label" x="1384" y="611" text-anchor="middle">request 1 : 0..1 event</text>
+
+			<path class="rel" d="M1060 810 H1160" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+			<rect class="rel-label-bg" x="1069" y="784" width="44" height="18" rx="8"/><text class="rel-label" x="1091" y="797" text-anchor="middle">1 : N</text>
+
+			<!-- Tenant identity / authorization -->
+			<g class="card-shadow" transform="translate(60 70)">
+				<rect class="card" width="270" height="200" rx="10" stroke="#53698f"/>
+				<rect class="header" width="270" height="42" fill="#53698f"/>
+				<text class="entity-title" x="18" y="27">USER</text><text class="entity-subtitle" x="250" y="26" text-anchor="end">identity · roles</text>
+				<text class="attr" x="16" y="67">id</text><text class="key" x="252" y="67">PK</text>
+				<text class="attr" x="16" y="91">supabaseId · email</text><text class="key" x="252" y="91">UQ</text>
+				<text class="attr" x="16" y="115">farmId · login slug</text><text class="key" x="252" y="115">UQ</text>
+				<text class="attr" x="16" y="139">displayName · contactEmail?</text>
+				<text class="attr" x="16" y="163">role · legacy global fallback</text>
+				<text class="card-note" x="16" y="185">ADMIN / OPERATOR / VIEWER</text>
+			</g>
+			<g class="card-shadow" transform="translate(390 70)">
+				<rect class="card" width="260" height="150" rx="10" stroke="#159a78"/>
+				<rect class="header" width="260" height="42" fill="#159a78"/>
+				<text class="entity-title" x="18" y="27">FARM</text><text class="entity-subtitle" x="240" y="26" text-anchor="end">owner's farm</text>
+				<text class="attr" x="16" y="69">id</text><text class="key" x="242" y="69">PK</text>
+				<text class="attr" x="16" y="95">ownerId → User.farmId</text><text class="key" x="242" y="95">FK · UQ</text>
+				<text class="attr" x="16" y="121">name · createdAt</text>
+			</g>
+			<g class="card-shadow" transform="translate(760 70)">
+				<rect class="card" width="260" height="150" rx="10" stroke="#347dde"/>
+				<rect class="header" width="260" height="42" fill="#347dde"/>
+				<text class="entity-title" x="18" y="27">ORGANIZATION</text><text class="entity-subtitle" x="240" y="26" text-anchor="end">tenant</text>
+				<text class="attr" x="16" y="69">id</text><text class="key" x="242" y="69">PK</text>
+				<text class="attr" x="16" y="95">name · type · status</text>
+				<text class="attr" x="16" y="121">createdAt · updatedAt</text>
+				<text class="card-note" x="16" y="140">no direct Farm FK in this model</text>
+			</g>
+			<g class="card-shadow" transform="translate(1100 70)">
+				<rect class="card" width="290" height="170" rx="10" stroke="#7860c8"/>
+				<rect class="header" width="290" height="42" fill="#7860c8"/>
+				<text class="entity-title" x="18" y="27">MEMBERSHIP</text><text class="entity-subtitle" x="270" y="26" text-anchor="end">tenant access</text>
+				<text class="attr" x="16" y="68">id</text><text class="key" x="272" y="68">PK</text>
+				<text class="attr" x="16" y="91">orgId · userId</text><text class="key" x="272" y="91">logical IDs</text>
+				<text class="attr" x="16" y="114">role · revokedAt?</text>
+				<text class="attr" x="16" y="137">unique (orgId, userId)</text><text class="key" x="272" y="137">UQ</text>
+				<text class="card-note" x="16" y="158">OWNER / ADMIN / OPERATOR / VIEWER</text>
+			</g>
+			<g class="card-shadow" transform="translate(60 330)">
+				<rect class="card" width="270" height="125" rx="10" stroke="#b9792d"/>
+				<rect class="header" width="270" height="42" fill="#b9792d"/>
+				<text class="entity-title" x="18" y="27">PLATFORM ADMIN</text><text class="entity-subtitle" x="250" y="26" text-anchor="end">superadmin</text>
+				<text class="attr" x="16" y="68">id · userId</text><text class="key" x="252" y="68">PK · UQ*</text>
+				<text class="attr" x="16" y="92">expiresAt? · revokedAt?</text>
+				<text class="card-note" x="16" y="113">separate grant; not a User.role value</text>
+			</g>
+
+			<!-- Feeding domain -->
+			<g class="card-shadow" transform="translate(390 420)">
+				<rect class="card" width="290" height="230" rx="10" stroke="#159a78"/>
+				<rect class="header" width="290" height="42" fill="#159a78"/>
+				<text class="entity-title" x="18" y="27">POND</text><text class="entity-subtitle" x="270" y="26" text-anchor="end">feeding plan</text>
+				<text class="attr" x="16" y="68">id</text><text class="key" x="272" y="68">PK</text>
+				<text class="attr" x="16" y="91">farmId · ownerId</text><text class="key" x="272" y="91">FK</text>
+				<text class="attr" x="16" y="114">name · status · isFallow</text>
+				<text class="attr" x="16" y="137">population? · feedsPerDay</text>
+				<text class="attr" x="16" y="160">feedingRatePct · sampleIntervalDays</text>
+				<text class="attr" x="16" y="183">scheduleStart · scheduleEnd</text>
+				<text class="card-note" x="16" y="211">stocking / harvest targets live in CropCycle</text>
+			</g>
+			<g class="card-shadow" transform="translate(390 720)">
+				<rect class="card" width="290" height="220" rx="10" stroke="#347dde"/>
+				<rect class="header" width="290" height="42" fill="#347dde"/>
+				<text class="entity-title" x="18" y="27">CROP CYCLE</text><text class="entity-subtitle" x="270" y="26" text-anchor="end">stocking → harvest</text>
+				<text class="attr" x="16" y="68">id · pondId</text><text class="key" x="272" y="68">PK · FK</text>
+				<text class="attr" x="16" y="91">stockingDate · stockingCount</text>
+				<text class="attr" x="16" y="114">stockingAvgWeightG?</text>
+				<text class="attr" x="16" y="137">targetHarvestDate · targetHarvestWeightG?</text>
+				<text class="attr" x="16" y="160">expectedSurvivalPct? · growOutDays</text>
+				<text class="attr" x="16" y="183">actualHarvestDate? · actualFcr?</text>
+				<text class="card-note" x="16" y="208">one active cycle per pond (partial unique index)</text>
+			</g>
+			<g class="card-shadow" transform="translate(60 720)">
+				<rect class="card" width="290" height="205" rx="10" stroke="#347dde"/>
+				<rect class="header" width="290" height="42" fill="#347dde"/>
+				<text class="entity-title" x="18" y="27">BIOMASS LOG</text><text class="entity-subtitle" x="270" y="26" text-anchor="end">sampling</text>
+				<text class="attr" x="16" y="68">id · pondId</text><text class="key" x="272" y="68">PK · FK</text>
+				<text class="attr" x="16" y="91">sampleWeightKg · sampleLengthCm</text>
+				<text class="attr" x="16" y="114">sampleCount · avgWeightKg</text>
+				<text class="attr" x="16" y="137">recordedAt · source · farmId?</text>
+				<text class="card-note" x="16" y="169">no recordedBy field in current schema</text>
+				<text class="card-note" x="16" y="187">FishSample stores individual measurements</text>
+			</g>
+			<g class="card-shadow" transform="translate(60 1000)">
+				<rect class="card" width="290" height="155" rx="10" stroke="#347dde"/>
+				<rect class="header" width="290" height="42" fill="#347dde"/>
+				<text class="entity-title" x="18" y="27">FISH SAMPLE</text><text class="entity-subtitle" x="270" y="26" text-anchor="end">optional detail</text>
+				<text class="attr" x="16" y="68">id · biomassLogId</text><text class="key" x="272" y="68">PK · FK</text>
+				<text class="attr" x="16" y="92">weightGrams · lengthCm</text>
+				<text class="attr" x="16" y="119">farmId? · sample rows</text>
+			</g>
+			<g class="card-shadow" transform="translate(760 420)">
+				<rect class="card" width="300" height="230" rx="10" stroke="#b9792d"/>
+				<rect class="header" width="300" height="42" fill="#b9792d"/>
+				<text class="entity-title" x="18" y="27">ENERGY DEVICE</text><text class="entity-subtitle" x="280" y="26" text-anchor="end">active hardware model</text>
+				<text class="attr" x="16" y="68">id · mac</text><text class="key" x="282" y="68">PK · UQ</text>
+				<text class="attr" x="16" y="91">pondId?</text><text class="key" x="282" y="91">FK · nullable</text>
+				<text class="attr" x="16" y="114">lastSeenAt · rtcOk · isPaused</text>
+				<text class="attr" x="16" y="137">gramsPerFeeding · gramsPerSecond</text>
+				<text class="attr" x="16" y="160">feedLevel% · waterTempC · RSSI</text>
+				<text class="attr" x="16" y="183">diag JSON · firmware / health</text>
+				<text class="card-note" x="16" y="211">0..1 pond per device; 0..N devices per pond</text>
+			</g>
+			<g class="card-shadow" transform="translate(760 720)">
+				<rect class="card" width="300" height="210" rx="10" stroke="#7860c8"/>
+				<rect class="header" width="300" height="42" fill="#7860c8"/>
+				<text class="entity-title" x="18" y="27">SCHEDULE COMMAND</text><text class="entity-subtitle" x="280" y="26" text-anchor="end">queued config</text>
+				<text class="attr" x="16" y="68">id · deviceId · pondId</text><text class="key" x="282" y="68">PK · FK × 2</text>
+				<text class="attr" x="16" y="91">scheduleStart · scheduleEnd</text>
+				<text class="attr" x="16" y="114">feedsPerDay · feedingRatePct</text>
+				<text class="attr" x="16" y="137">buttonFeedGrams · status</text>
+				<text class="attr" x="16" y="160">appliedAt? · deviceTime?</text>
+				<text class="card-note" x="16" y="190">one command references both pond + device</text>
+			</g>
+
+			<!-- Commands, feed evidence, and telemetry -->
+			<g class="card-shadow" transform="translate(1160 400)">
+				<rect class="card" width="300" height="170" rx="10" stroke="#7860c8"/>
+				<rect class="header" width="300" height="42" fill="#7860c8"/>
+				<text class="entity-title" x="18" y="27">FEED REQUEST</text><text class="entity-subtitle" x="280" y="26" text-anchor="end">dashboard / calibration</text>
+				<text class="attr" x="16" y="68">id · deviceId</text><text class="key" x="282" y="68">PK · FK</text>
+				<text class="attr" x="16" y="91">grams · kind</text>
+				<text class="attr" x="16" y="114">status · createdAt · updatedAt</text>
+				<text class="card-note" x="16" y="148">pending / dispatched / completed / refused</text>
+			</g>
+			<g class="card-shadow" transform="translate(1160 650)">
+				<rect class="card" width="300" height="215" rx="10" stroke="#d95353"/>
+				<rect class="header" width="300" height="42" fill="#d95353"/>
+				<text class="entity-title" x="18" y="27">FEED EVENT</text><text class="entity-subtitle" x="280" y="26" text-anchor="end">actual evidence</text>
+				<text class="attr" x="16" y="68">id · deviceId · eventId?</text><text class="key" x="282" y="68">PK · FK · UQ</text>
+				<text class="attr" x="16" y="91">eventType · timestamp · receivedAt</text>
+				<text class="attr" x="16" y="114">grams? · source? · rtcOk?</text>
+				<text class="attr" x="16" y="137">feedRequestId? · commandId?</text>
+				<text class="card-note" x="16" y="169">scheduled / dashboard / button</text>
+				<text class="card-note" x="16" y="190">button feed may have no FeedRequest</text>
+			</g>
+			<g class="card-shadow" transform="translate(1510 400)">
+				<rect class="card" width="270" height="155" rx="10" stroke="#dfa900"/>
+				<rect class="header" width="270" height="42" fill="#dfa900"/>
+				<text class="entity-title" x="18" y="27">WATER TEMP LOG</text><text class="entity-subtitle" x="250" y="26" text-anchor="end">history</text>
+				<text class="attr" x="16" y="68">id · deviceId</text><text class="key" x="252" y="68">PK · FK</text>
+				<text class="attr" x="16" y="92">tempC · recordedAt</text>
+				<text class="attr" x="16" y="116">dataSource · farmId?</text>
+			</g>
+			<g class="card-shadow" transform="translate(1510 620)">
+				<rect class="card" width="270" height="155" rx="10" stroke="#dfa900"/>
+				<rect class="header" width="270" height="42" fill="#dfa900"/>
+				<text class="entity-title" x="18" y="27">FEED LEVEL LOG</text><text class="entity-subtitle" x="250" y="26" text-anchor="end">history</text>
+				<text class="attr" x="16" y="68">id · deviceId</text><text class="key" x="252" y="68">PK · FK</text>
+				<text class="attr" x="16" y="92">levelPercent · distanceCm</text>
+				<text class="attr" x="16" y="116">recordedAt · dataSource</text>
+			</g>
+			<g class="card-shadow" transform="translate(1510 840)">
+				<rect class="card" width="270" height="170" rx="10" stroke="#53698f"/>
+				<rect class="header" width="270" height="42" fill="#53698f"/>
+				<text class="entity-title" x="18" y="27">DEVICE STATE EVENT</text><text class="entity-subtitle" x="250" y="26" text-anchor="end">health / audit</text>
+				<text class="attr" x="16" y="68">id · deviceId</text><text class="key" x="252" y="68">PK · FK</text>
+				<text class="attr" x="16" y="92">eventType · source · actorId?</text>
+				<text class="attr" x="16" y="116">metadata JSON · deviceTime?</text>
+				<text class="attr" x="16" y="140">createdAt · farmId?</text>
+			</g>
+
+			<text class="card-note" x="60" y="1190">Simplified view. Optionality shown with ?; UQ = unique. Dashed links are ID associations without Prisma FK constraints.</text>
+		</svg>
+		</div>
+		<div class="legend" aria-label="ERD legend">
+			<span class="legend-item"><span class="sample-line"></span> Database FK relation</span>
+			<span class="legend-item"><span class="sample-line dashed"></span> Logical/application ID link</span>
+			<span class="legend-item"><strong>1 : N</strong> one-to-many</span>
+			<span class="legend-item"><strong>1 : 0..1</strong> optional one-to-one</span>
+			<span class="legend-item"><strong>PK</strong> primary key</span>
+			<span class="legend-item"><strong>FK</strong> foreign key</span>
+			<span class="legend-item"><strong>UQ</strong> unique</span>
+		</div>
+	</section>
+
+	<section class="notes" aria-label="Model notes">
+		<article class="panel note roles">
+			<h3>Farm owner, tenant admin, farmer, superadmin</h3>
+			<p>The farm owner is the <code>User</code> referenced by <code>Farm.ownerId → User.farmId</code>. Tenant permissions come from <code>Membership.role</code> (OWNER, ADMIN, OPERATOR, VIEWER), not from a special “Super Admin” value in <code>User.role</code>. Platform superadmins are separate <code>PlatformAdmin</code> grants. Organization/member IDs are logical links in this Prisma schema; it does not declare those FK relations.</p>
+		</article>
+		<article class="panel note scope">
+			<h3>The feeding path</h3>
+			<p>A pond holds the plan. A schedule edit becomes a <code>ScheduleCommand</code> referencing both pond and device. A manual request becomes a <code>FeedRequest</code>; a physical button can dispense without one. <code>FeedEvent</code> is the event record for what the device reports, not a target/actual “feeding event” table.</p>
+		</article>
+		<article class="panel note warning">
+			<h3>Legacy and scope notes</h3>
+			<p>The old <code>Device</code> / <code>FeedingEvent</code> pair still exists but is deprecated and excluded from the active flow. “Feed config” and “telemetry reading” are not standalone tables: config is split among pond/device/command records; current sensor values are on <code>EnergyDevice</code>, with separate history logs.</p>
+		</article>
+	</section>
+	<p class="source">Schema basis: <code>apps/web/prisma/schema.prisma</code> at <code>origin/main</code>, inspected 2026-11-19. Simplified for feeding; not a migration or a proposed schema change.</p>
+</main>
+<footer><div class="header-inner">OptiFeed · data model reference · Export creates standalone vector SVG or 2× PNG from the diagram above.</div></footer>
+
+<script>
+	(() => {
+		const svg = document.getElementById("erd");
+		const download = (blob, name) => {
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = name;
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+			setTimeout(() => URL.revokeObjectURL(url), 1000);
+		};
+		const standaloneSvg = () => {
+			const clone = svg.cloneNode(true);
+			clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+			clone.setAttribute("width", "1840");
+			clone.setAttribute("height", "1240");
+			return new XMLSerializer().serializeToString(clone);
+		};
+		document.getElementById("export-svg").addEventListener("click", () => {
+			const content = standaloneSvg();
+			download(new Blob([content], { type: "image/svg+xml;charset=utf-8" }), "optifeed-feeding-erd.svg");
+		});
+		document.getElementById("export-png").addEventListener("click", () => {
+			const source = standaloneSvg();
+			const image = new Image();
+			const url = URL.createObjectURL(new Blob([source], { type: "image/svg+xml;charset=utf-8" }));
+			image.onload = () => {
+				const scale = 2;
+				const canvas = document.createElement("canvas");
+				canvas.width = 1840 * scale;
+				canvas.height = 1240 * scale;
+				const context = canvas.getContext("2d");
+				context.fillStyle = "#fbfcfd";
+				context.fillRect(0, 0, canvas.width, canvas.height);
+				context.drawImage(image, 0, 0, canvas.width, canvas.height);
+				setTimeout(() => URL.revokeObjectURL(url), 1000);
+				canvas.toBlob((blob) => {
+					if (blob) download(blob, "optifeed-feeding-erd.png");
+				}, "image/png");
+			};
+			image.onerror = () => {
+				URL.revokeObjectURL(url);
+				window.alert("Could not render the SVG to PNG in this browser. Try Download SVG instead.");
+			};
+			image.src = url;
+		});
+	})();
+</script>
+</body>
+</html>

@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `applyGrowthPlanForPond` is no longer a browser-callable server action that trusted the caller's `ownerId`; a static guard test prevents regressions.
 - Device-token reveals are audited and rate limited.
 
+## [1.61.2] - 2026-11-19
+
+### Fixed
+
+- **The water-temperature trend keeps a continuous timeline and starts at the release date (#951).** The 24-hour view returned only the hours that had a reading, so a short burst of telemetry compressed the axis and made the trend look broken. The window now returns every hour (or every day in the 7-day view) with `null` for a missing reading, the line connects those gaps for temperature while hopper keeps its gaps visible, the summary counts actual readings, and the axis starts at the active cycle's stocking date when that falls inside the selected window.
+
 ## [1.61.1] - 2026-11-19
 
 ### Fixed

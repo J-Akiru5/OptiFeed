@@ -70,7 +70,7 @@ static const int kConfigContractVersion = 1;
   X(motorMinPulseMs, "motor_min_pulse_ms", 50.0f, 2000.0f, true, 250.0f)             \
   /* Per-device feeding values (class B, from the device row) */                     \
   X(gramsPerFeeding, "grams_per_feeding", 1.0f, 5000.0f, false, 150.0f)              \
-  X(buttonFeedGrams, "button_feed_grams", 1.0f, 500.0f, false, 80.0f)                \
+  X(buttonFeedGrams, "button_feed_grams", 1.0f, 5000.0f, false, 80.0f)                \
   X(gramsPerSecond, "grams_per_second", 0.5f, 50.0f, false, 4.0f)                    \
   X(tempOffsetC, "temp_offset_c", -20.0f, 20.0f, false, 0.0f)                        \
   X(hopperFullCm, "hopper_full_cm", 0.1f, 200.0f, false, 5.0f)                       \

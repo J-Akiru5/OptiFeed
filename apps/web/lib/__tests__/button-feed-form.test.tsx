@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 /**
  * The button-dose control (issue #658).
  *
- * The input must refuse values outside the firmware's 1-500 g window before a
+ * The input must refuse values outside the firmware's 1-5,000 g window before a
  * request is made, and the block underneath must show what the DEVICE reported
  * so a saved-but-unapplied change is visible rather than implied to have worked.
  */
@@ -111,24 +111,24 @@ describe("ButtonFeedForm", () => {
 		expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 	});
 
-	it("refuses a dose outside the firmware's 1-500 g window before the call", () => {
+	it("refuses a dose outside the firmware's 1-5,000 g window before the call", () => {
 		const { saveAction } = renderForm({ report: makeReport({ storedGrams: 80 }) });
 
 		const input = screen.getByLabelText("Dose per press (g)");
 		const save = screen.getByRole("button", { name: "Save button dose" });
 
 		fireEvent.change(input, { target: { value: "0.5" } });
-		expect(screen.getByRole("alert")).toHaveTextContent("Enter a value from 1 to 500.");
+		expect(screen.getByRole("alert")).toHaveTextContent("Enter a value from 1 to 5000.");
 		expect(input).toHaveAttribute("aria-invalid", "true");
 		expect(save).toBeDisabled();
 		fireEvent.click(save);
 		expect(saveAction).not.toHaveBeenCalled();
 
-		fireEvent.change(input, { target: { value: "501" } });
-		expect(screen.getByRole("alert")).toHaveTextContent("Enter a value from 1 to 500.");
+		fireEvent.change(input, { target: { value: "5001" } });
+		expect(screen.getByRole("alert")).toHaveTextContent("Enter a value from 1 to 5000.");
 		expect(save).toBeDisabled();
 
-		fireEvent.change(input, { target: { value: "500" } });
+		fireEvent.change(input, { target: { value: "5000" } });
 		expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 		expect(save).toBeEnabled();
 

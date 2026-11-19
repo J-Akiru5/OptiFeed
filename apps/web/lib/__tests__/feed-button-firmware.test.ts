@@ -131,6 +131,34 @@ describe("loop() decides whether a falling edge is a real press", () => {
 	});
 });
 
+describe("the GPIO interrupt is masked while the relay is on", () => {
+	it("masks the button interrupt before the relay energizes", () => {
+		const dispense = bodyOf(
+			"void dispenseFeed(float grams, const char* source, const String &requestId, bool calibration) {",
+		);
+		expect(dispense).toContain("maskFeedButtonInterrupt();");
+		expect(dispense.indexOf("maskFeedButtonInterrupt();")).toBeLessThan(
+			dispense.indexOf("digitalWrite(RELAY_PIN, RELAY_ON);"),
+		);
+
+		const mask = bodyOf("void maskFeedButtonInterrupt() {");
+		expect(mask).toContain("gpio_intr_disable((gpio_num_t)BUTTON_PIN)");
+		expect(mask).toContain("discardQueuedFeedButtonPress()");
+	});
+
+	it("re-enables it only after the dose and its quiet window", () => {
+		const loop = bodyOf("void loop() {");
+		expect(loop).toContain(
+			"if (!feederActive && !buttonQuietWindowActive()) unmaskFeedButtonInterrupt();",
+		);
+
+		const unmask = bodyOf("void unmaskFeedButtonInterrupt() {");
+		expect(unmask).toContain("gpio_intr_enable((gpio_num_t)BUTTON_PIN)");
+		// A latched edge must not become a feed when the interrupt comes back.
+		expect(unmask).toContain("dispenseQuietUntilMs = millis() + 200UL;");
+	});
+});
+
 describe("telemetry and the existing paths keep working", () => {
 	it("reports the rejected-glitch counter in the heartbeat", () => {
 		const telemetry = bodyOf("void sendTelemetry() {");

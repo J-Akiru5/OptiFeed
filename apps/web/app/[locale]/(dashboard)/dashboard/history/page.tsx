@@ -9,7 +9,12 @@ import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { Link } from "@/i18n/routing";
 import { getFeedEvents } from "@/lib/actions/history";
 import { canWrite } from "@/lib/auth/session";
-import { FEED_CHART_DAYS, HOPPER_RANGE_DAYS, parseHopperRange } from "@/lib/chart-windows";
+import {
+	DEFAULT_HISTORY_HOPPER_RANGE,
+	FEED_CHART_DAYS,
+	HOPPER_RANGE_DAYS,
+	parseHopperRange,
+} from "@/lib/chart-windows";
 import { formatFarmDateTime } from "@/lib/date-local";
 import { toHopperSnapshot } from "@/lib/device-hopper";
 import { formatFeedAmount, isDailyTotalSource } from "@/lib/feed-figures";
@@ -39,7 +44,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 	const tCommon = await getTranslations("dashboard.common");
 	const tDates = await getTranslations("dates");
 	const params = await searchParams;
-	const hopperRange = parseHopperRange(first(params.hopper));
+	const hopperRange = parseHopperRange(first(params.hopper), DEFAULT_HISTORY_HOPPER_RANGE);
 	const pond = await getActivePond();
 
 	if (!pond) {
@@ -116,7 +121,11 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 		(sum, value) => sum + value,
 		0,
 	);
-	const hopperLatest = hopperPoints.at(-1)?.value ?? null;
+	// The series keeps every day in the window; gaps are null rather than 0 %.
+	// Count only the days that actually reported and take the newest reading.
+	const hopperReadings = hopperPoints.filter((point) => point.value !== null).length;
+	const hopperLatest =
+		[...hopperPoints].reverse().find((point) => point.value !== null)?.value ?? null;
 
 	const writeAccess = await canWrite();
 	const hopper = energyDevice ? toHopperSnapshot(energyDevice, new Date(), statusPolicy) : null;
@@ -305,7 +314,7 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 						title={t("charts.hopperTitle")}
 						summary={t("charts.hopperSummary", {
 							days: hopperRange,
-							points: hopperPoints.length,
+							points: hopperReadings,
 							latest: hopperLatest ?? "—",
 						})}
 						labels={{
@@ -316,6 +325,8 @@ export default async function HistoryPage({ searchParams }: HistoryPageProps) {
 						unit="%"
 						decimals={1}
 						height={260}
+						showDots
+						markLatest
 					/>
 				</div>
 			</section>

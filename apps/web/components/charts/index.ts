@@ -7,7 +7,11 @@
  * library is not in its initial bundle.
  */
 
-export type { ChartPoint, StackedSeries } from "@/components/charts/chart-data";
+export type {
+	ChartPoint,
+	SparseChartPoint,
+	StackedSeries,
+} from "@/components/charts/chart-data";
 export type { ChartHeight, ChartLabels, ChartProps } from "@/components/charts/chart-frame";
 export {
 	ChartFrame,

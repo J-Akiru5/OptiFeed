@@ -796,6 +796,9 @@ bool buttonCooldownArmed = false;   // no cooldown before the first button dose
 uint32_t buttonGlitchCount = 0;     // rejected edges, reported in the heartbeat
 unsigned long lastGlitchLogMs = 0;
 unsigned long lastQuietLogMs = 0;
+// True while the GPIO interrupt is masked for a dispense. The physical button
+// line picks up motor noise; the ISR must not run while the relay is on.
+bool feedButtonIsrMasked = false;
 
 // True after esp_task_wdt_add(NULL). The first portal start happens in setup()
 // before the watchdog is subscribed, so resets are skipped until then.
@@ -872,6 +875,8 @@ void clearSafetyStateForReset();
 void initSafetyState(esp_reset_reason_t reason);
 bool readHopperLevel(float &percent, float &cm);
 int8_t netJitter();
+void discardQueuedFeedButtonPress();
+bool buttonQuietWindowActive();
 
 void kickWatchdog() {
   if (watchdogSubscribed) esp_task_wdt_reset();
@@ -880,6 +885,39 @@ void kickWatchdog() {
   // for the next pass.
   serviceDispenseSafety();
   serviceIndicators();
+}
+
+// The feed-button line is long and picks up motor noise. The core dump from the
+// 2026-11-10 field unit shows the GPIO ISR (__onPinInterrupt) crashing on a bad
+// handler pointer while the relay was on. The button is already ignored during
+// and after a dose, so mask its GPIO interrupt for that window at the
+// peripheral and re-enable it once the post-dose quiet window has passed.
+void maskFeedButtonInterrupt() {
+  if (feedButtonIsrMasked) return;
+  discardQueuedFeedButtonPress();
+  const esp_err_t err = gpio_intr_disable((gpio_num_t)BUTTON_PIN);
+  feedButtonIsrMasked = true;
+  if (err != ESP_OK) {
+    Serial.printf("[BUTTON] WARN: could not mask ISR (%d)\n", (int)err);
+  } else {
+    Serial.println("[BUTTON] ISR masked while the relay is on");
+  }
+}
+
+void unmaskFeedButtonInterrupt() {
+  if (!feedButtonIsrMasked) return;
+  // A latched edge can fire once when the interrupt is re-enabled. Hold the
+  // button quiet for a short extra grace period so that edge cannot become a
+  // feed after the normal quiet window has ended.
+  dispenseQuietUntilMs = millis() + 200UL;
+  discardQueuedFeedButtonPress();
+  const esp_err_t err = gpio_intr_enable((gpio_num_t)BUTTON_PIN);
+  feedButtonIsrMasked = false;
+  if (err != ESP_OK) {
+    Serial.printf("[BUTTON] WARN: could not re-enable ISR (%d)\n", (int)err);
+  } else {
+    Serial.println("[BUTTON] ISR re-enabled after the dose");
+  }
 }
 
 // Event ID counter — combined with esp_random() for uniqueness across reboots
@@ -3898,6 +3936,9 @@ void loop() {
   }
 
   handleButton();
+  // Re-enable the feed-button interrupt only after the relay is off and the
+  // post-dose quiet window has passed, so motor noise cannot reach the ISR.
+  if (!feederActive && !buttonQuietWindowActive()) unmaskFeedButtonInterrupt();
 
   if (rtcAvailable) handleSchedule();
 
@@ -4141,6 +4182,9 @@ void dispenseFeed(float grams, const char* source, const String &requestId, bool
   Serial.printf("[FEED] dispensing %.0fg (~%lums) — source: %s\n", grams, feedDurationMs, source);
 
   dispenseGate.recordStart(millis());
+  // The feed-button line is noisy enough that the motor can trigger its GPIO
+  // ISR; mask it for the relay-on window. The button is ignored during a dose.
+  maskFeedButtonInterrupt();
   digitalWrite(RELAY_PIN, RELAY_ON);
   feederActive = true;
   feedStartTime = millis();

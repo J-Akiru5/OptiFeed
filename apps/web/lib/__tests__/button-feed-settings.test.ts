@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * The column was overlaid into the poll response but nothing wrote it, so every
  * unit dispensed the 80 g schema default. These checks pin the three things
  * that make the new control safe:
- *  - the input/server envelope is the firmware's own 1-500 g range;
+ *  - the input/server envelope is the firmware's own 1-5,000 g range;
  *  - a write records its audit row and returns the stored value;
  *  - the page can distinguish "confirmed by the device" from "saved but not
  *    reported", rather than presenting a write as applied.
@@ -92,12 +92,12 @@ describe("the window mirrors the firmware", () => {
 		});
 	});
 
-	it("accepts only values inside 1-500 g", () => {
+	it("accepts only values inside 1-5,000 g", () => {
 		expect(buttonFeedGramsSchema.safeParse(0.99).success).toBe(false);
 		expect(buttonFeedGramsSchema.safeParse(1).success).toBe(true);
 		expect(buttonFeedGramsSchema.safeParse(80.5).success).toBe(true);
-		expect(buttonFeedGramsSchema.safeParse(500).success).toBe(true);
-		expect(buttonFeedGramsSchema.safeParse(500.01).success).toBe(false);
+		expect(buttonFeedGramsSchema.safeParse(5000).success).toBe(true);
+		expect(buttonFeedGramsSchema.safeParse(5000.01).success).toBe(false);
 		expect(buttonFeedGramsSchema.safeParse(Number.NaN).success).toBe(false);
 	});
 });
@@ -210,10 +210,10 @@ describe("updateDeviceButtonFeed", () => {
 	});
 
 	it("refuses an out-of-range dose before reading the device", async () => {
-		const result = await updateDeviceButtonFeed("device-1", 501);
+		const result = await updateDeviceButtonFeed("device-1", 5001);
 
 		expect(result.success).toBe(false);
-		expect(result.error).toContain("500");
+		expect(result.error).toContain("5000");
 		expect(db.energyDevice.findFirst).not.toHaveBeenCalled();
 		expect(db.$transaction).not.toHaveBeenCalled();
 	});

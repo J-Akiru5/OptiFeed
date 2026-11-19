@@ -87,8 +87,6 @@ function formatWeightResult(kilograms: number, unit: WeightUnit): string {
 
 export function FcrCalculator({
 	latestFcr,
-	fcrSource = null,
-	fcrUnverifiedReasons = [],
 	pondId,
 	population,
 	feedsPerDay,
@@ -112,15 +110,7 @@ export function FcrCalculator({
 
 	const unitLabel = t(unit);
 	const hasFcr = latestFcr !== null && latestFcr > 0;
-	const fcrLabel = !hasFcr
-		? t("noFcr")
-		: fcrSource === "computed"
-			? t("usingComputedFcr", { fcr: latestFcr.toFixed(2) })
-			: fcrSource === "stored" && fcrUnverifiedReasons.length === 0
-				? t("usingStoredFcr", { fcr: latestFcr.toFixed(2) })
-				: fcrSource === "stored"
-					? t("storedUnverified", { fcr: latestFcr.toFixed(2) })
-					: t("usingFcr", { fcr: latestFcr.toFixed(2) });
+	const fcrLabel = !hasFcr ? t("noFcr") : t("usingFcr", { fcr: latestFcr.toFixed(2) });
 
 	const handleUnitChange = (next: WeightUnit) => {
 		if (next === unit) return;
@@ -214,11 +204,6 @@ export function FcrCalculator({
 							description={tCommon("terminology.fcr")}
 						/>
 					</p>
-					{fcrUnverifiedReasons.length > 0 && (
-						<p className="mt-1 text-[11px] font-bold text-amber-700 dark:text-amber-400">
-							{t("storedUnverifiedHint")}
-						</p>
-					)}
 				</div>
 			</div>
 

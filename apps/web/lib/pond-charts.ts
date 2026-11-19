@@ -2,9 +2,11 @@ import {
 	type ChartPoint,
 	type MultiSeries,
 	type MultiSeriesPoint,
+	type SparseChartPoint,
 	type StackedSeries,
 	buildMultiSeries,
 	buildStackedSeries,
+	fillSparseDailySeries,
 } from "@/components/charts/chart-data";
 import {
 	FEED_CHART_DAYS,
@@ -204,15 +206,17 @@ export async function getFeedTotals(
  * Average hopper level per local day for the selected window.
  *
  * The feeder logs a reading at most every 30 minutes, so the daily average is
- * the honest trend; hours without a reading are absent rather than 0 %.
+ * the honest trend; hours without a reading are absent rather than 0 %. Every
+ * day in the window is returned, with `null` on days the device reported
+ * nothing, so the chart shows the gaps instead of joining across them.
  */
 export async function getHopperLevelSeries(
 	deviceIds: ReadonlyArray<string>,
 	range: HopperRange,
 	now = new Date(),
-): Promise<ChartPoint[]> {
+): Promise<SparseChartPoint[]> {
 	if (deviceIds.length === 0) return [];
-	const { start, end } = resolveDayWindow(range, now);
+	const { start, end, dayKeys } = resolveDayWindow(range, now);
 
 	const rows = await prisma.$queryRaw<BucketRow[]>`
 		SELECT to_char(date_trunc('day', "recordedAt" AT TIME ZONE 'UTC' AT TIME ZONE ${PH_TZ}::text), 'YYYY-MM-DD') AS bucket,
@@ -224,7 +228,10 @@ export async function getHopperLevelSeries(
 		ORDER BY 1
 	`;
 
-	return toPoints(rows);
+	const readings = rows
+		.filter((row) => Number.isFinite(row.value))
+		.map((row) => ({ label: row.bucket, value: round1(row.value) }));
+	return fillSparseDailySeries(readings, dayKeys);
 }
 
 /**

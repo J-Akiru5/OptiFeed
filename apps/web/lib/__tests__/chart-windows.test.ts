@@ -29,6 +29,13 @@ describe("parseHopperRange", () => {
 			expect(parseHopperRange(value)).toBe(7);
 		}
 	});
+
+	it("uses a caller's fallback, so History can open on the month window", () => {
+		for (const value of [undefined, null, "", "8", "abc"]) {
+			expect(parseHopperRange(value, 30)).toBe(30);
+		}
+		expect(parseHopperRange("7", 30)).toBe(7);
+	});
 });
 
 describe("parseWaterTempRange", () => {

@@ -16,6 +16,8 @@ export interface ChartLabels {
 export interface ChartProps {
 	/** Visible card title. */
 	title: string;
+	/** Optional second line under the title. */
+	description?: string;
 	/** Localized text alternative, used as the chart's accessible name. */
 	summary: string;
 	labels: ChartLabels;
@@ -51,6 +53,7 @@ export type ChartHeight = number | `${number}%`;
  */
 export function ChartFrame({
 	title,
+	description,
 	summary,
 	emptyLabel,
 	isEmpty,
@@ -64,6 +67,7 @@ export function ChartFrame({
 	error = null,
 }: {
 	title: string;
+	description?: string;
 	summary: string;
 	emptyLabel: string;
 	isEmpty: boolean;
@@ -86,6 +90,11 @@ export function ChartFrame({
 			<figure className={figureClass}>
 				<figcaption className="text-sm font-black text-[#0A3D62] dark:text-gray-100">
 					{title}
+					{description ? (
+						<p className="mt-0.5 text-xs font-medium text-[#3D5568] dark:text-gray-400">
+							{description}
+						</p>
+					) : null}
 				</figcaption>
 				<ChartSkeleton label={loadingLabel ?? title} />
 			</figure>
@@ -97,6 +106,11 @@ export function ChartFrame({
 			<figure className={figureClass}>
 				<figcaption className="text-sm font-black text-[#0A3D62] dark:text-gray-100">
 					{title}
+					{description ? (
+						<p className="mt-0.5 text-xs font-medium text-[#3D5568] dark:text-gray-400">
+							{description}
+						</p>
+					) : null}
 				</figcaption>
 				<div
 					role="alert"
@@ -117,6 +131,11 @@ export function ChartFrame({
 		>
 			<figcaption className="text-sm font-black text-[#0A3D62] dark:text-gray-100">
 				{title}
+				{description ? (
+					<p className="mt-0.5 text-xs font-medium text-[#3D5568] dark:text-gray-400">
+						{description}
+					</p>
+				) : null}
 			</figcaption>
 
 			{isEmpty ? (
@@ -142,7 +161,7 @@ export function SingleSeriesTable({
 	labels,
 	caption,
 }: {
-	points: ReadonlyArray<{ label: string; value: number }>;
+	points: ReadonlyArray<{ label: string; value: number | null }>;
 	labels: ChartLabels;
 	caption: string;
 }) {
@@ -159,7 +178,7 @@ export function SingleSeriesTable({
 				{points.map((point) => (
 					<tr key={point.label}>
 						<th scope="row">{point.label}</th>
-						<td>{point.value}</td>
+						<td>{point.value === null ? "—" : point.value}</td>
 					</tr>
 				))}
 			</tbody>

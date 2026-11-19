@@ -416,7 +416,8 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 		(sum, value) => sum + value,
 		0,
 	);
-	const hopperLatest = hopperPoints.at(-1)?.value ?? null;
+	const hopperLatest =
+		[...hopperPoints].reverse().find((point) => point.value !== null)?.value ?? null;
 
 	function formatOfflineDuration(lastSeenAt: Date | null): string {
 		if (!lastSeenAt) return t("durationNotConnected");
@@ -713,6 +714,8 @@ export default async function DashboardHomePage({ searchParams }: DashboardHomeP
 							unit="%"
 							decimals={0}
 							height="100%"
+							showDots
+							markLatest
 						/>
 						<LazyLineTrend
 							className="ofd-chart-card min-w-0"

@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `applyGrowthPlanForPond` is no longer a browser-callable server action that trusted the caller's `ownerId`; a static guard test prevents regressions.
 - Device-token reveals are audited and rate limited.
 
+## [1.61.3] - 2026-11-19
+
+### Changed
+
+- **The farmer calendar header carries the grow-out controls instead of a separate page header (#950).** The calendar page no longer renders its own `DashboardPageHeader`; `HarvestCalendar` renders the heading, the cycle controls and the capability badge in one compact row, with title, controls and badge in reading order. Covered by a compact-header contract test.
+
 ## [1.61.2] - 2026-11-19
 
 ### Fixed

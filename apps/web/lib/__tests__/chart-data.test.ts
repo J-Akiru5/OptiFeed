@@ -1,5 +1,6 @@
 import {
 	buildDayKeys,
+	buildHourKeys,
 	buildMultiSeries,
 	buildStackedSeries,
 	computeDelta,
@@ -7,6 +8,7 @@ import {
 	countSeriesValues,
 	fillDailySeries,
 	fillSparseDailySeries,
+	fillSparseSeries,
 	formatAxisDay,
 	peakPoint,
 	sharePct,
@@ -70,6 +72,20 @@ describe("buildDayKeys", () => {
 	});
 });
 
+describe("buildHourKeys", () => {
+	it("covers a 24-hour window in the farm timezone, oldest first", () => {
+		const keys = buildHourKeys(
+			new Date("2026-10-26T05:00:00.000Z"),
+			new Date("2026-10-27T04:30:00.000Z"),
+			"Asia/Manila",
+		);
+
+		expect(keys).toHaveLength(24);
+		expect(keys[0]).toBe("2026-10-26 13:00");
+		expect(keys.at(-1)).toBe("2026-10-27 12:00");
+	});
+});
+
 describe("fillDailySeries", () => {
 	const keys = ["2026-10-01", "2026-10-02", "2026-10-03"];
 
@@ -123,6 +139,21 @@ describe("fillSparseDailySeries", () => {
 			{ label: "2026-10-01", value: null },
 			{ label: "2026-10-02", value: null },
 			{ label: "2026-10-03", value: null },
+		]);
+	});
+});
+
+describe("fillSparseSeries", () => {
+	it("fills hourly keys with nulls so the water-temperature axis stays continuous", () => {
+		expect(
+			fillSparseSeries(
+				[{ label: "2026-10-27 10:00", value: 31.9 }],
+				["2026-10-27 09:00", "2026-10-27 10:00", "2026-10-27 11:00"],
+			),
+		).toEqual([
+			{ label: "2026-10-27 09:00", value: null },
+			{ label: "2026-10-27 10:00", value: 31.9 },
+			{ label: "2026-10-27 11:00", value: null },
 		]);
 	});
 });

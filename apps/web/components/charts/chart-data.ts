@@ -147,6 +147,42 @@ export function buildDayKeys(start: Date, end: Date, timeZone = "Asia/Manila"): 
 	return keys;
 }
 
+/**
+ * Hour keys (`YYYY-MM-DD HH24:00`) covering the window in `timeZone`, oldest
+ * first. The 24-hour water-temperature chart uses these so a gap is a visible
+ * empty hour rather than a shortened axis.
+ */
+export function buildHourKeys(start: Date, end: Date, timeZone = "Asia/Manila"): string[] {
+	const formatter = new Intl.DateTimeFormat("en-CA", {
+		timeZone,
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		hourCycle: "h23",
+	});
+	const hourMs = 60 * 60 * 1000;
+	const keys: string[] = [];
+	const seen = new Set<string>();
+	const keyFor = (date: Date) => {
+		const parts = new Map(formatter.formatToParts(date).map((part) => [part.type, part.value]));
+		return `${parts.get("year")}-${parts.get("month")}-${parts.get("day")} ${parts.get("hour")}:00`;
+	};
+
+	// 30-minute steps include both edges without assuming the start is exactly
+	// on the hour; the first occurrence of each local hour wins.
+	for (let cursor = start.getTime(); cursor <= end.getTime(); cursor += hourMs / 2) {
+		const key = keyFor(new Date(cursor));
+		if (seen.has(key)) continue;
+		seen.add(key);
+		keys.push(key);
+	}
+
+	const endKey = keyFor(end);
+	if (!seen.has(endKey)) keys.push(endKey);
+	return keys;
+}
+
 export interface DailyRow {
 	label: string;
 	value: number;
@@ -168,22 +204,30 @@ export function fillDailySeries(
 }
 
 /**
- * Align raw day buckets to a continuous key list, leaving days without a
+ * Align raw buckets to a continuous key list, leaving buckets without a
  * reading as `null`.
  *
  * Unlike counts (where a quiet day is a real 0), a missing sensor reading must
- * not be plotted as 0 %. The line breaks at the gap instead of drawing a
- * straight segment through days the device never reported.
+ * not be plotted as 0. The series keeps a null so the chart can either break at
+ * the gap (hopper) or connect it deliberately (water temperature).
  */
+export function fillSparseSeries(
+	rows: ReadonlyArray<DailyRow>,
+	keys: ReadonlyArray<string>,
+): SparseChartPoint[] {
+	const byBucket = new Map<string, number>();
+	for (const row of rows) {
+		if (Number.isFinite(row.value)) byBucket.set(row.label, row.value);
+	}
+	return keys.map((label) => ({ label, value: byBucket.get(label) ?? null }));
+}
+
+/** Day-key variant kept as the named helper used by the hopper series. */
 export function fillSparseDailySeries(
 	rows: ReadonlyArray<DailyRow>,
 	keys: ReadonlyArray<string>,
 ): SparseChartPoint[] {
-	const byDay = new Map<string, number>();
-	for (const row of rows) {
-		if (Number.isFinite(row.value)) byDay.set(row.label, row.value);
-	}
-	return keys.map((label) => ({ label, value: byDay.get(label) ?? null }));
+	return fillSparseSeries(rows, keys);
 }
 
 export interface FeedBucketRow {

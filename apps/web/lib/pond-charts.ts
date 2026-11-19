@@ -1,5 +1,4 @@
 import {
-	type ChartPoint,
 	type MultiSeries,
 	type MultiSeriesPoint,
 	type SparseChartPoint,
@@ -7,6 +6,7 @@ import {
 	buildMultiSeries,
 	buildStackedSeries,
 	fillSparseDailySeries,
+	fillSparseSeries,
 } from "@/components/charts/chart-data";
 import {
 	FEED_CHART_DAYS,
@@ -68,12 +68,6 @@ interface BiomassBucketQueryRow {
 /** Round a charted measurement to one decimal place. */
 function round1(value: number): number {
 	return Number.isFinite(value) ? Math.round(value * 10) / 10 : 0;
-}
-
-function toPoints(rows: ReadonlyArray<BucketRow>): ChartPoint[] {
-	return rows
-		.filter((row) => Number.isFinite(row.value))
-		.map((row) => ({ label: row.bucket, value: round1(row.value) }));
 }
 
 export interface FeedPerDayBySource {
@@ -265,14 +259,19 @@ export async function getBiomassTrend(pondId: string): Promise<MultiSeries> {
  * Water temperature from `WaterTempLog`: hourly buckets for the last 24 hours,
  * daily buckets for the last week. Readings are throttled to one per 5 minutes
  * at ingest, so the hourly average keeps a 24 h window readable.
+ *
+ * Every bucket in the window is returned, with `null` where the probe reported
+ * nothing. `startAt` (the active cycle's stocking date) can pull the start
+ * forward so a newly released batch does not show hours before it existed.
  */
 export async function getWaterTempSeries(
 	deviceIds: ReadonlyArray<string>,
 	range: WaterTempRange,
 	now = new Date(),
-): Promise<ChartPoint[]> {
+	startAt: Date | null = null,
+): Promise<SparseChartPoint[]> {
 	if (deviceIds.length === 0) return [];
-	const { start, end, bucket } = resolveWaterTempWindow(range, now);
+	const { start, end, bucket, keys } = resolveWaterTempWindow(range, now, startAt);
 
 	if (bucket === "hour") {
 		const rows = await prisma.$queryRaw<BucketRow[]>`
@@ -284,7 +283,12 @@ export async function getWaterTempSeries(
 			GROUP BY 1
 			ORDER BY 1
 		`;
-		return toPoints(rows);
+		return fillSparseSeries(
+			rows
+				.filter((row) => Number.isFinite(row.value))
+				.map((row) => ({ label: row.bucket, value: round1(row.value) })),
+			keys,
+		);
 	}
 
 	const rows = await prisma.$queryRaw<BucketRow[]>`
@@ -296,5 +300,10 @@ export async function getWaterTempSeries(
 		GROUP BY 1
 		ORDER BY 1
 	`;
-	return toPoints(rows);
+	return fillSparseSeries(
+		rows
+			.filter((row) => Number.isFinite(row.value))
+			.map((row) => ({ label: row.bucket, value: round1(row.value) })),
+		keys,
+	);
 }

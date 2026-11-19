@@ -1,10 +1,5 @@
 import { CalendarPageShell } from "@/components/calendar/calendar-shell";
-import {
-	DashboardEmptyState,
-	DashboardPageHeader,
-	ReadOnlyNotice,
-} from "@/components/dashboard/dashboard-ui";
-import { CalendarCapabilityBadge } from "@/components/harvest/calendar-controls";
+import { DashboardEmptyState, ReadOnlyNotice } from "@/components/dashboard/dashboard-ui";
 import { HarvestCalendar } from "@/components/harvest/harvest-calendar";
 import { SnapshotWriter } from "@/components/pwa/snapshot-writer";
 import { calendarCapability } from "@/lib/calendar/capability";
@@ -52,12 +47,11 @@ export default async function FarmerCalendarPage() {
 		);
 	}
 
-	const [{ events: upcomingEvents }, tPage, tCommon] = await Promise.all([
+	const [{ events: upcomingEvents }, tCommon] = await Promise.all([
 		loadUpcomingCalendarEvents({
 			ponds: [data.initialCalendarPond],
 			today: data.today,
 		}),
-		getTranslations("dashboard.harvest.calendarPage"),
 		getTranslations("dashboard.common"),
 	]);
 	const capability = calendarCapability({
@@ -119,34 +113,10 @@ export default async function FarmerCalendarPage() {
 				pondName={data.initialPondName}
 				data={harvestSnapshot}
 			/>
-			<CalendarPageShell
-				reserveBackLink
-				header={
-					<>
-						<DashboardPageHeader
-							icon={CalendarRange}
-							title={tPage("title")}
-							description={tPage("desc")}
-							actions={
-								<CalendarCapabilityBadge
-									capability={capability}
-									labels={{
-										edit: tCommon("capability.edit"),
-										ownFarm: tCommon("capability.ownFarm"),
-										read: tCommon("capability.read"),
-									}}
-								/>
-							}
-						/>
-						{!data.canManage && (
-							<ReadOnlyNotice
-								title={tCommon("readOnlyTitle")}
-								description={tCommon("readOnlyDesc")}
-							/>
-						)}
-					</>
-				}
-			>
+			<CalendarPageShell reserveBackLink>
+				{!data.canManage && (
+					<ReadOnlyNotice title={tCommon("readOnlyTitle")} description={tCommon("readOnlyDesc")} />
+				)}
 				<HarvestCalendar
 					initialPondId={data.initialPondId}
 					initialPondName={data.initialPondName}
@@ -158,7 +128,14 @@ export default async function FarmerCalendarPage() {
 					activeCycles={data.activeCycles}
 					recentCycles={data.recentCycles}
 					canManage={data.canManage}
-					showHeader={false}
+					heading="calendar"
+					showHeader
+					headerCapability={capability}
+					headerCapabilityLabels={{
+						edit: tCommon("capability.edit"),
+						ownFarm: tCommon("capability.ownFarm"),
+						read: tCommon("capability.read"),
+					}}
 					today={data.today}
 					hopperLevelPct={data.hopperLevelPct}
 					hopperFeedLevelUpdatedAt={data.hopperFeedLevelUpdatedAt}

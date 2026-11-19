@@ -151,6 +151,13 @@ describe("HarvestCalendar copy", () => {
 				activeCycles={[activeCycle]}
 				recentCycles={[]}
 				canManage
+				headerCapability="edit"
+				headerCapabilityLabels={{
+					edit: "Editing enabled",
+					ownFarm: "Own farm only",
+					read: "View only",
+				}}
+				heading="calendar"
 				today="2026-10-26"
 				hopperLevelPct={50}
 			/>,
@@ -162,5 +169,9 @@ describe("HarvestCalendar copy", () => {
 		expect(html).toContain("Mark harvested");
 		expect(html).toContain("Grow-out progress");
 		expect(html).toContain("Harvest in 4 days");
+		expect(html).toContain("Editing enabled");
+		expect(html).toContain('aria-expanded="false"');
+		expect(html.indexOf("Calendar &amp; Harvest")).toBeLessThan(html.indexOf("Grow-out cycle"));
+		expect(html.indexOf("Grow-out cycle")).toBeLessThan(html.indexOf("Editing enabled"));
 	});
 });

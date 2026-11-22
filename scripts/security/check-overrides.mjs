@@ -40,6 +40,7 @@ const EXPECTED_OVERRIDES = new Map([
 	["baseline-browser-mapping", "^2.11.0"],
 	["browserslist", "^4.28.7"],
 	["dompurify", "^3.4.17"],
+	["effect", "^3.22.1"],
 	["proxy-addr", "^2.0.8"],
 	["source-map-js", "^1.2.2"],
 	["exceljs>uuid", "11.1.1"],
@@ -55,6 +56,7 @@ const EXPECTED_OVERRIDES = new Map([
  */
 const TARGETS = [
 	{ name: "dompurify", floor: "3.4.17" },
+	{ name: "effect", floor: "3.22.1" },
 	{ name: "minimatch", floor: "3.1.5", exactForMajor: { 3: "3.1.5" } },
 	{ name: "uuid", floor: "11.1.1", required: true },
 	{ name: "browserslist", floor: "4.28.7" },

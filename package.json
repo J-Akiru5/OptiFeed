@@ -38,11 +38,11 @@
 		"extends": ["@commitlint/config-conventional"]
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.6.6",
+		"@biomejs/biome": "^2.6.7",
 		"@commitlint/cli": "^21.2.4",
 		"@commitlint/config-conventional": "^21.2.4",
 		"husky": "^9.1.7",
-		"knip": "6.44.1",
+		"knip": "6.45.1",
 		"lint-staged": "^17.6.0"
 	}
 }

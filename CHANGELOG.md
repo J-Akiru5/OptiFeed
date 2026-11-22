@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Pin the transitive `effect` dependency to `^3.22.1` (resolved `3.22.5`) to remediate advisory 1248071 (ReDoS in `Schema.TemplateLiteral`). `@prisma/config` 6.19.3 pins `3.21.0` exactly and no compatible Prisma release moves it yet; the override is registered in `pnpm-workspace.yaml`, `pnpm-lock.yaml`, and the security-override gate. Verified with `prisma validate`, `prisma generate`, the production build, and `pnpm audit --prod`.
+
 - `applyGrowthPlanForPond` is no longer a browser-callable server action that trusted the caller's `ownerId`; a static guard test prevents regressions.
 - Device-token reveals are audited and rate limited.
 
